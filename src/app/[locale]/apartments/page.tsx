@@ -2,6 +2,7 @@ import { createPublicClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import { buildPageMetadata } from "@/lib/seo";
 import { getStatusCards } from "@/lib/status-cards/server";
 import ApartmentsPageClient from "./ApartmentsPageClient";
 import { firstPhotoOnly } from "@/lib/utils/photos";
@@ -18,10 +19,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  return {
+  return buildPageMetadata({
+    locale,
+    path: "/apartments",
     title: t("apartmentsPage"),
     description: t("apartmentsPageDesc"),
-  };
+  });
 }
 
 export default async function ApartmentsPage() {

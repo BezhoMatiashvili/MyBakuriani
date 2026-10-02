@@ -434,7 +434,12 @@ export const MOCK_FEATURED_SALES: MockFeaturedCard[] = [
 const MOCK_PROPERTY_PATTERN = /^(prop|hotel|apt|sale)-\d+$|^featured-[a-z]+$/;
 
 export function isMockPropertyId(id: string): boolean {
-  return MOCK_PROPERTY_PATTERN.test(id);
+  // Demo data is for local development only. In a production build (staging and
+  // prod included) a mock id must 404 like any unknown id; otherwise
+  // /apartments/prop-1 serves a 200 page that Google can index (C40).
+  return (
+    process.env.NODE_ENV !== "production" && MOCK_PROPERTY_PATTERN.test(id)
+  );
 }
 
 type PropertyWithProfile = Tables<"properties"> & {

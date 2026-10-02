@@ -18,6 +18,19 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/media/intents/[id]/finalize": ["./public/watermark.png"],
   },
+  // The old misspelled path, still alive in earlier shares: a real permanent
+  // redirect with the locale kept, instead of a rendered page that answered 200
+  // first and dropped the locale (C40).
+  async redirects() {
+    return [
+      {
+        source: "/:locale(en|ru)/appartments",
+        destination: "/:locale/apartments",
+        permanent: true,
+      },
+      { source: "/appartments", destination: "/apartments", permanent: true },
+    ];
+  },
   async headers() {
     // Applies to API and static responses. Navigable page responses receive the
     // stricter CSP emitted by middleware.

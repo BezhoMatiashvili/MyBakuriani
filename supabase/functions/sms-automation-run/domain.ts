@@ -1,28 +1,31 @@
 export type AutomationKind = "check_in" | "review_request" | "win_back";
 
 // Spec-mandated texts. This module is the single template source of truth.
+// Written to MyBakuriani_SMS_Optimization_Spec-2.md: Georgian goes out as UCS-2,
+// 70 UTF-16 units in one SMS and 67 per segment once it is split, so every value
+// below is clamped and the texts carry no filler.
 export const TEMPLATES = {
-  // One line per optional value: buildCheckIn drops a line whose value is
-  // missing. Every URL ends its own line, so nothing is glued to it.
+  // One line. buildCheckIn drops the optional " — name", " 📍map" and
+  // " ☎️phone" parts when their value is missing.
   check_in:
-    "გამარჯობა, [Guest_Name]! გელოდებით ხვალ, [Check_In_Time] საათიდან — [Property_Name].\n🔗 [Listing_Link]\n📍 [Map_Link]\n☎️ [Host_Phone]\nკარგ დასვენებას გისურვებთ!",
+    "გამარჯობა, [Guest_Name]! გელოდებით ხვალ [Check_In_Time]-დან — [Property_Name]. 📍[Map_Link] ☎️[Host_Phone]",
   review_request:
-    "[Guest_Name], მადლობა სტუმრობისთვის! მოხარული ვიქნებით თუ შეაფასებთ ჩვენს ბინას აქ: [Property_Review_Link]. თქვენი აზრი ჩვენთვის მნიშვნელოვანია! - MyBakuriani.ge",
+    "[Guest_Name], მადლობა! შეგვიფასეთ ბინა: [Property_Review_Link] — MyBakuriani",
   win_back:
-    "მოგესალმებით [Guest_Name]. დაბრუნდით ბაკურიანში! დაჯავშნეთ ჩვენი ბინა და მიიღეთ [Discount_Value] ფასდაკლება ([Discount_Period]): [Property_Direct_Link]",
+    "[Guest_Name], დაბრუნდით ბაკურიანში! მიიღეთ [Discount_Value] ფასდაკლება ([Discount_Period]): [Property_Direct_Link] — MyBakuriani",
   win_back_fallback:
-    "მოგესალმებით [Guest_Name]. დაბრუნდით ბაკურიანში! დაჯავშნეთ ჩვენი ბინა და მიიღეთ სპეციალური ფასდაკლება ექსკლუზიურად თქვენთვის: [Property_Direct_Link]",
+    "[Guest_Name], დაბრუნდით ბაკურიანში! თქვენთვის სპეციალური შეთავაზება: [Property_Direct_Link] — MyBakuriani",
   // Sent by the platform when an owner asks for a manual-booking guest's
   // marketing consent (the owner never sees the link). No owner-typed text.
   consent_request:
-    "MyBakuriani.ge: თქვენი მასპინძელი გთხოვთ თანხმობას მარკეტინგული SMS-ების მისაღებად. დაადასტურეთ ან უარი თქვით: [Consent_Link]",
+    "MyBakuriani.ge: გსურთ მარკეტინგული SMS-ების მიღება? დაადასტურეთ ან უარი თქვით: [Consent_Link]",
 } as const;
 
 const GUEST_NAME_FALLBACK = "ძვირფასო სტუმარო";
-const GUEST_NAME_MAX = 40;
-// sms_enqueue_automation cuts a message at 320 characters, which would drop the
-// phone and the sign-off, so the owner-typed title is kept short.
-const PROPERTY_TITLE_MAX = 40;
+const GUEST_NAME_MAX = 20;
+const PROPERTY_TITLE_MAX = 25;
+// Longest host number kept when it is not a Georgian mobile (those are 13).
+const HOST_PHONE_MAX = 20;
 
 export interface Rule {
   user_id: string;
@@ -44,7 +47,6 @@ export interface PropertyRef {
   phone: string | null;
   check_in_time: string | null;
   title: string | null;
-  status: string | null;
 }
 
 export interface Candidate {
@@ -92,53 +94,43 @@ function clampName(name: string | null): string {
     : trimmed;
 }
 
-/** The property's name as one line: owner-typed, so no line breaks, and short. */
-function clampPropertyTitle(title: string | null): string {
-  const oneLine = (title ?? "").replace(/[\p{Cc}\s]+/gu, " ").trim();
-  return Array.from(oneLine).slice(0, PROPERTY_TITLE_MAX).join("").trim();
+/** Owner-typed text as one line (no line breaks), cut to `max` characters. */
+function clampOneLine(value: string | null, max: number): string {
+  const oneLine = (value ?? "").replace(/[\p{Cc}\s]+/gu, " ").trim();
+  return Array.from(oneLine).slice(0, max).join("").trim();
 }
 
-export function buildCheckIn(
-  c: Candidate,
-  rule: Rule,
-  siteUrl: string,
-): string {
+/** A pin to about a metre (5 decimals): the URL is the longest part of the text. */
+function pinCoordinate(value: number): number {
+  return Number(value.toFixed(5));
+}
+
+export function buildCheckIn(c: Candidate, rule: Rule): string {
   const p = c.property;
   const time = (p?.check_in_time ?? "14:00").slice(0, 5);
-  const title = clampPropertyTitle(p?.title ?? null);
-  // Detail pages serve active listings only, so any other status gets no link.
-  const listingLink = p && p.status === "active"
-    ? `${siteUrl}${propertyViewPath(p)}`
+  const title = clampOneLine(p?.title ?? null, PROPERTY_TITLE_MAX);
+  const pin = p && p.location_lat != null && p.location_lng != null
+    ? [p.location_lat, p.location_lng].map(pinCoordinate).join(",")
     : null;
-  const mapLink = p && p.location_lat != null && p.location_lng != null
-    ? `https://maps.google.com/?q=${p.location_lat},${p.location_lng}`
-    : null;
-  const hostPhone = p?.phone ?? rule.owner_phone ?? null;
+  const mapLink = pin ? `https://maps.google.com/?q=${pin}` : null;
+  // A Georgian mobile in its fixed +995 form; any other number as typed, cut short.
+  const rawPhone = p?.phone ?? rule.owner_phone ?? null;
+  const hostPhone = toCanonicalGePhone(rawPhone) ??
+    (clampOneLine(rawPhone, HOST_PHONE_MAX) || null);
 
   const values: Record<string, string | null> = {
     Guest_Name: clampName(c.guest_name),
     Check_In_Time: time,
     Property_Name: title,
-    Listing_Link: listingLink,
     Map_Link: mapLink,
     Host_Phone: hostPhone,
   };
-  const template = title
-    ? TEMPLATES.check_in
-    : TEMPLATES.check_in.replace(" — [Property_Name]", "");
+  let template: string = TEMPLATES.check_in;
+  if (!title) template = template.replace(" — [Property_Name]", "");
+  if (!mapLink) template = template.replace(" 📍[Map_Link]", "");
+  if (!hostPhone) template = template.replace(" ☎️[Host_Phone]", "");
   // Single pass, so a value is never re-read as a placeholder or as a `$` pattern.
-  return template
-    .split("\n")
-    .flatMap((line) => {
-      let missing = false;
-      const filled = line.replace(/\[(\w+)\]/g, (_, key: string) => {
-        const value = values[key];
-        if (!value) missing = true;
-        return value ?? "";
-      });
-      return missing ? [] : [filled];
-    })
-    .join("\n");
+  return template.replace(/\[(\w+)\]/g, (_, key: string) => values[key] ?? "");
 }
 
 export function buildReviewRequest(

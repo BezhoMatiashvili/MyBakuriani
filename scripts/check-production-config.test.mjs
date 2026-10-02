@@ -58,6 +58,42 @@ test("activates on DigitalOcean when DEPLOY_ENV is staging", () => {
   );
 });
 
+const productionOrigin = "https://mybakuriani.ge";
+const stagingOrigin = "https://staging.mybakuriani.ge";
+
+test("DEPLOY_ENV=production accepts the canonical search-engine host", () => {
+  assert.deepEqual(
+    validateProductionConfig({
+      DEPLOY_ENV: "production",
+      ALLOWED_ORIGINS: productionOrigin,
+      NEXT_PUBLIC_SITE_URL: productionOrigin,
+    }),
+    [],
+  );
+});
+
+test("DEPLOY_ENV=production rejects any other site host (it would ship noindex everywhere)", () => {
+  assert.match(
+    validateProductionConfig({
+      DEPLOY_ENV: "production",
+      ALLOWED_ORIGINS: stagingOrigin,
+      NEXT_PUBLIC_SITE_URL: stagingOrigin,
+    }).join(" "),
+    /NEXT_PUBLIC_SITE_URL must be https:\/\/mybakuriani\.ge/,
+  );
+});
+
+test("a staging build keeps its own host (noindex there is intended)", () => {
+  assert.deepEqual(
+    validateProductionConfig({
+      DEPLOY_ENV: "staging",
+      ALLOWED_ORIGINS: stagingOrigin,
+      NEXT_PUBLIC_SITE_URL: stagingOrigin,
+    }),
+    [],
+  );
+});
+
 test("rejects a missing production allowed-origin list", () => {
   assert.throws(
     () =>

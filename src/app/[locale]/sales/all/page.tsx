@@ -2,6 +2,7 @@ import { createPublicClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import { buildPageMetadata } from "@/lib/seo";
 import SalesGridClient from "./SalesGridClient";
 import { firstPhotoOnly } from "@/lib/utils/photos";
 
@@ -12,10 +13,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  return {
+  return buildPageMetadata({
+    locale,
+    path: "/sales/all",
     title: t("salesAll"),
     description: t("salesAllDesc"),
-  };
+    noindex: true,
+  });
 }
 
 interface Props {

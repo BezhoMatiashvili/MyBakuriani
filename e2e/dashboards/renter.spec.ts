@@ -466,7 +466,7 @@ test.describe("Renter Dashboard", () => {
     await discountValue.fill("15%");
 
     await expect(preview).toContainText(
-      "მიიღეთ სპეციალური ფასდაკლება ექსკლუზიურად თქვენთვის",
+      "თქვენთვის სპეციალური შეთავაზება",
     );
     await expect(preview).not.toContainText("15%");
 

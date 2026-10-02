@@ -317,7 +317,8 @@ const MOCK_ID_PATTERN =
   /^(transport|handyman|entertainment|food|employment)-(\d+)$/;
 
 export function isMockServiceId(id: string): boolean {
-  return MOCK_ID_PATTERN.test(id);
+  // Demo data is for local development only; see isMockPropertyId (C40).
+  return process.env.NODE_ENV !== "production" && MOCK_ID_PATTERN.test(id);
 }
 
 type ServiceWithProfile = Tables<"services"> & {

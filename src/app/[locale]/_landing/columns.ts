@@ -21,7 +21,7 @@ export const LANDING_SALE_COLUMNS =
 export const LANDING_SERVICE_COLUMNS =
   "id, title, category, location, photos, price, price_unit, discount_percent, discount_expires_at, best_active_menu_item_discount_percent, created_at, is_vip, is_super_vip, schedule, operating_hours, has_whatsapp, vehicle_capacity, transport_type, vehicle_make, route, routes, salary_type, salary_min, salary_max, salary_daily, salary_range, ownership_verified";
 export const LANDING_BLOG_COLUMNS =
-  "id, title, excerpt, image_url, published_at, created_at";
+  "id, slug, title, excerpt, image_url, published_at, created_at";
 
 type PropertyRow = Tables<"public_properties">;
 
@@ -93,5 +93,5 @@ export type LandingService = Pick<
 
 export type LandingBlogPost = Pick<
   Tables<"blog_posts">,
-  "id" | "title" | "excerpt" | "image_url" | "published_at" | "created_at"
+  "id" | "slug" | "title" | "excerpt" | "image_url" | "published_at" | "created_at"
 >;

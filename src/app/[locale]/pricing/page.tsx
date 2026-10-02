@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import { buildPageMetadata } from "@/lib/seo";
 import { createPublicClient } from "@/lib/supabase/server";
 import { formatGelAmount } from "@/lib/utils/pricing";
 import {
@@ -20,10 +21,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  return {
+  return buildPageMetadata({
+    locale,
+    path: "/pricing",
     title: t("pricing"),
     description: t("pricingDesc"),
-  };
+  });
 }
 
 type PackageRow = {

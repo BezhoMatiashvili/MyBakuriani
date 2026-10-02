@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import { buildPageMetadata } from "@/lib/seo";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
 import { getStatusCards } from "@/lib/status-cards/server";
 import SearchPageClient from "./SearchPageClient";
@@ -14,10 +15,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  return {
+  return buildPageMetadata({
+    locale,
+    path: "/search",
     title: t("search"),
     description: t("searchDesc"),
-  };
+    noindex: true,
+  });
 }
 
 interface SearchPageProps {

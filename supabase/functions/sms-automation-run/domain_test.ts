@@ -14,6 +14,14 @@ import {
   toCanonicalGePhone,
 } from "./domain.ts";
 
+const PIN = "\u{1F4CD}";
+const PHONE = "☎️";
+
+/** Georgian goes out as UCS-2: 70 UTF-16 units in one SMS, 67 per segment after. */
+function segments(text: string): number {
+  return text.length <= 70 ? 1 : Math.ceil(text.length / 67);
+}
+
 const rule: Rule = {
   user_id: "owner",
   display_name: null,
@@ -41,11 +49,8 @@ const candidate: Candidate = {
     phone: null,
     check_in_time: "15:30:00",
     title: "ნინოს ბინა",
-    status: "active",
   },
 };
-
-const SITE = "https://mybakuriani.ge";
 
 Deno.test("canonical Georgian phone rejects extra legacy digits", () => {
   assertEquals(toCanonicalGePhone("555 111 111"), "+995555111111");
@@ -72,15 +77,15 @@ Deno.test("check-in text uses fallback name and drops unavailable clauses", () =
       },
     },
     { ...rule, owner_phone: null },
-    SITE,
   );
-  assertStringIncludes(message, "ძვირფასო სტუმარო");
+  assertEquals(
+    message,
+    "გამარჯობა, ძვირფასო სტუმარო! გელოდებით ხვალ 15:30-დან — ნინოს ბინა.",
+  );
   assertFalse(/\[[A-Za-z_]+\]/.test(message));
-  assertFalse(message.includes("📍"));
-  assertFalse(message.includes("☎️"));
 });
 
-Deno.test("check-in text names the property and links its listing", () => {
+Deno.test("check-in text is one line: name, map pin and host number", () => {
   const message = buildCheckIn(
     {
       ...candidate,
@@ -90,63 +95,33 @@ Deno.test("check-in text names the property and links its listing", () => {
         type: "studio",
         location_lat: 41.666867,
         location_lng: 44.751657,
-        phone: "+995577350909",
+        phone: "+995 577 350 909",
         check_in_time: "14:00:00",
-        title: "საუკეთესო ბინა ჯიგრულ ფასად",
+        title: "ბინა მთაში",
       },
     },
     rule,
-    "https://staging.mybakuriani.ge",
   );
   assertEquals(
     message,
-    "გამარჯობა, ილო! გელოდებით ხვალ, 14:00 საათიდან — საუკეთესო ბინა ჯიგრულ ფასად.\n" +
-      "🔗 https://staging.mybakuriani.ge/apartments/property-id\n" +
-      "📍 https://maps.google.com/?q=41.666867,44.751657\n" +
-      "☎️ +995577350909\n" +
-      "კარგ დასვენებას გისურვებთ!",
+    "გამარჯობა, ილო! გელოდებით ხვალ 14:00-დან — ბინა მთაში. " +
+      `${PIN}https://maps.google.com/?q=41.66687,44.75166 ${PHONE}+995577350909`,
   );
 });
 
-Deno.test("check-in text links a hotel under /hotels", () => {
-  const message = buildCheckIn(
-    {
-      ...candidate,
-      property: candidate.property && { ...candidate.property, type: "hotel" },
-    },
-    rule,
-    SITE,
-  );
-  assertStringIncludes(message, `🔗 ${SITE}/hotels/property-id\n`);
-});
-
-Deno.test("check-in text has no link for a listing that is not active", () => {
-  for (const status of ["draft", "blocked", null]) {
-    const message = buildCheckIn(
-      {
-        ...candidate,
-        property: candidate.property && { ...candidate.property, status },
-      },
-      rule,
-      SITE,
-    );
-    assertFalse(message.includes("🔗"));
-    assertFalse(message.includes("/apartments/"));
-    assertStringIncludes(message, "ნინოს ბინა");
-  }
-});
-
-Deno.test("check-in text drops the name clause when the title is blank", () => {
+Deno.test("check-in text falls back to the owner's number and drops the name clause when the title is blank", () => {
   const message = buildCheckIn(
     {
       ...candidate,
       property: candidate.property && { ...candidate.property, title: " \n " },
     },
     rule,
-    SITE,
   );
-  assertStringIncludes(message, "15:30 საათიდან.\n");
-  assertFalse(message.includes("—"));
+  assertEquals(
+    message,
+    "გამარჯობა, ნინო! გელოდებით ხვალ 15:30-დან. " +
+      `${PIN}https://maps.google.com/?q=41.75,43.53 ${PHONE}+995555000000`,
+  );
 });
 
 Deno.test("check-in text keeps an owner-typed title on one line, verbatim", () => {
@@ -155,78 +130,225 @@ Deno.test("check-in text keeps an owner-typed title on one line, verbatim", () =
       ...candidate,
       property: candidate.property && {
         ...candidate.property,
-        title: "ბინა\n📍 evil.ge $& [Map_Link]\u2028x",
+        title: "ბინა\n[Map_Link] $& 📍x y",
       },
     },
     rule,
-    SITE,
   );
-  const lines = message.split("\n");
-  assertEquals(lines.length, 5);
-  assertStringIncludes(
-    lines[0],
-    "— ბინა 📍 evil.ge $& [Map_Link] x.",
-  );
-  assertEquals(lines[2], "📍 https://maps.google.com/?q=41.75,43.53");
+  assertFalse(message.includes("\n"));
+  assertStringIncludes(message, "— ბინა [Map_Link] $& 📍x y. ");
+  assertEquals(message.split("https://maps.google.com/").length - 1, 1);
 });
 
-Deno.test("check-in text stays within the 320-character column", () => {
+Deno.test("check-in text clamps name, title and a non-Georgian number", () => {
   const message = buildCheckIn(
     {
       ...candidate,
       guest_name: "ა".repeat(100),
       property: candidate.property && {
         ...candidate.property,
-        type: "hotel",
-        location_lat: 41.123456789012345,
-        location_lng: 44.123456789012345,
         phone: "+995 577 350 909 / +995 599 000 000",
         title: "ბ".repeat(100),
       },
     },
     rule,
-    "https://staging.mybakuriani.ge",
   );
-  assertEquals(message.length <= 320, true);
-  assertStringIncludes(message, "კარგ დასვენებას გისურვებთ!");
+  assertStringIncludes(message, `გამარჯობა, ${"ა".repeat(20)}! `);
+  assertStringIncludes(message, `— ${"ბ".repeat(25)}. `);
+  assertStringIncludes(message, `${PHONE}+995 577 350 909 / +`);
 });
 
-Deno.test("review and win-back links use the canonical routes", () => {
-  assertStringIncludes(
-    buildReviewRequest(candidate, "https://example.com"),
-    "https://example.com/dashboard/guest/rate/booking-id",
-  );
-  const message = buildWinBack(candidate, rule, "https://example.com");
-  assertStringIncludes(message, "15%");
-  assertStringIncludes(message, "ნოემბრის ბოლომდე");
-  assertStringIncludes(message, "https://example.com/apartments/property-id");
+Deno.test("check-in text segment budget over the spec's input shapes", () => {
+  const full = candidate.property!;
+  const cases: {
+    name: string;
+    candidate: Candidate;
+    rule?: Rule;
+    length: number;
+    sms: number;
+  }[] = [
+    {
+      name: "short name, nothing optional",
+      candidate: {
+        ...candidate,
+        property: {
+          ...full,
+          title: "",
+          location_lat: null,
+          location_lng: null,
+          phone: null,
+        },
+      },
+      rule: { ...rule, owner_phone: null },
+      length: 42,
+      sms: 1,
+    },
+    {
+      name: "medium name, everything",
+      candidate: {
+        ...candidate,
+        guest_name: "ა".repeat(10),
+        property: {
+          ...full,
+          title: "მთის ბინა",
+          location_lat: 41.666867,
+          location_lng: 44.751657,
+          phone: "+995577350909",
+        },
+      },
+      length: 123,
+      sms: 2,
+    },
+    {
+      name: "maximum name and title, everything",
+      candidate: {
+        ...candidate,
+        guest_name: "ა".repeat(20),
+        property: {
+          ...full,
+          title: "ბ".repeat(25),
+          location_lat: 41.666867,
+          location_lng: 44.751657,
+          phone: "+995577350909",
+        },
+      },
+      length: 149,
+      sms: 3,
+    },
+    {
+      name: "very long listing name, everything",
+      candidate: {
+        ...candidate,
+        property: {
+          ...full,
+          title: "ბ".repeat(300),
+          location_lat: 41.666867,
+          location_lng: 44.751657,
+          phone: "+995577350909",
+        },
+      },
+      length: 133,
+      sms: 2,
+    },
+    {
+      name: "maximum name and title, nothing else",
+      candidate: {
+        ...candidate,
+        guest_name: "ა".repeat(20),
+        property: {
+          ...full,
+          title: "ბ".repeat(25),
+          location_lat: null,
+          location_lng: null,
+          phone: null,
+        },
+      },
+      rule: { ...rule, owner_phone: null },
+      length: 86,
+      sms: 2,
+    },
+    {
+      name: "worst case: 15-digit pin, two numbers typed, 100-letter name",
+      candidate: {
+        ...candidate,
+        guest_name: "ა".repeat(100),
+        property: {
+          ...full,
+          title: "ბ".repeat(100),
+          location_lat: 41.123456789012345,
+          location_lng: 44.123456789012345,
+          phone: "+995 577 350 909 / +995 599 000 000",
+        },
+      },
+      length: 156,
+      sms: 3,
+    },
+  ];
+  for (const c of cases) {
+    const message = buildCheckIn(c.candidate, c.rule ?? rule);
+    assertEquals(message.length, c.length, c.name);
+    assertEquals(segments(message), c.sms, c.name);
+    assertFalse(/\[[A-Za-z_]+\]/.test(message), c.name);
+  }
 });
 
-Deno.test("manual review requests use the single-use public token route", () => {
-  const message = buildReviewRequest(
+Deno.test("review text is short and carries the canonical routes", () => {
+  const platform = buildReviewRequest(candidate, "https://example.com");
+  assertEquals(
+    platform,
+    "ნინო, მადლობა! შეგვიფასეთ ბინა: https://example.com/dashboard/guest/rate/booking-id — MyBakuriani",
+  );
+  const manual = buildReviewRequest(
     { ...candidate, source: "manual", recipient_id: null },
     "https://example.com",
     "a".repeat(64),
   );
-  assertStringIncludes(message, `https://example.com/review/${"a".repeat(64)}`);
-  assertFalse(message.includes("dashboard/guest/rate"));
+  assertStringIncludes(manual, `https://example.com/review/${"a".repeat(64)}`);
+  assertFalse(manual.includes("dashboard/guest/rate"));
+});
+
+Deno.test("win-back keeps the offer, its period and the property link", () => {
+  assertEquals(
+    buildWinBack(candidate, rule, "https://example.com"),
+    "ნინო, დაბრუნდით ბაკურიანში! მიიღეთ 15% ფასდაკლება (ნოემბრის ბოლომდე): https://example.com/apartments/property-id — MyBakuriani",
+  );
 });
 
 Deno.test("win-back falls back when either owner field is empty", () => {
-  const message = buildWinBack(
-    candidate,
-    { ...rule, win_back_discount_period: null },
-    "https://example.com",
-  );
-  assertStringIncludes(message, "სპეციალური ფასდაკლება ექსკლუზიურად თქვენთვის");
-  assertFalse(message.includes("[Discount_Value]"));
-  assertFalse(message.includes("[Discount_Period]"));
+  for (
+    const empty of [
+      { win_back_discount_period: null },
+      { win_back_discount_value: " " },
+    ]
+  ) {
+    const message = buildWinBack(
+      candidate,
+      { ...rule, ...empty },
+      "https://example.com",
+    );
+    assertEquals(
+      message,
+      "ნინო, დაბრუნდით ბაკურიანში! თქვენთვის სპეციალური შეთავაზება: https://example.com/apartments/property-id — MyBakuriani",
+    );
+    assertFalse(message.includes("[Discount_Value]"));
+    assertFalse(message.includes("[Discount_Period]"));
+  }
 });
 
-Deno.test("consent request carries the guest link and nothing else variable", () => {
+Deno.test("consent request asks plainly, offers accept or decline, carries only the link", () => {
   const link = `https://staging.mybakuriani.ge/sms-consent/${"A".repeat(43)}`;
   const message = buildConsentRequest(link);
-  assertStringIncludes(message, link);
-  assertFalse(/\[[A-Za-z_]+\]/.test(message));
+  assertEquals(
+    message,
+    `MyBakuriani.ge: გსურთ მარკეტინგული SMS-ების მიღება? დაადასტურეთ ან უარი თქვით: ${link}`,
+  );
   assertEquals(message.length <= 320, true);
+});
+
+Deno.test("link-bearing texts stay within 3 segments with production-sized links", () => {
+  const site = "https://mybakuriani.ge";
+  const id = "3f2b8c1e-9a47-4d65-b0e2-7c1d5a9e4f60";
+  const withId = {
+    ...candidate,
+    booking_id: id,
+    property: candidate.property && { ...candidate.property, id },
+  };
+  const texts = {
+    "review (platform link)": buildReviewRequest(withId, site),
+    "review (manual link)": buildReviewRequest(
+      { ...withId, source: "manual" },
+      site,
+      "a".repeat(64),
+    ),
+    "win-back": buildWinBack(withId, rule, site),
+    "win-back fallback": buildWinBack(
+      withId,
+      { ...rule, win_back_discount_period: null },
+      site,
+    ),
+    "consent": buildConsentRequest(`${site}/sms-consent/${"A".repeat(43)}`),
+  };
+  for (const [name, text] of Object.entries(texts)) {
+    assertEquals(segments(text) <= 3, true, `${name}: ${text.length} units`);
+  }
 });

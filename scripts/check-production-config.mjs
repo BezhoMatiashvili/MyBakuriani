@@ -2,6 +2,11 @@ import { pathToFileURL } from "node:url";
 
 const ORIGIN_PATTERN = /^https?:\/\//;
 
+// The only host search engines may index. Echoes CANONICAL_HOST in
+// src/lib/seo/site.ts, which treats every other host as noindex; the C40 check
+// in scripts/check-contracts.mjs fails when the two drift.
+const CANONICAL_PRODUCTION_HOST = "mybakuriani.ge";
+
 function isExactOrigin(value) {
   if (!ORIGIN_PATTERN.test(value)) return false;
 
@@ -62,6 +67,20 @@ export function validateProductionConfig(env = process.env) {
   } else if (!origins.includes(canonicalOrigin)) {
     errors.push(
       "ALLOWED_ORIGINS must include the exact NEXT_PUBLIC_SITE_URL origin.",
+    );
+  }
+
+  // Search engines may index exactly one host (C40). src/lib/seo/site.ts treats
+  // every other host as noindex, so a production build pointed anywhere else
+  // would tell Google to index nothing; fail the build instead of shipping that.
+  if (
+    env.DEPLOY_ENV === "production" &&
+    canonicalOrigin &&
+    isExactOrigin(canonicalOrigin) &&
+    canonicalOrigin !== `https://${CANONICAL_PRODUCTION_HOST}`
+  ) {
+    errors.push(
+      `NEXT_PUBLIC_SITE_URL must be https://${CANONICAL_PRODUCTION_HOST} when DEPLOY_ENV=production, or search engines are told to index nothing.`,
     );
   }
 

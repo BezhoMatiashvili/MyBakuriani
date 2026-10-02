@@ -1,4 +1,7 @@
 import type { MetadataRoute } from "next";
+import { routing } from "@/i18n/routing";
+import { buildRobotsConfig } from "@/lib/seo/robots";
+import { IS_INDEXABLE, SITE_URL } from "@/lib/seo/site";
 
 // Root-level (outside `[locale]`) so Next.js resolves /robots.txt here
 // directly instead of falling through to the `[locale]` catch-all, which
@@ -6,28 +9,13 @@ import type { MetadataRoute } from "next";
 // next-intl's requestLocale to fall back to reading headers() — flipping this
 // route from static to dynamic at runtime. On a persistent Node server (not
 // Vercel's per-request isolation) that throws and crashes the whole process.
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-bakuriani.vercel.app";
-
+// The rules (per-locale disallows, the /api/og/ allow, noindex hosts staying
+// crawlable) live in src/lib/seo/robots.ts so they can be unit tested (C40).
 export default function robots(): MetadataRoute.Robots {
-  return {
-    rules: {
-      userAgent: "*",
-      // "/api/og/" must be allowed explicitly: it sits under the blanket
-      // "/api/" disallow below, and facebookexternalhit honours robots.txt for
-      // the og:image fetch — without this every listing card is refused.
-      // Longest-match wins for both Google and Facebook.
-      allow: ["/", "/api/og/"],
-      disallow: [
-        "/api/",
-        "/dashboard/",
-        "/create/",
-        "/auth/",
-        "/notifications",
-        "/sms-consent/",
-        "/preview/",
-      ],
-    },
-    sitemap: `${siteUrl}/sitemap.xml`,
-  };
+  return buildRobotsConfig({
+    locales: routing.locales,
+    defaultLocale: routing.defaultLocale,
+    indexable: IS_INDEXABLE,
+    siteUrl: SITE_URL,
+  });
 }

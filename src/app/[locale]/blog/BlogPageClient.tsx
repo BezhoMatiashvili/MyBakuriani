@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import type { Tables } from "@/lib/types/database";
@@ -10,7 +10,7 @@ import BannerSlot from "@/components/banners/BannerSlot";
 
 type BlogListPost = Pick<
   Tables<"blog_posts">,
-  "id" | "title" | "excerpt" | "image_url" | "published_at" | "created_at"
+  "id" | "slug" | "title" | "excerpt" | "image_url" | "published_at" | "created_at"
 >;
 
 interface Props {
@@ -24,6 +24,7 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
     serverPosts && serverPosts.length > 0
       ? serverPosts.map((bp) => ({
           id: bp.id,
+          slug: bp.slug,
           title: bp.title,
           excerpt: bp.excerpt ?? "",
           image: bp.image_url ?? "/placeholder-property.jpg",
@@ -55,7 +56,7 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
           {displayPosts.map((post, i) => (
             <ScrollReveal key={post.id} delay={i * 0.08} className="h-full">
               <Link
-                href={`/blog/${post.id}`}
+                href={`/blog/${post.slug}`}
                 data-blog-card
                 className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
               >

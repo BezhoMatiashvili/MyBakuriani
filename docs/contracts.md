@@ -1,229 +1,34 @@
-# Cross-cutting contracts
+# Cross-cutting Contracts
 
-Invariants held together by **string keys, generated code, or wire shapes** — the
-couplings a call-graph / "find references" tool cannot see. Each is a
-_change-one-side → must-change-the-other_. Before editing any symbol below, read
-its section and grep the symbol repo-wide.
+Invariants held by **string keys, generated code, or wire shapes**—couplings invisible to call-graph tools. Each is _change-one-side → must-change-the-other_. Before editing, read the section and grep repo-wide.
 
-Anchor grammar: `` `‹relpath›.‹ext›:‹symbol›` `` (a real one looks like
-`src/i18n/routing.ts:routing`) so a grep for the file and symbol lands on it.
+**Anchor:** `` `path:symbol` `` (e.g. `src/i18n/routing.ts:routing`).
 
 ---
 
 ## C1 — i18n key parity & namespace scoping
 
-**Invariant:** the three catalogs `messages/ka.json`, `messages/en.json`,
-`messages/ru.json` must have identical key sets, and every message namespace a
-client component uses must be in the constant of the **provider it renders
-under**: `PUBLIC_NAMESPACES` for the root `[locale]` provider, or the constant of
-a nested provider (`CREATE_NAMESPACES`, `AUTH_NAMESPACES`, `FAQ_NAMESPACES`,
-`MANUAL_REVIEW_NAMESPACES`, `SMS_CONSENT_NAMESPACES`, `DASHBOARD_NAMESPACES`).
+**Invariant:** `messages/{ka,en,ru}.json` have identical key sets; every public-component namespace is in `PUBLIC_NAMESPACES`.
 
-Participating symbols:
+**Symbols:** `src/i18n/namespaces.ts:PUBLIC_NAMESPACES`, `scripts/check-message-parity.mjs`.
 
-- `src/i18n/namespaces.ts:PUBLIC_NAMESPACES` — the root provider's set, shipped in every HTML document and static RSC payload
-- `src/i18n/namespaces.ts:CREATE_NAMESPACES` (and the five sibling constants) — re-provided by `create/layout.tsx`, `auth/layout.tsx`, `faq/page.tsx`, `review/[token]/page.tsx`, `sms-consent/[token]/page.tsx` and `dashboard/layout.tsx`
-- `src/i18n/namespaces.ts:pickMessages` — trims the bundle to a list
-- `messages/ka.json:Navbar` — default-locale catalog (top-level keys are namespaces)
-- `scripts/i18n-scope.mjs:SCOPES` — build guard (`--check`, wired as `prebuild`): maps every route entry to the provider that renders it, re-derives each scope's namespace set from the client import graph, and fails if a constant misses one or a provider file stops rendering `NextIntlClientProvider` with its constant
-- `scripts/check-message-parity.mjs:flatten` — key-parity check across the 3 files
-
-**Nested providers REPLACE, they do not merge (2026-09-27).** Until then the root
-provider shipped 79 namespaces to every page, including 23 used only by /create,
-/auth, /faq and the two token pages (~10 KB gz per document in ka), and the
-dashboard layout re-provided the whole catalog. Each nested scope now carries
-every namespace reachable under it, shell pieces such as `Shared` (SkierLoader),
-`Error` (the layout's own error.tsx renders inside it), `LanguageSelector` and
-`CreateHeader` included. A layout-level provider covers its whole directory; a
-page-level provider covers only that page, so e.g. `faq/loading.tsx` and
-`faq/error.tsx` stay under the root provider. Every nested provider gets the
-locale explicitly, and one on a static route (`/faq`) calls
-`setRequestLocale(locale)` first: next-intl's server provider otherwise resolves
-timeZone/formats by reading `headers()`, which turns the route dynamic. `/auth/*`
-is the opposite case. It was always rendered per request, but only implicitly
-(its layout's `Link` read the locale from `headers()` before the root layout had
-set it), and a static prerender would bail the login/register forms out to
-client rendering because they read search params. Its layout now says
-`dynamic = "force-dynamic"`. The build table shows ● for these routes either
-way; `.next/prerender-manifest.json` is the ground truth. The signed-in
-`/create` prefetch (AddListingButton, default prefetch) now carries
-`CREATE_NAMESPACES`; those bytes moved off every HTML document into that
-background request.
-
-**Also check:** `src/app/[locale]/layout.tsx` (root provider) and the six nested
-provider files; a new user-facing string needs a key in **all three** catalogs.
-A new route tree that should get its own provider needs a `SCOPES` entry.
-
-**Breaks silently when:** you add a key to `ka.json` only (other locales render the
-key name), or a client component starts using a namespace missing from its
-scope's constant (raw keys in prod; `prebuild` catches it locally), or a nested
-provider is rendered without `setRequestLocale` on a static route (the route
-flips to dynamic with no error; the build table keeps showing ●, only
-`.next/prerender-manifest.json` or `next build --debug` reveals it). The reverse
-also happens silently: reordering what a layout awaits can make a route that
-relied on an implicit `headers()` read static.
+**Breaks:** Key in one catalog only (untranslated); public component uses unlisted namespace.
 
 ---
 
 ## C2 — Locale set
 
-**Invariant:** the supported-locale list lives in one place and is echoed by the
-middleware prefix-strip loop, the per-locale message import, and the navigation
-helpers. Adding/removing a locale touches all of them **plus** a matching catalog
-file.
+**Invariant:** `routing.locales` echoed everywhere: middleware, message import, navigation. `localeCookie: false` is load-bearing (CDN caching).
 
-Participating symbols:
-
-- `src/i18n/routing.ts:routing` — `locales`, `defaultLocale`, `localePrefix`
-- `src/i18n/routing.ts:AppLocale` — derived union type used across the app
-- `src/i18n/request.ts:getRequestConfig` — dynamic `import(messages/${locale}.json)`
-- `src/middleware.ts:intlMiddleware` — strips `/${locale}` prefixes by reducing over `routing.locales`
-- `src/i18n/navigation.ts` — locale-aware `Link`/`redirect`/`useRouter`
-
-**Also check:** a `messages/<locale>.json` file must exist for every locale in
-`routing.locales`.
-
-**`localeCookie: false` is load-bearing for CDN caching — do not re-enable it.**
-Set 2026-09-06. next-intl otherwise emits `Set-Cookie: NEXT_LOCALE` on every
-**document** response, and Cloudflare refuses to cache any response carrying
-`Set-Cookie`. Measured on prod before the change: `/` (no cookie) returned
-`cf-cache-status: HIT` in ~25 ms while `/apartments` and `/faq` (cookie) returned
-`BYPASS` in ~340 ms — a full round trip to the Singapore origin, paid by every
-visitor on every public page. The cookie was pure waste here because
-`localeDetection: false` means next-intl never reads it back, and nothing in `src/`
-references `NEXT_LOCALE`; locale is carried entirely by the URL under
-`localePrefix: "as-needed"`, and `LanguageSelector` switches by
-`router.replace(pathname, { locale })`. Disabling it also no-ops
-`syncLocaleCookie` in the navigation helpers, which is harmless for the same
-reason. Verified after the change: all three locales still render their own
-content, and a stale `NEXT_LOCALE=ru` cookie on `/` does not redirect.
-
-**Breaks silently when:** you add a locale to `routing.locales` without adding
-`messages/<locale>.json` → the dynamic import throws at request time only. Or
-`localeCookie` is re-enabled (or `localeDetection` flipped to `true`, which
-implies the cookie) → every public page silently stops being edge-cacheable and
-each navigation re-pays the origin round trip, with no error anywhere; the only
-symptom is `cf-cache-status: BYPASS` in response headers.
+**Breaks:** Add locale without `messages/<locale>.json` (import throws); re-enable `localeCookie` (Cloudflare BYPASS).
 
 ---
 
 ## C3 — DB schema ↔ generated types
 
-**Invariant:** `supabase/migrations/*.sql` are the source of truth; every table,
-column, enum, and RPC signature is mirrored in the **generated** file
-`src/lib/types/database.ts`, which is consumed everywhere via the `Database`
-generic. A migration that is not followed by a types regen is a silent type lie.
+**Invariant:** Migrations are source of truth. `src/lib/types/database.ts` mirrors schema (generated + hand-edit rules for views/RPC-args). Regen after migration or type lies.
 
-Participating symbols:
-
-- `supabase/migrations/001_initial_schema.sql:user_role` — base schema + the 10-value role enum
-- `src/lib/types/database.generated.ts:Database` — **pure generator output, never hand-edited** (header says so). Regenerated by `npm run types:gen` (`scripts/gen-database-types.sh`, needs a logged-in Supabase CLI or `SUPABASE_ACCESS_TOKEN`); `npm run types:check` regenerates to a temp file and diffs
-- `src/lib/types/database.ts:Database` — the **override layer** every `createClient<Database>()` and every `import … from "@/lib/types/database"` consumes. 215 lines, two documented rules only: (1) `PublicViews` re-types the 6 `public_*` views as their base-table Row (+ view-only columns) because Postgres drops NOT NULL from view columns and the generator therefore emits every view column nullable; a compile-time `_ViewParity` tripwire fails `tsc` if the generator gains or loses a view this layer doesn't mention; (2) `NullableOptionalArgs` widens every optional RPC argument to `T | null` — PostgREST accepts an explicit null for any DEFAULT'd param and several RPCs need it (`update_manual_booking.p_deposit_amount` defaults to `-1` = "unchanged", so `null` is the only way to clear). The generator's helper types (`Tables`, `TablesInsert`, `TablesUpdate`, `Enums`, `CompositeTypes`) are copied here verbatim and re-pointed at the merged type; `Json` and `Constants` are re-exported. `scripts/check-contracts.mjs` fails if anything under `src/` imports the generated file directly
-- `src/lib/types/database.generated.ts:user_role` — the role enum mirrored in TS (guest…admin)
-- `src/lib/supabase/server.ts:createClient` / `src/lib/supabase/client.ts:createClient` — `createClient<Database>()`
-- `src/lib/supabase/admin.ts:createServiceClient` — service-role client
-
-**Explicit view column lists (2026-09-27).** The landing, `/blog`, `/search` and `/sales/all` now `select()` explicit column lists from the `public_*` views instead of `*`, and `PublicViews.public_properties.Row` gained the real view-only `profile_is_verified` (read by `/search`). The typed select parser checks those lists against this layer, which types a view as its base table plus the listed extras, so a column the VIEW lacks still compiles and only fails at runtime (PostgREST 400). Probe any new list against staging with `?select=…&limit=1`, and use only columns present in the prod-era view definitions.
-
-**Since 2026-09-21 the generated file is regenerable again and hand edits are
-banned.** The `supabase gen types` output for the staging project
-(`laxwtegxpemuuyxluqsi`) was dropped in unmodified, the six view/RPC-arg lies the
-old hand-edited file carried were moved into the two rules in `database.ts`, and
-`tsc` went from 57 errors to 0 with no call-site changes. Every enum's labels are
-now compared against `Constants` by `npm run check:db-contracts` (**C29**), so a
-migration that adds an enum value without a regen fails that check instead of
-compiling silently. What follows below this paragraph is the pre-2026-09-21
-history of per-line hand edits, kept because it explains WHY specific columns and
-RPC signatures exist — but none of it describes the current editing rule anymore.
-
-**Historical (superseded 2026-09-21):** the committed file was STALE vs. the live
-schema and a full regen broke the build, so schema work hand-edited only the lines
-it changed (the `property_type` enum for **C13**, `placement` on ads +
-landing_banners for **C12**, the whole `cleaner_manual_tasks` table block for
-**C17**, and for **C18** the marketing/consent fan-out: `marketing_consent` +
-`marketing_consent_at` on `bookings` AND `manual_bookings`,
-`profiles.marketing_opt_out`, `properties.check_in_time`,
-`sms_automation_rules.win_back_discount_{value,period}`,
-`sms_outbound.{source_manual_booking_id,charged_at}` + `recipient_id` relaxed to
-nullable, the five `sms_*` RPC signatures, and `p_marketing_consent` added to the
-three manual-booking RPCs). The 2026-08-04 verified-consent pass additionally
-mirrors `manual_bookings.deposit_{amount,paid_on}`, the complete
-`manual_booking_sms_consents` table, `issue_manual_booking_sms_consent` /
-`respond_manual_booking_sms_consent`, and the two trailing deposit arguments on
-all three manual-booking RPCs (`create_guest_manual_booking` also gains `p_amount`).
-The same pass **removed** the `road_conditions` block,
-which had been a type lie since `20260725160000` dropped the table. The
-2026-08-06 pass mirrors migration `20260806120000_blacklist_match_result.sql`:
-`add_renter_guest_to_blacklist`'s return type changed from a bare
-`renter_guests` row to `{ guest: renter_guests; was_already_blacklisted: boolean }`
-(new composite type `public.renter_guest_blacklist_result`), so the
-`SetofOptions` block that asserted a 1:1 `renter_guests` return no longer
-applies and was dropped. Hand-editing
-is the deliberate exception, not the rule — keep the edit to the affected lines so
-a future regen is a clean diff.
-
-The 2026-08-08 public-page analytics restoration adds `completed_7d` to the
-`admin_overview_stats` return signature. Until the next verified full regen,
-`src/lib/types/database.ts` mirrors that single additive field by hand alongside
-the append-only migration `20260808201000_restore_admin_pageview_analytics.sql`.
-
-The 2026-08-19 cleaner-call pass mirrors the address-aware
-`create_cleaning_task`, `transition_cleaning_task`, and
-`get_my_cleaning_task_cleaner_details` RPC signatures by hand alongside
-`20260819122000_cleaner_call_details_and_cancellation_consent.sql` (**C24**).
-
-The 2026-09-19 pass mirrors `properties.cadastral_code_public boolean NOT NULL
-DEFAULT true` alongside `20260919120000_sale_cadastral_code_optional_visibility.sql`.
-The sale form's cadastral code is now optional, and when a seller does enter
-one, this column controls whether it's publicly visible. The same migration
-masks `cadastral_code` itself (not just adds the flag) in the `public_properties`
-view — `CASE WHEN pr.cadastral_code_public THEN pr.cadastral_code ELSE NULL END`
-— so a hidden code is fully absent from every anon-facing read: the detail
-page (`SaleDetailClient.tsx`'s existing `if (property.cadastral_code)` check
-needed no change), `/sales/all`'s cadastral filter, the landing page's
-cadastral search box, and the `search` edge function's `.eq("cadastral_code",
-…)` match, since all four read `public_properties`/the `search` function's own
-copy of it rather than the base table. `cadastral_code_public` itself is never
-exposed through `public_properties`. The owner's own `select("*")` reads
-(`getPropertyById.ts`, the create/edit form's hydrate query) are unmasked, as
-intended — the owner must see/edit their own value regardless of its public
-visibility. `useCadastralTaken`'s duplicate check also queries the raw table
-and is correspondingly unaffected: it must catch a duplicate regardless of
-either row's visibility.
-
-**Search gap closed 2026-09-25 (`20260925121000_global_search_respect_cadastral_visibility.sql`):**
-the sentence above was not true for `global_search`, the SECURITY DEFINER RPC
-behind the `search` edge function's keyword path. It reads the raw
-`properties` table and matched `q` against `cadastral_code` (ILIKE) and ranked
-by similarity to it regardless of `cadastral_code_public`, so whether a listing
-appeared in anonymous keyword results revealed a hidden code one prefix at a
-time. Both terms are now gated on `p.cadastral_code_public`. Any new read path
-that matches or ranks on the raw column must apply the same gate.
-
-**Verified 2026-07-25:** every hand-edit above was probed against the live schema
-(column types, nullability, defaults, and `pg_get_functiondef` for each RPC) and
-matches. The file is truthful for everything C17/C18 touch; it remains stale for
-six unrelated tables a full regen would re-add — which is why the regen still
-breaks the build.
-
-**Never run `supabase db push`.** This project's migrations are applied through MCP
-`apply_migration`, which assigns its **own** ledger version at apply time, so the
-`supabase_migrations.schema_migrations` versions do NOT correspond to the local
-filenames (`001_initial_schema.sql` is recorded as `20260325120722`;
-`20260724180000_content_change_requests.sql` as `20260724195934`). A `db push` compares
-local prefixes against the ledger, would consider almost every file unapplied, and
-would try to re-run the entire directory against a live schema. MCP `apply_migration`
-is the only supported path from this repo. Filename prefixes are therefore just a
-human-readable ordering; 9 pairs still share a prefix (`20260628120000` etc.), which is
-untidy but inert given the above.
-
-**Also check:** RPC signatures called from edge functions (**C4**) and API routes;
-every consumer of the `user_role` enum (**C8**). After regen, run `tsc` — new
-required columns / changed arg lists surface as errors at call sites.
-
-**Breaks silently when:** a migration adds/renames a column or changes an RPC arg
-list but `database.ts` is stale → TS compiles against a schema that no longer
-exists; failures surface only at query time.
+**Breaks:** Regen missed (stale types); hand-edit generated file (reverts on regen).
 
 **S2/S3 (2026-09-27, staging):** after `20260927091000` the generated types lose `properties_photos_backup` / `services_photos_backup`; `payments.user_id`, `payment_refunds.user_id`, `listing_view_events.client_ip` and `contact_reveal_events.client_ip` become nullable; `apply_pii_retention` appears. Regenerate before code reads them.
 
@@ -231,149 +36,11 @@ exists; failures surface only at query time.
 
 ## C4 — Client ↔ Edge Function wire contract
 
-**Invariant:** `supabase.functions.invoke("<name>", { body })` couples a **bare
-string** function name and an **untyped** body to a Deno handler under
-`supabase/functions/<name>/`. Neither the name nor the body shape is type-checked.
+**Invariant:** `supabase.functions.invoke("<name>", { body })` couples function name and body shape (untyped). Functions in `config.toml`, bodies validated at runtime only.
 
-Participating symbols (name → caller):
+**Key:** `_shared/guards.ts` bundled per-function (redeploy all 16 for changes). Rate-limiter fail-open. Exact-match CORS. Bearer token for pg_cron (`verify_jwt=false`).
 
-- `supabase/functions/purchase-vip/index.ts:serve` ← `src/app/[locale]/dashboard/seller/SellerDashboardClient.tsx` (+ renter/food dashboards)
-- `supabase/functions/payment-process/index.ts:serve` ← `src/components/payments/CheckoutClient.tsx`
-- `supabase/functions/company-subscription/index.ts:serve` ← `src/app/[locale]/dashboard/seller/organizations/[id]/page.tsx`
-- `supabase/functions/_shared/guards.ts:requireUser` — every function auths the Bearer token here
-- `supabase/functions/_shared/guards.ts:buildCorsHeaders` — **exact-match** origin allow-list (env `ALLOWED_ORIGINS`, comma-separated). The Vercel-team suffix match and the `"*"` wildcard on the legacy `corsHeaders` export were both removed in `9828eba`; a non-listed origin gets `allowed[0]` reflected back instead, which the browser then blocks — so a new deployment must be added to the env explicitly. **It does NOT "fail closed" in the header-omitted sense** (this doc claimed that until 2026-09-21): `parseAllowedOrigins` appends `http://localhost:3000`, `http://127.0.0.1:3000` and `http://[::1]:3000` unconditionally, so `allowed.length > 0` is *always* true and an `Access-Control-Allow-Origin` header is *always* emitted — just the wrong one when the env is unset. The practical failure mode is therefore "wrong origin reflected", never "no CORS header". That distinction matters when debugging: the browser-side symptom is a `FunctionsFetchError` whose message is the supabase-js literal "Failed to send a request to the Edge Function", with **no server-side trace at all** — no `payment_failed` notification, no `transactions` row — because the blocked preflight means the POST is never sent. This exact scenario hit the staging discount-badge purchase and was fixed on 2026-09-19 by setting `ALLOWED_ORIGINS` on the staging project (a dashboard secret change, no redeploy: the value is read per-request). Verified live 2026-09-21: an allowed origin is echoed exactly, and a real discount purchase completes in ~950 ms. The three loopback origins also mean local development on **port 3000 only** works against a deployed function; serving the app on any other port reproduces the same blocked-fetch symptom and looks identical to the bug above. The legacy `corsHeaders` export is now dead — no function imports it
-
-**Also check:** renaming a function directory changes the deploy slug; the
-`invoke("…")` string must change in lock-step. Edge functions in turn call DB RPCs
-(subject to C3). `_shared/guards.ts` is **bundled at deploy time** — editing it
-does nothing until every function that imports it is redeployed. All 16 local
-functions import it (only `search` also imports `_shared/sanitize.ts`), and every one
-of them now runs the `9828eba` bundle: the 8 that still carried the pre-`9828eba`
-copy (`search`, `vip-lifecycle`, `booking-create`, `booking-manage`,
-`booking-finalize`, `sms-dispatch`, `sms-automation-run`, and the since-retired
-`road-condition-refresh`) were redeployed and byte-verified on 2026-07-24.
-
-**As of 2026-07-27 the 16 deliberately do NOT all bundle the same `guards.ts`, and
-that split is intentional.** The 8 redeployed that day (`booking-create`,
-`booking-manage`, `booking-finalize`, `company-subscription`, `payment-create`,
-`payment-process`, `purchase-vip`, `vip-lifecycle`) carry guards.ts sha256
-`1fc5804f…`; the other 8 still carry the previous copy. The only difference between
-the two is one added member of the `ErrorCode` **type alias**
-(`"SUBSCRIPTION_TIER_LOCKED"`), which TypeScript erases at runtime — so the two
-bundles are behaviourally identical and the 8 stale ones did not need a redeploy.
-A future byte-comparison WILL flag those 8; that is expected, not drift. Any change
-to guards.ts with actual runtime effect still requires redeploying all 16.
-
-**The two legitimate `guards.ts` hashes** (full-sweep verified 2026-07-28 — use these
-to settle a parity check in one step instead of re-diffing 16 bundles):
-
-| state             | sha256                                                             | bytes |
-| ----------------- | ------------------------------------------------------------------ | ----- |
-| current (those 8) | `1fc5804f7ea542ed1a46cff36ac4e85a2f8152e68efbdacea885e88c4348c01f` | 7445  |
-| older, inert (8)  | `0169b82930c44c19134ca26bc264566a821c9ee4ecbe9bf93ac0c20fd025451f` | 7414  |
-
-Anything else is real drift. Note the textual delta is **−2/+1 lines, not one**: dropping
-`| "SUBSCRIPTION_TIER_LOCKED";` moves the terminating semicolon back onto `| "BAD_REQUEST"`.
-
-**Also check the bundle MANIFEST, not just the hashes.** Guarded functions must
-report `source/index.ts` and `_shared/guards.ts` (plus `_shared/sanitize.ts` for
-`search`, `source/domain.ts` for `sms-automation-run`, and `_shared/secrets.ts`
-for each of the four scheduled handlers). Test files must not deploy.
-The `user_fn_<uuid>_<version>/…` nesting failure above is invisible to a content hash —
-the file contents stay correct while the paths gain a level per redeploy. Verified clean
-across all 16 on 2026-07-28.
-
-**Redeploy recipe (MCP `deploy_edge_function`):** files
-`[{name:"source/index.ts"},{name:"_shared/guards.ts"}]` with
-`entrypoint_path:"source/index.ts"` — `index.ts` imports `../_shared/guards.ts`, so a
-flat `index.ts` name makes `../` escape the bundle root and the function fails to boot.
-Never echo back the `user_fn_<uuid>_<version>/…` names some deployed functions report:
-they are per-deploy artifacts and re-sending them nests one layer deeper each time.
-**`verify_jwt` must be read from the deployed function and preserved** — the deployed
-value is the truth. `supabase/config.toml` was reconciled to match prod on 2026-07-25
-(it had declared `false` for 8 functions live with `true`, and omitted two entirely,
-which the CLI defaults to `true` — that direction is the dangerous one: it 401s the
-pg_cron caller of `booking-finalize` and the job stops
-silently). Keep the two in lock-step: changing a `verify_jwt` in `config.toml` without
-redeploying that function, or redeploying with a different flag than the file declares,
-re-opens the drift. `ai-respond` and `webhook-facebook` are repository-tracked
-inert tombstones with explicit `config.toml` entries; they deliberately do not
-import the shared guard because they perform no privileged work.
-
-For `sms-automation-run`, include `{name:"source/domain.ts"}` as a third file in the
-MCP deploy recipe because `source/index.ts` imports it. Omitting it prevents isolate boot.
-
-Not every function is client-invoked: the scheduled jobs
-(`vip-lifecycle`, `sms-dispatch`, `sms-automation-run`, `booking-finalize`) have
-**no `invoke` caller** — they are _designed_ to be driven by pg_cron via
-`net.http_post` (see the `supabase/migrations/*schedule*.sql` files) and are gated
-by a per-function **shared secret** (their own `requireSharedSecret` comparing the
-Bearer to `<NAME>_SECRET`), deployed `verify_jwt=false`.
-
-That historical state is superseded. Verified live 2026-08-18: all four jobs now
-exist and are active (`booking-finalize-daily`, `sms-automation-daily`,
-`sms-dispatch-frequent`, `vip-lifecycle-daily`), and each latest run succeeded.
-**Staging had NONE of them until 2026-09-21** — the 2026-09-09 pg_dump/restore
-to the EU project carried no `cron.job` rows, no Vault secrets and no edge
-secrets, so VIP expiry, booking finalization and SMS dispatch had never run
-there. Provisioned that day: three fresh shared secrets set as edge secrets
-(`BOOKING_FINALIZE_SECRET`, `SMS_AUTOMATION_RUN_SECRET`, `SMS_DISPATCH_SECRET`,
-via `supabase secrets set --project-ref laxwtegxpemuuyxluqsi`) plus
-`SITE_URL=https://staging.mybakuriani.ge` and `SMS_DELIVERY_ENABLED=false`;
-the six matching `app.*` Vault entries pointing at the staging function URLs;
-then the bodies of `20260725140000` (rate-limit-gc), `20260801132000` and
-`20260816122000` re-run. Verified: all five jobs active, `booking-finalize` and
-`vip-lifecycle` return 200 with their secret and 401 without. Staging secrets
-are distinct from prod's on purpose. `npm run check:db-contracts` warns when
-any of the five is missing on whichever project it is pointed at.
-The four handlers use `_shared/secrets.ts`, which hashes both Bearer values to a
-fixed 32-byte digest before standard timing-safe comparison. Ordinary string
-equality must not be reintroduced. Current deployed versions are
-`booking-finalize` v15, `sms-automation-run` v18, `sms-dispatch` v16, and
-`vip-lifecycle` v19, all `verify_jwt=false` in lock-step with `config.toml`.
-`sms-automation-run` also needs **`SITE_URL`** — `NEXT_PUBLIC_*` is invisible
-inside Deno, and it refuses to run rather than emit a relative link into an SMS.
-
-`road-condition-refresh` was **retired on 2026-07-25**
-(`20260725160000_retire_road_conditions.sql` dropped `public.road_conditions`,
-unscheduled the `road-condition-30min` cron job, and the function directory +
-`config.toml` stanza were deleted; the deployed function had to be deleted separately in
-the dashboard, since MCP has no `delete_edge_function` — **that step is DONE**, verified
-2026-07-26: `list_edge_functions` returns 18 functions and `road-condition-refresh` is not
-among them, so the retirement is complete on both sides). It had never produced a live
-value — `app.road_condition_url` was never set, so every run posted to a NULL url.
-The landing road badge first replaced that with a keyless FOSSGIS OSRM fetch
-(`routing.openstreetmap.de`), then — 2026-09-05 — switched again to the **Mapbox
-Directions API** (`mapbox/driving-traffic` profile, `MAPBOX_ACCESS_TOKEN`, the same
-key type used by the sibling Lux project) because OSRM's `driving` profile has no
-traffic model at all (`weight_name: "routability"`); Mapbox's traffic profile
-returns both a live `duration` and a historical `duration_typical` on the same
-route, so `src/lib/road-condition/server.ts` derives a real clear/moderate/heavy
-status from the ratio instead of a fixed label. Both providers were called
-**server-side from Node**, so this needs no CSP `connect-src` / `remotePatterns`
-entry (**C6** governs only browser + Next-image-optimizer hosts) — moving the call
-into the browser or adding client polling **would** require one. The Leaflet
-basemaps (property listing maps) are unaffected by this swap and still use OSM/CARTO
-tiles, so the ODbL credit + fix-the-map link in `src/components/layout/Footer.tsx`
-must stay regardless — removing those puts us out of compliance for the map tiles,
-independent of what powers the road badge. Mapbox's own attribution terms
-(docs.mapbox.com/help/dive-deeper/attribution, checked 2026-09-05) require a
-prominent credit even for API-only usage with no rendered Mapbox map — "Directions
-powered by Mapbox" plus a link — which is why `Footer.tsx` carries a dedicated
-Mapbox link alongside the OSM/ODbL one, not folded into it.
-
-**Breaks silently when:** a body field is renamed on one side only → runtime 400 /
-missing field, no compile error.
-
-**2026-09-25:** `payment-create` / `payment-process` are 410 tombstones (sandbox
-retired, **C32**); their directories and `verify_jwt` entries stay so
-`check-contracts` keeps passing. Deploying the tombstones needs approval.
-
-**2026-09-25 (staging only):** `company-subscription` was redeployed to staging
-as v4 with `VALID_TIERS` += `premium_plus` (**C11**, **C31**);
-`scripts/check-contracts.mjs` now compares that array with
-`src/lib/org-tiers.ts:COMPANY_TIERS`. Prod still runs the 3-tier bundle, so the
-prod rollout must redeploy it together with `20260925133000`.
+**Breaks:** Function renamed (invoke string doesn't update); body field renamed (runtime 400); missing CORS origin (browser blocks); missing shared secret (cron 401s silently).
 
 **S2/S3 (2026-09-27, staging):** every pg_cron HTTP job passes an explicit `timeout_milliseconds` (30 s; 60 s for `sms-dispatch-frequent`). `20260927090300` rebuilt the four older commands from their live text, so a new HTTP job must set its own. `check-db-contracts` C4 expects 9 active jobs (adds `keepz-reconcile-10min`, `email-dispatch-5min`, `cron-history-gc`, `pii-retention-daily`) and a missing one now FAILS. `purchase-vip` and `company-subscription` insert `payment_failed` only when `_shared/payment-failure.ts:isPaymentFailure` says the charge really failed (insufficient balance, `vip_tier_conflict`, server or network error), never on 22/23/42/P0/PGRST validation errors. **Breaks:** a schedule added without the C4 list (never checked); an HTTP job without a timeout (every run over 5 s logged as timed out); a `payment_failed` insert on a validation path (a retry loop floods the email queue).
 
@@ -383,28 +50,9 @@ prod rollout must redeploy it together with `20260925133000`.
 
 ## C5 — Storage bucket names
 
-**Invariant:** a storage bucket id is a string literal that must agree across the
-upload code, the bucket-creation migration + its RLS, and the image/CSP allow-list.
-Buckets in use: `property-photos`, `avatars`, `landing-media`, `restaurant-menus`,
-`content-change-media` (private, authenticated user-folder writes, constrained to
-10 MiB JPEG/PNG/WebP by `20260818120000_production_security_hardening.sql`).
+**Invariant:** Bucket id in upload code, migration+RLS, and image/CSP allow-list. Buckets: `property-photos`, `avatars`, `landing-media`, `restaurant-menus`, `content-change-media`.
 
-Participating symbols:
-
-- `src/components/forms/PhotoUploader.tsx:PhotoUploader` — client upload to `property-photos`
-- `supabase/functions/upload-photos/index.ts:serve` — server-side write to `property-photos`
-- `supabase/migrations/20260518120000_landing_media_bucket_and_video_columns.sql:storage` — bucket + policies for `landing-media`; allowed mimes now also include `image/gif` (`20260721170000_landing_media_allow_gif.sql`) — the mime list is mirrored in `src/components/forms/MediaUploader.tsx:ACCEPT_TYPES` and `src/app/api/admin/media/sign-upload/route.ts:IMAGE_TYPES`, all three must agree
-- `src/app/api/admin/media/sign-upload/route.ts:ALLOWED_KINDS` — upload subfolders of `landing-media`: `banner`, `blog`, `ads` (ads = admin B2B ad banners from the moderation page)
-- `supabase/migrations/20260528120000_restaurant_menus_bucket.sql:storage` — `restaurant-menus` bucket
-- `supabase/migrations/20260424120100_avatars_bucket.sql:storage` — `avatars` bucket
-- `next.config.ts:remotePatterns` — `<Image>` host allow-list (Supabase public objects)
-
-**Also check:** `src/middleware.ts` CSP `img-src`/`media-src` must include the object
-host, and RLS on `storage.objects` must scope the new bucket.
-
-**Breaks silently when:** a bucket is renamed in code but not in the
-migration/RLS/remotePatterns → upload 403, or `<Image>` blocked, or CSP violation —
-each surfaces independently at runtime.
+**Breaks:** Bucket renamed in code only (upload 403 or Image blocked); RLS missing on new bucket.
 
 **S2 (2026-09-27, `20260927090200`):** `property-photos` client INSERT only at `<auth.uid()>/<file>` (exactly one folder level). There is no client UPDATE policy: uploads stay `upsert:false` and never move, copy-overwrite or `update()`. DELETE is owner-only; service-role writers bypass RLS. **Breaks:** an uploader writes into a subfolder or a listing-id folder (42501, shown as `uploadFailed`); an upsert/move/update call without a new UPDATE policy pinned to folder AND bucket (UPDATE policies OR across buckets, so a loose one re-opens cross-bucket moves).
 
@@ -416,144 +64,21 @@ each surfaces independently at runtime.
 
 ## C6 — CSP & external origins
 
-**Invariant:** every external host the app talks to (image, API/websocket, media,
-map tiles) must be listed **both** in the CSP directive and, for images, in
-`images.remotePatterns`. There is no build error for a missing host — only a
-runtime block.
+**Invariant:** Every external host in both CSP directive AND `remotePatterns`. No build error—only runtime block.
 
-Participating symbols:
+**Key CSP moved to middleware.** Mapbox GL needs `worker-src 'self' blob:`. Supabase, unsplash, Mapbox, Turnstile, rtsp.me allowed. Supabase hosts come from one list, `src/lib/media-hosts.ts:SUPABASE_MEDIA_HOSTS` (configured project + prod media host), used by middleware `img-src`/`media-src`/`connect-src` (https; `wss://` for the configured project only), `next.config.ts` `remotePatterns` (`/storage/v1/object/public/**`), and `src/lib/banner-creative.ts` (C12) — never `*.supabase.co`. `NEXT_PUBLIC_SUPABASE_URL` must be RUN_AND_BUILD_TIME: middleware inlines it at build, and `next start` re-reads next.config.ts at runtime (unset = prod host only). `images.qualities: [75]` (any other `<Image quality>` → 400) and `imgOptMaxInputPixels` 50 MP (larger sources served unoptimized) bound the optimizer. `check-contracts.mjs` C6 enforces the shared list (and fails on any other `supabase.co` host test under `src/`); `check-http-hardening.mjs` is a manual, localhost-only check. `api.mapbox.com` in `img-src` + `remotePatterns` (`/styles/v1/mapbox/**`) = `BakurianiMap`'s phone preview (`src/lib/maps/staticMapUrl.ts`, Static Images API) loaded by plain `<img>`, never `/_next/image` (token URL restrictions check the browser Referer). Dropping the host silently reverts phones to the placeholder.
 
-- `src/middleware.ts:Content-Security-Policy` — the live CSP: `img-src` / `connect-src` / `media-src` / `font-src` / `frame-src` / `worker-src` directives. **The CSP now ships from the middleware, not `next.config.ts`** (moved when the nonce approach was abandoned); the old `next.config.ts:CSP` / `:securityHeaders` anchors no longer exist
-- `next.config.ts:remotePatterns` — Next image optimizer host allow-list
-
-Current external hosts: the Supabase hosts in `src/lib/media-hosts.ts:SUPABASE_MEDIA_HOSTS` — the
-configured project plus the prod media host `yuwyrmxccrpfjvidwhhg.supabase.co` (staging rows restored
-from prod still point at it), never a `*.supabase.co` wildcard (S1, 2026-09-26: the wildcard let
-`/_next/image` fetch and decode images from ANY Supabase project) (+ `wss://` for the configured
-project only), `images.unsplash.com` in
-`img-src`/`connect-src`/`media-src`; `frame-src` additionally allows
-`https://challenges.cloudflare.com` (Turnstile) and, since 2026-09-05,
-`https://rtsp.me` — the landing page's `StatusCards.tsx` cameras card embeds an
-admin-configured `rtsp.me/embed/<id>/` stream in an `<iframe>` inside `Modal`
-instead of linking out to it (`ItemRow`'s `onView` prop, gated to
-`card.id === "cameras"`). Note the two lists are **not** symmetric: `img-src`
-allows unsplash but `media-src` does **not**, and `remotePatterns` narrows supabase
-to `/storage/v1/object/public/**` while the CSP allows the whole host. Code that
-picks a renderable URL must intersect all of them — see
-`src/lib/banner-creative.ts:renderableImageUrl` (**C12**).
-
-**2026-09-05: Leaflet/CartoDB → Mapbox GL.** The property-listing maps
-(`src/components/maps/BakurianiMap.tsx`, `ExactLocationPicker.tsx`) moved from
-`react-leaflet` + free CartoDB Positron tiles to Mapbox GL JS
-(`NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, a public "pk." token safe for client exposure
-— separate from the server-only `MAPBOX_ACCESS_TOKEN` used by the road-badge
-Directions API call above). `*.basemaps.cartocdn.com` was **removed** from
-`img-src` (dead — nothing renders Leaflet tiles anymore); `connect-src` gained
-`https://api.mapbox.com https://events.mapbox.com` (Mapbox GL's own tile/style/
-telemetry fetches — Mapbox is not fetched via `<img>`, it renders vector tiles to
-canvas); and a **new `worker-src 'self' blob:'` directive** was added — Mapbox GL
-spins up its tile/render worker from a `blob:` URL, and with no `worker-src` at
-all a browser falls back to `script-src`, which has no `blob:`, so the map would
-silently fail to render without this. Mapbox's ToS requires the on-map
-attribution control to stay enabled for any rendered map (checked/enforced in
-both components — do not pass `attributionControl: false` or hide
-`.mapboxgl-ctrl-attrib`/`.mapboxgl-ctrl-logo` via CSS).
-
-**2026-09-27: mapbox-gl loads on demand.** `BakurianiMap.tsx` no longer imports
-mapbox-gl or its stylesheet; the interactive map (`MapboxMapView`, the
-`light-v11` style, the default attribution control) lives in
-`src/components/maps/MapboxCanvas.tsx`, loaded through
-`src/components/maps/loadMapboxCanvas.ts:loadMapboxCanvas`, which retries a
-failed chunk load once. Wider than 767px, `BakurianiMap.tsx:canvasReady` starts
-that load as soon as the component's module loads, and every `dynamic()` import
-of BakurianiMap waits for it with
-`import("@/components/maps/BakurianiMap").then((mod) => mod.canvasReady.then(() => mod))`,
-as when both shared a chunk, so a second failure there rejects the import and
-reaches the error boundary exactly as before the split. The `import()` must stay
-inline in the `dynamic()` call: that is what lets Next drop the `ssr: false`
-import from the server build (a named loader function kept mapbox-gl, ~1.8 MB, in
-`.next/server`). Phones get the component and its static preview first, fetch
-mapbox-gl after `load` + idle or on pointerdown of the preview, and show the
-map's "unavailable" state if it cannot load. The phone preview's
-`src/lib/maps/staticMapUrl.ts:STYLE` must stay equal to
-`MapboxCanvas.tsx:MAPBOX_STYLE`. A new BakurianiMap call site without the
-`canvasReady` wait renders a placeholder on desktop until mapbox-gl arrives.
-
-**Also check:** put the host in the directive it's actually used from — `img-src`
-for images, `connect-src` for fetch/websocket, `media-src` for video/audio,
-`font-src` for web fonts, `frame-src` for embedded iframes — and (images only)
-mirror it in `remotePatterns`. A new camera/stream provider added to the
-`status_cards` admin JSON needs its host added to `frame-src` too, or the embed
-silently renders blank (no CSP violation is visible without opening devtools).
-
-**Breaks silently when:** you add a new image CDN, analytics endpoint, or tile
-provider and update only one of {CSP, remotePatterns} → images 404 through the
-optimizer or the fetch is CSP-blocked, visible only in the browser console.
-
-**S1 (2026-09-26):** Supabase hosts come from one list, `src/lib/media-hosts.ts:SUPABASE_MEDIA_HOSTS` (configured project + prod media host), used by middleware `img-src`/`media-src`/`connect-src` (https; `wss://` for the configured project only), `next.config.ts` `remotePatterns` (`/storage/v1/object/public/**`), and `src/lib/banner-creative.ts` (C12) — never `*.supabase.co`. `NEXT_PUBLIC_SUPABASE_URL` must be RUN_AND_BUILD_TIME: middleware inlines it at build, and `next start` re-reads next.config.ts at runtime (unset = prod host only). `images.qualities: [75]` (any other `<Image quality>` → 400) and `imgOptMaxInputPixels` 50 MP (larger sources served unoptimized) bound the optimizer. `check-contracts.mjs` C6 enforces the shared list (and fails on any other `supabase.co` host test under `src/`); `check-http-hardening.mjs` is a manual, localhost-only check. **Breaks:** a hard-coded or wildcard Supabase host; a new Supabase origin (custom domain, `<ref>.storage.supabase.co`) not added to media-hosts.ts; the URL env var scoped BUILD_TIME only (the optimizer 400s every photo).
-
-**Home map preview (2026-09-26):** `api.mapbox.com` is also in `img-src` + `remotePatterns` (`/styles/v1/mapbox/**`) for `BakurianiMap`'s phone preview (`src/lib/maps/staticMapUrl.ts`, Static Images API), loaded by a plain `<img>`, never `/_next/image` (the token's URL restriction checks the browser Referer). Dropping the host silently reverts phones to the placeholder.
+**Breaks:** Add CDN without CSP (image 404, fetch blocked); add to CSP only (Image blocked); a hard-coded or wildcard Supabase host; a new Supabase origin (custom domain, `<ref>.storage.supabase.co`) not added to media-hosts.ts; the URL env var scoped BUILD_TIME only (the optimizer 400s every photo).
 
 ---
 
 ## C7 — Realtime publication coverage
 
-**Invariant:** a client `postgres_changes` subscription (`supabase.channel(...)`)
-only receives events if its table is a member of the `supabase_realtime`
-publication. Dashboard subscriptions exist for bookings, notifications,
-smart-match, messages, etc.
+**Invariant:** Client `postgres_changes` subs only receive if table in `supabase_realtime` publication. RLS must permit SELECT on subscribed table.
 
-Participating symbols:
+**Key:** Filtered subscriptions cannot see DELETEs (only PK in old_record). Explicit refetch required after delete/cancel.
 
-- `supabase/migrations/20260610120000_realtime_publication_coverage.sql:supabase_realtime` — `ALTER PUBLICATION … ADD TABLE` (guarded, additive)
-- `src/lib/hooks/useRealtime.ts` — shared subscription hook
-- `src/lib/hooks/useNotifications.ts:useNotifications` — a representative consumer
-
-**Also check:** RLS on the subscribed table must permit `SELECT` for the
-subscribing user, or rows are filtered out even when the publication is correct.
-
-**A filtered subscription cannot see DELETEs.** Every table here has
-`REPLICA IDENTITY DEFAULT` (verified live: `pg_class.relreplident = 'd'` for
-`calendar_blocks`, `price_overrides`, `manual_bookings`), so a DELETE's WAL
-`old_record` carries **only the primary key**. A subscription filtered on any other
-column — e.g. `filter: property_id=eq.<id>` in
-`src/app/[locale]/dashboard/renter/calendar/page.tsx` — therefore matches INSERT and
-UPDATE but **never DELETE**. This is why the renter calendar's two DELETE-based
-actions (bulk "whole month available" and the Unlock button) refreshed nothing while
-the UPSERT-based ones eventually did. **A write path must never rely on realtime as
-its own refresh mechanism** — refetch explicitly after the write and treat realtime
-purely as cross-client convergence (that page now `await fetchBlocks()`es; the price
-handlers always did `await fetchOverrides()`).
-
-That page reads `calendar_blocks` **twice**, and a write must refresh both:
-`fetchBlocks` (visible month only, feeds the grid) and `fetchOccupancy` (a fixed
-−3/+24-month window via `src/lib/utils/availability.ts:occupancyWindow`, deliberately
-month-independent). The second one feeds the `occupied` map that greys out and
-disables booked/blocked nights in the check-in/check-out pickers of
-`AddBookingModal`/`GuestFormModal`. Refresh only the first and the grid updates while
-the pickers keep offering a night that was just taken or freed.
-
-**`REPLICA IDENTITY FULL` is NOT an escape hatch here** — do not reach for it. Realtime
-does not apply RLS to DELETEs (Postgres cannot check a policy against an already-deleted
-row), so to avoid leaking rows the subscriber may not read, Realtime reduces a DELETE's
-`old_record` to the **primary key alone on any RLS-enabled table, even under
-`REPLICA IDENTITY FULL`**. Every table in this contract has RLS enabled, so setting FULL
-would add WAL volume and still never deliver a `property_id`-filtered DELETE. Explicit
-refetch is the only fix. (Dropping the filter and subscribing unfiltered would deliver
-DELETEs — to every subscriber of the table, which is the leak the reduction prevents.)
-
-**This has already happened at scale and gone unnoticed for ten weeks.** The
-2026-07-12 publication trim removed `balances`, `transactions`, `properties`
-and `manual_bookings` but left nine subscriptions on them in place; the
-wallet pages depended on one to refresh the balance after a purchase.
-Removed 2026-09-21; `scripts/check-db-contracts.mjs` now fails on any
-subscription to an unpublished table (**C29**).
-
-**Breaks silently when:** a new dashboard subscribes to a table not yet in
-`supabase_realtime` → the channel connects but **no events ever arrive**; nothing
-errors. Or a mutation relies on its own realtime event to re-render — a DELETE under
-a non-PK filter never arrives (above), so the UI silently keeps the pre-write state
-and the action reads as a no-op even though the write committed.
+**Breaks:** New table sub without publication (connects, receives nothing); mutation relies on realtime for refresh (DELETE never arrives).
 
 **Notifications total (2026-10-01):** the header bell's all-scope total is exact only through INSERT +1, a debounced `user_id`-only head-count after any UPDATE, a head-count on mount and a recount after the sidebar-entry bulk read. DELETEs are unobserved, so any future notification-deleting path must recount explicitly.
 
@@ -561,667 +86,81 @@ and the action reads as a no-op even though the write committed.
 
 ## C8 — Protected-route gating (roles)
 
-**Invariant:** the `/create/*` and `/dashboard/*` route trees are auth-gated in the
-middleware; server-side admin gating uses the auth helpers; the DB enforces the
-same via RLS keyed on the `user_role` enum (see C3). A new protected surface must
-be added on the side(s) that guard it.
+**Invariant:** `/create/*` and `/dashboard/*` auth-gated in middleware. Server-side admin via `requireAdmin`. DB enforces RLS. Both gates stay in sync.
 
-Participating symbols:
+**Key:** Transient auth predicate in `withTimeout.ts` (5s race); both middleware + `getCurrentUser` use same predicate.
 
-- `src/middleware.ts:intlMiddleware` — `isProtected` = path starts with `/create` or `/dashboard`
-- `src/lib/supabase/middleware.ts:updateSession` — session refresh + redirect to login
-- `src/lib/auth/require-admin.ts:requireAdmin` — server-side admin gate for API routes / pages
-- `src/lib/auth/is-admin-viewer.ts:isAdminViewer` — read-only admin check
-- `src/lib/auth/current-user.ts:getCurrentUser` — normally uses remote
-  `getUser()` verification. Its retryable-network fallback must call
-  `getVerifiedSessionUser`; never return `getSession().user` directly.
-  Since 2026-08-29, `getUser()` is additionally raced against a 5s
-  `GET_USER_TIMEOUT_MS` (via `src/lib/with-timeout.ts:withTimeout`) that falls
-  through to the same `getVerifiedSessionUser` path on timeout, not only on a
-  confirmed `isAuthRetryableFetchError`. Reason: `timeoutFetch`'s own floor for
-  any `/auth/v1/*` call is 25s (kept generous there so the _login page's_
-  token calls aren't aborted mid-flight), which is longer than a single
-  request's real execution budget (~10s, see `SERVER_FETCH_TIMEOUT_MS` in
-  `supabase/server.ts`). On a slow-but-not-dead mobile connection this let the
-  platform kill the whole `dashboard/layout.tsx` render before `getUser()` ever
-  got to fall back on its own — the client's in-flight navigation was left
-  stuck on the loading skeleton indefinitely, reproduced and fixed this session
-  (deterministic repro: temporarily race the real `getUser()` call against an
-  artificial ~20s delay and confirm the render still resolves in ~5s). Do not
-  raise `GET_USER_TIMEOUT_MS` back toward 25s without also raising the real
-  per-request execution budget, or this regresses.
-- `src/lib/auth/verified-session-user.ts:getVerifiedSessionUser` — verifies
-  `getClaims()`, matches the signed `sub` to the cookie session, then returns
-  only signed identity fields (not attacker-editable embedded user metadata)
-- `src/lib/auth/require-user.ts:requireUser` — since 2026-09-14, the
-  `requireAdmin`-shaped guard for plain authenticated (non-admin) Next.js API
-  routes: `const guard = await requireUser(); if (!guard.ok) return
-guard.response;`, backed by `getCurrentUser` (so it inherits the timeout
-  race above) instead of a raw `auth.getUser()` call. Added because an
-  architecture audit found ~15 of ~90 route handlers under `src/app/api`
-  still called `auth.getUser()` directly, reintroducing the pre-2026-08-29
-  hang class on routes including price-drop alerts and SMS automation/history.
-  Returns the full `getCurrentUser()` result (not a trimmed shape), since
-  call sites already depend on `user.id` in place. **Naming collision, not a
-  bug:** `supabase/functions/_shared/guards.ts` (next bullet) also exports a
-  `requireUser` — same name, unrelated contract (edge Bearer-token auth vs.
-  Next.js cookie auth), never imported from the same file. Grep results will
-  show both; check the import path before assuming which one a call site uses.
-- `supabase/functions/_shared/guards.ts:requireUser` — edge-side Bearer auth
-- **Admin MFA (AAL2) was removed on 2026-09-22 — at BOTH layers, deliberately.**
-  Between 2026-08-15 and that date, admin access required a TOTP second factor:
-  `requireAdmin` / `isAdminViewer` / `dashboard/admin/layout.tsx` each called a
-  shared `isAal2Verified` helper (`src/lib/auth/mfa-assurance.ts`), an
-  enrollment page lived at `/auth/mfa` (namespace `AuthMfa`), and
-  `20260815122000_require_admin_aal2_in_database_guard.sql` additionally
-  required `auth.jwt() ->> 'aal' = 'aal2'` inside `public.is_admin_user()` so a
-  direct PostgREST/Storage call could not bypass the app gate. The product
-  decision was to drop the requirement; `20260922120000_remove_admin_mfa_requirement.sql`
-  restates `is_admin_user()` as the plain `role = 'admin'` predicate and the
-  helper, page, namespace and unit test were deleted. **The two halves must
-  move together** — the app gates and `is_admin_user()` are the same policy
-  expressed twice. Removing only the app gates lets an admin reach
-  `/dashboard/admin` while every admin RLS policy and every protected-column
-  trigger from `20260815123000` / `20260815124000` (which all route through
-  `is_admin_user()`, and were therefore NOT touched by the removal) keeps
-  denying them — an admin cabinet that renders empty with no error. Re-adding
-  MFA later means restoring both sides in the same change, migration first.
-  Admins who had already enrolled a TOTP factor keep it in Supabase; nothing
-  reads it, and Supabase never forces AAL2 at sign-in, so they simply log in at
-  aal1.
-
-- `src/lib/with-timeout.ts:isTransientAuthFailure` — since 2026-09-21, the ONE
-  "couldn't tell whether this session is valid" predicate, shared by the middleware
-  gate and `getCurrentUser`. It lives here, not in `src/lib/supabase/middleware.ts`,
-  so the RSC path never imports a `next/server` module. Before this, the middleware
-  used the widened predicate (retryable + any 5xx + the `refresh_token_not_found` /
-  `refresh_token_already_used` rotation-loser 400s) while `current-user.ts` used only
-  the narrow `isAuthRetryableFetchError` — so the middleware deliberately let a
-  transient failure through and `create/layout.tsx` then booted the very same request
-  to `/auth/login`, defeating the stated purpose of its own comment. Keep both gates
-  on this one predicate.
-- `src/lib/supabase/auth-cookies.ts:hasSupabaseAuthCookie` — the single auth-cookie
-  matcher (prefix `sb-`, contains `-auth-token`, tolerating `.0`/`.1` chunks), lifted
-  out of `src/middleware.ts`, which now imports it. Used both by the `?preview=1`
-  rewrite and by `updateSession`.
-- `src/lib/supabase/auth-cookies.ts:isAuthJarParseable` / `:clearAuthCookies` /
-  `:describeAuthCookies` — `updateSession` no longer treats "cookies produced no
-  claims" as identical to "anonymous visitor". When auth cookies WERE sent and still
-  yield nothing usable, it expires every chunk on the redirect, so a browser cannot
-  keep re-sending a dead jar forever while its in-memory session keeps the UI looking
-  signed in. A damaged jar fails TWO ways and both are handled: decodable-but-spliced
-  bytes surface as `{data:null, error:null}`, while bytes that are not valid UTF-8
-  make `@supabase/ssr` THROW `Invalid UTF-8 sequence` out of `getItem` — which
-  escaped into the catch-all "never boot on a throw" branch and left `/create`
-  returning 200 rendering its error boundary plus an unhandled rejection on EVERY
-  navigation. `isAuthJarParseable` is what lets the catch block tell that apart from
-  an unrelated throw (e.g. a lock-acquire timeout) without matching error strings.
-
-**Do NOT "simplify" the browser client into a hand-rolled singleton.**
-`@supabase/ssr`'s `createBrowserClient` already memoizes (`cachedBrowserClient`,
-returned whenever `isBrowser()`), so `createClient()` per render does NOT create
-multiple `GoTrueClient`s — verified by A/B, since auth-js unconditionally warns
-"Multiple GoTrueClient instances detected" and a pre-change production build emitted
-none. A corollary worth knowing: `createUploadClient()` therefore returns the SAME
-instance as `createClient()` in the browser, so its 60s upload budget has never
-applied, and `auth: { autoRefreshToken: false }` passed to it is inert because
-`autoRefreshToken: isBrowser()` is spread after `...options.auth`.
-
-**Also check:** a protected page still needs RLS on the tables it reads —
-middleware gates the _route_, RLS gates the _data_. A gated page whose tables lack
-RLS still leaks via a direct API/query call that never hits the middleware.
-
-**Breaks silently when:** a new top-level protected segment (e.g. `/studio`) is
-added but the middleware `isProtected` prefixes aren't updated → the page renders
-for anonymous users; only RLS (if present) stops data access. Or `getCurrentUser`'s
-`GET_USER_TIMEOUT_MS` race is removed/lengthened past the real per-request
-execution budget → dashboards intermittently hang on the loading skeleton on slow
-connections again, worst on mobile, with no error and no clean recovery. Or a
-the two gates drift back onto different transient-auth
-predicates → the middleware waves a request through and the layout behind it
-redirects it anyway, so the user is bounced to the login card while visibly signed
-in, with no error anywhere. Or the corrupt-jar branch is collapsed back into the
-anonymous branch → a browser holding an unusable session cookie bounces off every
-protected route forever, because nothing in the normal flow ever rewrites those
-cookies. Or admin MFA is reinstated on
-only one of its two layers → either the app gate rejects an admin the database
-would have allowed, or (the silent direction) the app lets them in while
-`is_admin_user()` denies every admin read and write, so the cabinet renders
-empty with no error anywhere.
+**Breaks:** Forget protected-route prefix (renders for anon); gates drift (middleware allows, layout redirects); `GET_USER_TIMEOUT_MS` lengthened (dashboards hang).
 
 ---
 
 ## C9 — Favorites dual-reference pattern
 
-**Invariant:** `public.favorites` rows reference **either** a property **or** a
-service — `property_id` and `service_id` are both nullable FKs, with exactly one
-non-null enforced by the `favorites_exactly_one_ref` check constraint. Any code
-that reads or writes `favorites` must handle both columns; there is no unified
-`listings` table (same "properties + services, no listings table" model
-documented for other tables — see the trigger-branching pattern in **C8**'s
-neighbor migrations).
+**Invariant:** `public.favorites` references **either** property OR service (exactly one non-null via CHECK). No `listings` table.
 
-Participating symbols:
-
-- `supabase/migrations/20260424120000_favorites.sql:favorites_exactly_one_ref` — the check constraint
-- `src/lib/hooks/useFavorite.ts:useFavorite` — takes `{ propertyId }` or `{ serviceId }`, branches the column name once and reuses it for select/insert/delete. Since 2026-09-27 it gets the signed-in user from `src/lib/auth/session-store.ts:subscribeAuthUser` (one shared `getSession()` + `onAuthStateChange()` for every card, instead of one of each per card, each behind GoTrue's Web Lock). Each card still starts with no user and receives it asynchronously, so the mount-time `clearFavorites()` path is unchanged
-- `src/lib/favorites/store.ts:ensureFavoritesLoaded` — shared per-user store; selects both `property_id, service_id` and merges them into one id `Set` (properties and services generate independent UUIDs, so no collision risk)
-- `src/app/[locale]/dashboard/guest/favorites/page.tsx` — reference consumer that already splits results into property vs. service favorites correctly
-- `supabase/migrations/20260614000000_owner_dashboard_stats.sql` — DB-side reference for the same branching pattern (counts favorites via `f.property_id in (...) or f.service_id in (...)`)
-
-**Also check:** the seller-scoped dashboard-stats RPC is intentionally
-properties-only (it's scoped to property sellers, not service owners) — that is
-not an instance of this bug, don't "fix" it to branch over services.
-
-**Breaks silently when:** a new favorites read/write path is added that only
-selects/writes `property_id` — exactly the bug this contract exists to prevent.
-Any new service-favorite call site must copy `useFavorite`'s branching, not
-`PropertyCard`'s pre-fix, property-only pattern.
+**Breaks:** New path reads only `property_id` (service favs disappear); branch logic removed.
 
 ---
 
 ## C10 — Discount badge duration & expiry
 
-**Invariant:** `properties.discount_percent` and `properties.discount_expires_at`
-are written **only** by `purchase_package`'s `discount` tier branch (mirroring how
-`is_vip`/`vip_expires_at` work), guarded against direct writes by
-`prevent_listing_protected_field_change`, and cleared on expiry by `vip-lifecycle`
-— the same three-sided pattern as VIP itself. The percentage itself is
-**buyer-chosen at purchase time** (1-90, validated server-side in the RPC) via
-`p_discount_percent`, passed from `VipPropertyPickerModal`'s percent stepper
-through `purchase-vip`'s edge function to the RPC — it is no longer a hardcoded
-`10`. Since `20260721110000_purchase_package_service_targets.sql`, the RPC takes
-`p_service_id` too: a VIP-category package must target **exactly one** of an owned
-property or an owned service, and the discount/VIP/super-VIP branches write the
-same columns on whichever table was targeted (`discount_percent`/
-`discount_expires_at` exist on both tables). `vip-lifecycle`'s
-`clearExpiredDiscounts` sweep likewise iterates both listing tables, so
-service-side discounts expire the same way property ones do. The discount is no longer
-purely cosmetic: `create_booking` (`20260719130000_create_booking_apply_discount.sql`,
-superseding `20260628120000_create_booking_inclusive_days.sql`'s pricing) now reads
-`discount_percent`/`discount_expires_at` server-side to reduce the booking's
-`total_price`, and `PropertyCard`/`SalePropertyCard`/`InvestmentCard`/`ServiceCard`/
-`BookingSidebar`/`SaleDetailClient`/`ServiceDetailClient`/`EntertainmentDetailClient`
-apply the same percentage to displayed prices client-side via
-the new `isDiscountActive`/`applyDiscount` helpers in `src/lib/utils/pricing.ts`.
+**Invariant:** `discount_percent` + `discount_expires_at` written **only** by `purchase_package` discount tier (guarded by trigger), cleared by cron. Percentage buyer-chosen [1,90].
 
-**Every public card that can show a discount must gate on `isDiscountActive`, not
-`discount_percent > 0`.** Two of them did not until 2026-07-26 and both failed the
-same way: `InvestmentCard` (the ONLY card `/sales` renders) had no discount props at
-all, so 4 live discounted sale listings showed full price with no badge; `ServiceCard`
-had `discountPercent` but no `discountExpiresAt`, so a lapsed service discount would
-badge forever while its price stayed undiscounted. A discount surface therefore needs
-**both** halves — the expiry-aware gate AND `applyDiscount` on the rendered price —
-plus the detail page behind the card, or the card and the detail page disagree.
+**Key:** Active = `discount_percent > 0 AND discount_expires_at > now()`. Every card/detail uses `isDiscountActive` + `applyDiscount` or shows wrong price/badge.
 
-Participating symbols:
-
-- `supabase/migrations/20260721110000_purchase_package_service_targets.sql:purchase_package` — CURRENT body: 6-arg signature with `p_service_id`; drops both prior overloads first (`CREATE OR REPLACE` only replaces an identical signature — adding a param creates a second overload, not a replacement; same trap the earlier `20260719095704_discount_percent_choice_drop_old_overload.sql` existed for). `discount` tier branch validates `p_discount_percent` is `[1,90]` and sets `discount_percent`/`discount_expires_at` on the targeted table (supersedes the property-only version in `20260719095438_discount_percent_choice.sql`). **Security fix, `supabase/migrations/20260905121000_purchase_package_subscription_scope_default_deny.sql` (2026-09-05):** the `category='subscription'` branch's "legacy fixed-date package" `ELSE` (any `subscription_scope` other than `'organization'` — rejected — or `'renter'` — routed to its own reviewed activation) used to insert a `user_subscriptions` row with no `status` given, which defaults to `'active'`. This let any authenticated user buy an _unrelated_ enabled subscription-category package (live-verified: `pricing_packages` code `developer-pro`, `meta={}`) and get an instantly-active membership row indistinguishable from an admin-approved one via `purchase_renter_membership` (see `20260819121000_seasonal_renter_membership_approval.sql`), fully bypassing that admin-review workflow. The `ELSE` now unconditionally `RAISE EXCEPTION`s — only an explicit `subscription_scope='renter'` can activate through this RPC. `purchase_package` is `service_role`-only (`EXECUTE` revoked from `anon`/`authenticated`) and its sole caller is `supabase/functions/purchase-vip/index.ts`, which already routes `subscription_scope='renter'` packages to `purchase_renter_membership` instead — so this RPC's own `'renter'` branch is presently unreachable dead code, kept rather than removed since deleting it wasn't part of the fix. The `developer-pro` (and disabled `seller-basic`) `pricing_packages` rows are very likely leftover/test data with no real `subscription_scope` — flagged to the project owner, not deleted here (a data decision outside this fix's scope)
-- `supabase/migrations/20260719120000_fix_discount_badge_duration.sql:prevent_listing_protected_field_change` — guards `discount_expires_at` (alongside `discount_percent`) as writable only via the RPC/service role (current trigger BODY now lives in `20260719140000_org_auto_link_sale_listings.sql`, which re-declares it verbatim + an owner org-attach exception — see **C11**; discount-field guarding is unchanged)
-- `supabase/functions/purchase-vip/index.ts:serve` — validates `discount_percent` from the request body ([1,90] or null) and forwards it as `p_discount_percent`. **Since 2026-09-25 a request without `package_id` is rejected (400)**: the legacy `purchase_type` fallback to the `purchase_vip` RPC was removed because it charged hardcoded prices (ignoring `pricing_packages.amount_gel`/`is_enabled`) and its `discount_badge` branch set `discount_percent = 10` without `discount_expires_at`, i.e. a permanent 1 ₾ badge (`isDiscountActive` treats NULL expiry as active and `clearExpiredDiscounts` skips it). All 8 clients already sent `package_id`. The `purchase_vip` RPC itself is kept (service_role-only, used directly by `e2e/dashboards/renter.spec.ts`) — do not re-wire it to a client path without fixing that branch
-- `src/components/renter/VipPropertyPickerModal.tsx:VipPropertyPickerModal` — renders the percent stepper (only when `tier === "discount"`) and passes the chosen value through `onConfirm`; the percent can also be derived from a typed target price (second, synced "ახალი ფასი" field — shown only when the caller supplies `PickerProperty.price`, i.e. `is_for_sale ? sale_price : price_per_night`; rounds to nearest whole percent and snaps the price on blur). Client-side sugar only — the wire contract still carries just the integer percent
-- `src/components/balance/PropertyBalanceClient.tsx:handleConfirmPurchase` — forwards `discountPercent` into the `purchase-vip` invoke body
-- `supabase/functions/vip-lifecycle/index.ts:clearExpiredDiscounts` — per-table sweep over `properties` AND `services`: zeroes `discount_percent` + nulls `discount_expires_at` where `discount_expires_at < now`
-- `src/components/cards/PropertyCard.tsx:discountPercent` — badge render prop, `> 0` shows the discount badge
-- `src/components/cards/InvestmentCard.tsx:discountActive` — the `/sales` grid card. Renders the badge as an inline pill at `top-14 left-4` (same geometry as its bespoke "იყიდება" pill, deliberately NOT `ListingBadge`, which this file uses none of), the struck original **nested inside** the existing `salePrice != null` guard, and derives `pricePerSqm` from the DISCOUNTED price. Prices render in `₾` via `formatPrice` — the old local `formatUsd` prefixed `$` to a raw GEL `sale_price`, contradicting `/sales/all` and `/sales/[id]`
-- `src/components/cards/ServiceCard.tsx:discountActive` — service card. Gates the badge in the `overlay` and `photo` variants; the `photo` variant also renders the struck original **on the same baseline row** as the discounted price, because that card is `md:h-[420px] overflow-hidden` and a second line clips its button row. The `avatar` variant (used by `/services`) renders no price and no badge by design; `overlay` (used by `/food`) renders no price. The `isTransport` branch renders no price at all, so there is nothing to discount there. The NEW-badge condition is deliberately left on `discountPercent === 0`: flipping it to `!discountActive` would make an expired-discount listing newly claim to be NEW
-- `src/app/[locale]/services/[id]/ServiceDetailClient.tsx:displayPrice` / `src/app/[locale]/entertainment/[id]/EntertainmentDetailClient.tsx:displayPrice` — the detail pages behind the two card surfaces that show a discounted price; both the sidebar and the `MobileStickyCTA` use the discounted value
-- `src/app/[locale]/transport/[id]/TransportDetailClient.tsx:discounted` / `src/app/[locale]/food/[id]/FoodDetailClient.tsx:avgCheckLabel` — the two detail pages whose cards render a discount **badge but no price** (ServiceCard's `isTransport` branch and its `overlay` variant), so an active discount was advertised on the card and then contradicted by full prices on the page. Transport has TWO mutually exclusive price blocks — the `route_pricing` table and the legacy single-price card — and a listing renders only one, so **both** must apply the discount or the contradiction survives for whichever branch that listing takes. Food discounts only the `service.price` fallback: `avg_check` is typical spend per guest, not a price being discounted, and marking it down would be a lie
-- `src/lib/constants/listing-options.ts:RoutePricing` — the supported `services.route_pricing` row contract is exactly `{ route, price, unit }`. The retired free-text `subtitle` may still exist in historical JSONB rows, but `parseRoutePricing` deliberately ignores unknown fields, the transport create/edit form never writes it, and the public detail page never renders it. Do not add the author-controlled subtitle back without a product decision and all three surfaces changing together
-- `src/app/[locale]/apartments/ApartmentsPageClient.tsx` — "discounted only" filter reads `discount_percent`
-- `src/app/[locale]/sales/SalesPageClient.tsx:discountOnly` — the same "discounted only" toggle on `/sales`. Two traps, both live-reviewed: the `paginatedProperties` memo must depend on `filteredProperties` (keeping `[properties, …]` makes the toggle a silent no-op, since the prop keeps its identity and lint only warns), and the toggle handler must `setCurrentPage(1)` itself — the existing clamp effect converges only AFTER a commit, so from page 3 it paints the empty state for a frame
-- `supabase/migrations/20260719130000_create_booking_apply_discount.sql:create_booking` — reduces the computed `total_price` by the property's active `discount_percent` before charging/inserting the booking, replacing the undiscounted pricing in `20260628120000_create_booking_inclusive_days.sql`. `supabase/migrations/20260905120000_create_booking_max_range_cap.sql` (2026-09-05, security fix) added an upper bound (`v_days > 365` raises `22023`) alongside the pre-existing `min_booking_days` lower bound — previously an unbounded `(check_out - check_in)` let any authenticated caller mark decades of `calendar_blocks` rows `'booked'` for an arbitrary property with no payment and no owner action. **Stale as of 2026-09-14:** the RPC itself is unchanged, but `supabase/functions/booking-create/index.ts` — its only caller, and itself never called by any code under `src/` (the live product uses `manual_bookings` exclusively — see `no-online-booking-flow` memory note) — was retired to a static 410 tombstone that day by an architecture audit (same pattern as `admin-stats`/`verify-listing`/`smart-match`/etc.), specifically because this RPC's own `20260905120000` hardening comment warned an authenticated caller could still lock an arbitrary property's calendar for decades. `create_booking` is therefore no longer reachable over HTTP via this edge function; whether it remains callable directly over PostgREST via its Postgres grants is a separate, unverified question (see `booking-manage` sibling note below)
-- `src/lib/utils/pricing.ts:isDiscountActive` — fail-open expiry check (`discount_expires_at IS NULL` counts as active, matching how `purchase_package` writes the columns; strict `>` mirrors `create_booking`'s own check) shared by every price-display and pricing call site
-- `src/lib/utils/pricing.ts:applyDiscount` — applies the percentage to a price (no-op when `isDiscountActive` is false); used by `PropertyCard`, `SalePropertyCard`, `InvestmentCard`, `ServiceCard`, `BookingSidebar`, `SaleDetailClient`, `ServiceDetailClient`, `EntertainmentDetailClient`, `TransportDetailClient` and `FoodDetailClient` so displayed prices match what `create_booking` actually charges. `SaleDetailClient`'s `MobileStickyCTA` was the last raw-price holdout on a page whose sidebar was already discounted — the two disagreed on the same screen
-
-**Also check:** `src/lib/types/database.ts` must carry `discount_expires_at` after
-regen (**C3**); any new discount read/write path on `properties` must go through
-the RPC, not a direct column update, or the trigger rejects it for non-admin
-sessions.
-
-**`discount_percent` is not a general-purpose flag — never overload it.** Two surfaces
-read it to mean something unrelated, and one of them was load-bearing:
-`ServicesPageClient` derived `availabilityStatus` from `discount_percent > 0`, and
-`ServiceCard`'s avatar variant turns `"busy"` into `phone={null}` on its
-`WhatsAppButton` — so buying a discount **removed the only contact affordance** on
-`/services` (and never expired, since that comparison ignored
-`discount_expires_at`). Fixed 2026-07-26 by pinning `availabilityStatus="active"`;
-nothing tracks real service availability yet, so re-deriving it from any listing
-column is the bug, not the fix. The employment page's `deriveBadge` still maps
-`discount_percent > 0` to an `"urgent"` badge — cosmetic, reported, unfixed.
-
-**Breaks silently when:** a caller updates `discount_percent`/`discount_expires_at`
-directly instead of via `purchase_package` (trigger blocks it for non-admin/non-
-service-role, but silently no-ops under `service_role`); or a caller passes BOTH
-`p_property_id` and `p_service_id` (or neither) for a VIP-category package — the
-RPC rejects it with 22023, so an invoke body that sends both fields breaks at
-runtime only; or a
-future price-display or booking-price code path reads `discount_percent`/
-`discount_expires_at` directly instead of calling `isDiscountActive`/
-`applyDiscount` — it would silently regress back to showing (or charging) the
-undiscounted price, since nothing else enforces that the percentage is actually
-applied; or the `category='subscription'` branch's `ELSE` is changed back to
-inserting a `user_subscriptions` row unconditionally instead of raising — that
-reopens the admin-approval bypass the 2026-09-05 fix closed; or a new
-`pricing_packages` row is added with `category='subscription'` and a
-`subscription_scope` that isn't `'renter'` or `'organization'` — it will now be
-permanently unpurchasable (fails closed with `22023`), which is correct, but
-means every future non-renter, non-organization subscription package needs its
-own explicitly-handled branch rather than falling through; or `create_booking`'s
-`v_days > 365` cap is loosened/removed — reopens the unbounded-range
-`calendar_blocks` lockout (2026-09-05 fix) on a still-deployed, still
-JWT-reachable edge function that no `src/` code calls today.
-
-**2026-09-25 (staging, 2026 price list — see C31):** the `vip/discount` package
-is 2.50 ₾ per 24 h (`20260925130000`), and `20260925131000` zeroed every legacy
-_permanent_ discount (`discount_percent > 0 AND discount_expires_at IS NULL`,
-left by the retired `purchase_vip` path) on both listing tables.
-`isDiscountActive` keeps its fail-open NULL rule — nothing writes a NULL expiry
-any more. Separately, `public_properties` / `public_services` now mask
-`is_vip` / `is_super_vip` as false once `vip_expires_at` has passed
-(`20260925132000`), so an expired VIP stops being promoted within the page
-cache window instead of waiting for the daily `vip-lifecycle` sweep.
+**Breaks:** Update columns directly (trigger blocks non-admin); price checks only percent (expired stay highlighted).
 
 ---
 
 ## C11 — Company (org) listing linkage & auto-link
 
-**Invariant:** `properties.organization_id` is the sole link between a listing and
-a company, and every write path to it is gated by TWO triggers on `properties`:
-`enforce_org_listing_rules` (BEFORE INSERT OR UPDATE OF
-`organization_id, owner_id, status` — approved membership + active
-`organization_subscriptions` row + `listing_limit` cap) and
-`prevent_listing_protected_field_change` (blocks `organization_id` changes from
-non-admin client sessions, EXCEPT the row owner changing their own listing's org
-without changing `owner_id`). The enforcement trigger fires whenever the UPDATE's
-SET list mentions `organization_id` — **even if the value is unchanged** — so
-client update payloads must include the column only when it actually changed, or
-unrelated edits of an org listing whose subscription lapsed will be rejected.
-Company tagging is **sale-only** (`is_for_sale = true`) by product decision;
-rentals stay personal.
+**Invariant:** `properties.organization_id` is sole listing-org link. Sales-only. Every write gated: enforcement (active sub + quota) + prevent-change (owner can attach).
 
-Participating symbols:
+**Key:** Personal = `owner_id = uid AND organization_id IS NULL`. Org = `organization_id = org`. Both exclude each other.
 
-- `supabase/migrations/20260719140000_org_auto_link_sale_listings.sql:_auto_link_org_sale_listings` — links owner's untagged sale listings to an org, oldest first, capped at remaining `listing_limit` quota (uncapped would abort the purchase transaction via the enforcement trigger); also holds the CURRENT body of `prevent_listing_protected_field_change` (owner org-attach exception) and of `purchase_company_subscription` (calls the helper after the sub INSERT — order matters: the enforcement trigger's active-sub check needs the new row)
-- `supabase/migrations/20260627090300_org_enforcement_trigger.sql:enforce_org_listing_rules` — membership/active-sub/cap gate; no-ops when `NEW.organization_id IS NULL` (detach is always allowed)
-- `src/app/[locale]/create/sale/page.tsx:initialOrgIdRef` — edit flow hydrates the listing's org, renders the same "post as" picker as create, and spreads `organization_id` into the update payload ONLY when it differs from the hydrated value; active-sub pre-check likewise only on change
-- `src/app/[locale]/dashboard/seller/organizations/[id]/page.tsx` — org stats read: `properties` where `organization_id = org AND status = 'active'`; apartments = `sum(units_total ?? 1)`
-- `supabase/functions/company-subscription/index.ts:serve` — edge caller of `purchase_company_subscription` (name/body per **C4**; RPC signature unchanged, no redeploy needed for RPC-body changes)
-- `supabase/migrations/20260721180000_org_member_read_access.sql:is_approved_org_member` — SECURITY DEFINER helper backing the agent-read policies on `organizations` + `organization_subscriptions`. An `organizations` policy must NEVER subquery `organization_members` inline: the members read policy itself subqueries `organizations`, so an inline subquery creates a 42P17 infinite-recursion cycle on every read of either table (same trap `is_admin_user` exists for)
-- `src/lib/dashboard/orgScope.tsx:readStoredActiveOrgId` — the active dashboard scope persists to localStorage (`mb-active-org`); `create/sale` pre-selects the stored company in its "post as" picker (create mode only, validated against the user's own approved companies)
-- `src/lib/data/getPropertyById.ts:PublicOrganization` — public detail fetchers (`getPropertyById`, `getCachedPublicProperty`) embed `organizations!properties_organization_id_fkey(...)`; `SaleDetailClient` renders the company (brand/logo/verified) as the seller when the embed is non-null, falling back to the owner profile (RLS nulls the embed for pending orgs viewed anonymously)
-- `src/app/[locale]/sales/all/SalesGridClient.tsx` — public "developer vs individual" filter classifies developer = `organization_id != null OR developer` free-text non-empty (not `developer` text alone)
-
-**Also check:** the seller dashboard splits personal vs company **exclusively**:
-personal scope filters `owner_id = uid AND organization_id IS NULL`, org scope
-filters `organization_id = org`. The personal-branch exclusion lives in six
-client sites (`dashboard/seller/loadData.ts`, `dashboard/seller/listings/page.tsx`,
-`SellerDashboardClient.tsx`, `dashboard/seller/analytics/page.tsx`,
-`components/seller/SalesBoard.tsx`, `components/layout/DashboardShell.tsx`) and in
-the stats RPCs (`20260721181000_stats_personal_scope_excludes_org.sql` +
-`20260721182000_seller_stats_contact_events_exclude_org.sql`, which extends the
-exclusion to the personal `contact_events` branches via a NOT EXISTS on the
-event's property being org-linked). Realtime
-`postgres_changes` filter strings stay coarse (`owner_id=eq.<uid>` — single-filter
-limitation); exclusion is applied by the refetching fetchers, so org-row events
-are harmless refetch triggers. `create_organization` always inserts the owner as
-an approved member, which the auto-link helper relies on.
-
-**Breaks silently when:** a client update payload unconditionally includes
-`organization_id` (fires the enforcement trigger on every edit → 42501 once the
-sub lapses); or a new attach path skips the quota check by writing under
-`service_role` (both triggers pass, cap silently exceeded); or an org-listing
-surface assumes rentals can be attached (`is_for_sale = false` rows are never
-auto-linked and the edit picker is sale-only); or a new personal-scope dashboard
-query filters only `owner_id` (org listings leak back into the personal view);
-or a new `organizations`/`organization_members` policy reintroduces the inline
-cross-subquery (42P17 on every read).
-
-**Four company tiers since `20260925133000` (staging):** `entry` (displayed
-START) · `pro` · `premium` · `premium_plus` (PREMIUM+, unlimited). The code list
-is a string coupling across the `organization_subscriptions.tier` CHECK, both
-rank `CASE` lists in `purchase_company_subscription`, the `company-<tier>`
-package codes, `supabase/functions/company-subscription/index.ts:VALID_TIERS`
-and `src/lib/org-tiers.ts:COMPANY_TIERS`; `check-contracts` (edge vs TS) and
-`check-db-contracts` (CHECK vs TS, package codes vs TS) compare all of them.
-Transaction and notification texts now use the package name, not
-`upper(p_tier)`.
+**Breaks:** Update payload unconditionally includes `organization_id` (fires trigger on every edit, 42501 when sub lapses); rental attached to org.
 
 ---
 
 ## C12 — Banner placement registry
 
-**Invariant:** `src/lib/banner-placements.ts:BANNER_PLACEMENTS` is the single
-source of truth for **where a banner can appear**. Its 11 ids are simultaneously
-(a) a CHECK constraint on **two** tables, (b) the option list in **two** admin
-forms, (c) the `placement` prop at every public mount site, and (d) the switch in
-the renderer. Adding, renaming, or removing a placement touches all four — the
-string is the only thing holding them together.
+**Invariant:** `src/lib/banner-placements.ts:BANNER_PLACEMENTS` sole source for where banners appear (11 ids). Same string in CHECK, admin forms, mount sites, renderer.
 
-The two banner systems stay **separate tables, one renderer**: `landing_banners`
-is editorial (tone colours, body copy, CTA, detail modal), `ads` is paid B2B
-(single click-through, impression/click counters, advertising disclosure). Both
-normalize into one `BannerCreative` before rendering.
+**Key:** Two systems (editorial + paid ads) normalize to one renderer. `renderableImageUrl`/`renderableVideoUrl`/`isCreativeMediaUrl` must equal CSP ∩ `remotePatterns`, with Supabase via `SUPABASE_MEDIA_HOSTS` (C6). No placement without migration+CHECK+mount+localization.
 
-Participating symbols:
-
-- `src/lib/banner-placements.ts:BANNER_PLACEMENTS` — the 11-entry catalog (id, renderStyle, surface, aspect, legacyKind)
-- `src/lib/banner-placements.ts:getPlacementSpec` — returns `null`, never throws, for an unmapped value. **Never replace with an index lookup** — that is exactly the shape that makes `BANNER_TONE_STYLES[tone]` crash on an off-union tone
-- `supabase/migrations/20260724140000_banner_placements.sql:landing_banners_placement_check` — the CHECK on both tables; backfilled from `kind` / `position` BEFORE constraining
-- `src/lib/banner-creative.ts:BannerCreative` — the normalized shape both tables adapt into (`landingBannerToCreative`, `adRowToCreative`)
-- `src/lib/banner-creative.ts:renderableImageUrl` — intersection of CSP `img-src` and `remotePatterns` (**C6**); since S1 all three gates (`renderableImageUrl`/`renderableVideoUrl`/`isCreativeMediaUrl`) take Supabase hosts from `SUPABASE_MEDIA_HOSTS`, never an `endsWith(".supabase.co")` test. Deliberately **not** `safeStorageImageUrl`, which accepts `/object/sign/` URLs that `next/image` rejects. `renderableVideoUrl` is strictly narrower still (no unsplash in `media-src`)
-- `src/lib/banner-creative.ts:isCreativeMediaUrl` — write-boundary guard; rejects a page URL saved as a creative (the bug that broke 3 live ad rows)
-- `src/components/banners/BannerSlotView.tsx:BannerSlotView` — pure renderer, takes creatives as a prop, NEVER fetches
-- `src/components/banners/BannerSlotView.tsx:MediaCreative` — leaderboard/sidebar/in-grid all crop video with `object-cover`, so a video creative gets an **expand button** (sibling of `CreativeShell`, never a child: for a sponsored creative the shell is an `<a>`, and the title overlay is not `pointer-events-none`) that opens `BannerDetailModal`. That makes the modal reachable for `sponsored: true` creatives **for the first time** — it previously only ever saw editorial ones — which is why `BannerDetailModal` now renders the `sponsoredLabel` disclosure and hides the `startAt`/`endAt` row for ads (on an ad those are the campaign flight window, i.e. advertiser data). Expand deliberately does NOT call `reportClick`: the click counter is advertiser-facing. An expanded ad is a dead end by construction — `adRowToCreative` sets `ctaLabel: null`, so the modal has no click-through
-- `src/components/banners/BannerSlot.tsx:BannerSlot` — client wrapper; resolves creatives from the shared store
-- `src/lib/banner-slots-client.ts:loadBannerCreatives` — module singleton: N slots on a page = ONE request, and a client-side navigation = zero
-- `src/lib/banner-slots-server.ts:fetchSlotCreatives` — server read; explicit column lists (`ads` has `views_count`/`created_by` that must not reach anon), ad-side filter is `status='active'` AND in-window
-- `src/app/api/banner-slots/route.ts:GET` — param-free public endpoint, `s-maxage=60`
-- `src/components/admin/BannerLivePreview.tsx:BannerLivePreview` — renders the REAL `BannerSlotView` with `interactive={false}`; imports `BannerSlotView` (pure) and never `BannerSlot` (fetching), so the preview is structurally incapable of reading live data
-- `supabase/migrations/20260724170000_ad_metrics_rpc.sql:increment_ad_metric` — SECURITY DEFINER counter bump; only for an active, in-window ad
-- `src/app/api/banner-slots/track/route.ts:POST` — the beacon. Rate-limited unconditionally (120/min per IP). It used to enforce the limit **only when Upstash was configured**, because `checkRateLimit` then failed _closed_ and would otherwise have pinned every counter at zero — the exact bug the endpoint exists to fix. That guard was removed once the limiter became Postgres-backed and fail-open (**C16**); restoring fail-closed anywhere would silently re-break this counter
-
-**Two style invariants inside `BannerSlotView`, both load-bearing:**
-
-1. **No new i18n namespace.** It renders DB text plus `useLocale()` + a literal
-   `SPONSORED_LABEL` map. Only `"Shared"` is used (already in
-   `PUBLIC_NAMESPACES`, already pulled in by `BannerDetailModal`). Adding a
-   namespace here means adding it to `PUBLIC_NAMESPACES` or `prebuild` fails
-   (**C1**).
-2. **Container queries, not viewport breakpoints.** Creative styling uses
-   `@[640px]:` / `@[768px]:` — arbitrary widths, never the named `@md` (which is
-   448px, not the site's 768px). This is what makes the admin's 390px preview
-   frame truthful; a `md:` class would render the desktop layout inside a narrow
-   box and lie. The `sticky` frame is the one exception: its bottom offsets
-   depend on the real window (clearing `MobileStickyCTA` /
-   `TransportContactFooter`), so viewport prefixes are correct there.
-
-**Legacy columns kept on purpose:** `landing_banners.kind` and `ads.position` are
-still NOT NULL and are still written (derived via `legacyKindForPlacement` /
-`legacyPositionForPlacement`). **Nothing reads them.** They exist so a code
-revert still renders every banner somewhere sane — that is what makes the
-placement migration reversible. Do not "clean them up" without a migration that
-drops them.
-
-**Also check:** a new placement needs (1) an entry in `BANNER_PLACEMENTS`, (2) the
-CHECK constraint widened on **both** tables, (3) `AdminShared.placements.<id>` in
-**all three** catalogs (**C1**), and (4) an actual mount — a placement with no
-`<BannerSlot>` anywhere is an option in the admin UI that silently renders
-nowhere. Ad creatives live in `landing-media/ads/` (**C5**) and are now
-user-visible, so that bucket's contents are public-facing, not just admin chrome.
-
-**Breaks silently when:** a placement is added to the registry but not to the
-CHECK (writes 23514 at runtime only); or added to the CHECK but never mounted
-(admin can "publish" into a void); or a new mount hard-codes a placement string
-instead of importing the union (typo renders nothing, no error); or a creative
-read path is added that skips `renderableImageUrl` (passes validation, then CSP-
-blocks or throws in `next/image` in the browser only); or the ad-side query drops
-its `status='active'` filter (pause/resume silently stops working publicly,
-because the service client bypasses the RLS policy that would have enforced it).
+**Breaks:** Added to registry but not CHECK (23514); added to CHECK but never mounted (admin can "publish" to void); hard-coded string at mount.
 
 ---
 
 ## C13 — `property_type` enum fan-out
 
-**Invariant:** `public.property_type` is a 6-value Postgres enum
-(`apartment`, `cottage`, `hotel`, `studio`, `villa`, `land`). Adding or renaming a
-value touches **two compile-time tripwires and eight silent participants**. The
-compiler catches only the first two; everything else fails invisibly at runtime.
+**Invariant:** 6-value enum (apartment, cottage, hotel, studio, villa, land). Adding touches **compile-time tripwires AND eight silent participants**.
 
-This contract exists because it was already violated: `land` did not exist, so
-`src/app/[locale]/create/sale/page.tsx` overloaded `villa` to mean "land plot" and
-relabelled it in **one** i18n map. Every other surface kept rendering those rows
-as "ვილა". Fixed by `20260724160000_property_type_add_land.sql` +
-`20260724160100_land_backfill.sql`.
+**Compile checks:** `PROPERTY_TYPE_LABEL_KEYS`, `PROPERTY_TYPE_LABEL_KA`.
 
-**Compile-time tripwires** (exhaustive `Record` over the enum — `tsc` fails until updated):
+**Silent:** `database.ts`, sale form `PROPERTY_TYPES`, rental form (land excluded), search filters, admin dropdown + route allow-list (must sync).
 
-- `src/app/[locale]/sales/[id]/SaleDetailClient.tsx:PROPERTY_TYPE_LABEL_KEYS` — enum value → `SaleDetail.type*` key
-- `src/lib/notifications/listing-labels.ts:PROPERTY_TYPE_LABEL_KA` — server-side Georgian labels for notification bodies (API routes can't use `useTranslations`)
-
-**Silent participants** (no compile error; a forgotten one is invisible):
-
-- `src/lib/types/database.generated.ts:property_type` — the TS union **and** the `Constants` array (generated — never hand-edited; regen per **C3**, drift caught by **C29**)
-- `src/app/[locale]/create/sale/page.tsx:PROPERTY_TYPES` — the sale form's own list; `isLandPlot` gates the land branch
-- `src/app/[locale]/create/rental/page.tsx` — separate hardcoded list; land is deliberately absent (rentals only)
-- `src/components/search/SaleSearchBox.tsx:PROPERTY_TYPES` — sale filter chips (`SaleSearchBox.type*` keys)
-- `src/components/search/FilterPanel.tsx:PROPERTY_TYPE_KEYS` — shared rent/sale panel, no mode prop → a sale-only value is a dead chip in rent mode
-- `src/components/admin/ListingAuditPanel.tsx:PROPERTY_TYPE_OPTIONS` **and** `src/app/api/admin/listings/update/route.ts:PROPERTY_TYPE_VALUES` — the admin dropdown and the server write allow-list must change **together** or the admin save 400s
-- `src/lib/constants/listing-options.ts:salePropertyTypes` / `:propertyTypes` — legacy Georgian-label → code maps; two **different** vocabularies for the same enum (sale calls `hotel` "სასტუმრო ოთახი"). No live `optionKeyFor` consumer today, but a stale entry is how the overload got created
-- `src/app/[locale]/apartments/page.tsx` — `.in("type", [...])` rental whitelist. Sale-only values must **not** be added here (it also filters `is_for_sale = false`)
-
-**Land-specific rule — the null-set.** A land listing has no building, so
-`rooms`, `bathrooms`, `capacity`, `construction_status`,
-`construction_progress_percent`, `completion_year`, `renovation_status`,
-`units_total`, `units_sold`, `units_reserved`, `roi_percent`, `roi_percent_max`,
-`house_rules.handover_month` and `house_rules.management_service` are written as
-**null/0** for land by `create/sale/page.tsx`'s payload and were cleared for the
-two pre-existing rows by `20260724160100_land_backfill.sql`. **These two sets must
-stay identical** — the whole card layer leans on it. (One benign shape difference:
-the form writes `house_rules.handover_month`/`management_service` as present-but-null
-keys, the backfill deleted the keys outright. Every read site treats both as absent.)
-
-Some of the payload's nulls are indirect: `construction_progress_percent`,
-`completion_year`, `units_*` and `handover_month` are derived from
-`isUnderConstruction`, which is itself `!isLandPlot && …`, so they fall out
-without an explicit land branch. `capacity` is the odd one — the sale form has no
-capacity input at all, so it is spread in as `{ capacity: null }` **only** for
-land, purely to clear the value an apartment→land conversion would otherwise keep
-(`PropertyCard` would render "N სტუმარი" on a plot).
-
-Because the data is null, most suppressions are free: `PropertyCard` needs **no**
-land branch at all — its rooms/capacity tags and construction bar are all
-truthiness-gated. Explicit `type === "land"` checks exist only where data cannot
-express the difference (the `plotAreaSqm`/`plotAreaLabel` relabels, price-per-m²
-suppression, and `src/app/[locale]/_landing/SaleLandingBody.tsx:estimatedRoi`,
-which is synthetic — derived from the row id — and so immune to DB nulling) **and**
-defensively on `sales/[id]`, `SalePropertyCard` and `InvestmentCard` for the
-construction / renovation / management / ROI / rooms blocks. Those defensive gates
-are deliberate, not redundant: an admin can retype a listing to land through
-`ListingAuditPanel` without clearing any column, and that panel has no land
-branch. Do not "simplify" them away.
-
-**Also check:** `supabase/functions/search/index.ts` uses
-`.eq("type", property_type)` and is value-agnostic — no edge redeploy needed
-(**C4**). Adding a value needs **two separate transactions**: `ALTER TYPE … ADD
-VALUE` cannot be _used_ in the xid that adds it (`55P04`), and PostgREST caches
-enum labels, so the migration must end with `notify pgrst, 'reload schema'`.
-
-**Breaks silently when:** a new value is added to the enum + the two `Record`s
-(build goes green) but not to the sale form list (unselectable), the admin write
-allow-list (400 on save), or the filter lists (unsearchable); or the form's
-null-set and the backfill/edit null-set drift apart, at which point the
-truthiness-gated card suppressions silently stop working for the drifted column
-(the `capacity` case above is exactly that, caught in review).
-
-**Known open follow-ups** (each independently reproducible, none fixed here):
-land is still pooled into the building-oriented `₾/m²` zone average and the
-`SaleSearchBox` appraisal (`src/app/[locale]/page.tsx` `aggregatePricePerSqm`), so
-one 83 ₾/m² plot roughly halves the apartment price/m² shown for its zone; the
-company cabinet counts `units_total ?? 1` and so reports plots as "სულ ბინები"
-(`dashboard/seller/organizations/[id]/page.tsx`); the guest dashboard's
-popular-listings section still renders `0 ₾ /ღამე` for any sale row
-(`dashboard/guest/GuestDashboardClient.tsx`); and `SalesPage.title` /
-`SalesGrid.title` still read "იყიდება ბინები ბაკურიანში" above a grid that now
-contains plots.
+**Breaks:** Add value, forget one list (invisible in filter); form/route allow-lists drift (400 on save); land null-set drifts.
 
 ---
 
 ## C14 — Editorial review gate for public content
 
-**Invariant:** after `20260724180000_content_change_requests.sql`, a browser session can
-no longer UPDATE the _public-content_ columns of `profiles`, `cleaner_profiles`,
-`properties`, `services` or `organizations`. A BEFORE UPDATE trigger raises **42501**
-for any non-admin, non-`service_role` session that changes a column in that table's
-reviewable allow-list. Every such edit must instead be queued as a
-`content_change_requests` row and applied by an admin. The allow-list is
-**quadruplicated** — the same field set is written out in four places and nothing
-enforces that they agree:
+**Invariant:** Browser cannot UPDATE public-content columns. Trigger raises 42501; must queue `content_change_requests` for admin. Reviewable list **quadruplicated** (A–D must agree).
 
-| #   | Location                                             | What a mismatch does                          |
-| --- | ---------------------------------------------------- | --------------------------------------------- |
-| A   | `src/lib/content-change/fields.ts:REVIEWABLE_FIELDS` | key missing → API 400s `non_reviewable_field` |
-| B   | trigger `v_reviewable` CASE in the migration         | key missing → user may write it directly      |
-| C   | `approve_content_change_request` `v_allowed` CASE    | key missing → approval silently drops it      |
-| D   | the payload each form actually submits               | extra key → **every** save on that form 400s  |
+**Key exceptions:** `marketing_email/sms/consent`, `terms/privacy_accepted`, `check_in_time`, `profile identity fields` (self-service only).
 
-Participating symbols:
+**Breaks:** Add field to one list only (400 or approval drops it); write directly (42501); form forgets error mapping (raw SQL shown).
 
-- `supabase/migrations/20260724180000_content_change_requests.sql:prevent_unreviewed_public_content_update` — the BEFORE UPDATE trigger (B); early-returns when `auth.role()` IS NULL or `service_role`, or `is_admin_user()`. Also early-returns on `properties`/`services`/`organizations` when `OLD.status = 'pending'` (a row never yet approved stays freely editable pre-review) — **current body lives in `20260905142000_fix_service_review_gate_status_toggle_bypass.sql`**, which narrowed this from the original `OLD.status <> 'active'`. That looser condition was a real bypass (SECURITY_AUDIT.md finding S1, fixed 2026-09-05): `services` separately allows the owner to self-toggle `active ↔ draft/blocked` on an already-approved listing (see the `prevent_listing_protected_field_change` note below), so `active → draft → edit any reviewable field (skipped, draft ≠ active) → draft → active` published fully unreviewed content with zero `content_change_requests` row. Any future loosening of the skip condition back toward "not currently active" reopens this — it must stay keyed on "never yet approved" (`= 'pending'`), not "not active right now"
-- `supabase/migrations/20260724180000_content_change_requests.sql:approve_content_change_request` — SECURITY DEFINER apply-on-approve (C). Its staleness check compares `before_snapshot` key-by-key against the live row; for a `profile` target the nested `cleaner_profile` object **must be projected onto the keys the API snapshotted** (`jsonb_object_agg` over `jsonb_object_keys(before_snapshot->'cleaner_profile')`) — comparing `to_jsonb(cp)` made every cleaner request auto-supersede, because jsonb object equality requires identical key sets
-- `src/lib/content-change/fields.ts:REVIEWABLE_FIELDS` (A) + `:CLEANER_PROFILE_FIELDS` (the 6 nested keys) + `:hasOnlyReviewableValues` — **all-or-nothing**: one non-allow-listed key rejects the whole payload, which is why a MIXED payload cannot be submitted at all
-- `src/app/api/content-change-requests/route.ts:POST` — validates against A, snapshots `before`, writes the row; maps 23505 → 409 `target_locked`
-- `src/lib/content-change/client.ts:submitContentChange` — the only writer; `:contentChangeErrorKey` / `:isContentChangeError` map API codes onto `CreateShared.contentChange.*` (**C1**) so users never see a raw code
-- `src/app/[locale]/dashboard/admin/verifications/page.tsx` — the ONLY approval surface (calls `/api/admin/content-change-requests`)
-- `content_change_one_pending_target` — UNIQUE (target_type, target_id) WHERE status='pending': scoped to the **target**, not the requester, so one pending request blocks every later edit of that listing until an admin acts (the withdraw endpoint has no UI caller yet)
-- `supabase/migrations/20260914120000_content_review_gate_column_drift_check.sql:content_review_gate_column_drift` — added 2026-09-14 (architecture audit) as a read-only diagnostic for exactly the B/C drift risk above: `select * from public.content_review_gate_column_drift();` re-parses both hand-written arrays live out of B's and C's own `pg_get_functiondef()` source (not a third hardcoded copy) and reports where they disagree with each other or with `information_schema.columns` for `properties`/`services`. Changes nothing about what is reviewed/gated/approved — nothing in the app calls it; it exists for a human or CI to run after touching either function or the two tables' DDL. Applied to staging only as of this session; not yet wired into CI (still a manual check) and not yet applied to prod
-
-**Mixed payloads are the trap.** A write that touches both reviewable and
-non-reviewable columns cannot go through the API (A is all-or-nothing) and cannot go
-direct (B raises). It must be **split**, as
-`src/components/seller/ConstructionManagementModal.tsx:handlePublish` now does:
-`construction_stages` + `construction_progress_percent` via `submitContentChange`,
-`progress_note` + `progress_note_updated_at` by direct UPDATE, and the
-`project_updates` feed insert **before** the review submit so a rejected request
-cannot swallow the seller's update history.
-
-**Also check:** `role` is deliberately NOT reviewable, which is what lets
-`auth/register`'s 23505 insert-conflict fallback re-apply `{ role }` only — updating the
-whole profile payload there raises 42501 and turns a benign retry into a hard
-registration failure. `progress_note` is publicly rendered but is in none of the four
-lists (an intentional unreviewed channel — do not "fix" it without also giving it a
-submit path). The `organization` target has no submitting surface yet.
-
-**`check_in_time`, `marketing_consent` and `marketing_opt_out` are deliberately NOT
-reviewable** either (see **C18**). They are operational, not public-content, fields:
-`properties.check_in_time` remains a property operational setting (the SMS page does
-not expose a timing editor), and the two consent fields are written by the owner
-attesting consent on a manual booking and by the guest opting out. Adding any of them to allow-list A
-would 42501 those writes and route a guest's opt-out through admin approval — which
-is both wrong and, for opt-out, the wrong direction legally.
-
-**The consent columns added 2026-09-22 are the same shape of exception** and
-must never be added to allow-list A/B/C: `profiles.terms_accepted_at`,
-`terms_version`, `privacy_accepted_at`, `privacy_version`,
-`marketing_sms_consent`, `marketing_email_consent` and `push_consent` are the
-user's own recorded consent, written by `self_service_record_consent` (**C30**).
-Review-gating them would `42501` the user's own consent write and route a legal
-opt-out through admin approval — the same "wrong direction legally" the
-`marketing_opt_out` note above already states. `scripts/check-db-contracts.mjs`
-now fails if any of them appears in the `profiles` reviewable array.
-
-**`properties.cadastral_code_public` (added 2026-09-19) is the same shape of
-exception**, for the same reason: it's a display-preference toggle, not content
-an admin needs to vet (the code value itself stays fully reviewable — only
-whether to show it is not). `src/app/[locale]/create/sale/page.tsx` writes it
-via a plain direct `.update()` on edit (combined with the pre-existing
-`organization_id` direct-write, both run before `submitContentChange`, same
-reasoning as that block's own comment: the review submit can throw and must
-not silently discard either seller-controlled setting) and inline in the
-`.insert()` payload on create — never through `REVIEWABLE_FIELDS`/`submitContentChange`.
-Routing it through review would also occupy the one-pending-request-per-listing
-slot (the unique partial index above) for a plain visibility flip, blocking
-every other edit of that listing until an admin acts — exactly the friction
-this exception avoids.
-
-**Cleaner working hours are the narrow immediate-settings exception.**
-`supabase/migrations/20260801120000_one_cleaner_247_service.sql:self_service_set_cleaner_working_hours`
-is callable only by `service_role` through
-`src/app/api/self-service/cleaner/services/[id]/working-hours/route.ts:PATCH`. It
-may change only `schedule` and `operating_hours` on an owned cleaning service,
-keeps those columns synchronized, and atomically transfers 24/7 availability from
-the cleaner's former service. All other service content remains in the C14 review
-flow. Pending legacy requests containing only those two hour fields are
-superseded by the migration and their requesters are notified to save again.
-
-**`profiles.display_name`/`phone`/`avatar_url` are a second, formal self-service
-exception** (`supabase/migrations/20260905122000_profile_identity_fields_self_service_exception.sql`,
-2026-09-05 — supersedes their original inclusion in B/A/C above). They were listed
-as reviewable from this migration's day one, but `self_service_update_profile`
-(`20260727143000_self_service_profile_and_progress.sql`, 3 days later) always ran as
-`service_role` and always allowed these same 3 fields, and has been the ONLY
-UI-wired edit path for them ever since — the review queue for profiles was never
-actually reachable (no client ever submitted `targetType: 'profile'`). Rather than
-build a "submit, wait for admin approval" UX for basic identity fields, the product
-decision was to keep instant self-editing and formally narrow B (`v_reviewable` for
-`profiles` is now `ARRAY['bio','response_time_minutes']`), A (`REVIEWABLE_FIELDS.profile`
-now excludes them too), and C (`approve_content_change_request`'s `v_allowed` for
-`'profile'` matches). In exchange, `self_service_update_profile` gained real
-server-side validation it never had: `display_name` must be non-empty (after trim)
-and ≤100 chars, `phone` must satisfy `public.sms_canonical_ge_phone` (reused from
-**C18**'s SMS pipeline) if non-null. `src/app/api/self-service/profile/route.ts`
-also gained its first rate limit (20/hour/user) and validates `avatar_url` via
-`safeStorageImageUrl` (restricting it to this project's own storage host, matching
-the pattern in **C6**/**C12**) before forwarding to the RPC — previously any string
-was accepted. `bio`/`response_time_minutes` remain fully review-gated; only the 3
-identity fields are exempt.
-
-**Breaks silently when:** a new form field is added to D without A/B/C (that form's every
-save 400s — exactly the `roi_percent_max` bug); or a key is added to A but not C
-(approval drops the value with no error); or a new edit surface writes a reviewable
-column directly (42501, raw Postgres text in the UI unless it maps through
-`contentChangeErrorKey`); or a handler calls `submitContentChange` without a catch and
-without telling the user the change is pending — the write silently appears to do
-nothing, because the row it renders from cannot change until approval; or
-`display_name`/`phone`/`avatar_url` are re-added to A/B/C without also removing them
-from `self_service_update_profile`'s allow-list — that reopens the exact bypass this
-exception now formally documents, just inverted (review looks enforced but a live
-unreviewed path still exists).
 ---
 
-## C15 — Smart Match "actionable" count (one definition, five surfaces)
+## C15 — Smart Match actionable count
 
-**Invariant:** there is exactly ONE definition of "open Smart Match requests this
-renter has not answered", and it lives in SQL. Every surface showing a Smart Match
-number either calls it or reproduces it predicate-for-predicate.
+**Invariant:** One SQL definition: open requests + not answered + not stale. Every surface calls it or reproduces predicate-for-predicate.
 
-Before `20260725120000_smart_match_actionable_count.sql` there were four
-definitions and none agreed: the sidebar promo card read "2 ახალი მოთხოვნა" off
-unread `notifications` while the inbox correctly read 0 incoming / 2 sent for the
-same account, and the renter overview showed a third number.
+**Definition:** `smart_match_actionable_count()` RPC (status='active', check_out >= today, NOT EXISTS offer by caller).
 
-**Why it cannot be bookkept.** `notifications` has no FK back to
-`smart_match_requests`, so an inserted offer can never mark "its" notification
-read; and a request going stale is _the clock passing_, not a write, so no trigger
-can fire for it. Any stored flag drifts. The count must be computed at read time.
-
-Participating symbols:
-
-- `supabase/migrations/20260725120000_smart_match_actionable_count.sql:smart_match_actionable_count` — the definition. `LANGUAGE sql STABLE`, **SECURITY INVOKER** so RLS bounds it. Mirrors the inbox one-for-one: `status='active'` → `order by created_at desc limit 30` → `check_out is null or >= today (UTC)` → `not exists` an offer by `auth.uid()`. The renter gate is a leading `case when exists (properties … owner_id = auth.uid() and status='active' and is_for_sale=false)` — **not** a WHERE clause: it short-circuits the table for every non-renter, and without it a guest-only caller counts their OWN requests through the "Users see own requests" policy. The offer check must stay an `exists`, never a row count — the unique key is `(request_id, property_id)`, so one renter can legitimately hold N offers on one request
-- `supabase/migrations/20260725120000_smart_match_actionable_count.sql:dashboard_layout_data` — exposes it as the jsonb key `smart_match_actionable`. The old `smart_match_unread` key (unread notification rows) is **gone**; a missing key reads as 0, which renders the promo card's neutral headline, so a non-atomic migrate/deploy degrades safely in either order — never to a wrong non-zero
-- `supabase/migrations/20260725120000_smart_match_actionable_count.sql:idx_smart_match_requests_active_created` — partial index on `(created_at desc) where status='active'`. Required, not an optimisation: the count moved from "once per Smart Match page visit" to "once per dashboard route render, every role" (the layout is `force-dynamic` and awaits the RPC), and `smart_match_requests` had no index on status/created_at at all. If this RPC ever hits the statement timeout, `dashboard/layout.tsx` falls back to `{}`, `deriveAvailableCabinets` receives empty flags, and the whole sidebar collapses — far worse than a stale number
-- `src/app/[locale]/dashboard/layout.tsx:LayoutData` — server seed; `data.smart_match_actionable ?? 0` → `DashboardShell`
-- `src/components/layout/DashboardShell.tsx:recountSmartMatch` — debounced (400 ms) live recount via the RPC, gated on `availableCabinets.includes("renter")`. Fed by TWO realtime bindings: `notifications` INSERT of `type='smart_match_request'` (a request arrived — recount, never `+1`, because it may already be stale or answered in another tab) and **`smart_match_offers` INSERT filtered `renter_id=eq.<uid>`** (the renter answered). The second is load-bearing: answering notifies the GUEST, not the renter, so without it the badge can only ever go up
-- `src/components/layout/RenterSidebar.tsx:smartMatchCount` — the only renderer; `> 0` shows "N ახალი მოთხოვნა", `0` falls back to `SmartMatchCard.guestRequests`. No new i18n key, so **C1** is untouched
-- `src/app/[locale]/dashboard/renter/smart-match/page.tsx:actionableCount` — the TS twin, computed from rows the page already holds. **This is the parity reference the SQL mirrors** — if the two disagree, the SQL is what's wrong
-- `src/app/[locale]/dashboard/renter/RenterDashboardClient.tsx:refreshMatches` — the overview "Smart Match დამთხვევები" stat, now just an RPC call. It used to apply `isCompatible` and NOT subtract answered requests; both were dropped deliberately (the inbox ranks zone mismatches lower, it never hides them, because property zones are often coord-derived guesses)
-- `src/lib/smart-match/match.ts:isStale` — the TS half of the date predicate (`check_out < todayISO`, UTC from `toISOString()`). The SQL says `check_out is null or check_out >= (now() at time zone 'utc')::date`. Change one, change the other. Explicit UTC on both sides, not `current_date`, so a session TimeZone GUC can't desync them
-
-**Three quirks are deliberate parity, not bugs.** (1) `.limit(30)` is applied
-**before** the stale/answered filters on both sides — mirroring it is what keeps
-the numbers equal past 30 open requests; note both are then equally wrong, since
-requests 31+ are neither shown nor counted (a real, separate product gap: the
-inbox needs pagination, and raising the cap on one side alone re-opens the
-mismatch). (2) A `status='cancelled'` offer still counts as answered, because the
-page builds `submittedRequestIds` from every offer row with no status filter.
-(3) The caller's own requests (`guest_id = auth.uid()`) are **not** excluded,
-because the page doesn't exclude them either.
-
-**Also check:** `src/lib/types/database.ts` carries
-`smart_match_actionable_count: { Args: never; Returns: number }` (hand-added, one
-line — **C3**). PostgREST caches the function catalogue, so the migration ends with
-`notify pgrst, 'reload schema'`. `smart_match_offers` is in the `supabase_realtime`
-publication (**C7**), which is what makes the decrement binding deliver.
-
-**Breaks silently when:** the SQL predicate and the page's TS filter drift apart
-(badge and stat card disagree again — exactly the reported bug); or a new Smart
-Match surface counts requests without the
-`not exists (smart_match_offers … renter_id = auth.uid())` clause; or the
-`case when exists (properties …)` gate is "simplified" into the WHERE clause
-(guest-only callers start counting their own requests); or the
-`smart_match_offers` INSERT binding is dropped from `DashboardShell` (the badge
-rises but never falls); or someone re-derives the badge from `notifications`
-again, which cannot express either "answered" or "expired".
+**Breaks:** SQL+TS predicates drift; wrong realtime table; new surface counts wrong predicate.
 
 **S2 (2026-09-27, `20260927090000`):** trigger `enforce_smart_match_request_rules` copies this predicate word for word (`status='active' AND (check_out IS NULL OR check_out >= UTC today)`) to cap a guest at 5 open requests and 10 creations per rolling 24 h. Client rows must be created `active`, may only move to `cancelled`, and take `zone` only as NULL or an existing `zones.name_ka` (NewRequestModal via /api/zones, `src/lib/zones/types.ts:FALLBACK_ZONES`). Errors are 22023; service_role is exempt. **Breaks:** the predicate changes here but not in the trigger; a zone renamed (stale clients get 22023).
 
@@ -1229,475 +168,53 @@ again, which cannot express either "answered" or "expired".
 
 ## C16 — Rate-limit backend & fail-open contract
 
-**Invariant:** `src/lib/rateLimit.ts:checkRateLimit` is the single limiter for
-every Next.js route, its shared store is the app's own Postgres, and it **fails
-open** when no store can be reached. "Unconfigured" must never mean "deny".
+**Invariant:** `src/lib/rateLimit.ts:checkRateLimit` is single limiter. Postgres backend (fail-open). Fails open when unreachable (deny wrong for abuse mitigation).
 
-This contract exists because the opposite shipped. `checkRateLimit` was
-Upstash-only and returned `false` whenever `UPSTASH_REDIS_REST_URL` /
-`UPSTASH_REDIS_REST_TOKEN` were absent in production. They were never set in
-Vercel, so from `9828eba` (2026-07-24) until `20260725140000_postgres_rate_limiter.sql`
-**every** rate-limited route was dead in production — verified live: contact
-reveal `429`, `/api/geocode` `429`, the view beacon returning `{counted:false}`.
-Photo-upload intents, job applications and both analytics beacons were on the
-same path. Only `/api/banner-slots/track` escaped, via an explicit
-"skip the limit when unconfigured" guard.
+**Key:** Upstash → Postgres → in-memory (dev) / allow (prod, logged). 1.5s store timeout. Client IP = `src/lib/client-ip.ts:getClientIp` (re-exported by `rateLimit.ts`, unit-tested): peer = **last** `X-Forwarded-For` hop (DO ingress appends it). App Platform's own edge is Cloudflare, so a peer inside `CLOUDFLARE_IPV4_RANGES`/`CLOUDFLARE_IPV6_RANGES` → `CF-Connecting-IP`, else the hop before the peer; any other peer is the client. Never the first hop, never `DO-Connecting-IP`. Ranges = cloudflare.com/ips-v4 + ips-v6 (re-sync on change). Deno twin `_shared/guards.ts` still reads the first hop (s-sec-harden D8).
 
-Participating symbols:
-
-- `supabase/migrations/20260725140000_postgres_rate_limiter.sql:consume_rate_limit` — the store. SECURITY DEFINER, `service_role`-only EXECUTE, atomic `INSERT … ON CONFLICT DO UPDATE` mirroring Upstash's `INCR` + `PEXPIRE … NX`: the window is stamped at bucket creation and **not** extended by later hits, so a caller cannot push its own reset forward by hammering. Verified live: 2 allowed then denied at `p_limit = 2`, `reset_at` unchanged across hits, count resets to 1 after rollover, null/zero args rejected
-- `supabase/migrations/20260725140000_postgres_rate_limiter.sql:rate_limit_counters` — RLS enabled with **no policies**, and SELECT/INSERT/UPDATE/DELETE revoked from `PUBLIC`, `anon` and `authenticated`. That closes the browser; it does **not** close `service_role`, which keeps its default grants and is `BYPASSRLS` — so any server-side code holding the service key can read/write the table directly, and the definer function is the convention rather than a hard boundary. Swept nightly by the `rate-limit-gc` pg_cron job (buckets are never read after expiry, but the key space grows per (ip, endpoint, listing))
-- `src/lib/rateLimit.ts:checkRateLimit` — Upstash when both env vars exist, else Postgres, else in-memory (dev) / **allow** (prod, logged). Because it imports `createServiceClient`, this module is **server-only** — importing it from a client component would pull the service-role client into the browser bundle. All 10 importers today are route handlers (`runtime = "nodejs"`) or the one `"use server"` action `src/app/actions/revalidateListing.ts`
-- `supabase/functions/_shared/guards.ts:checkRateLimit` — the Deno twin of the above, same fallback order, same fail-open rule. Calls the same RPC through `createServiceClient()`
-- `src/lib/rateLimit.ts:getClientIp` — trusts `x-forwarded-for`, taking the **last** comma-separated value. Now load-bearing: the contact limit is keyed on the IP **alone**, so this is only safe if the trusted edge's own hop is the one being read. **Resolved 2026-09-08, and the resolution went the opposite way from the standing assumption**: DigitalOcean App Platform's edge APPENDS the true client IP rather than overwriting the header, so the old `.split(",")[0]` (first value) was attacker-controlled — confirmed live against `https://mybakuriani.ge/api/geocode` (20/60s limit): 25 requests each carrying a distinct spoofed `X-Forwarded-For` all returned 200 (bypassed), while an unmodified control correctly 429'd starting at request 21. This affected every caller of `getClientIp` (contact reveal, geocode, view/analytics beacons, job applications, photo-upload intents, banner tracking, and the C27 site-lock unlock endpoint that surfaced it), not just one route. Fixed by switching to the **last** hop, which is the one this single trusted proxy actually appended; a client can prepend arbitrarily many fake hops but cannot control what appears after its own request leaves it. The Vercel-era "overwrites, trust the first value" assumption was correct for Vercel and is exactly backwards for DO — don't restore first-value parsing when reasoning from the old Vercel note
-- `src/app/api/listings/[kind]/[id]/contact/route.ts` — **two** buckets per call, both keyed on `subject` = `user:<id>` when signed in, else `ip:<addr>`: `listing-contact:<subject>:<kind>:<id>` at 8/h and `listing-contact-all:<subject>` at 30/h. The per-listing bucket alone bounds nothing — with ~49 active listings a scraper stays inside it while taking the whole catalogue — so the cross-listing bucket is the one doing the work. Keying signed-in users on their own id is what stops anonymous traffic from a carrier NAT starving an authenticated user on the same egress. `device_id` is NOT in either key (client-supplied: rotating it minted a fresh budget per request, so the limit bound only honest clients) but is still written to `contact_reveal_events` for audit. This is friction, not prevention: only Turnstile stops a distributed scrape, and its secret is unset. Its listing lookup uses the explicit `properties_owner_id_fkey` / `services_owner_id_fkey` profile embeds; a lookup error is a `500 lookup_failed`, while only a successful lookup with no active row is `404`. Collapsing an ambiguous-relationship or database error into `404` hides outages as missing listings and breaks contact reveals silently. Since 2026-09-27 the lookup starts right after parameter validation and runs while the auth check and both limiter RPCs are awaited (it is awaited at the same point, so 429 > 403 > 500 > 404 precedence is unchanged; a limited or unverified request now also runs one discarded primary-key read), and the `contact_reveal_events` insert — whose result was never checked — runs in `after()`, after the response. The two limiter calls stay sequential: the `&&` short-circuit is intentional
-- `src/lib/turnstile.ts:isTurnstileConfigured` — call-site gate. `verifyTurnstile` must keep returning `false` without a secret; the _caller_ skips it. Making the helper itself return `true` when unconfigured would silently disarm bot protection for every future caller
-- `src/app/api/banner-slots/track/route.ts` — its `limiterConfigured` workaround is **gone**; the limit now applies unconditionally, which is only correct because the limiter fails open
-- `src/app/api/track/view/route.ts:POST` — validates and stores public-page views, applies the shared limiter, and keeps the anonymous `mb_vid` cookie server-issued
-- `src/lib/analytics/pageview.ts:normalizePublicPageviewPath` — the shared public-route allow-list used by both the client beacon and server handler; dashboard/auth/API paths never enter analytics
-- `src/components/analytics/PageviewTracker.tsx:PageviewTracker` — emits one fire-and-forget beacon per normalized client navigation and suppresses immediate Strict Mode duplicates
-- `src/lib/types/database.generated.ts:consume_rate_limit` — RPC signature (generated, **C3**)
-- `scripts/check-production-config.mjs:validateProductionConfig` — must **not** require the Turnstile/Upstash vars. It briefly did, and the Vercel Production build failed on exactly those four names (deploy of `7c915c9`)
-
-**Why fail-open.** Every route behind the limiter enforces its own
-authorization (RLS, ownership checks, service-role RPC constraints); the limit
-is abuse mitigation, not an access control. Making a store round-trip a hard
-dependency of photo upload and job applications converts a transient statement
-timeout into "sellers cannot list" — the same shape of failure this contract
-documents. The unreachable branch `console.warn`s rather than passing silently.
-The accepted cost: an attacker who can induce store errors can bypass the limit.
-
-**Both stores are bounded at 1.5s** (`STORE_TIMEOUT_MS`, and Upstash's
-`AbortSignal.timeout`). Without a bound of its own the Postgres path would
-inherit the service client's 9.5s fetch timeout and `service_role`'s 8s
-`statement_timeout`, i.e. it would burn most of the serverless budget deciding
-whether to allow a request that fail-open was going to allow anyway. Losing the
-race counts as unreachable; the abandoned request may still increment the
-bucket, so a slow call can over-count — the safe direction.
-
-**Known residual risks, accepted rather than fixed:**
-
-- Part of most keys is caller-supplied. `/api/listings/[kind]/[id]/view` spends
-  its token **before** checking the listing exists, so any well-formed UUID mints
-  a row with a 24h `reset_at`. The hourly `rate-limit-gc` bounds the
-  minute-window routes but not that one. This is a property of the key shape,
-  which predates this store (Upstash had the same unbounded key space).
-- `service_role` can write `rate_limit_counters` directly, bypassing the RPC.
-- The contact limits are friction against catalogue harvesting, not prevention.
-
-**The Deno half is a second, separate implementation** —
-`supabase/functions/_shared/guards.ts:checkRateLimit` — and it must be kept in
-lock-step with the TS one. It had the identical fail-closed bug (`return false`
-when `DENO_DEPLOYMENT_ID` is set and Upstash is absent, i.e. on every deployed
-function), which took the **public `/search` page** down in production. That went
-unnoticed because `src/app/[locale]/search/SearchPageClient.tsx` reaches the
-function by **raw `fetch` to `/functions/v1/search`**, not
-`supabase.functions.invoke` — so the usual "does anything `invoke` it?" grep
-(**C4**) wrongly reads `search` as dead code. The only other raw-fetch caller is
-`src/app/[locale]/dashboard/sms/SmsCenterClient.tsx` → `purchase-vip`. Grep for
-`functions/v1/` as well as `invoke(` before concluding an edge function is
-unused. Because `guards.ts` is bundled per function at deploy time, changing it
-requires redeploying **all 17** functions (**C4**), even though only `search`
-calls this limiter.
-
-**Still open, discovered but NOT fixed 2026-09-08:** inside
-`supabase/functions/_shared/guards.ts:checkRateLimit` the inline IP extraction
-has the identical first-hop `x-forwarded-for` bug just fixed in `rateLimit.ts`
-above (`req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()`), so `search`'s own
-rate limit is very likely bypassable the same way on DigitalOcean. Left
-unfixed here because the fix's cost (redeploy all 17 functions, per the
-paragraph above) was disproportionate to a task that never touched an edge
-function; do not assume it was checked or excluded by the empirical test
-above, which only exercised the Next.js API route path.
-
-**Breaks silently when:** a caller re-adds a per-request-controllable component
-(device id, a header, a body field) to a rate-limit key — the limit then binds
-only honest clients; or `rateLimit.ts` is imported from a client component
-(service-role key in the browser bundle); or the Turnstile call-site gate is
-replaced by making `verifyTurnstile` return `true` when unconfigured; or the
-four optional env vars become required again in `check-production-config.mjs`
-(the production build fails, prod silently keeps serving the previous commit).
-
-**2026-09-14: `DEPLOY_ENV` documented in `.env.example`.** The var itself
-(`scripts/check-production-config.mjs`'s replacement for the Vercel-era
-`VERCEL_ENV`, per the file's own header comment) had been live in code with no
-entry in `.env.example` — the same kind of drift-out-of-sight that let the
-four-vars regression above go unnoticed. `.env.example` now documents it (no
-real value — writing "production"/"staging" there risks silently activating
-the guard against a `.env.local` copied from it); the test file gained
-explicit coverage for the unset case (no-op, as before) and for both the
-`DEPLOY_ENV=production` and `DEPLOY_ENV=staging` activation arms (previously
-untested — every prior test gated on `VERCEL_ENV`). Setting the real
-`DEPLOY_ENV` value on `mybakuriani-prod`/`mybakuriani-staging` in DigitalOcean
-itself remains a separate, unapplied infra step — the guard stays dark in
-production until a human does that.
-
-**Cloudflare-aware client IP (2026-09-26):** client IP = `src/lib/client-ip.ts:getClientIp` (re-exported by `rateLimit.ts`, unit-tested in `scripts/unit/client-ip.test.mjs`). Peer = the **last** `X-Forwarded-For` hop (DO ingress appends it). App Platform's own edge is Cloudflare, so a peer inside `CLOUDFLARE_IPV4_RANGES`/`CLOUDFLARE_IPV6_RANGES` → `CF-Connecting-IP`, else the hop before the peer; any other peer is the client. Never the first hop, never `DO-Connecting-IP`. Ranges = cloudflare.com/ips-v4 + ips-v6 (re-sync on change). The Deno twin `_shared/guards.ts` still reads the first hop (D8). **Breaks:** keying on the raw last hop behind Cloudflare (one bucket per edge — the 2026-09-09→09-26 view undercount); a stale range list (a retired range trusts its next holder).
+**Breaks:** Re-add env-var requirement to check-production-config (prod build fails); limiter fail-closed (every route 429'd); trust the first hop (spoof bypass, 2026-09-08); key on the raw last hop behind Cloudflare (one bucket per edge — the 2026-09-09→09-26 view undercount); stale range list (retired range trusts its next holder).
 
 ---
 
 ## C17 — A cleaner's work lives in TWO tables
 
-**Invariant:** every surface that shows a cleaner their work must read **both**
-`public.cleaning_tasks` (platform call-outs, created by a property owner via
-`create_cleaning_task`) **and** `public.cleaner_manual_tasks` (off-platform jobs the
-cleaner typed in themselves). Reading only the first silently under-reports — the
-schedule looks empty and earnings look lower than they are. Same failure shape as
-**C9**: two nullable-ish sources, one user-facing total, no compile error either way.
+**Invariant:** Cleaner surfaces read **both** `cleaning_tasks` (platform) AND `cleaner_manual_tasks` (self-entered). Reading one only silently under-reports.
 
-Participating symbols:
+**Key:** Manual status='accepted' on create. Realtime on both. 30-min slot conflict on both (advisory lock per cleaner).
 
-- `supabase/migrations/20260725170000_cleaner_manual_tasks.sql:cleaner_manual_tasks` — the table. RLS is ONE policy, `FOR ALL USING (cleaner_id = (select auth.uid()))`, and that is legitimate **only because a manual job has no counterparty**: the cleaner is its sole author, sole reader and sole subject, so there is no authority to derive server-side. The same policy on `cleaning_tasks` would be a security regression — `20260723000000:317-322` dropped its INSERT/UPDATE policies precisely because a platform job's cleaner and price must NOT come from a browser
-- `src/lib/cleaner/tasks.ts:mergeCleanerTasks` — the only correct way to combine them; `fromPlatformTask` / `fromManualTask` normalize into `CleanerTaskItem`
-- `src/app/[locale]/dashboard/cleaner/loadData.ts:loadCleanerTasks` + `CleanerDashboardClient.tsx` — the overview reads both sources; only platform `pending` rows are calls, while accepted/in-progress rows from both sources are scheduled work
-- `src/app/[locale]/dashboard/cleaner/schedule/page.tsx` — reads both, merges, and renders the selected day's timeline
-- `src/components/cleaner/CleanerMonthCalendar.tsx` — month-wide projection of that merged list; accepted/in-progress work marks an active day and completed work has a distinct marker
-- `supabase/migrations/20260804190000_cleaner_manual_tasks_realtime.sql` — adds the
-  manual table to Realtime with full replica identity; overview and schedule both
-  subscribe using `cleaner_id`, including cross-device deletes
-- `src/components/cleaner/ManualTaskModal.tsx` — the only writer; create + edit, direct table writes (no RPC)
-
-**`status` starts at `'accepted'`, not `'pending'`.** The cleaner books the job
-themselves so there is nobody to accept it from, and `'accepted'` is inside the set
-the schedule page filters on — a `'pending'` row would be invisible on the very page
-that created it. The CHECK deliberately omits `'pending'`, `'declined'` and
-`'cancelled'` so that trap cannot be reintroduced.
-
-Platform status changes still use `transition_cleaning_task` and must follow the
-finite lifecycle documented in **C24** (including bilateral cancellation after
-acceptance); manual rows are cleaner-owned direct updates.
-Do not optimistically remove either source when its transition returns an error.
-
-**The two tables share one 30-minute slot invariant.** Migration
-`20260808200000_cleaner_slot_and_vip_exclusivity.sql` attached the
-`enforce_cleaner_schedule_slot` trigger to both tables requiring an EXACT
-`(cleaner_id, scheduled_at)` match to collide; `20260815130000_cleaner_schedule_slot_30min_buffer.sql`
-widened the window to any two of a cleaner's jobs (platform or manual) being
-**strictly less than 30 minutes apart** — a job at 13:00 blocks 12:31–13:29 and
-allows 12:30/13:30 exactly (half-open `(scheduled_at - 30m, scheduled_at + 30m)`
-on both bounds, symmetric). Platform `pending`/`accepted`/`cancellation_requested`/
-`in_progress`/`completed` rows occupy their window; `declined`/`cancelled` rows
-release it. The advisory
-lock is now taken **per cleaner** (`'cleaner-slot:' || cleaner_id`), not per
-timestamp — a per-timestamp lock let two concurrent inserts 15 minutes apart both
-pass their existence checks before either committed. It raises stable `23P01` /
-`cleaner_schedule_slot_conflict`; both writer UIs must map that outcome to their
-localized time-conflict copy (`CleanerSchedule.manualTask.timeConflict` and
-`CleanerSchedule.callModal.timeConflict`, **C1**). Existing rows closer than 30
-minutes are deliberately preserved (no backfill), and status-only progress at an
-unchanged legacy slot remains valid; creating, moving, or reactivating into a
-conflicting slot is rejected.
-
-`src/components/cleaner/ManualTaskModal.tsx:slotConflict` is a **client-side
-mirror**, not the authority — the trigger is. It matches the DB's strict `<`
-comparison via `Math.abs(diff) < THIRTY_MIN_MS`, keeps the "unchanged own slot is
-always saveable" exception for legacy near-duplicates, and excludes the row being
-edited **by id** (`slot.source === "manual" && slot.id === task.id`), not by
-its original time — excluding by time would make moving a task collide with its
-own old slot in `occupiedSlots`. `src/components/renter/CleanerCallModal.tsx` has
-no client-side mirror; it only maps the `23P01` error after the trigger rejects
-the insert.
-
-**Two deliberate omissions — do not "fix" without re-reading the migration comment:**
-
-1. **No audit trigger.** `audit_row_change()` snapshots the whole row into
-   `audit_logs.new_values`, which the admin log UI renders. These rows hold an
-   off-platform third party's name and phone; that PII should not become
-   admin-readable because a cleaner kept their own diary.
-2. **Nothing about `cleaning_tasks` changed.** Its columns, RLS, triggers and RPCs
-   are untouched, so `dashboard_layout_data.cleaning_tasks_count` (cabinet
-   derivation), `get_cleaner_renter_counts` (public "renters served" stat) and the
-   renter "my calls" list are all unaffected. Putting manual jobs in
-   `cleaning_tasks` instead would have corrupted **all three**.
-
-The original migration omitted Realtime; `20260804190000` deliberately reverses
-only that choice because overview/schedule cross-device consistency is now required.
-
-**Also check:** `src/lib/types/database.ts` carries the `cleaner_manual_tasks` block
-(hand-added — **C3**), and the migration ends with `notify pgrst, 'reload schema'`
-because PostgREST caches the table catalogue.
-
-**Breaks silently when:** a new cleaner-facing surface queries only
-`cleaning_tasks` (totals and calendars under-report, nothing errors); or a manual row
-is written with `status='pending'` (invisible on the schedule); or someone "unifies"
-the two tables by relaxing `cleaning_tasks.property_id`/`owner_id` to NULL — that
-re-opens the browser write path the security remediation closed, fires the
-owner-notification triggers back at the cleaner, and leaks manual rows into the renter
-and cabinet-derivation queries listed above.
-
-The schedule page additionally fetches platform `pending` rows into its occupied
-slot set without rendering them as accepted work. Removing that hidden reservation
-read makes the manual-task modal offer times that the database will reject.
+**Breaks:** Query only platform tasks (manual invisible); pending manual row (invisible on schedule); manual bypass 30-min check.
 
 **Cleaner's view (2026-10-01):** the platform half's apartment and owner come from `get_my_cleaning_task_owner_details()` (C24), never from an embed. `src/lib/cleaner/tasks.ts:mergeCleanerTasks` takes the details as its third argument.
 
 ---
 
-## C18 — Owner SMS automation: templates, links, and the three billing paths
+## C18 — Owner SMS automation: templates, links, billing
 
-**Invariant:** the automation pipeline is held together by seven couplings no call-graph tool can
-see: (1) the message templates and their bracket placeholders exist ONLY in the Deno function's
-pure `domain.ts`; (2) the public-listing URL logic and the phone-normalisation logic are
-DUPLICATED into Deno because `src/` cannot be imported there; (3) `sms_outbound` carries THREE
-mutually exclusive billing paths over one table; (4) `automation_kind` is NULL for broadcast and
-contact rows, so every predicate over it must be `IS TRUE` / `IS NOT TRUE`; (5) queued automation
-is a credit reservation but is charged only after provider success; and (6) the cron GUCs, edge
-secrets, delivery kill switch, and `config.toml`'s `verify_jwt` must agree; and (7) the renter's
-win-back preview calls the same pure message builder as the scheduled function, so that module must
-remain browser-safe as well as Deno-safe.
+**Invariant:** Templates in Deno `domain.ts` **only**. URL/phone logic **duplicated** (TS + Deno). Three billing paths on one table. Queued but charged only on provider success.
 
-Participating symbols:
+**Key:** `marketing_opt_out` now trigger-derived (C30 handles writes). `sms_canonical_ge_phone` in BOTH trigger + Deno.
 
-- `supabase/functions/sms-automation-run/domain.ts:TEMPLATES` — the ONLY live templates. Four
-  entries: the three spec texts plus `win_back_fallback`. Placeholders are the spec's own
-  `[Bracket]` names. The fallback is used when EITHER win-back field is empty after trim, so a
-  half-filled `([Discount_Period])` can never render
-- `src/app/[locale]/dashboard/sms/SmsCenterClient.tsx:buildWinBackPreview` — the renter's read-only
-  win-back bubble delegates to the pure domain module's `buildWinBack` with display-only guest/link
-  placeholders and the in-flight discount fields. The surrounding message stays Georgian in every
-  dashboard locale because that is the actual outbound language; only the placeholders and
-  explanatory UI are localized
-- `src/lib/utils/listingUrls.ts:propertyViewUrl` — the source of the 3-way sale/hotel/apartment
-  logic duplicated into `supabase/functions/sms-automation-run/domain.ts:propertyViewPath`. The
-  sale branch is unreachable while the scans are rental-only but is kept so the two match
-- `supabase/functions/sms-automation-run/domain.ts:toCanonicalGePhone` and
-  `supabase/migrations/20260801131000_sms_queue_hardening.sql:sms_canonical_ge_phone` accept only
-  an exact 9-digit Georgian mobile or the same number prefixed by 995 after punctuation removal.
-  Extra legacy digits are rejected, never truncated. The same definition is used for recipients,
-  opt-out matching, and manual re-booking checks
-- `supabase/migrations/20260801131000_sms_queue_hardening.sql:sms_enqueue_automation` — dedup
-  lives in the DB. Both uniqueness guarantees are PARTIAL indexes, and ON CONFLICT will not infer
-  a partial index as arbiter unless the statement repeats the predicate, which PostgREST's
-  `on_conflict=` cannot supply (42P10). The body BRANCHES per source so each ON CONFLICT names its
-  own partial index; a single OR-ed form cannot name two arbiters
-- `supabase/migrations/20260801131000_sms_queue_hardening.sql:sms_claim_dispatch_batch` —
-  token/lease-based atomic claiming, `IS TRUE` / `IS NOT TRUE`, and per-sender ranking against
-  balance minus active claims. `sms_enqueue_automation` also serializes per sender and refuses
-  to create more active automation rows than the current balance
-- `supabase/migrations/20260801131000_sms_queue_hardening.sql:sms_mark_claim_sent` — finalizes
-  only the matching claim token and charges exactly 1 credit, ONLY for automation kinds with
-  `charged_at IS NULL`. **MUST NOT raise on insufficient
-  credit:** the SMS is already delivered by then, and raising would leave the row `approved` for
-  the next run to RE-SEND
-- `supabase/migrations/20260726110000_sms_automation_rpcs.sql:sms_expire_stale_automation` — the
-  per-kind expiry sweep (36h / 7d / 30d from `created_at`). Its ONLY caller is
-  `supabase/functions/sms-dispatch/index.ts`, which calls it FIRST so `sms_dispatch_batch` needs
-  no time predicate of its own
-- `supabase/migrations/20260802120000_controlled_sms_and_price_drop.sql:sms_outbound_controlled_origin_check`
-  — retires owner-authored broadcast/contact SMS, marks legacy free-text rows explicitly, revokes
-  the old broadcast/audience/credit RPCs, and prevents any new NULL-`automation_kind` origin
-- `supabase/migrations/20260611000100_notification_sms_helpers.sql:_enqueue_system_sms` — the
-  free path (`vip_activation` / `vip_expiry` / `subscription`); never charged
-- `supabase/functions/sms-dispatch/index.ts:sendSms` — the single provider integration point.
-  Returns `skipped` unconditionally and includes `sms_outbound.id` as the provider idempotency
-  key contract. `SMS_DELIVERY_ENABLED` must equal `true` before any row is even claimed; otherwise
-  dispatch performs maintenance and fails closed with zero sends
-- `supabase/migrations/20260726100000_sms_automation_schema.sql:check_in_time` — `properties`
-  has `time NOT NULL DEFAULT '14:00'`; the SMS controls do not expose timing and the three trigger
-  offsets are fixed by CHECK constraints at 24 hours / 24 hours / 90 days
-- `supabase/migrations/20260726120000_manual_booking_consent.sql:create_guest_manual_booking` —
-  its inner call to `create_manual_booking` is NAMED, not positional. A positional 12-arg call
-  plus a defaulted 13th parameter silently records `false` for every booking made from the guests
-  page
-- `supabase/migrations/20260804140000_manual_booking_finance_verified_sms_consent.sql` — replaces
-  owner-attested consent with one guest-token authority. The three legacy RPCs retain and ignore
-  `p_marketing_consent`; only `respond_manual_booking_sms_consent` can opt a booking in. The audit
-  table stores a SHA-256 token hash, never plaintext; issuing a new link revokes older links and
-  clears any earlier positive consent while the replacement is pending, while
-  a phone change or cancellation revokes the link and clears consent. Legacy checked rows become
-  `legacy_unverified`, and only queued `review_request` / `win_back` rows are retired — `check_in`
-  remains transactional. `src/app/api/renter/manual-bookings/[id]/sms-consent-link/route.ts` is the
-  owner-authenticated issuer/status projection; `src/app/api/sms-consent/[token]/route.ts` hashes
-  the URL token before every service-role read/write and accepts only accept/decline/revoke
-- `src/app/api/sms/automation/route.ts:RULES_COLUMNS` exposes only the three toggles and two
-  win-back parameters. PATCH calls `sms_set_automation_rules`, which takes the same advisory lock
-  as dispatch and atomically cancels queued text built from changed configuration
-- `src/lib/sms/sender-access.ts:canUseSmsCenter`, the dashboard nav, the page guard, the API guard,
-  and the rules SELECT policy all require an owned rental listing. Seller/sale-only listings do
-  not receive this module; their separate price-drop SMS belongs to the sales domain
-- `supabase/migrations/20260801132000_schedule_sms_pipeline.sql` replaces the unapplied legacy
-  scheduler and creates booking-finalize at 05:50 UTC, automation at 06:00 UTC (10:00 Tbilisi),
-  and dispatch every 10 minutes. It refuses to apply unless all six URL/secret values exist in
-  Supabase Vault. Hosted Supabase does not permit the project `postgres` role to persist custom
-  `ALTER DATABASE ... SET app.*` GUCs, so the cron commands read `vault.decrypted_secrets` at runtime
-- **`profiles.marketing_opt_out` is, since 2026-09-22, a trigger-DERIVED mirror of the new
-  `profiles.marketing_sms_consent` and must never be written directly (`profiles_derive_marketing_opt_out`
-  silently overwrites it) — see **C30**. Nothing in this contract's read paths changed: the
-  `sms-automation-run` opt-out set, `sms_cancel_ineligible_automation` and the price-drop joins all
-  still read `marketing_opt_out` and were deliberately left untouched, which is why that release
-  needed no edge redeploy. What DID change is the polarity for an unanswered user: the column now
-  defaults to `true` (opted out) until the user affirmatively consents, so a profile with no consent
-  record receives no marketing SMS.**
-- `src/lib/content-change/fields.ts:REVIEWABLE_FIELDS` — `check_in_time`, `marketing_consent` and
-  `marketing_opt_out` are deliberately ABSENT. Manual-booking consent is nevertheless guarded:
-  owner RPC arguments are ignored and the guest token response is its only opt-in writer
+**Breaks:** Template/placeholder added one side only; phone normalization drifts; billing path split (double/skip charge).
 
-**Also check:** **T1 is pinned to `check_in = today + 1`** in Tbilisi because the template hardcodes "ხვალ"
-(tomorrow), and `sms_expire_stale_automation`'s 36-hour `check_in` window depends on that pinning
-— change one and the other MUST change. The legacy timing columns remain only for schema compatibility
-and are fixed by constraints. **Effective consent lives on the two booking tables; manual-booking
-proof and lifecycle live in `manual_booking_sms_consents`**. Online bookings were different in
-theory — the guest's own checkbox flowed to `create_booking`, which wrote `bookings.marketing_consent`
-— but as of 2026-09-14 `booking-create` (the RPC's only caller) is a retired 410 tombstone with zero
-real callers ever, so this path has never actually fired in production; an owner-created manual
-booking still can never use that authority regardless.
-**T2 (review request) queues zero rows by construction** and that is
-correct: its link requires a `bookings` row whose `guest_id` matches the logged-in user, which an
-offline guest can never have (follow-up `sms-f10`). Both SMS functions are `verify_jwt = false` in
-`supabase/config.toml` and in the deployment; the pg_cron caller sends a shared Bearer secret, not a
-JWT, so flipping either side to `true` silently 401s the job.
-
-**Breaks silently when:** someone reintroduces owner-authored templates or moderation routes around
-the controlled-origin constraint; or a new predicate over `automation_kind` uses a bare `IN`
-(NULL is not FALSE, so explicit legacy rows disappear from maintenance queries); or a second
-charge path is added without checking `charged_at` (double-billing, since three billing paths share
-one table); or `propertyViewUrl` / the canonical-phone contract changes without both Deno and SQL
-copies changing (links point at the wrong route, or opt-out and re-booking checks stop matching); or a Vault value
-is set to a different value than its edge secret (the cron job reports SUCCESS while the function
-401s and `sms_outbound` never gains a row — the hardest failure here to notice); or `sendSms` is
-implemented without a provider idempotency key (the at-least-once retry duplicates a delivered
-message — `sms-f2`).
-
-**Provider (staging, 2026-09-26 → 09-28): uBill.ge, sender "MyBakuriani".** `sendSms()` in
-`supabase/functions/sms-dispatch/index.ts` POSTs one number per request to
-`https://api.ubill.dev/v1/sms/send` (`key` header, number normalised to `9955XXXXXXXX`
-by the same rule as `sms_canonical_ge_phone`, `stopList: true`). `brandID` is resolved
-every run by `resolveBrand`: the id of `SMS_PROVIDER_BRAND_NAME` once uBill's
-`GET /v1/sms/brandNames` reports it `authorized: 1` (the reply key is `brands`, not the
-documented `data`), else `SMS_PROVIDER_BRAND_ID`; with neither usable nothing is
-claimed. Leave `SMS_PROVIDER_BRAND_ID` unset unless a temporary fallback sender is
-wanted — the owner does not want SMS from uBill's generic "info-ub". uBill answers
-HTTP 200 with a `statusID`: `0` → `submitted` with `smsID` as `provider_message_id`;
-`20`/`50` (no valid number) → `failed`; anything else (no credit `40`, brand not
-approved `10`, bad key, outage) releases the claim and **halts the batch**. A network
-error or timeout is `failed`, not retried — uBill has no idempotency key, so an
-ambiguous send is never repeated. Billing happens only on delivery. Nothing in uBill's
-delivery webhook is trusted: `supabase/functions/sms-delivery-report/index.ts`
-(`verify_jwt=false`; uBill's "Callback key" field truncates to 30 chars and cannot be
-edited, so it is not auth) only looks up a `submitted` row by `smsID`, then asks
-`/v1/sms/report/{smsID}` with `SMS_PROVIDER_API_KEY` (`_shared/ubill.ts:fetchUbillReportStatus`,
-shared with the poll) and maps `1` → `sms_mark_provider_delivered`, `2`/`4` →
-`sms_mark_provider_undelivered` (`20260926120000_sms_ubill_delivery.sql`, `submitted` →
-`failed`, never charged). `sms-dispatch` also polls rows `submitted` more than 15 min
-and gives up (undelivered, `no_final_report`) after 3 days — a stranded `submitted`
-row would otherwise permanently eat one slot of the sender's credit headroom in
-`sms_claim_dispatch_batch`'s `active_claims`. `SMS_TEST_RECIPIENTS` (comma-separated),
-when set, fails every row whose number is not listed; it is UNSET on staging since
-2026-09-28 by the owner's choice, so E2E/QA fixtures (made-up real-format numbers in
-`e2e/helpers/seed.ts`, `stress-fixtures.ts`) can text strangers and spend credit. Staging
-runs `SMS_RENTAL_MODE=on` (edge) and `SMS_PRICE_DROP_MODE=on` (edge AND the DO app).
-The same migration gives the three system kinds (`vip_activation`, `vip_expiry`,
-`subscription`) a 48 h expiry in `sms_expire_stale_automation`; before it they never
-expired, and staging held 41 queued notices (some from August) that would all have
-been sent the moment delivery was enabled (retired by hand as `pre_provider_backlog`).
+**Notification mirror (2026-10-01, `20261001130000`, `20261001130100`, staging):** kind `'notification'` is a FREE system kind (platform pays, never debits `sms_remaining`, no marketing consent: a service message, C30). AFTER INSERT trigger `notifications_enqueue_sms` on `public.notifications` is scope-blind and keyed on `user_id`, so a multi-role user is texted for every cabinet. Only types in `sms_notification_types()` (payment_success/failed/refund, cleaning_task_new/status/cancelled/cancellation_requested, smart_match_offer, listing_moderation, verification, job_application) qualify; every one must also be in `email_notification_types()` (`check-contracts` C18 enforces the subset and that `smart_match_request`, `broadcast`, `admin_*` and `vip_*` never appear). Phone = `profiles.phone` via `sms_canonical_ge_phone` (null/invalid: skipped quietly; staging 2026-10-01: 17 of 30 profiles have none). Text = `MyBakuriani: ` + the notification TITLE (70 chars in total, one UCS-2 segment: the 13-character prefix + a title of at most 57; never the body). Caps over rows with status <> 'failed': 3 per (user, type, scope), 8 per user, and 8 per canonical recipient number across ALL accounts (try-locks, never blocking: a statement timeout would escape `WHEN OTHERS` and fail the notification INSERT). `profiles.phone` is self-entered and unverified (phone OTP is gone), so the per-number cap is the abuse brake. `sms_outbound.source_notification_id` (unique FK, SET NULL) links each row to its notification: it makes the mirror idempotent and the type/scope caps countable. `expires_at` is 6 h and `sms_expire_stale_automation` lists the kind. The kind stays OUT of every charged-kind list (`sms_claim_dispatch_batch` x2, `sms_mark_provider_delivered`, `sms_mark_claim_sent`, the consent credit check). E2E accounts (auth email ending `@e2e.mybakuriani.test`, what `createTestUser` gives the fixtures) are never texted (`20261001130200`): their seeded numbers are real-format Georgian mobiles and staging has no recipient allow-list, so every seed run used to text them. A buyer with a phone gets two texts for a package/VIP purchase (`subscription`/`vip_activation` + `payment_success`). **Breaks:** the kind added to a charged list; `smart_match_request`/`admin_*`/`vip_*` added to the allow-list (fan-out cost); a cap keyed on `user_id` only; a blocking advisory lock; an allow-listed type missing from the email list.
 
 **S2 (2026-09-27, `20260927090000`):** `sms_mark_provider_delivered` writes the delivery-charge description `SMS მიწოდებულია (price_drop)` without the recipient's number for price_drop (the owner's own-contact kinds keep `: <phone>`). Every later redefinition must keep that case.
 
 **S3 / S07 (2026-09-27, `20260927091100`, staging):** the manual-booking consent link reaches the guest only by a platform SMS. `request_manual_booking_sms_consent` (service_role only; called by `src/app/api/renter/manual-bookings/[id]/sms-consent-link/route.ts` for the signed-in owner) is the only path that issues a `manual-sms-v2` token. It checks that the link token in the message hashes to `p_token_hash`, and refuses before any write: cancelled booking, invalid phone, already accepted, `consent_declined` (the guest declined or withdrew for this booking and number), one SMS per number per 24 h (any sender), 20 per owner per 24 h, no free credit. A repeat within 24 h is idempotent, and it never returns the token, link or message. `consent_request` is a CHARGED kind: the list must be identical in `sms_claim_dispatch_batch` (twice), `sms_mark_provider_delivered`, the RPC's credit check and `sms_expire_stale_automation` (2-day window). `update_manual_booking` keeps a queued consent request unless the canonical phone changes (same comparison as the phone-invalidation trigger). The text is `supabase/functions/sms-automation-run/domain.ts:TEMPLATES.consent_request`, imported by `src/lib/sms/manual-booking-consent.ts`, so domain.ts must stay Node- and Deno-safe. v1 (owner-shared) tokens were revoked and their acceptances withdrawn. The route's GET `guestDeclined` mirrors the RPC's `consent_declined` predicate. **Breaks:** the route or RPC returns or logs the token, link or message (owner-forged consent is back); `/api/sms/history` lists `consent_request` without masking `/sms-consent/` links; a charged kind added to only one list; app code calls `issue_manual_booking_sms_consent` directly again; the GET mirror and the RPC predicate drift.
 
-**Notification mirror (2026-10-01, `20261001130000`, `20261001130100`, staging):** kind `'notification'` is a FREE system kind (platform pays, never debits `sms_remaining`, no marketing consent: a service message, C30). AFTER INSERT trigger `notifications_enqueue_sms` on `public.notifications` is scope-blind and keyed on `user_id`, so a multi-role user is texted for every cabinet. Only types in `sms_notification_types()` (payment_success/failed/refund, cleaning_task_new/status/cancelled/cancellation_requested, smart_match_offer, listing_moderation, verification, job_application) qualify; every one must also be in `email_notification_types()` (`check-contracts` C18 enforces the subset and that `smart_match_request`, `broadcast`, `admin_*` and `vip_*` never appear). Phone = `profiles.phone` via `sms_canonical_ge_phone` (null/invalid: skipped quietly; staging 2026-10-01: 17 of 30 profiles have none). Text = `MyBakuriani: ` + the notification TITLE (130 chars max, never the body). Caps over rows with status <> 'failed': 3 per (user, type, scope), 8 per user, and 8 per canonical recipient number across ALL accounts (try-locks, never blocking: a statement timeout would escape `WHEN OTHERS` and fail the notification INSERT). `profiles.phone` is self-entered and unverified (phone OTP is gone), so the per-number cap is the abuse brake. `sms_outbound.source_notification_id` (unique FK, SET NULL) links each row to its notification: it makes the mirror idempotent and the type/scope caps countable. `expires_at` is 6 h and `sms_expire_stale_automation` lists the kind. The kind stays OUT of every charged-kind list (`sms_claim_dispatch_batch` x2, `sms_mark_provider_delivered`, `sms_mark_claim_sent`, the consent credit check). E2E accounts (auth email ending `@e2e.mybakuriani.test`, what `createTestUser` gives the fixtures) are never texted (`20261001130200`): their seeded numbers are real-format Georgian mobiles and staging has no recipient allow-list, so every seed run used to text them. A buyer with a phone gets two texts for a package/VIP purchase (`subscription`/`vip_activation` + `payment_success`). **Breaks:** the kind added to a charged list; `smart_match_request`/`admin_*`/`vip_*` added to the allow-list (fan-out cost); a cap keyed on `user_id` only; a blocking advisory lock; an allow-listed type missing from the email list.
+**Length (2026-10-03, `20261003090000`, local + staging DB check only):** every SMS text is written to one UCS-2 segment where it can be (70 UTF-16 units; 67 per segment once split; `MyBakuriani_SMS_Optimization_Spec-2.md`). `domain.ts` clamps the guest name to 20, the property name to 25 and a non-Georgian host number to 20, writes a Georgian host number as `+995…`, keeps map pins to 5 decimals, and the check-in carries no listing link (no site URL or listing status is passed in). The check-in, review, win-back and consent texts ship with the `sms-automation-run` function AND the app (the consent text and the dashboard win-back preview are built from the same `domain.ts`); the price-drop, membership-pending and notification-mirror texts live in SQL and ship with `20261003090000`, which patches the live bodies and raises when an anchor is missing; `messages/*.json` `fixedTemplate` (the seller's price-drop preview) repeats the price-drop text. Links decide the real length (a manual review link is about 94 characters, a consent or listing link 66-80, and there is no short-link service), so every text that carries one is 2-3 segments whatever its wording; `domain_test.ts` pins the check-in lengths and bounds the others. **Breaks:** a text lengthened without re-running those pins; the migration deployed without the app (the preview shows the old price-drop text) or the app without the function (preview and SMS disagree); `fixedTemplate` left out of date.
 
 ---
 
-## C19 — Notification `dashboard_scope` (one string, six layers)
+## C19 — Notification `dashboard_scope`
 
-**Invariant:** every dashboard notification carries a `dashboard_scope` naming the cabinet it belongs
-to, and that string must agree across **six** layers that nothing type-checks together: the DB CHECK
-constraint, the TS union, the writers (DB triggers + edge functions + admin API routes), the readers
-(scoped bells/feeds), the per-cabinet badge counts, and `email_outbound.dashboard_scope` (copied by
-`email_enqueue_notification` for routing, the label and the cap; its CHECK list must equal this one).
-`NULL` is reserved for global/account-wide notices: since 2026-10-01 it is shown in EVERY header bell
-and in `/notifications`, but in no cabinet's sidebar badge or per-cabinet inbox page — it is not a safe
-default.
+**Invariant:** Every notification carries `dashboard_scope` naming its cabinet. One string in **six** unchecked places: CHECK, TS union, writers, readers, badges, and `email_outbound.dashboard_scope` (copied by `email_enqueue_notification` for routing, the label and the cap; its CHECK list must equal this one).
 
-Participating symbols:
+**Union:** 10 cabinet names + NULL (global: shown in EVERY header bell and in `/notifications`, in no cabinet's sidebar badge or inbox page).
 
-- `src/lib/notifications/scopes.ts:DASHBOARD_SCOPES` — the 10-value TS union; must equal the CHECK set
-- `src/lib/notifications/scopes.ts:dashboardScopeFromRoute` — URL segment → scope, including the aliases
-  that do **not** match their route (`sms` → `renter`, `service`/`handyman` → `services`)
-- `src/lib/notifications/scopes.ts:serviceCategoryToDashboardScope` — the service-category mapping the DB
-  trigger functions duplicate in SQL; both copies must move together
-- `supabase/migrations/20260727160000_explicit_payment_notification_scope.sql:dashboard_scope_for_path`
-  — SQL twin of `dashboardScopeForPath`, turns `payments.return_path` into a scope
-- `supabase/migrations/20260727160000_explicit_payment_notification_scope.sql:dashboard_scope_for_listing`
-  — owner-scoped listing → cabinet; **not STRICT**, and the owner predicate is required, not decorative
-- `supabase/migrations/20260727180000_admin_queue_notifications.sql:_notify_admins`
-  — the ONLY writer of `dashboard_scope='admin'`, and the repo's only admin _enumeration_
-- `supabase/migrations/20260819122000_cleaner_call_details_and_cancellation_consent.sql:notify_owner_of_task_status`
-  — routes both a pre-acceptance withdrawal and an accepted-job cancellation
-  request to `cleaner`, then routes the cleaner's response back to `renter`;
-  every branch passes scope explicitly (**C24**)
-- `supabase/migrations/20260727130000_scoped_dashboard_notifications.sql:assign_notification_dashboard_scope`
-  — BEFORE INSERT safety net; **since 20260727160000 it covers ONLY the seller branch**
-- `src/lib/hooks/useNotifications.ts:useNotifications` — scoped bell/feed reader; also owns `markAllRead`
-- `src/components/layout/DashboardShell.tsx:recountUnread` — live per-cabinet badge recount.
-  The badge shown is `unreadCounts[activeScope]`, where `activeScope` is the
-  URL's scope or, for a cabinet-less route (`/dashboard/account`), the scope of
-  the cabinet shell it renders in — never a silent `guest` fallback there
-- `src/app/[locale]/dashboard/layout.tsx:LayoutData` — reads the `unread_counts` jsonb key
+**Key:** Realtime filter stays on `user_id` (scope applied client-side). `_notify` RPC (six-arg with default=NULL).
 
-**There is no longer ANY fallback for `payment_success`.** `20260727160000` deleted the trigger's
-inference block, because it read "the user's most recent transaction with a non-null `reference_id`",
-which is not a fact about the notification being inserted — and `topup_balance` writes no
-`reference_id`, so a wallet top-up was attributed to the buyer's **previous listing purchase**. All
-three writers (`topup_balance`, `purchase_vip`, `purchase_package`) now pass the scope explicitly.
-The consequence to know: a NEW writer that forgets `_notify`'s sixth argument silently lands NULL
-(global). That is deliberate — an honest gap beats a confident lie — but nothing will catch it for you.
-
-**NULL means two different things, and only one of them is a bug.** NULL is the _correct_ value for a
-genuinely account-level event (an admin wallet bonus, an SMS package, a profile-target content change):
-those have no cabinet, and inventing one produces a notice rendered by no surface while still
-incrementing a badge nothing can clear. NULL is a _defect_ when a cabinet-specific writer simply forgot
-to pass it. Same value, opposite meanings — read the writer before "fixing" a NULL.
-
-**`dashboard_scope_for_path` deliberately does NOT map `admin`, unlike its TS twin.** The TS helper
-reads routes and needs it; the SQL one converts **client-supplied** `payments.return_path` into a
-persisted scope, so mapping `admin` would let any user mint an admin-scoped notification for themselves
-by posting `return_path: "/dashboard/admin"`. Keep the two divergent in that one direction only.
-
-**`_notify` is now SIX arguments with the scope defaulted, and there is exactly ONE overload.** Two hard
-Postgres rules force that shape, both verified empirically against this database:
-
-1. A non-defaulted parameter may not follow a defaulted one — `42P13` at CREATE time.
-2. Given the default, keeping a separate five-argument overload makes every existing five-argument call
-   fail at RUNTIME with `42725 function public._notify(...) is not unique`.
-
-So the five-argument form was **dropped**, not preserved (`pg_depend` showed zero hard dependencies).
-Legacy five-argument callers bind to the six-argument function and default the scope to NULL. **Never
-re-add a five-argument `_notify`** — it reintroduces the ambiguity for every caller at once.
-
-**`dashboard_layout_data` returns `unread_counts` (jsonb object keyed by scope), NOT the old scalar
-`unread_count`.** A missing key reads as `{}` → no badges, which is the safe degradation; nothing else
-in the DB or `src/` reads the old key.
-
-**Realtime must stay filtered on `user_id`, never on `dashboard_scope`.** Realtime supports one filter;
-swapping it for `dashboard_scope=eq.<scope>` drops the per-user predicate, and the "Admins full access
-notifications" RLS policy then delivers _other users'_ notifications into an admin's own feed. The scope
-is applied client-side in the payload handler instead. `dashboard/renter/notifications/page.tsx`
-used a `dashboard_scope=eq.renter` filter until 2026-09-27 (it only triggered refetches, which filter by
-user, so nothing leaked); it now filters on `user_id`, checks the scope in the handler, and coalesces
-refetches to one in flight plus one trailing.
-
-**Also check:** `src/lib/types/database.ts` must carry `dashboard_scope` on `notifications` (**C3**), and
-the migration ends with `notify pgrst, 'reload schema'`.
-
-**`admin` now HAS a writer.** Until `20260727180000` it was a cabinet nothing could write to — in the
-CHECK, in the union, subscribed to by `AdminTopbar`, and produced by nothing, so the bell was
-structurally empty. `_notify_admins` fills it from four queues (listing moderation, content-change
-review, SMS approvals, company verification), each fanned out to every admin **except the actor**.
-Two behaviours are deliberate and will look like bugs if you don't know them: (1) the fan-out is
-**coalesced** on `(recipient, type, still unread)`, so while a notice is unread later arrivals in that
-same queue are silent and the message names the item that armed the signal rather than the backlog —
-the exact count lives in the polled sidebar badge; (2) marking read **re-arms** the queue.
-
-**Breaks silently when:** a value is added to `DASHBOARD_SCOPES` but not the CHECK (23514 at runtime
-only) or vice-versa (a cabinet nothing can ever write to); or a new notification writer omits the scope
-(it lands NULL: shown in every header bell and in `/notifications`, in no cabinet's badge or inbox page —
-and since `20260727160000` there is no `payment_success` fallback to catch it); or the realtime filter
-is "simplified" back onto the scope column; or a bulk read-write loses its `user_id` predicate — the
-"Admins full access notifications" policy is `FOR ALL`, so for an admin viewer that marks **every**
-user's rows read. That predicate lives in `useNotifications:markAllRead`; the bell must not re-implement
-the write itself.
+**Breaks:** Value in CHECK but not union (23514); new writer omits scope (lands NULL: shown in every bell, in no cabinet); realtime filter moved to scope (leaks rows to admins).
 
 **Multi-role bell (2026-10-01):** a user holds several cabinets (`src/lib/cabinets.ts:deriveAvailableCabinets`; `profiles.role` is only the home one), so the HEADER bell on every dashboard and on `/dashboard/account` is the unified all-roles inbox: `useNotifications()` with no scope = every row of the user, NULL included, a small cabinet label per row (`Navbar.scopeLabels.*`, C1), "view all" → `/notifications`. `dashboard_scope` now only drives the per-cabinet sidebar badges, the per-cabinet inbox pages (`/dashboard/<cabinet>/notifications`, which stay scoped) and the label. `DashboardShell` keeps two numbers: `unreadCounts[scope]` (sidebar) and `totalUnread` (all scopes + NULL; seeded from the layout RPC's per-scope sum, which excludes NULL, then made exact by a `user_id`-only head-count on mount, +1 on every INSERT, a debounced recount after every UPDATE and after the sidebar-entry bulk read). The feed handed to bells (`DashboardNotificationsFeedProvider`, wrapping EVERY shell branch) exposes `unreadCount` = total, `adjustUnreadCount(delta, rowScope?)` (total always, bucket only for a non-null scope) and `resetUnreadCount()` (zeroes everything). Each topbar mounts the bell hook ONCE. A bare `/dashboard` `action_url` resolves by scope through `src/lib/notifications/scopes.ts:resolveNotificationPath` (bell modal, email link). `DASHBOARD_SCOPE_LABEL_KA` serves non-next-intl surfaces (email). Mark-all in the bell clears every scope, `severity='critical'` rows included (as the public Navbar bell always did).
 **Audience:** notices not aimed at one user (admin broadcasts, subscription-package notices) resolve role audiences with `src/lib/notifications/audience.ts:loadAudienceUserIds`: a user matches when `profiles.role` is targeted OR they derive that cabinet from owned data (`src/lib/cabinets.ts:resolveAudience` reuses `deriveAvailableCabinets`, so audience and switcher cannot drift; `guest`, `admin` and unknown roles stay role-only). Bulk inserts go through `insertNotificationsChunked` (500 per statement; a partial failure records the delivered count). `channel:"email"` broadcasts still insert nothing.
@@ -1707,375 +224,57 @@ the write itself.
 
 ---
 
-## C20 — Manual booking cancellation is reversible state, not deletion
+## C20 — Manual booking cancellation is reversible, not deletion
 
-**Invariant:** a renter-calendar cancellation updates `manual_bookings.status` to `cancelled`; browser
-clients never delete the row. `cancel_manual_booking` and `restore_manual_booking` serialize first with
-the SMS dispatch advisory lock and then the property advisory lock, so queue eligibility and inclusive
-`calendar_blocks` cannot drift from the booking. Both RPCs are owner-scoped and idempotent.
+**Invariant:** Cancellation updates `status` to 'cancelled' (never delete). Both RPCs serialize with SMS lock + property lock. Owner-scoped, idempotent.
 
-Participating symbols:
+**Key:** Cancelled absent from occupancy/SMS/re-booking. Unclaimed SMS failed; sent SMS not rewritten.
 
-- `supabase/migrations/20260804130000_manual_booking_cancellation_history.sql` — cancellation columns,
-  state CHECK, both RPCs, restore-with-edits in `update_manual_booking`, history index, review-token and
-  SMS revalidation guards
-- `supabase/migrations/20260804131000_manual_booking_write_hardening.sql` — removes authenticated direct
-  INSERT/UPDATE/DELETE after the web RPC rollout; SELECT remains owner-RLS protected
-- `public.audit_logs` / `public.audit_manual_booking_change` — canonical immutable activity source;
-  it stores complete before/after booking snapshots and actor attribution. Renter access stays behind
-  the sanitized server endpoint, never a broad audit RLS policy
-- `src/app/api/renter/calendar/history/route.ts` — verifies property ownership with the service client,
-  keyset-paginates audit rows, and whitelists booking/actor fields rather than returning raw snapshots
-- `src/app/[locale]/dashboard/renter/calendar/page.tsx` and
-  `src/components/renter/BookingHistoryDrawer.tsx` — active calendar excludes cancelled rows; history can
-  restore them, and an occupied original range opens the existing edit form for restore-with-new-dates
-
-Cancelled manual stays must also be absent from renter guest visit projections, SMS candidate and
-re-booking queries, and review-token use. Safe unclaimed queued SMS are failed and detached from the
-source uniqueness key on cancellation; claimed/submitted/sent rows are not rewritten. A later restore
-may therefore enqueue fresh future automation without resending a retired message.
-
-Legacy `DELETE` audit events remain visible as `legacy_deleted` but are never restorable because the
-source row and its foreign-key state no longer exist. There is no cancellation reason, restore expiry,
-or team permission expansion in this contract.
-
-**Manual-booking reviews are moderated (2026-09-25,
-`20260925120000_manual_reviews_require_moderation.sql`).** The review link from
-`/api/renter/manual-bookings/[id]/review-link` is returned to the HOST to
-forward, so the host can always submit it. `submit_manual_booking_review` runs
-as `service_role`, which `enforce_review_lifecycle` skips, and it used to insert
-without a status — the column default `'approved'` published a host's
-self-review instantly. It now inserts `status = 'pending'`; approval goes through
-the existing admin reviews queue (`/api/admin/reviews/moderate`). The rating
-trigger (`on_review_rating_change` → `update_property_rating`, replacing
-`on_review_insert`) now averages **only approved** reviews into the owner's
-`profiles.rating` and re-runs on INSERT, DELETE and UPDATE of
-`status`/`rating`/`property_id`, so approve/hide/remove is reflected. Never let a
-service-role review writer rely on the column default, and never compute a
-public rating from non-approved rows.
+**Breaks:** Delete instead of marking (history lost); SMS query includes cancelled (double-send risk).
 
 **S2 (2026-09-27, `20260927090000`):** `cancel_manual_booking`, `restore_manual_booking` and `update_manual_booking` check ownership lock-free (same P0002 `ჯავშანი ვერ მოიძებნა`) before taking the `sms_dispatch_claim` lock, so a stranger's id cannot stall the dispatcher; the lock order after that is unchanged. `manual_bookings` has no table-level client writes (owner RPCs only, C34).
 
 ---
 
-## C21 — Restaurant discounts are per-menu-item, self-service, and charged on activation
+## C21 — Restaurant discounts: per-item self-service
 
-**Invariant (2026-09-07 update — supersedes the 2026-08-15 admin-review-gated version of this
-contract):** restaurants discount individual dishes, not the whole listing. Every restaurant now has
-a real, structured menu in `service_menu_items` (name, price, description, availability, sort order —
-the PDF/link `services.menu_url`/`menu` fields are unchanged and remain a supplementary download).
-Activating a discount on one dish is now **instant, self-service, and still paid**: the owner calls
-`self_service_activate_menu_item_discount` directly (via the service-role client, like every other
-`self_service_*` RPC on this table), which validates ownership/status/package, charges the balance, and
-writes `discount_percent`/`discount_expires_at` onto the **item row** in the same transaction — no admin
-step, no `content_change_requests` row created. This is a formal, deliberate self-service exception to
-admin review, matching the precedent already set for cleaner working hours
-(`self_service_set_cleaner_working_hours`, 20260801120000) and profile identity fields
-(`self_service_update_profile`, 20260905122000): those two migrations are the reference examples for
-"how a self-service RPC bypasses review but keeps the paid/validated mechanics."
+**Invariant:** Food discounts moved from whole-listing (retired admin-review) to **per-item self-service** (instant charge). `self_service_activate_menu_item_discount` validates + charges atomically.
 
-**The admin-review path is not deleted, just retired — same convention `20260816120000` itself used
-when it retired the older flat-listing `food_discount` RPCs.** `submit_menu_item_discount_request`,
-`approve_menu_item_discount_request`, and the `guard_food_discount_approval` trigger's
-`menu_item_discount` branch are all left in the database, still `GRANT EXECUTE`ed to `service_role`,
-still wired into the admin content-change-requests dispatch — but nothing in `src/` calls
-`submit_menu_item_discount_request` anymore, so no new pending `menu_item_discount` row can be created.
-The 2026-09-07 migration (`20260907120000_self_service_menu_item_discount.sql`) superseded any
-still-pending `menu_item_discount` requests at ship time and notified their requesters, mirroring
-`20260816120000`'s own "5. Ship-time cutover" section.
+**Key:** Card/detail reads `best_active_menu_item_discount_percent` for food (not `discount_percent`). `pricePerSqm` from **discounted** price.
 
-The prior flat, whole-listing mechanism (`request_kind='food_discount'`,
-`submit_food_discount_request`/`approve_food_discount_request`, `FoodDiscountRequestModal.tsx`,
-`src/app/api/food/discount-requests/route.ts`) is **retired**: the migration below superseded any
-still-pending `food_discount` request and zeroed any active `services.discount_percent` for
-`category='food'` in one cutover, the route was deleted (nothing called it), and the modal was deleted
-(its only callers — `dashboard/food/orders`, `FoodDashboardClient`, `dashboard/food/balance` — were
-migrated off it). The two RPCs and `guard_food_discount_approval`'s `food_discount` branch are left in
-place (harmless, `service_role`-only, kept for historical `content_change_requests` row audit) but are
-unreachable from any client since their only entry point is gone. `services.discount_percent`/
-`discount_expires_at` remain fully live for every **other** category (cleaning, transport, entertainment,
-employment, handyman) via the unrelated generic `purchase_package` VIP-discount tier — this redesign
-touches only food's use of those columns, not the columns themselves (see **C10**).
-
-Participating symbols:
-
-- `supabase/migrations/20260804180000_food_discount_admin_review.sql` — the original (now superseded)
-  flat mechanism; kept for history, not touched by the redesign migration below
-- `supabase/migrations/20260816120000_menu_item_discounts.sql` — `service_menu_items` table (RLS:
-  owner SELECT-only; all writes via `self_service_create/update/delete/reorder_menu_item`, `service_role`
-  RPCs mirroring the `self_service_set_cleaner_working_hours` precedent), `prevent_menu_item_protected_field_change`
-  trigger (blocks direct writes to the item's `discount_percent`/`discount_expires_at` outside
-  `service_role` — this is what `self_service_activate_menu_item_discount` below relies on to be allowed
-  to write those columns), `public_service_menu_items` view (public read model, filters to
-  `services.status='active' AND is_available=true`), `content_change_requests.target_menu_item_id` + the
-  `menu_item_discount` request_kind value + its own partial unique pending-index (now dead weight going
-  forward, kept for historical rows), the `submit_menu_item_discount_request`/
-  `approve_menu_item_discount_request` RPC pair (retired, see below), and the `public_services` view
-  recreate: `has_active_discount` for `category='food'` means "any menu item has an active discount" (an
-  `EXISTS` subquery over `service_menu_items`, unchanged expression for every other category), plus a
-  `best_active_menu_item_discount_percent` column (max active-item percent, `null` for non-food) that
-  public card call sites read instead of `discount_percent` for food rows
-- `supabase/migrations/20260907120000_self_service_menu_item_discount.sql` — adds
-  `self_service_activate_menu_item_discount(p_actor_id, p_menu_item_id, p_package_id,
-p_discount_percent, p_quantity)`: validates ownership/active-status/package exactly like
-  `submit_menu_item_discount_request` did, then in the SAME call charges the balance and writes the
-  discount columns (what `approve_menu_item_discount_request` used to do on a second, admin-triggered
-  call). `SECURITY DEFINER`, `GRANT EXECUTE` to `service_role` only — always invoked through
-  `createServiceClient()`, never directly by a browser session. Also supersedes any still-pending
-  `menu_item_discount` content_change_requests rows at ship time (mirrors `20260816120000`'s own
-  cutover for `food_discount`)
-- `supabase/functions/vip-lifecycle/index.ts:clearExpiredMenuItemDiscounts` — the same idempotent
-  expiry sweep as `clearExpiredDiscounts`, extended to `service_menu_items`; like the original,
-  public-facing correctness never depends on this sweep running (both check `expires_at > now()` at
-  read time) — see **C4**'s note that this job has never actually been scheduled (`cron.job` holds only
-  `rate-limit-gc`), so treat `menu_item_discounts_cleared` as inert, not a live guarantee
-- `src/app/api/food/menu-items/route.ts`, `[id]/route.ts`, `reorder/route.ts` — owner-authenticated menu
-  CRUD, all via the `self_service_*` RPCs above through `createServiceClient()`
-- `src/app/api/food/menu-item-discount-requests/route.ts` — owner-authenticated POST-only endpoint that
-  now calls `self_service_activate_menu_item_discount` and returns the activation result synchronously
-  (201/200, not a pending row); its GET handler (status polling for the old pending state) was removed
-  since there is no pending state left to poll
-- `src/app/api/admin/content-change-requests/[id]/route.ts` — three-way `rpcName` dispatch
-  (`food_discount` → legacy RPC still wired for any lingering historical row; `menu_item_discount` →
-  `approve_menu_item_discount_request`, likewise now unreachable from new rows but left wired for any
-  stray historical one; else → the generic RPC)
-- `src/components/dashboard/MenuItemDiscountModal.tsx` and
-  `src/app/[locale]/dashboard/food/orders/page.tsx` — the "Menu items" management section (add/edit/
-  delete/availability, one-click instant discount activation via the `onActivated` callback, which
-  writes `discount_percent`/`discount_expires_at` straight onto the local `items` array entry — no
-  pending state, no polling); the PDF/link menu section on the same page is untouched
-- `src/app/[locale]/dashboard/food/FoodDashboardClient.tsx` and `.../dashboard/food/balance/page.tsx` —
-  both had a generic `ListingActions`/`BalancePackageCard` "discount" promotion tier that used to open
-  `FoodDiscountRequestModal`; both now redirect that tier to `/dashboard/food/orders` instead (a food
-  listing no longer has a whole-listing discount to purchase)
-- `src/app/[locale]/food/[id]/FoodDetailClient.tsx` + `page.tsx` +
-  `src/lib/data/getCachedPublicListing.ts:getCachedPublicMenuItems` — the public menu section (struck
-  original price + discounted price + badge per active-discount item, cached under the same
-  `listingTag("service", id)` tag as the service itself); `avgCheckLabel`'s `service.price` fallback no
-  longer applies `applyDiscount` (there is no single flat percent left to apply to it)
-- `src/app/[locale]/food/FoodPageClient.tsx`, `_landing/LandingPage.tsx`, `search/SearchPageClient.tsx` —
-  card-building sites that source `discountPercent` from `best_active_menu_item_discount_percent` instead
-  of `discount_percent` **only** when `category === 'food'`; every other category unchanged
-
-There is no more quote-then-approve gap for new discounts: `self_service_activate_menu_item_discount`
-checks the balance and charges in the same call it validates in, so there is no `payment_required`
-pending state to leave stranded and no second actor who could "refresh" a stale quote — the owner
-just retries the same action if their balance was insufficient (surfaced client-side via
-`itemDiscountNeedsBalance`, mapped from the RPC's `insufficient_balance` error code). Its
-`transactions.reference_id` is the **service id** (not a request id — there is no request row), which
-is deliberately more consistent with how `purchase_package`/`purchase_vip` key most other listing-linked
-transactions than the outlier `reference_id=request.id` convention `approve_menu_item_discount_request`
-and `approve_food_discount_request` still use for any historical/admin-path row. `type` stays
-`'discount_badge'` for both paths, so `admin_overview_stats`'s revenue aggregation needed no change.
-
-**Breaks silently when:** a UI calls `purchase_package` directly for a restaurant discount (bypasses the
-service/category checks `self_service_activate_menu_item_discount` performs); a new API route or client
-call site reintroduces `submit_menu_item_discount_request` (reopens the retired pending/admin-review
-flow — the RPC still exists and still works, it is just meant to stay uncalled); general content
-approval is allowed to transition `menu_item_discount`/`food_discount` rows (can activate without a
-charge — the `guard_food_discount_approval` trigger's two GUC checks are what prevent this, and remain
-load-bearing for any lingering historical `food_discount` row even though no new `menu_item_discount`
-row can be created); a public query orders raw `discount_percent` instead of `has_active_discount` /
-`best_active_menu_item_discount_percent` for a food row (expired offers stay promoted, or the badge
-reads the wrong source); a later `public_services` restatement drops either column; a new card call
-site for food is added without the `category === 'food'` conditional (falls back to the always-zero
-`services.discount_percent`, silently showing no badge on a restaurant with an active item discount);
-or a new menu-item write path bypasses the `self_service_*` RPCs (the protective trigger still blocks
-direct writes to the discount columns from a non-`service_role` session, but any other column would
-write through unvalidated).
-
-**Price source (2026-09-25, staging):** `self_service_activate_menu_item_discount`
-prices a dish discount from the same `vip/discount` package the listing discount
-badge uses, so the 2026 price list's 2.50 ₾ / 24 h (`20260925130000`) also
-applies per dish per 24 h. A separate food price needs its own package row, not
-a change to that one.
+**Breaks:** Call `purchase_package` for discount (bypasses validation); card reads raw `discount_percent` for food (wrong); reopens admin-review path.
 
 ---
 
 ## C22 — Per-listing analytics: only three metrics, all event-backed
 
-**Invariant:** the owner-facing "ანალიტიკა" panel shows exactly three metrics — views, phone/WhatsApp
-reveals, favorites — and nothing else, because those are the only signals with a real per-event log.
-There is deliberately **no "impressions" metric** (how often a listing appeared in a search/grid list);
-nothing tracks that today, and the panel must never approximate or fabricate it. Adding a fourth metric
-to this panel requires a real event source first, not just a UI mock.
+**Invariant:** Owner "analytics" shows views/reveals/favorites **only** (real event logs). NO "impressions" (never tracked, never fabricate).
 
-Participating symbols:
+**Symbols:** `listing_view_events`, `record_listing_view` RPC (counter + row), `listing_analytics` RPC (ownership read, daily buckets Tbilisi), `POST /api/listings/[kind]/[id]/view`.
 
-- `supabase/migrations/20260808120000_listing_analytics.sql:listing_view_events` — new event log,
-  mirrors `contact_reveal_events`'s posture exactly (RLS enabled, no policies, all grants revoked from
-  PUBLIC/anon/authenticated — readable only through the RPC below)
-- `supabase/migrations/20260808120000_listing_analytics.sql:record_listing_view` — SECURITY DEFINER
-  wrapper, `service_role`-only EXECUTE. Bumps `properties.views_count`/`services.views_count` AND inserts
-  a `listing_view_events` row atomically. A NEW function rather than adding a parameter to the legacy
-  `increment_views`/`increment_service_views` — `CREATE OR REPLACE` only replaces an identical signature,
-  so adding an arg creates a second resolvable overload instead of retiring the old one. Those two legacy
-  RPCs are left in place, untouched; nothing else calls them
-- `supabase/migrations/20260808120000_listing_analytics.sql:listing_analytics` — the read RPC.
-  SECURITY DEFINER, granted to `authenticated`, but the ownership check inside is keyed on `auth.uid()`
-  against the listing's `owner_id` — this only resolves correctly when called through the **user-scoped**
-  server client, never `createServiceClient()` (that would make `auth.uid()` NULL and reject every
-  legitimate call). Buckets daily in `Asia/Tbilisi`, not UTC, so an evening event lands on the correct
-  Georgian calendar day. `p_days` is clamped server-side to `[1, 90]`
-- `src/app/api/listings/[kind]/[id]/view/route.ts` — now calls `record_listing_view` instead of the
-  legacy increment RPCs; the existing `checkRateLimit` dedup (1/IP/kind/id/24h, C16) is unchanged and
-  still runs first, so the event log inherits the same dedup guarantee as the counter
-- `src/app/api/listings/[kind]/[id]/analytics/route.ts` — GET, user-scoped `createClient()` (not
-  service client — see above), maps the RPC's `42501` to HTTP `403`
-- `src/components/renter/ListingAnalyticsPanel.tsx` — the one shared panel component, used by BOTH
-  dashboards below. Three stat tiles double as the metric switcher; a period pill (7d/30d) refetches;
-  a single Recharts `Area` renders whichever metric is selected
-- `src/app/[locale]/dashboard/renter/RenterDashboardClient.tsx:PropertyRow` — rentals. The "ანალიტიკა"
-  button sits next to "გადახდა" in both the desktop action row and the mobile compact row (which is now
-  `grid-cols-4`, was `grid-cols-3`)
-- `src/app/[locale]/dashboard/seller/SellerDashboardClient.tsx` — individually-owned sale listings
-  (`owner_id = uid AND organization_id IS NULL`, per C11's personal-scope filter). The button is passed
-  as a `children` node to `src/components/dashboard/ListingActions.tsx`, which already supports extra
-  buttons after Edit — `ListingActions.tsx` itself was NOT modified
-- `messages/{ka,en,ru}.json:DashboardShared.analytics` — shared namespace (not `RenterDashboard` or a
-  seller-specific one), since the one panel component serves both dashboards
+**Key:** Beacon order: active check (404) → owner skip `{counted:false, reason:"self"}` (incl. `?preview=1`) → history upsert (C35) → dedup 1/24h per viewer (`listing-view:user:<id>:…` signed in, `listing-view:ip:<C16 ip>:…` anon) → `record_listing_view`. Every answer carries the live `views` (C28). `views_count`/`menu_views_count` are service_role/admin-only: `prevent_listing_protected_field_change` raises 42501 on user UPDATE, `force_listing_moderation_state` zeroes them on user INSERT (audit ignores counters, so these triggers are the only guard). `seller_dashboard_stats`: sale listings only; `views_total` = events in `[p_from,p_to)` (lifetime counter only when both bounds NULL; events exist since 2026-08-08). `owner_dashboard_stats`/`listing_analytics` totals stay lifetime `views_count`; food dashboard KPIs are scoped to the displayed restaurant.
 
-**`totals.views` and the views series intentionally disagree.** `totals.views` reads the lifetime
-`views_count` counter (all history, since the column has always existed); the views entry in `series`
-only has real data from whenever this migration shipped forward, because `listing_view_events` has no
-history to backfill and none was fabricated. `reveals`/`favorites` totals and series are mutually
-consistent (both computed from event tables that already existed). The panel's `viewsCaveat` copy exists
-specifically to make this honest rather than let it read as a bug.
-
-**Also check:** `src/lib/types/database.ts` carries `listing_view_events` and the two new RPC signatures
-as hand-edits (C3) — `contact_reveal_events` itself is still absent from that file (a pre-existing gap
-this feature did not create or fix). Not added to `supabase_realtime` (C7) — deliberately fetch-on-expand
-only, no live updates.
-
-**Reveal events are written after the response (2026-09-27).** The contact route inserts `contact_reveal_events` in `after()` (C16), so a reveal appears in `listing_analytics` a few milliseconds after the number is shown, not before. Nothing reads the row synchronously.
-
-**Breaks silently when:** a future metric is added to the panel without a real per-event source behind it
-(reintroduces the fabricated-impressions problem this contract exists to prevent); the analytics route is
-changed to use `createServiceClient()` (every request 403s, since `auth.uid()` goes NULL); a new
-cross-listing read path skips the `auth.uid() <> owner_id` check inside `listing_analytics` (any
-authenticated user could read any listing's stats); or `record_listing_view` is dropped in favor of
-re-adding a parameter to `increment_views`/`increment_service_views` (creates a silently-ambiguous
-overload rather than a clean replacement, the exact trap C19 and others document elsewhere in this file).
+**Breaks:** Add metric without event source (fabricates); route uses service-role (every owner 403s); new path skips dedup (over-counts); dedup keyed on a shared edge IP (under-counts); owner views counted; counters writable by owners (fake popularity, no audit row); ranged funnel mixed with lifetime views.
 
 **S3 (2026-09-27, C37):** after 90 days `listing_view_events.client_ip` and `contact_reveal_events.{client_ip, device_id, account_id}` are set to NULL. Rows stay, because `listing_analytics`, `seller_dashboard_stats` and lifetime reveals count rows. The 24 h view dedup lives in `rate_limit_counters` and is unaffected.
 
-**View beacon (2026-09-26):** order: active check (404) → owner skip `{counted:false, reason:"self"}` (incl. `?preview=1`) → history upsert (C35) → dedup 1/24h per viewer (`listing-view:user:<id>:…` signed in, `listing-view:ip:<C16 ip>:…` anon) → `record_listing_view`. Every answer carries the live `views` (C28). `views_count`/`menu_views_count` are service_role/admin-only: `prevent_listing_protected_field_change` raises 42501 on user UPDATE and `force_listing_moderation_state` zeroes them on user INSERT (`20260926171100`; the audit ignores counters, so these triggers are the only guard). `seller_dashboard_stats`: sale listings only; `views_total` = events in `[p_from,p_to)` (the lifetime counter only when both bounds are NULL; events exist since 2026-08-08) (`20260926171200`). **Breaks:** dedup keyed on a shared edge IP (under-counts); owner views counted; counters writable by owners (fake popularity, no audit row); ranged funnel mixed with lifetime views.
+---
+
+## C23 — Standard & SUPER VIP mutually exclusive
+
+**Invariant:** Active SUPER VIP blocks standard VIP (22P01 / `vip_tier_conflict`). Activation clears `is_vip`. Stale expiry allows standard.
+
+**Breaks:** Trigger dropped (mutual exclusive lost); check raw `is_super_vip` (expired disabled); picker omits disabled guard.
 
 ---
 
-## C23 — Standard VIP and SUPER VIP are mutually exclusive
+## C24 — Cleaner call-out terms & consent-based cancel
 
-**Invariant:** an active SUPER VIP listing cannot buy standard VIP. This applies
-equally to `properties` and `services`, to `purchase_package` and the legacy
-`purchase_vip` RPC, and to every dashboard/balance picker. SUPER VIP activation
-replaces standard VIP immediately; it does not refund or preserve the old tier's
-remaining time. Once a stale SUPER VIP expiry is in the past, standard VIP may be
-purchased and clears the stale flag.
+**Invariant:** Call-out is durable agreement. Renter sees cleaner + terms, can withdraw pending, accepted needs cleaner consent to cancel. Cancellation reserves slot.
 
-Participating symbols:
+**State:** pending → accepted|declined (cleaner) → cancelled | in_progress → completed.
 
-- `supabase/migrations/20260808200000_cleaner_slot_and_vip_exclusivity.sql` —
-  normalizes historical dual flags in favor of SUPER VIP, adds CHECK constraints,
-  and installs one BEFORE trigger on both listing tables. A standard purchase
-  during active SUPER VIP raises stable `23P01` / `vip_tier_conflict`; because the
-  listing update is inside the purchase RPC transaction, balance debit,
-  transaction insert, and notifications roll back too
-- `supabase/functions/purchase-vip/index.ts:userSafePurchaseError` — converts only
-  that stable database message to a safe HTTP 409 body (`error:
-"vip_tier_conflict"`). This edge function must be redeployed with the migration;
-  otherwise clients receive a generic 500 even though the database still protects
-  the balance
-- `src/lib/utils/pricing.ts:isSuperVipActive` — the shared null-expiry/future-expiry
-  predicate used by listing badges, action rows, package cards, and picker mappings
-- `src/components/dashboard/ListingActions.tsx`, renter's two custom action rows,
-  `VipPropertyPickerModal.tsx`, and the three balance implementations — native
-  disabled controls are the UX guard; the trigger remains the authority
-- `src/lib/promotion-purchase.ts:promotionPurchaseError` — parses the edge response
-  and substitutes localized copy without exposing other database errors
-
-**Breaks silently when:** a new listing action checks raw `is_super_vip` without
-the shared expiry predicate (expired listings stay disabled); a picker caller omits
-`standardVipDisabled` (the row looks selectable but fails at payment); a purchase
-writer bypasses both RPCs (the table trigger still protects flags, but its error
-mapping is lost); or the migration and edge function deploy out of order.
-
-**Ranking consequence (2026-09-25, see C31):** because activating SUPER VIP
-clears `is_vip`, any ordering that sorts `is_vip` first sinks SUPER VIP listings
-below standard VIP. Every public grid, landing row, `/food`, hot offers and the
-keyword-search re-sort therefore order `is_super_vip` → `is_vip` → active
-discount → newest (`src/lib/utils/pricing.ts:sortByPromotion` for client-side
-re-sorts), and `ServiceCard` takes an explicit `isSuperVip` prop for its badge.
-
----
-
-## C24 — Cleaner call-out terms and consent-based cancellation
-
-**Invariant:** a renter's cleaner call-out is one durable, inspectable agreement.
-The renter must be able to see the selected cleaner and every persisted term, a
-pending request can be withdrawn immediately, and an accepted request is not
-cancelled until the cleaner explicitly agrees. A cancellation request continues
-to reserve the cleaner's 30-minute slot.
-
-The finite state machine is:
-
-- owner: `pending → cancelled`
-- cleaner: `pending → accepted | declined`
-- owner: `accepted → cancellation_requested`
-- cleaner: `cancellation_requested → cancelled | accepted` (approve or keep)
-- cleaner: `accepted → in_progress → completed`
-
-Participating symbols:
-
-- `supabase/migrations/20260819122000_cleaner_call_details_and_cancellation_consent.sql`
-  — replaces the five-argument `create_cleaning_task` with one six-argument
-  function (`p_address` is the trailing default; the old overload is dropped to
-  prevent ambiguity). Owner and cleaner remain server-derived from the
-  property/service; `cleaner_service_id`, `service_title`, price, and
-  `price_unit` are snapshotted from that service so later listing edits cannot
-  rewrite the agreement shown in history. The address is trimmed, capped at 300
-  characters, and falls back to `properties.location`. The same migration expands the status CHECK,
-  restates `transition_cleaning_task`, and routes scoped notifications to the
-  cleaner for both pending withdrawal and accepted cancellation requests, then
-  back to the renter for the cleaner's response (**C19**). Its
-  `get_my_cleaning_task_cleaner_details` RPC is owner-scoped by
-  `auth.uid()`: identity remains readable even if the service is paused, while
-  direct task-card phone/WhatsApp stay NULL until `accepted` and remain visible through
-  `cancellation_requested` because that job is still active
-- `src/components/renter/CleanerCallModal.tsx` — displays the service price as
-  read-only truth instead of accepting a browser price the RPC ignores; sends the
-  actual address that the UI collects
-- `src/app/[locale]/dashboard/renter/cleaners/page.tsx` — the discoverable “My
-  call-outs” anchor, full terms/history card, pending cancellation, accepted
-  cancellation request, and retention of cancelled rows
-- `src/lib/cleaner/tasks.ts:CleanerTaskTransitionStatus`, cleaner `loadData.ts`,
-  `CleanerDashboardClient.tsx`, `schedule/page.tsx`, and
-  `CleanerMonthCalendar.tsx` — keep `cancellation_requested` visible and occupied
-  on every cleaner work surface and expose both response choices
-- `src/lib/cleaner/tasks.ts:loadCleaningTaskCleanerDetails` — typed client boundary
-  for the participant-safe identity/contact RPC; the renter card normalizes every
-  returned number again before creating a `tel:` or WhatsApp URL
-- `e2e/cross-role/renter-cleaner-flow.spec.ts` — proves full term visibility,
-  immediate pending withdrawal, both accepted-request responses, and durable
-  cancelled history
-
-**The price field is intentionally not editable.** The authoritative quote and
-unit are `services.price` / `services.price_unit` read inside the SECURITY
-DEFINER create RPC and snapshotted with the selected service id/title. Sending a
-browser price would restore the authority bug closed by the production security
-remediation. “By agreement” is the honest display when that server value is NULL.
-
-**Breaks silently when:** a create path stores the amount but drops its unit or
-selected service identity; cancelled rows are filtered out of renter history; a
-new create caller omits the address because it assumes the auto-filled input is
-persisted automatically; `cancellation_requested` is omitted from a cleaner query
-or calendar predicate (the job disappears while still reserving its slot); the
-owner is allowed to jump `accepted → cancelled` (bypasses consent); the cleaner
-can start a `cancellation_requested` task without first resolving it; or a
-notification writer omits `dashboard_scope` and becomes invisible in the target
-cabinet (**C19**). Returning direct task-card contact fields for `pending`,
-`declined`, or `cancelled` rows would also bypass that card's acceptance-based
-disclosure rule; this does not replace the platform's separate, rate-limited
-listing contact-reveal flow.
+**Breaks:** Delete instead of cancel (history lost); cancellation_requested hidden (unanswered disappears); omit scope (invisible in cabinet).
 
 **S2 (2026-09-27, `20260927090300`):** `cleaning_tasks.status` is NOT NULL and `cleaning_tasks_status_check` is VALIDATED. Adding a status value means replacing the CHECK, which now validates every row.
 
@@ -2083,510 +282,59 @@ listing contact-reveal flow.
 
 ---
 
-## C25 — `profiles` column grants must stay narrower than the table grant
+## C25 — `profiles` column grants narrower than table grant
 
-**Invariant:** `public.profiles` has an `anon`-facing RLS policy (`"Anon can view
-active-listing owners and reviewers"`, live today only via its `blog_posts.published`
-branch — the properties/services/reviews branches are dormant because those tables
-carry no anon SELECT policy of their own) alongside a legacy broad table-level GRANT.
-`anon` must never hold table-level `SELECT` on `profiles` — only an explicit
-column-level `SELECT` on the presentation-safe subset (`id`, `display_name`,
-`avatar_url`, `is_verified`, `bio`, `rating`, `response_time_minutes`, `verified_at`,
-`created_at`, `updated_at`, `profile_type`). `phone`, `personal_id` (Georgian national
-ID), `role`, `notification_prefs`, and `marketing_opt_out` must stay off that list.
+**Invariant:** `anon` has column-level SELECT only (safe subset). Not: phone, personal_id, role, notification_prefs, marketing_opt_out.
 
-**Discovered 2026-08-29 as a live, exploitable PII leak** (fixed same session, no
-`src/` changes needed): `anon` held a blanket table-level grant
-(`pg_class.relacl` showed `anon=arwdDxtm`), so any anonymous caller could read
-`phone`/`personal_id`/`role` for the site's blog authors — including which account is
-`admin` — via a plain PostgREST call
-(`/rest/v1/profiles?select=phone,personal_id,role&id=eq.<author_id>`), fully
-bypassing the rate-limited contact-reveal flow (see the neighbor note above) and the
-existing `public_listing_profiles` curated view. **A column-level `REVOKE SELECT
-(cols) ... FROM anon` alone does NOT fix this** — that was the first (ineffective)
-attempt: Postgres column grants are additive on top of a table-level grant, they
-cannot carve out an exception from one. The actual fix is `REVOKE SELECT ON
-public.profiles FROM anon` (table-level) followed by a column-level `GRANT SELECT
-(safe columns) ... TO anon`. Verified via `SET ROLE anon` that the sensitive columns
-now raise `42501 permission denied for table profiles`, while `display_name`/
-`avatar_url` etc. still resolve.
+**Fix:** `REVOKE SELECT ON profiles FROM anon` + `GRANT SELECT (safe) TO anon`. Column grants additive—cannot carve out exception.
 
-Participating symbols:
+**S1:** writes are column-level too — authenticated INSERT (id, phone, display_name, bio, avatar_url, role) / UPDATE (role only, for the register 23505 retry); anon none (C34). Every other profile write is service-role (`/api/self-service/profile`, `/api/consent`, admin routes). A browser PATCH of any other column returns 403 42501 even when the value is unchanged.
 
-- `supabase/migrations/20260905143000_codify_profiles_anon_only_select_policy.sql` →
-  the current, tracked, canonical definition of the `"Anon can view active-listing
-owners and reviewers"` policy on `public.profiles`, scoped `TO anon` only. Its own
-  naming history is a cautionary tale worth knowing before touching this policy again:
-  the very first `_rls_policies.sql` created it as `"Profiles are viewable by
-everyone"`; `20260705120000_security_audit_critical_fixes.sql` (tracked) replaced
-  that with TWO policies — `"Public can view active-listing owners and reviewers"`
-  scoped `TO anon, authenticated`, and a separate `"Authenticated users can view all
-profiles" USING (true)`; `20260723000000_production_security_remediation.sql`
-  (tracked) drops the second of those but never touches the first; an UNTRACKED ledger
-  entry (`20260705111547 / fix_profiles_rls_perf_regression`, no file in
-  `supabase/migrations/`) then renamed `"Public can view…"` to `"Anon can view…"` and
-  re-scoped it to `anon` only — which is the only reason live prod has been safe for
-  `authenticated` this whole time. `20260905143000` (2026-09-05, SECURITY_AUDIT.md S3)
-  closes the gap left by that untracked step by dropping BOTH possible names before
-  recreating one canonical `anon`-only policy, so a fresh rebuild converges to the safe
-  state too. (This file's own first draft of that migration got the name wrong — it
-  only dropped `"Anon can view…"`, which would have no-opped on a fresh rebuild where
-  only `"Public can view…"` exists; caught on review before shipping.)
-- `supabase/migrations/20260829200000_revoke_anon_pii_columns_on_profiles.sql` (the
-  first, ineffective column-level-only attempt, kept for history) +
-  `supabase/migrations/20260829200100_fix_anon_profiles_grant_table_level_revoke.sql`
-  (the actual fix — table-level REVOKE + column-level re-GRANT for `anon`; applied
-  to prod under ledger versions 20260829204113/20260829204313 per C3 — filename
-  prefixes are cosmetic ordering only, the ledger assigns its own version)
-- `src/lib/data/getPropertyById.ts` / `getServiceById.ts` — select `profiles.phone`
-  directly, but this is **safe**: the raw `properties`/`services` tables have no
-  anon SELECT policy at all (verified via `SET ROLE anon` returning `[]`), so this
-  code path only ever resolves non-null for the listing's own owner or an admin
-  (service-role preview) — it is not reachable by a true anonymous visitor. The
-  actual anon-serving hot path is `src/lib/data/getCachedPublicListing.ts:
-getCachedPublicProperty` / `getCachedPublicService`, which read the
-  `public_properties` / `public_services` SECURITY DEFINER views and explicitly
-  reconstruct the profile object as `{ display_name, avatar_url, is_verified }`
-  only — "The view has no owner or contact fields" (comment in that file)
-- `src/lib/data/getCachedPublicListing.ts:getCachedPublicProperty` /
-  `:getCachedPublicService` — the correct, already-existing safe pattern this
-  contract's fix brings the direct-table anon path in line with
-
-**Also check:** any future migration that adds a public/anon SELECT policy to
-`properties`, `services`, or `reviews` reactivates the corresponding dormant branch
-of the profiles policy above — that's fine for row visibility, but ONLY if this
-contract's column-grant narrowing is still in place; if someone re-runs a blanket
-`GRANT SELECT ON public.profiles TO anon` (e.g. copy-pasting an old migration, or a
-"just fix the permission error" reflex fix), the leak reopens instantly and silently
-— no advisory lint catches an overly-broad column grant like this, only RLS-policy
-absence (`get_advisors` did not flag this at all; it was found by cross-referencing
-`pg_policies` against `information_schema.column_privileges` by hand). **There is a
-SECOND, independent reopen path for `authenticated` specifically, with no grant
-change at all**: `authenticated` retains an unrestricted table-level `SELECT` grant
-on `profiles` (this contract's narrowing only ever touched `anon`'s grant), so the
-only thing standing between `authenticated` and `phone`/`personal_id`/`role` for
-every active-listing owner/reviewer/blog author is the RLS row predicate. Any future
-migration that recreates a broad `TO anon, authenticated`-scoped row policy on
-`profiles` — even a well-intentioned "restore public listing contact" fix — reopens
-this leak for every signed-in user, and would look correct at a glance since it never
-touches a `GRANT` statement at all (see the naming-history note above: this already
-happened once, silently, for the tracked migration chain, and only an untracked
-ledger entry masked it on live prod).
-
-**Breaks silently when:** a future `GRANT ALL` / `GRANT SELECT ON public.profiles TO
-anon` (table-level, no column list) is run for any reason — instantly re-exposes
-`phone`/`personal_id`/`role` to every anonymous visitor with no error, no lint, and
-no test coverage to catch it, since nothing in this codebase currently asserts
-column-level grants. Or a future migration recreates a `profiles` SELECT policy
-scoped to include `authenticated` with a predicate broader than "own row" (e.g. the
-active-listing-owner/reviewer/blog-author predicate this policy itself uses) — no
-`GRANT` changes, so this specific failure mode is invisible to anyone auditing only
-column privileges.
-
-
-**Writes are column-level too (S1, 2026-09-26, `20260926190500`):** writes are column-level too — authenticated INSERT (id, phone, display_name, bio, avatar_url, role) / UPDATE (role only, for the register 23505 retry); anon none (C34). Every other profile write is service-role (`/api/self-service/profile`, `/api/consent`, admin routes). A browser PATCH of any other column returns 403 42501 even when the value is unchanged.
+**Breaks:** Table `GRANT` to anon (re-opens PII leak); add broad policy to anon+authenticated (same leak).
 
 ---
 
-## C26 — Admin-facing numbers have exactly one source; `public.bookings` is never one of them
+## C26 — Admin numbers have exactly one source; never `bookings`
 
-**Invariant:** every number rendered on an admin surface (`/dashboard/admin/**`) has
-exactly one SQL definition, called from every surface that displays it — never
-reimplemented per-route. Two specific rules follow from this:
+**Invariant:** Every admin-surface number has **one SQL definition** called everywhere. (1) Metrics from `manual_bookings` only. (2) Revenue = one `platform_revenue()` RPC.
 
-1. **Booking-volume KPIs come from `public.manual_bookings`, never `public.bookings`.**
-   `public.bookings` is dead per the `no-online-booking-flow` memory note — nothing
-   in `src/` ever inserts into it. Any admin metric describing booking counts,
-   occupancy, or booking-derived pricing must read `manual_bookings` (`status` ∈
-   `booked`/`manual`/`cancelled` — there is no `completed` value; a "completed stay"
-   is `status <> 'cancelled' AND check_out` already in the past, not a status value).
-2. **Platform revenue has one definition: `public.platform_revenue(p_since, p_until)`.**
-   Gross = `sum(abs(amount))` over `transactions.type IN ('vip_boost','super_vip',
-'discount_badge','sms_package','commission')`; net = gross minus
-   `membership_refund`. `topup` is excluded from both — it is a wallet liability, not
-   revenue. No route may re-derive gross/net by summing `transactions` itself.
+**Why:** `bookings` is dead—nothing inserts. Any metric without one definition silently disagrees.
 
-**Discovered 2026-08-30**: before this contract, two admin screens disagreed on
-"net revenue" by roughly 2× — `admin_overview_stats()` used the curated allowlist
-above, while `src/app/api/admin/finances/summary/route.ts` summed _all_ positive
-`transactions.amount` (including `topup` wallet deposits) and subtracted only
-`commission`. Simultaneously, `admin_dashboard_stats()` and
-`admin_overview_stats()`'s 7-day/occupancy/nightly-price fields read `public.bookings`,
-which has essentially zero real rows, so those KPIs read as ~0 regardless of actual
-platform activity. Both fixed in the same migration.
-
-Participating symbols:
-
-- `supabase/migrations/20260830120000_platform_revenue_and_kpi_consolidation.sql:platform_revenue`
-  — the one revenue definition, `SECURITY DEFINER`, `service_role`-only execute
-- `supabase/migrations/20260830120000_platform_revenue_and_kpi_consolidation.sql:admin_overview_stats`
-  — the one booking-volume/occupancy/revenue-summary RPC. Returns (among unchanged
-  fields) `gross_revenue`, `net_revenue`, `bookings_7d`, `stays_completed_7d`,
-  `occupancy_rate_pct`, `average_nightly_price`. `admin_dashboard_stats()` was
-  retired into this function by the same migration and no longer exists — its sole
-  caller (`getAdminStats.ts`) was updated in lock-step, verified via repo-wide grep
-  before dropping
-- `src/lib/admin/getAdminStats.ts:getAdminStats` — the one server-side caller; every
-  admin page/route that needs these numbers goes through this, not a fresh
-  `db.from("transactions")`/`db.from("bookings")` query
-- `src/app/api/admin/finances/summary/route.ts` — consumes `getAdminStats()` for
-  gross/net/active_listings instead of re-summing `transactions`; `perListing`
-  divides by `active_listings` (properties+services combined), matching what the
-  overview card calls "active listings"
-- `src/app/[locale]/dashboard/admin/AdminDashboardClient.tsx` — the funnel/KPI
-  cards; `occupancy_rate_pct`/`average_nightly_price`/`bookings_7d`/
-  `stays_completed_7d` are computed in SQL, never re-derived client-side from other
-  fields (the old `active_or_completed_bookings / total_properties` client-side
-  ratio was exactly the failure mode this contract exists to prevent). The
-  "პასიური ობიექტები" (passive objects) card, which duplicated the active-listings
-  number with no distinct query, was removed rather than given a fabricated metric
-  — same principle as **C22**'s refusal to display a number with no honest source
-- `src/app/[locale]/dashboard/admin/clients/[id]/page.tsx` + new
-  `src/app/api/admin/clients/[id]/route.ts` — this admin surface's own booking tab
-  now reads `manual_bookings` filtered `owner_id`, not `public.bookings`; also
-  removed its "ვერიფიკაციები" tab, which read `public.verifications` — a table
-  nothing in the repo ever writes to
-
-**Also check:** `src/lib/types/database.ts` must mirror `admin_overview_stats`'s
-return shape by hand per **C3** (the `admin_dashboard_stats` block was deleted, not
-left stale). Any new admin metric proposal should be checked against this contract
-before writing a new query: does an equivalent already exist in
-`admin_overview_stats` or `platform_revenue`? If yes, call it; if no, add the field
-there, not a parallel computation in the new surface.
-
-**Breaks silently when:** a new admin page/route queries `public.bookings` for a
-"quick" metric (it returns real-looking, always-empty-or-stale rows, never an
-error — the table has RLS and a schema, it's just never written to), or a new
-revenue card sums `transactions.amount` directly instead of calling
-`platform_revenue()` (silently includes `topup` as revenue, exactly as
-`src/app/api/admin/finances/summary/route.ts` did before this pass).
+**Breaks:** Query `bookings` directly (stale rows); re-derive revenue by summing transactions (includes topup); compute client-side from other fields.
 
 **S3 (2026-09-27, C37):** `page_views.user_id` is set to NULL after 90 days, so `registered_visitors` counts signed-in visitors seen in the last 90 days. Total, unique and 7-day visits are unchanged (`visitor_id` is kept).
 
 ---
 
-## C27 — Production site lock (`SITE_LOCKED`) gates page views only
+## C27 — Production site lock (`SITE_LOCKED`) gates page views
 
-**Invariant:** `src/middleware.ts` can put the entire page-view surface behind a
-password when the server-only env var `SITE_LOCKED="true"` is set on a deployment
-(no `NEXT_PUBLIC_` prefix — the password must never reach the client bundle).
-`/api/*` and any path matched by `config.matcher`'s own dotted-path exclusion
-(`robots.txt`, `sitemap.xml`, `favicon.ico`, an `opengraph-image.png`, etc.) are
-NOT gated — the accurate description is "page views are gated," not "the site is
-dark." Set up 2026-09-08 to close mybakuriani.ge to visitors; staging was
-deliberately left unlocked.
+**Invariant:** Middleware gates page views behind password when `SITE_LOCKED="true"` (no NEXT_PUBLIC_—password never reaches client). `/api/*` NOT gated.
 
-Participating symbols:
+**Key:** Two writers of one cookie: the bypass link `/<password>` (middleware) and the `/site-locked` form → `POST /api/site-lock/unlock` (10/h/IP). `mb_gate` = password (not hashed), httpOnly, lax, path `/`, 30 days — both writers keep identical attributes. Constant-time compare (middleware `constantTimeEqual`, route `timingSafeEqual`). `secure` = request https OR `NEXT_PUBLIC_SITE_URL` https; Next honours `X-Forwarded-Proto`. Fail-closes without password. Password is in public git history — rotate.
 
-- `src/middleware.ts:SITE_LOCKED` / `src/middleware.ts:SITE_LOCK_PASSWORD` — both
-  read from `process.env` only, set as encrypted env vars on the DigitalOcean
-  `mybakuriani-prod` app, never committed. If `SITE_LOCK_PASSWORD` is unset while
-  `SITE_LOCKED="true"`, the gate fails **closed** — nobody can unlock, including
-  via the bypass link — which is correct but worth knowing before assuming a bad
-  password is the problem
-- `src/middleware.ts:SITE_LOCK_COOKIE` (`mb_gate`) — the only unlock state; its
-  value is literally the password (deliberate, not HMAC'd — a soft "closed for
-  now" gate, not a security boundary, so the password is acceptable to appear in
-  `Cookie:` request logs). **Reconsidered 2026-09-08** after an automated
-  post-commit review flagged this as credential-exposure: hashing the cookie
-  was deliberately NOT done, because the cookie is the bearer credential either
-  way (stealing a hash unlocks the site exactly as well as stealing the
-  password, since middleware only ever compares against this one cookie), and
-  the password is already meant to be public-ish — it doubles as the bypass URL
-  below, so it already lives in browser history and proxy access logs by
-  design. Hashing would add an async `crypto.subtle` call to the middleware hot
-  path to protect a value that isn't actually secret-shaped. Don't revisit this
-  without changing the bypass-link design first
-- The bypass link's path segment IS `process.env.SITE_LOCK_PASSWORD` itself —
-  visiting `/<password>` (after `stripLocalePrefix`) sets the cookie and
-  redirects home; the same value also works typed into the gate form. **This
-  was a separate hardcoded literal (`SITE_LOCK_BYPASS_SEGMENT = "B2e0j0i2"`)
-  until the same 2026-09-08 review flagged it as a hardcoded secret** — a
-  committed literal can't be rotated without a code change + redeploy, and
-  stays in git history forever even after changing it. Fixed by deriving the
-  segment from the env var directly; there is now exactly one secret, not two
-  that happen to start out equal. A consequence: the password must stay
-  URL-path-safe (no `/`, `?`, `#`, or spaces) — `B2e0j0i2` is fine, but a future
-  "strengthen the password" change can't pick an arbitrary string without also
-  reworking the bypass mechanism
-- `src/middleware.ts:stripLocalePrefix` — factored out of the pre-existing
-  `pathnameWithoutLocale` reduce so both the lock check and the protected-route
-  check (**C8**) share one locale-stripping definition
-- `src/app/site-locked/page.tsx:SiteLockedPage` — the gate page. Deliberately
-  OUTSIDE `[locale]/`; middleware returns it via an early `NextResponse.next()`
-  before `intlMiddleware` runs, exactly like the `/api/*` branch, so it never
-  interacts with locale routing (**C2**). Plain hardcoded Georgian strings, not
-  the message catalog — it isn't part of the locale tree, so it doesn't
-  participate in **C1**'s namespace/parity rules
-- `src/app/api/site-lock/unlock/route.ts:POST` — validates the posted password,
-  rate-limited via `checkRateLimit` (**C16**, 10/hour/IP), sets the cookie on
-  success. Reached through the `isApi` branch in middleware, so it's exempt from
-  the lock by construction and still gets the standard CSRF-style
-  `isAllowedMutationOrigin` check (**C4**'s sibling guard for Next API routes) —
-  no special-casing needed
-- `src/lib/security.ts:safeInternalPath` — the open-redirect guard on the
-  `from`/`redirect` value at both the gate page and the unlock route; never swap
-  it for a hand-rolled check
-- `src/app/api/site-lock/unlock/route.ts:SITE_ORIGIN` — **live-discovered
-  2026-09-08:** for a Node.js-runtime route handler on this DigitalOcean
-  deployment, `request.url`/`request.nextUrl` reflects the container's
-  internal address (`http://localhost:8080`), NOT the external host — unlike
-  Edge middleware, where `request.url` is correctly forwarded-host-aware
-  (verified: middleware's own `SITE_LOCK_PATH` redirects rendered correctly
-  while this route's `new URL(path, request.url)` sent real visitors to
-  `https://localhost:8080/`, discovered via a live curl against the deployed
-  unlock endpoint). Fixed by building redirect targets from
-  `NEXT_PUBLIC_SITE_URL` instead (this app's existing pattern for the
-  canonical origin — see `layout.tsx`, `robots.ts`, `sitemap.ts`). Any future
-  Node.js-runtime route handler that constructs a redirect/absolute URL must
-  do the same — never assume `request.url`'s origin is trustworthy outside
-  middleware on this host. **This already recurred once**: on 2026-09-22 every
-  Google/OAuth sign-in on staging landed on `http://localhost:8080/auth/register`
-  because `src/app/[locale]/auth/callback/route.ts` still built its seven
-  redirects from `new URL(request.url).origin`. Same container-address cause,
-  same `NEXT_PUBLIC_SITE_URL` fix. Note the trap in verifying it: on localhost
-  `request.url`'s origin and `NEXT_PUBLIC_SITE_URL` are equal, so a normal local
-  test cannot tell the broken version from the fixed one — reproduce by serving
-  the production build with `PORT=8080` and reading the `Location` header
-  (`curl -sI 'http://localhost:8080/auth/callback'`), which must name the
-  configured site origin, never `localhost:8080`. `NEXT_PUBLIC_SITE_URL` is
-  inlined at BUILD time in route handlers (verified: overriding it at run time
-  changed nothing), so it is the deploy's build-time value that is baked in —
-  both DO apps scope it `RUN_AND_BUILD_TIME`, which is what makes this work
-- Every lock-related redirect and the gate page's own pass-through response sets
-  `Cache-Control: no-store` explicitly — this app runs behind Cloudflare (**C2**
-  documents its public-page caching), and an edge-cached redirect would keep
-  bouncing visitors the wrong direction after the lock is later flipped
-
-**Also check:** a new top-level route created outside `[locale]/` (mirroring this
-page's pattern) must be added to middleware's early-bypass section the same way,
-or it will be pulled into `intlMiddleware`'s locale-prefix handling unexpectedly.
-
-**Breaks silently when:** the `Cache-Control: no-store` header is dropped from a
-lock redirect — Cloudflare caches the redirect-to-gate response and visitors stay
-locked out after `SITE_LOCKED` is unset, or caches the unlock-redirect and a
-locked-out visitor is served someone else's unlocked response; or a future change
-reads `SITE_LOCK_PASSWORD` with a `NEXT_PUBLIC_` prefix (ships the password in the
-client bundle); or the bypass-segment check stops using `stripLocalePrefix`
-(the shareable link silently stops working under `/en/` or `/ru/`).
-
-
-**Cookie hardening (S1, 2026-09-26):** Two writers of one cookie: the bypass link `/<password>` (middleware) and the `/site-locked` form → `POST /api/site-lock/unlock` (10/h/IP). `mb_gate` = password (not hashed), httpOnly, lax, path `/`, 30 days — both writers keep identical attributes. Constant-time compare (middleware `constantTimeEqual`, route `timingSafeEqual`). `secure` = request https OR `NEXT_PUBLIC_SITE_URL` https; Next honours `X-Forwarded-Proto`. Fail-closes without password. Password is in public git history — rotate.
+**Breaks:** Use NEXT_PUBLIC prefix (ships password); drop Cache-Control (edge serves stale); use request.url origin (fails on DO—use NEXT_PUBLIC_SITE_URL).
 
 ---
 
-## C28 — Public listing detail routes are ISR and must stay cookie-free
+## C28 — Public detail routes are ISR + cookie-free
 
-**Invariant (2026-09-09):** the 8 public detail routes
-(`src/app/[locale]/{apartments,hotels,sales,food,services,entertainment,transport,employment}/[id]/page.tsx`)
-are ISR-on-demand (`revalidate = 60`, the blog/[id] pattern) and **must never touch
-`cookies()`/`headers()`/auth on any code path** — including `generateMetadata` and
-error/fallback branches. A runtime static→dynamic flip is a hard 500 in Next 15
-(E132 "Page changed from static to dynamic at runtime", verified in the installed
-Next source), not a graceful bail-out. Owner/admin preview of pending listings
-lives ONLY under the force-dynamic `/preview/<kind>/[id]` twins, reached via a
-middleware rewrite when the URL carries `?preview=1` AND the request has a
-Supabase auth cookie (presence check only — the preview page itself authorizes
-via the unchanged three-tier `getPropertyById`/`getServiceById` logic).
+**Invariant:** 8 detail routes are ISR-on-demand (`revalidate=60`, no cookies/auth/headers). Owner preview **only** under force-dynamic `/preview` twins (rewrite on `?preview=1` + auth cookie).
 
-Participating symbols:
+**Key:** Static→dynamic flip = hard 500 (E132). `htmlLimitedBots:/.*/` sends metadata in `<body>` equally to all UAs. Live/personal data only after hydration: detail clients take the live view count from the view beacon's `views` (`src/lib/hooks/useListingViewCount.ts`); per-user history is written by that POST route, never read by the page.
 
-- the 8 public pages above — mock branch first (`isMockPropertyId`/`isMockServiceId`
-  — mock ids are non-UUID and the cached fetch nulls on them), then
-  `getCachedPublicProperty/Service` → `notFound()` on null, **rethrow** on
-  transient error (never cache a 404 of a live listing)
-- `src/app/[locale]/preview/*/[id]/page.tsx` — the force-dynamic twins: verbatim
-  copies of the pre-conversion pages (cached fast path + cookie-aware fallback),
-  `robots: { index: false }`, rendering the SAME client components by alias import
-- `src/middleware.ts:PREVIEW_DETAIL_RE` + `hasSupabaseAuthCookie` — the rewrite
-  gate; the `?preview=1` param (not a bare cookie check) is what makes this work
-  behind Cloudflare: it forms a distinct cache key so the request always reaches
-  middleware instead of being answered by an edge HIT
-- `next.config.ts:headers()` `edgeCached` Cache-Control override (moved out of `src/middleware.ts` by S1,
-  2026-09-26 — a middleware header always beats a next.config one and would override the RSC rule
-  below) — **load-bearing quirk fix**: an
-  on-demand-ISR route reached through next-intl's default-locale REWRITE
-  (unprefixed URL → /ka/...) renders dynamically with `no-store` and never
-  populates the ISR cache (verified locally AND matches prod /blog behavior;
-  only prefixed /en /ru requests hit ISR). Middleware therefore overrides
-  Cache-Control to `s-maxage=60, stale-while-revalidate=300` for anonymous GET
-  requests on the 8 detail shapes + `/blog/[id]` (excluding preview), which is
-  safe precisely BECAUSE the pages are cookie-free — the HTML is identical for
-  every viewer. Cloudflare serves the dominant unprefixed traffic from the edge
-- `next.config.ts:htmlLimitedBots` — `/.*/`: Next's streaming metadata is OFF
-  for every user agent (2026-09-25). The edge-cached HTML above is shared by all
-  user agents (Cloudflare does not vary on User-Agent), but by default Next
-  renders it per UA: browsers get the `og:*` tags streamed ~93 KB into `<body>`,
-  known bots get them in `<head>`. Measured on staging: a browser visit followed
-  2s later by a `WhatsApp/2.x` fetch of the same URL was a `cf-cache-status: HIT`
-  with `og:image` in `<body>`, so whoever missed first decided what every
-  link-preview fetcher got. The option only moves metadata; Suspense streaming
-  for browsers keys off Next's built-in `isBot` list, not this setting
-- `src/app/api/og/listing/[kind]/[id]/route.tsx:asJpeg` — the composed card is
-  the FIRST `og:image`, the only one WhatsApp reads, so it must stay small: as
-  PNG it was 1.3 MB; it is re-encoded to JPEG (PNG fallback only if `sharp`
-  cannot load). `src/lib/seo.ts:buildListingMetadata` declares it as
-  `image/jpeg` 1200×630, and `src/lib/utils/listingUrls.ts:OG_CARD_VERSION` must
-  be bumped whenever the card's bytes change — Facebook, WhatsApp and the edge
-  cache `og:image` by URL. It carries the `same-site` CORP that middleware
-  stamps on every `/api` response (neither `next.config.ts` nor the route's own
-  headers can override it, verified). Expected harmless — Facebook, Telegram
-  and the WhatsApp mobile apps fetch it outside a browser page — but
-  unverified for WhatsApp Web; if that shows no image, the fix is an `/api/og`
-  exemption in middleware's API branch. Share targets are built from
-  `src/lib/share.ts:shareableUrl` (origin + path, so `?preview=1` never leaks)
-- `src/lib/utils/listingUrls.ts:propertyViewUrl/serviceViewUrl` — `{ preview:
-true }` option; all dashboard/admin "guest view" links pass it (6 dashboard
-  clients + admin listings + AdminTopbar). Moderation-notification links to
-  owners of just-approved listings stay plain public URLs
-- `src/app/[locale]/sales/[id]/page.tsx` — the lone route that used to call
-  `auth.getUser()` unconditionally; now passes
-  `priceAlertMode = smsFeatureMode("SMS_PRICE_DROP_MODE")` (env-only) and
-  `PriceDropAlertButton` decides owner/QA visibility client-side via `useAuth()`
-  (the API route re-enforces everything server-side regardless)
-- `src/app/robots.ts` — disallows `/preview/`
+**Edge cache (S1):** `next.config.ts:headers()` owns page Cache-Control, in order: baseline → detail/blog `s-maxage=60, stale-while-revalidate=300` (8 kinds + `/blog/:slug`, any locale, `missing: preview`; also matches `/sales/all`, every method, case-insensitive) → **last:** an `rsc` header with no/empty `_rsc` → `private, no-store` (S01). Next 15.5.25 runs header rules before middleware, a later rule overwrites the same key, and middleware wins. Keep the key spelled exactly `Cache-Control` in every rule. Middleware can't see `rsc`/`_rsc`, so it sets Cache-Control only on the signed-in `/preview` rewrite, site-lock and consent responses. An empty query value counts as absent (anon bare `?preview` gets the edge header; bare/empty `?_rsc` counts as missing). `_rsc` is not validated, so `?_rsc=`-keyed Flight/5xx responses stay cacheable. Known gap: `/en|/ru` `?preview=1` never reaches the `/preview` route. Relies on Cloudflare honouring origin Cache-Control.
 
-**Per-request dedupe (2026-09-27).** `getCachedPublicProperty` / `getCachedPublicService` are wrapped in React `cache()`, so `generateMetadata` and the page share one read per render (unstable_cache has no in-flight dedupe, and Supabase requests carry an AbortSignal, which opts them out of Next's fetch memoization). The inner `unstable_cache` keys and tags are unchanged and nothing reads cookies/headers. Within a request both callers now get the same object, so nothing may mutate the returned row.
-
-**Also check:** `revalidateTag(listingTag(...))` purges Next's data+route caches
-but NOT Cloudflare — moderation changes can lag ≤60s at the edge for anonymous
-visitors (previously instant; accepted, bounded by s-maxage=60). A pending
-listing's public URL serves the not-found page (HTTP 200 — pre-existing
-next-intl quirk, identical on prod /blog) cacheable for ≤60s; approval self-heals
-within that window. The `staleTimes` comment in `next.config.ts` documents that
-these routes now reuse completed prefetches on forward navigation.
-
-**Breaks silently when:** anyone re-adds an auth/cookie/header read to one of the
-8 public pages (builds green, hard-500s at runtime on the first cache-miss
-render — the sales `getUser()` call is exactly the shape to watch for); or a new
-detail kind is added without extending `PREVIEW_DETAIL_RE` + a `/preview` twin
-(its owner preview 404s once the route is made ISR, or the route is left
-force-dynamic and silently uncacheable); or the middleware Cache-Control
-override is removed (default-locale detail pages silently revert to `no-store`
-— BYPASS at Cloudflare — while prefixed locales keep working, so it looks fine
-in /en testing); or a personalized element is rendered server-side on a detail
-page (every viewer gets the first viewer's HTML for 60s — personalization must
-stay client-side, like PriceDropAlertButton); or `htmlLimitedBots` is removed
-or narrowed back to a bot list (Facebook/WhatsApp previews then depend on which
-user agent happened to fill the edge cache — nothing errors, and a cache-busted
-`curl -A WhatsApp` still looks correct).
-
-
-**Edge cache (S1):** `next.config.ts:headers()` owns page Cache-Control, in order: baseline → detail/blog `s-maxage=60, stale-while-revalidate=300` (8 kinds + `/blog/:slug`, any locale, `missing: preview`; also matches `/sales/all`, every method, case-insensitive) → **last:** an `rsc` header with no/empty `_rsc` → `private, no-store` (S01). Next 15.5.25 runs header rules before middleware, a later rule overwrites the same key, and middleware wins. Keep the key spelled exactly `Cache-Control` in every rule. Middleware can't see `rsc`/`_rsc`, so it sets Cache-Control only on the signed-in `/preview` rewrite, site-lock and consent responses. An empty query value counts as absent (anon bare `?preview` gets the edge header; bare/empty `?_rsc` counts as missing). `_rsc` is not validated, so `?_rsc=`-keyed Flight/5xx responses stay cacheable. Known gap: `/en|/ru` `?preview=1` never reaches the `/preview` route. Relies on Cloudflare honouring origin Cache-Control. **Breaks:** a middleware `Cache-Control` on page routes (overrides the RSC rule); moving the RSC rule off last place; mixed-case `cache-control` keys across rules (insertion order then decides, not rule order); `scripts/check-http-hardening.mjs` (a)/(b)/(c) catch the first two.
-
-**Live view count (2026-09-26):** detail clients take the live view count from the view beacon's `views` (`src/lib/hooks/useListingViewCount.ts`); per-user history is written by that POST route, never read by the page.
+**Breaks:** Add auth/cookie to detail (500); add new kind without `/preview` twin (404); drop Cache-Control (BYPASS Cloudflare); render personalized server-side; set Cache-Control for pages in middleware (overrides the RSC rule); moving the RSC rule off last place; mixed-case `cache-control` keys across rules (insertion order then decides, not rule order).
 
 ---
 
-## C29 — Executable contract checks (the string keys now have tests)
+## C29 — Executable contract checks
 
-**Invariant:** every coupling in this file that can be compared mechanically IS
-compared mechanically, by one of two scripts, and a new string-keyed coupling is
-added to one of them in the same session it is introduced. Prose in this file
-explains *why*; the scripts are what actually notice drift.
+**Invariant:** Every string coupling **is** checked mechanically. New coupling → add to script same session or enforcement lapses.
 
-Participating symbols:
+**Scripts:** `check-contracts.mjs` (invokes, verify_jwt, CSP, media-types, property-types, no src/ imports of generated). `check-db-contracts.mjs` (enums, scopes, placements, review-gate, realtime, cron, tiers, membership, payment status, consent). `check-contracts.mjs` C6 shared Supabase hosts; `check-db-contracts.mjs` C34 `EXPECTED_CLIENT_WRITES`; `check-http-hardening.mjs` is a manual live check, not in prebuild or CI.
 
-- `scripts/check-contracts.mjs` — **repo-only**, runs in `prebuild` (so every
-  `npm run build`, local or on DigitalOcean) and in CI. Checks: every
-  `invoke("…")` / `functions/v1/…` string has a `supabase/functions/<name>/`
-  directory and every directory has an explicit `verify_jwt` in
-  `supabase/config.toml` (**C4** — an omitted function defaults to `true`); CSP
-  `img-src` hosts equal `remotePatterns` hostnames (**C6**); the admin listing
-  editor's `PROPERTY_TYPE_OPTIONS` and the update route's `PROPERTY_TYPE_VALUES`
-  equal the `property_type` enum in the generated types (**C13**);
-  `MediaUploader.ACCEPT_TYPES` image mimes equal the sign-upload route's
-  `IMAGE_TYPES` (**C5**); nothing under `src/` imports `database.generated.ts`
-  directly (**C3**); since S1 also that the CSP, `remotePatterns` and
-  `banner-creative.ts` take Supabase hosts from `src/lib/media-hosts.ts` (**C6**)
-- `scripts/check-db-contracts.mjs` — **needs a project**: reads
-  `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (via
-  `--env-file-if-exists=.env.local`), skips itself with exit 0 when they are
-  absent (`--strict` turns that into a failure). Calls two service-role RPCs and
-  compares: every Postgres enum's labels, in order, against `Constants` (**C3**);
-  `notifications.dashboard_scope` CHECK against `DASHBOARD_SCOPES` (**C19**);
-  `ads.placement` and `landing_banners.placement` CHECKs against
-  `BANNER_PLACEMENT_IDS` (**C12**); the five per-table arrays parsed out of the
-  live `prevent_unreviewed_public_content_update()` body against
-  `REVIEWABLE_FIELDS` / `CLEANER_PROFILE_FIELDS`, plus the trigger-vs-approve and
-  column-existence directions of `content_review_gate_column_drift()` (**C14**);
-  every literal `postgres_changes … table: "x"` subscription in `src/` against
-  the `supabase_realtime` publication (**C7**); the five expected pg_cron jobs
-  (**C4**, warning only — infra state, not code); since S1 the client write
-  grants against `EXPECTED_CLIENT_WRITES` (**C34**)
-- `scripts/check-http-hardening.mjs` — a manual live check of a local build
-  (`--base=http://localhost:PORT`), not in `prebuild` or CI
-- `supabase/migrations/20260921120000_schema_contract_snapshot.sql:schema_contract_snapshot`
-  — the read-only, `service_role`-only SECURITY DEFINER RPC that returns enums,
-  every `col = ANY(ARRAY[...])` CHECK on a public table, the publication members,
-  `cron.job`, and the review-gate arrays as one jsonb. Applied to staging AND
-  prod on 2026-09-21, together with the two other migrations prod had been
-  missing (`20260914120000` drift function, `20260919120000`
-  `cadastral_code_public`); prod's ledger names are
-  `content_review_gate_column_drift_check`, `sale_cadastral_code_optional_visibility`,
-  `schema_contract_snapshot`. Prod and staging schemas are in step again
-- `scripts/unit/*.test.mjs` — `npm run test:unit` (also inside `npm test`):
-  `node --test` with type stripping, importing the pure domain modules straight
-  from `src/` (`pricing.ts`, `notifications/scopes.ts`, `utils/listingUrls.ts`,
-  `utils/availability.ts`, `content-change/fields.ts`, `analytics/pageview.ts`,
-  `security.ts`, `banner-placements.ts`). A module is testable this way only if
-  it has no runtime `@/` imports — type-only imports are erased, runtime ones are
-  not resolvable by Node. Keep new pure helpers alias-free for that reason
-- `.github/workflows/security.yml` — now runs `lint`, `check:contracts`, `npm test`
-  and `check:db-contracts` (self-skipping until `STAGING_SUPABASE_URL` /
-  `STAGING_SUPABASE_SERVICE_ROLE_KEY` exist as Actions secrets) and `types:check`
-  (skipped until `SUPABASE_ACCESS_TOKEN` + `STAGING_SUPABASE_PROJECT_ID` exist)
-- `.github/workflows/e2e-nightly.yml` — scheduled Playwright run against a local
-  production build; a gate step turns it into a no-op until the `TEST_*` secrets
-  are configured, so it is a scaffold that becomes live by adding secrets, not a
-  red badge
-
-**Dead realtime subscriptions: fixed 2026-09-21, allow-list now empty.** The
-publication was trimmed for performance on 2026-07-12 and nine client
-`postgres_changes` channels on `balances`, `transactions`, `properties` and
-`manual_bookings` were left behind (food/service balance pages,
-`PropertyBalanceClient`, renter calendar, renter + seller dashboard clients).
-They connected and received nothing — and the three wallet pages had relied on
-the `balances` channel to refresh the balance after a purchase, so since the
-trim the shown balance stayed stale until reload. All nine were removed; the
-wallet pages now refetch balance + transactions explicitly after
-`purchase-vip` succeeds (the "never rely on realtime to refresh your own
-write" rule from **C7**). `check-db-contracts` keeps `KNOWN_DEAD = []`: a NEW
-subscription on an unpublished table fails the check, and an entry that goes
-stale fails it too.
-
-**Added 2026-09-25 (C11, C31):** `check-contracts` compares the
-`company-subscription` edge `VALID_TIERS` with `COMPANY_TIERS`, and the rental
-posting gate's SQL `HINT` (newest migration defining
-`enforce_private_rental_membership`) with `RENTAL_MEMBERSHIP_REQUIRED_HINT`;
-`check-db-contracts` compares the `organization_subscriptions.tier` CHECK with
-`COMPANY_TIERS`, requires every enabled organization package code to name a
-tier, and validates every enabled renter package's season meta with
-`validateRenterMembershipMeta` (at most one enabled per season/price tier; an
-empty slot is a warning). Each new check was shown to fail on a mutated copy.
-**Not checked:** that the `properties_require_rental_membership` trigger exists
-— `schema_contract_snapshot` has no trigger list (the same gap leaves **C30**'s
-derivation trigger unchecked); its behaviour is covered by the SQL matrix
-recorded in **C31**.
-
-**Added 2026-09-25 (C32):** origin-less Keepz routes vs the middleware
-exemption, sandbox tombstones, Keepz status list vs the apply function, and
-the `payments` / `payment_refunds` status CHECKs.
-
-**Deliberately not checked (yet):** `property_type` fan-out into the sale form,
-`SaleSearchBox`, `FilterPanel` and `listing-options.ts` (**C13**'s other silent
-participants) — a grep for `"land"` in those files would be satisfied by a
-comment, so the honest fix is a `satisfies Record<PropertyType, …>` on each list,
-not a script; the Deno copies of `propertyViewPath` / `toCanonicalGePhone`
-(**C18**) — cross-runtime, belongs with the "shrink the edge layer" work.
-
-**Breaks silently when:** a new string-keyed coupling is introduced with a prose
-paragraph here but no line in either script (this file is then documentation
-again, not enforcement); or `check:db-contracts` is pointed at prod
-credentials in CI before `20260921120000` is applied there (HTTP 404 on the RPC →
-hard failure, which is correct but will look like a bug); or a pure helper gains a
-runtime `@/` import and its unit test starts failing with `ERR_MODULE_NOT_FOUND`
-— fix the import, don't delete the test.
+**Breaks:** New coupling added without script (drift); script at prod before migration (404); pure helper gains runtime import (test fails).
 
 **S2/S3 (2026-09-27):** `check-db-contracts` reports a missing `schema_contract_snapshot` / `content_review_gate_column_drift` / `security_posture_snapshot` RPC as a failure naming the migration that adds it, and skips the checks that need it (a verdict, not a crash, against a project behind the batch). C4 expects 9 jobs; C34 covers seven client tables. `check-contracts` gains C36 (the confirm page verifies on click only, for email|signup; login's signUp and resend redirect to /auth/confirm). C24 (2026-10-01): `check-contracts` pins the cleaner's call-out view (RPC statuses = CHECK, columns = TS type, no embeds, writers or re-grants, bell zone) and `check-db-contracts` checks the RPC exists with its columns.
 
@@ -2594,347 +342,33 @@ runtime `@/` import and its unit test starts failing with `ERR_MODULE_NOT_FOUND`
 
 ---
 
-## C30 — User consent: one authored column, one derived mirror, five surfaces
+## C30 — User consent: authored column + derived mirror
 
-**Invariant (2026-09-22):** terms/privacy acceptance and per-channel marketing
-consent are captured once, blockingly, for **every** signed-in user, and the
-marketing answer is the only thing that decides whether a marketing SMS may be
-sent. `profiles.marketing_sms_consent` is the AUTHORED truth (nullable
-tri-state); `profiles.marketing_opt_out` is now a trigger-DERIVED mirror and
-**must never be written directly** — the trigger silently overwrites it.
+**Invariant:** `profiles.marketing_sms_consent` (nullable tri-state) is authored truth. `marketing_opt_out` is trigger-DERIVED mirror—**never write** (overwrites).
 
-```
-marketing_opt_out := NOT COALESCE(marketing_sms_consent, false)
-```
+**Derivation:** `marketing_opt_out := NOT COALESCE(marketing_sms_consent, false)`.
 
-| `marketing_sms_consent` | meaning          | `marketing_opt_out` | marketing SMS |
-| ----------------------- | ---------------- | ------------------- | ------------- |
-| `NULL`                  | not yet answered | `true`              | blocked       |
-| `false`                 | declined         | `true`              | blocked       |
-| `true`                  | granted          | `false`             | sent          |
-
-**Why a mirror instead of repointing the readers.** `marketing_opt_out` has four
-readers, two of them expensive to change: `supabase/functions/sms-automation-run/index.ts`
-(an EDGE FUNCTION — a change costs a full redeploy under **C4**),
-`sms_cancel_ineligible_automation()` (`20260801131000`), the price-drop
-subscriber joins (`20260802120000`), and
-`src/app/api/listings/property/[propertyId]/price-drop-alert/route.ts`. Deriving
-the mirror flipped opt-out semantics to affirmative opt-in with **zero edge
-redeploys** and no change to any of the four.
-
-Participating symbols:
-
-- `supabase/migrations/20260922130000_user_consent_and_notification_prefs.sql:derive_marketing_opt_out`
-  — the derivation. Its trigger is named `profiles_derive_marketing_opt_out`
-  **deliberately**: `public.profiles` carries several BEFORE UPDATE row triggers
-  and Postgres fires them in ALPHABETICAL ORDER, so this name sorts AFTER
-  `prevent_unreviewed_public_content_update` (**C14**) and the C14 gate keeps
-  evaluating the caller's own NEW row. Renaming it silently reorders that
-- the same migration's `sms_lock_profile_opt_out_write` recreation — this
-  STATEMENT-level trigger takes the `sms_dispatch_claim` advisory lock and was
-  `BEFORE UPDATE OF (phone, marketing_opt_out)`. `UPDATE OF <cols>` fires on the
-  columns named in the statement's SET clause, **not** on what a BEFORE trigger
-  later assigns, so once eligibility moved to `marketing_sms_consent` the lock
-  would have stopped being taken with no error. The column list now includes it
-- `supabase/migrations/20260922130000…:self_service_record_consent` — the ONLY
-  consent writer. `service_role`-only, updates the profile columns and appends
-  the `user_consents` audit rows in one transaction, and refuses to un-accept
-  terms/privacy (`consent_cannot_be_withdrawn`)
-- `public.user_consents` — append-only audit trail (kind, granted, version,
-  source, created_at). Required by the Direct Marketing Policy §3, which wants
-  status + channel + time + source retained, not just the latest value.
-  Deliberately NO ip/user_agent
-- `src/lib/consent/channels.ts:CONSENT_KINDS` / `:CONSENT_SOURCES` — a FOUR-way
-  string coupling: this union, the two CHECKs on `user_consents`,
-  `self_service_record_consent`'s `v_allowed`, and `ALLOWED_KEYS` in
-  `src/app/api/consent/route.ts`. Checked by `check-db-contracts.mjs` (**C29**)
-- `src/lib/consent/channels.ts:marketingChannelAllowed` — the ONE delivery
-  authority. Affirmative opt-in: only an explicit `true` allows a send
-- `src/lib/consent/channels.ts:hasAcceptedRequiredPolicies` — the gate predicate
-  (terms AND privacy; marketing is irrelevant to it)
-- `src/components/consent/ConsentGate.tsx:ConsentGate` — the blocking overlay,
-  mounted in `LocaleShell`. Modelled on `CriticalNotificationGate` (no close
-  button, no Escape, no backdrop dismiss). Client-side, which is what keeps it
-  **C28**-safe on the cookie-free ISR detail routes
-- `src/lib/auth/require-consent.ts:requireConsent` — server backstop used by
-  `dashboard/layout.tsx` and `create/layout.tsx`, redirecting to
-  `/consent-required` (outside `[locale]`, plain Georgian, bypassed in
-  middleware after the site-lock block — the `/site-locked` pattern)
-- `src/components/consent/NotificationPreferences.tsx` — the per-channel
-  switches (service SMS locked on, then SMS / email / WhatsApp / push);
-  mounted on `/dashboard/account` and `/dashboard/guest/profile`. It sends
-  EVERY channel on every save, so both pages must SELECT every consent column
-  — a missing one is silently recorded as `false` (declined)
-- `src/components/layout/MobileBottomNav.tsx:accountItem` — the ONLY phone
-  route to `/dashboard/account` (desktop reaches it from the `CabinetSwitcher`
-  dropdown inside the cabinet sidebars, which are `hidden lg:flex`). Added 2026-09-24:
-  before it, a renter/seller/cleaner/food/services user on a phone had no way
-  to reach the marketing-channel switches, i.e. no way to withdraw consent,
-  which policy v2 §4 requires to be as easy as giving it. The page renders in
-  the user's own cabinet shell (`DashboardShell:cabinetFromPath` returns null
-  for `account`), not the legacy generic sidebar
-- `src/components/consent/ConsentChoices.tsx:submitConsentChoices` — the shared
-  first-answer checkboxes (terms, privacy, four unchecked marketing channels)
-  used by `ConsentForm` (gate + `/consent-required`) AND the registration
-  wizard, which records them inside `persistProfile()` right after the profile
-  row exists. Two calls: terms/privacy stamped `CONSENT_POLICY_VERSION`,
-  channels stamped `MARKETING_POLICY_VERSION` (policy v2 §6.2)
-- **WhatsApp (added 2026-09-23, `20260923120000_marketing_whatsapp_consent.sql`,
-  staging only):** `profiles.marketing_whatsapp_consent` + consent kind
-  `marketing_whatsapp`. It is NOT `profiles.whatsapp_enabled` — that older
-  column is a contact-display flag written by `self_service_update_profile`.
-  No WhatsApp sender exists; `LIVE_MARKETING_CHANNELS` is `["sms", "email"]` since **C33**
-
-**The gate must re-check on navigation while unresolved.** `ConsentGate` keys
-its profile read on `[userId, pathname, settled]`, not `[userId]` alone. The
-user is ALREADY signed in while completing `/auth/register`, so `userId` never
-changes when the profile row is finally created — a `[userId]`-only check left
-the gate invisible until a full page reload. Caught in browser testing, not by
-any type or lint check. `settled` stops the query once consent is confirmed.
-
-**`self_service_update_profile` no longer accepts `marketing_opt_out`.** It
-accepts `marketing_sms_consent` instead (both its `v_allowed` guard and its
-narrower column list). A caller still sending the old key gets `42501`, which is
-the loud failure; sending it in a raw `.update()` instead would be the silent
-one, since the trigger just overwrites it.
-
-**Also check:** the consent columns must stay OUT of **C14**'s reviewable
-allow-lists — routing a legal opt-out through admin approval is both wrong and
-would `42501` the user's own write. `check-db-contracts.mjs` asserts this.
-
-**Breaks silently when:** something writes `marketing_opt_out` directly and
-assumes it stuck (the trigger overwrites it on the same statement); or the
-derivation trigger is dropped, at which point every new user reverts to
-`marketing_opt_out = false` (i.e. consented) with no error anywhere; or
-`marketing_sms_consent` is dropped from `sms_lock_profile_opt_out_write`'s
-column list, losing the dispatch serialization with no symptom; or a new
-marketing sender reads a consent column directly instead of calling
-`marketingChannelAllowed` (email and push have no sender today, so the first one
-built is exactly where this will be tempting); or `ConsentGate`'s re-check is
-narrowed back to `[userId]` (the gate stops appearing after registration until a
-reload).
+**Breaks:** Write `marketing_opt_out` directly (trigger overwrites); derivation dropped (new users revert to consented); sender reads column directly (not via `marketingChannelAllowed`).
 
 ---
 
-## C31 — Paid services: 2026 price list, seasonal membership & the rental posting gate
+## C31 — Paid services: 2026 price list + seasonal membership gate
 
-**Invariant (2026-09-25, staging only — prod has none of this yet):** the owner's
-price list "MyBakuriani ფასების ცხრილი და განმარტებები 2026" is enforced by
-package data plus code, and every paid entry point shows price, validity and main
-conditions before payment. Posting a rental (hotels included) requires an
-**active, started** seasonal renter membership; the database is the authority.
+**Invariant (staging only):** Rental posting requires active, started seasonal renter membership. Database is authority.
 
-Participating symbols:
+**Gate:** Trigger `enforce_private_rental_membership` on rental inserts. Raises 42501 for non-member. Service-role exempt INSERT only.
 
-- `supabase/migrations/20260925130000_pricing_2026_package_rows.sql` — absolute
-  package values: VIP 1.50 ₾ / discount badge 2.50 ₾ / SUPER VIP 5 ₾ per 24 h;
-  SMS 100/10 "SMS პაკეტი", 200/20 "Standard SMS", 250/25 "Pro SMS"; company
-  START/PRO/PREMIUM; disables `sms/starter` and `subscription/developer-pro`.
-  Package codes are stable (e2e and `packageForPromotionTier` use `boost`,
-  `vip24`, `discount`). Change package data by migration only — editing a
-  subscription package in admin settings notifies every renter and seller
-- `supabase/migrations/20260925134000_seasonal_renter_membership_windows.sql:renter_membership_season_window`
-  — the ONLY place a season instance is computed (Asia/Tbilisi; winter wraps the
-  year; summer Apr 1 – Oct 31, winter Nov 1 – Mar 31, both to 23:59:59.999999)
-- `…:renter_membership_plans` — SECURITY INVOKER read model the renter
-  dashboard and `PaymentModal` use (enabled seasonal renter packages + window)
-- `…:purchase_renter_membership` — stores the window on the pending row
-  (`starts_at = greatest(now(), season start)`); `MEMBERSHIP_ALREADY_ACTIVE`
-  means "overlaps an active or pending remaining window", so pre-buying the
-  other season is allowed
-- `…:review_renter_membership` — approval keeps the stored window
-  (`starts_at = greatest(now(), stored)`); `MEMBERSHIP_SEASON_ENDED` once the
-  stored expiry has passed (reject → the existing automatic refund)
-- `src/lib/membership/plans.ts:validateRenterMembershipMeta` / `:SEASON_BOUNDS`
-  — the package meta shape (`subscription_scope`, `billing_period: 'seasonal'`,
-  `season`, `price_tier` ∈ `fb_group_vip | standard`, start/end month/day). Used
-  by `src/app/api/admin/pricing-packages/route.ts` (one enabled package per
-  season/price tier), `CreatePackageModal` and `check-db-contracts`
-- `src/lib/membership/plans.ts:isMembershipActiveAt` / `:deriveMembershipState`
-  / `:rentalPostingGate` — the TS twin of the gate predicate
-  (`status = 'active' AND starts_at <= now() AND expires_at > now()`)
-- `supabase/migrations/20260925135000_private_rental_membership_gate.sql:enforce_private_rental_membership`
-  — trigger `properties_require_rental_membership`, BEFORE INSERT OR UPDATE OF
-  `is_for_sale`; **current body in
-  `20260925136000_rental_gate_covers_approved_flips.sql`**. Raises `42501` with
-  HINT `RENTAL_MEMBERSHIP_REQUIRED` for a rental insert (`is_for_sale` false
-  **or NULL**) by a non-member, and for **every** sale→rental flip whose owner
-  has no active membership — whoever writes it. Only writes without a JWT
-  (migrations, SQL editor, pg_cron) are fully exempt; `service_role` and admins
-  are exempt for INSERT only. The flip is gated for them because
-  `approve_content_change_request` applies an owner-submitted `is_for_sale`
-  change under `service_role` (and `is_for_sale` is reviewable, **C14**): the
-  first version exempted that path and a sale → approved flip produced a rental
-  without a membership (found in review, reproduced, fixed 2026-09-25). Sales
-  pass; edits of existing rentals are never gated. SECURITY DEFINER because
-  `user_subscriptions` RLS only exposes the caller's own rows
-- `src/app/[locale]/create/rental/page.tsx` — create-mode pre-check (banner +
-  CTA to `/dashboard/renter` + `/pricing`; step 0 blocks) and a catch that maps
-  the HINT via `isRentalMembershipRequiredError`
-- `src/components/renter/PaymentModal.tsx` — both seasons with dates; the
-  Facebook-group VIP rate (30 ₾) needs a self-declaration checkbox and is
-  verified by an admin (`AdminMemberships.fbTierBadge`); a false claim is
-  rejected and refunded
-- `src/components/shared/ConfirmPaymentModal.tsx` — optional `validity` /
-  `conditions`, passed by the VIP picker, every SMS confirm and the company-tier
-  confirm; `MenuItemDiscountModal` and the membership `PaymentModal` render
-  their own validity and conditions
-- `src/lib/utils/pricing.ts:formatGelAmount` — package prices as printed
-  ("1.50 ₾", "5 ₾"); never `formatPrice`, which rounds 1.50 to "2 ₾"
-- `src/app/[locale]/pricing/page.tsx` — public ISR page (`revalidate = 60`,
-  cookie-free `createPublicClient`, server-only `Pricing` namespace) reading
-  enabled `pricing_packages`; linked from the footer "ფასები" and the sitemap
-
-**Verification recipe (the trigger itself is not script-checked, see C29):** the
-14-case DO-block matrix in the pricing session log — non-member rental / hotel /
-NULL `is_for_sale` / sale→rental flip, future-only, pending and expired members
-→ `42501/RENTAL_MEMBERSHIP_REQUIRED`; sale insert, existing-rental updates,
-`service_role`/admin inserts, active member, member flip → allowed; flips by
-`service_role`, by an admin and through `approve_content_change_request` for a
-non-member owner → blocked; a flip without a JWT → allowed. Wire shape:
-`POST /rest/v1/properties` as a non-member returns 403
-`{"code":"42501","hint":"RENTAL_MEMBERSHIP_REQUIRED",…}`.
-
-**Also check:** a first-time owner (zero properties) must still be able to buy a
-membership — neither `purchase-vip`'s renter branch nor
-`purchase_renter_membership` may require an owned rental, or the gate becomes a
-deadlock. The deployed staging web app runs committed code, so until this
-change ships the old create form shows a generic error for a blocked insert.
-`vip-lifecycle`'s 48 h expiry warning predates 24 h packages and fires on every
-purchase (known follow-up).
-
-**Breaks silently when:** a renter package is enabled without
-`season_start_*` meta (purchase raises `MEMBERSHIP_PACKAGE_NOT_SEASONAL` —
-`check-db-contracts` catches it); the gate trigger is dropped (posting is
-ungated, no error anywhere, no automated check); the HINT literal changes on
-one side only (the form falls back to a generic error — `check-contracts`
-catches it); the flip exemption is widened back to `service_role` or admins
-(content-change approval silently converts a non-member's sale into a rental
-again); a new paid dialog passes a price but no validity/conditions; a query
-orders `is_vip` before `is_super_vip` (**C23**); or package prices are
-formatted with `formatPrice`.
+**Breaks:** Gate dropped (posting ungated); membership check skipped (overlap allowed).
 
 ---
 
-## C32 — Keepz card payments (the only real-money path)
+## C32 — Keepz card payments (only real-money path)
 
-**Invariant (2026-09-25, staging only):** real money enters MyBakuriani only
-through Keepz (developers.keepz.me), and only as **wallet credit**: a verified
-Keepz payment credits `balances` 1:1 with what the card paid, and every purchase
-stays a wallet debit through the unchanged purchase RPCs at database prices.
-**The only authority on money is a Keepz status response we requested
-ourselves** (TLS to the fixed gateway, `redirect: "error"`, response encrypted
-to our key, echoed order id matched). Callback bodies, the return URL and the
-browser are never trusted.
+**Invariant (staging only):** Real money via **Keepz only**, as wallet credit 1:1. **Only authority = Keepz status we requested** (TLS, encrypted, order matched).
 
-Participating symbols:
+**Key:** Credit on verified SUCCESS only (FOR UPDATE, credited_at IS NULL). No callback/return-URL/browser trust.
 
-- `supabase/migrations/20260925150100_keepz_payments.sql:keepz_apply_payment_status`
-  — the ONE place a Keepz status becomes money: `FOR UPDATE` on the payment,
-  credits the STORED amount to the STORED user once (`credited_at IS NULL`),
-  through `topup_balance(…, p_reference_id)`. A verified SUCCESS credits from
-  any not-yet-credited state (a real payment is never stranded). Resolves an
-  in-flight refund; flags refund states nobody here requested
-  (`review_flag` + `_notify_admins('admin_payment_review')`), never debits on
-  its own. Raises on an undocumented status.
-- `…:keepz_open_payment` — bounds 1–2000 ₾ (≤2 decimals), return path must be
-  `/dashboard…`, ≤5 open orders per 30 min, the client `requestId` (UUID v4) is
-  the payment id = Keepz `integratorOrderId`; exact replay returns the stored
-  checkout URL, any other reuse is the same `payment_id_conflict` (no oracle).
-- `…:keepz_begin_refund` / `keepz_update_refund` / `keepz_resolve_refund` — a
-  refund debits the wallet and records itself BEFORE Keepz is called; one in
-  flight per payment (`payment_refunds_one_in_flight`); capped at
-  min(unrefunded, wallet). Definitive Keepz refusal → `failed` + wallet
-  restored (positive `card_refund` tx); no clear answer → `unknown`, resolved
-  only by an admin after checking the Keepz portal — never auto-retried
-  (a retry could refund twice).
-- `supabase/migrations/20260925150000_keepz_card_refund_transaction_type.sql`
-  — `transaction_type` += `card_refund`; outside `platform_revenue()` (C26).
-- `src/lib/payments/keepz/crypto.ts` — AES-256-CBC + RSA-OAEP(SHA-256/MGF1-SHA-256),
-  byte-compatible with Keepz's Node example (two-way unit test).
-- `src/lib/payments/keepz/config.ts` — `KEEPZ_ENV` picks a FIXED base URL (no
-  URL variable); missing/invalid `KEEPZ_*` → routes 503 (fail closed). Not in
-  `check-production-config.mjs` on purpose (C16).
-- `src/lib/payments/keepz/client.ts` — `createOrder`, `getOrderStatus`,
-  `refundOrder`; `isDefinitiveRejection` = groups 1/2/3/5 or 6009–6014 (Keepz
-  did nothing); everything else is "unknown outcome". Checkout host allow-list
-  `*.keepz.me`.
-- `src/lib/payments/keepz/settle.ts:syncPaymentWithKeepz` — every money path
-  (callback, return-page poll, sweeper, admin re-check) goes through it.
-- `src/lib/payments/keepz/server-paths.ts:KEEPZ_ORIGINLESS_POST_PATHS` — the
-  callback and reconcile routes are server to server (no Origin), so
-  `src/middleware.ts` exempts exactly these paths from the cookie-mutation
-  Origin check. Neither reads cookies. Keepz must register the callback URL
-  byte-for-byte, **no trailing slash**.
-- Routes: `src/app/api/payments/keepz/{checkout,callback,reconcile}`,
-  `…/orders/{latest,[id],[id]/resume}`, `src/app/api/admin/payments/**`.
-- `src/lib/payments/keepz/intent.ts` + `…/orders/[id]/resume` — "pay by card":
-  the dialog's purchase is stored on `payments.resume` (shape-validated, ≤2 KB)
-  and handed to its owner ONCE (single conditional UPDATE), then replayed
-  through the unchanged purchase endpoints with the user's own session.
-  **Settlement never executes an intent** — which is why a client-chosen card
-  amount is safe (it only buys wallet credit). If settlement or the sweeper
-  ever starts running purchases server-side, revisit that.
-- UI: `src/components/payments/{CardPayButton,CardTopUpLauncher,TopUpModal}.tsx`,
-  `ConfirmPaymentModal` (`amount` + `cardPayment`), `PaymentModal`,
-  `MenuItemDiscountModal`; result page `src/app/[locale]/dashboard/payments/result`
-  (static Keepz return URL — arriving there proves nothing); admin page
-  `src/app/[locale]/dashboard/admin/payments`.
-- `supabase/migrations/20260925150200_keepz_reconcile_schedule.sql` —
-  `keepz-reconcile-10min`, Vault-guarded (`app.keepz_reconcile_url`,
-  `app.keepz_reconcile_secret`); the app holds only the SHA-256 of the secret
-  (`KEEPZ_RECONCILE_SECRET_SHA256`). Applied to STAGING 2026-09-25 ahead of
-  the route deploy (runs 404/403 until then); not on prod.
-
-**Retired:** the sandbox (`payment-create` / `payment-process` →
-410 tombstones, `CheckoutClient` card form, `SandboxTopUpLauncher`,
-`test-cards.ts`, the `/checkout` page and the `Checkout` public namespace).
-`settle_payment` is left in the database, unreachable. `BalancePackageCard`
-no longer disables "buy" on a short wallet — the confirm dialog offers the
-card for the missing amount instead.
-
-**Cross-contract notes:** C4 (two tombstones, redeploy with approval), C16
-(new rate-limit keys `keepz-checkout|status|resume|callback|admin-recheck|refund:*`),
-C19 (`payment_success` scope comes from `payments.return_path`; refund
-notifications are account-level NULL scope; admins get `admin_payment_review`),
-C26 (`card_refund` and `topup` are not revenue), C27 (the callback lives under
-`/api`, so the prod site lock does not block it), C29 (checks below).
-`payments` grants were narrowed: `anon` has none, `authenticated` only SELECT
-(own rows via RLS); `payment_refunds` has no browser access at all.
-
-**Open setup items** (Keepz URL registration, refund permission, test
-cards, reconcile cron, prod credentials) are tracked in
-`src/lib/payments/keepz/PENDING.md`.
-
-**Checked by:** `check-contracts` C32 (origin-less routes exist + middleware
-uses the exact list; tombstones stay tombstones; TS status list == the
-apply function's list) and `check-db-contracts` C32 (`payments.status` and
-`payment_refunds.status` CHECKs == `PAYMENT_STATUSES` / `REFUND_STATUSES`).
-
-**Breaks silently when:** a route credits from callback data or skips
-`syncPaymentWithKeepz`; the middleware exemption is widened to a prefix; the
-status CHECK and the TS lists drift; a new purchase dialog forgets
-`cardPayment` (a short wallet dead-ends again); the reconcile cron is not
-scheduled (missed callbacks wait for the payer's next visit); or Keepz is
-given a callback URL with a trailing slash (403 before the route runs).
-
-**Hardening, same day (`20260925150300_keepz_payments_hardening.sql`, from an
-independent security review):** (1) the sandbox `settle_payment` had no
-provider filter and the still-deployed sandbox `payment-process` passes it a
-client-chosen id, so it could settle a Keepz row for free and a later real
-SUCCESS would credit again — EXECUTE is now revoked from every role incl.
-`service_role`; (2) only an order WE finished creating (stored `checkout_url`)
-can be credited — a SUCCESS for any other row is `unverified_order`, never
-credited, because Keepz's status carries no amount and whoever creates an
-order id chooses its amount (the checkout route therefore never hands out a
-URL it failed to store); (3) admins resolve only `requested` / `unknown`
-refunds (`refund_not_resolvable`), never one Keepz is processing; (4) one
-refund Keepz has registered per payment (`refund_already_made`; retry only
-after an outright `provider_rejected:*` failure) — order-level refund statuses
-cannot tell a second refund from the first; (5) owners read `payments` through
-column grants that omit `resume`, `review_flag`, `provider_status`,
-`checkout_url`, `last_error`. The callback also skips its Keepz re-check when
-the order was checked <3 s ago.
+**Breaks:** Credit from callback/browser (trust misplaced); skip `syncPaymentWithKeepz`; refund retried after Keepz refuses (double refund); status CHECK drifts.
 
 **S2/S3 (2026-09-27, staging; `20260927090300`, `20260927091000`):** UNIQUE `transactions(reference_id) WHERE type='topup' AND reference_id IS NOT NULL`, so a second credit for one Keepz payment is a 23505, not a silent double credit. There is no unique key on `payments.provider_transaction_id` (Keepz returns ids, possibly a shared "0", for declined orders). `balances.amount` / `sms_remaining` are NOT NULL DEFAULT 0 with CHECK >= 0: every debit locks the row and refuses below cost before subtracting. `payments.user_id` / `payment_refunds.user_id` are nullable with ON DELETE SET NULL under the load-bearing names `payments_user_id_fkey` / `payment_refunds_user_id_fkey` (`/api/admin/payments` embeds `profiles!payments_user_id_fkey`). A payment whose payer was deleted is never credited (SUCCESS becomes cancelled + review flag `unverified_order` + `last_error='payer_account_deleted'` + admin notice); `keepz_open_payment` matches the payer NULL-safely. **Breaks:** FK back to CASCADE (deleting a profile erases the money trail); FK renamed (admin payments embed fails); code assuming a non-null payer; a new credit path reusing a payment id as a topup reference (23505); a debit RPC without the balance guard (23514 instead of a clean refusal); redefining `keepz_apply_payment_status` from anything but the live body (drops the orphan branch).
 
@@ -2942,81 +376,15 @@ the order was checked <3 s ago.
 
 ## C33 — Email: everything through Resend
 
-**Invariant (2026-09-26, staging only):** all email goes through **Resend**, one
-team ("MyBakuriani") and one domain (`mybakuriani.ge`, region eu-west-1). It sends
-a copy of selected in-app notifications, it is the Supabase Auth SMTP, and its
-**Broadcasts** carry marketing. The app never sends marketing itself: it only
-keeps each Resend contact's `unsubscribed` flag equal to
-`profiles.marketing_email_consent` (**C30**). Bounces and complaints land on one
-suppression list that the sender honours.
+**Invariant (staging only):** All email via **Resend** (one team/domain mybakuriani.ge, eu-west-1). Transactional = copy of in-app notifications. Auth SMTP via Resend. Contacts' `unsubscribed` = `profiles.marketing_email_consent`.
 
-Participating symbols:
+**Key:** Dispatcher fails closed without `EMAIL_DELIVERY_ENABLED=true`. Idempotency key = email_outbound.id.
 
-- `supabase/migrations/20260925160000_email_notifications.sql:email_notification_types`
-  — the transactional allow-list, mirrored by
-  `src/lib/email/types.ts:EMAIL_NOTIFICATION_TYPES` (`check-contracts` compares
-  them). Absent on purpose: `listing_pending`, `broadcast`,
-  `content_change_superseded`. A NEW notification type gets no email until it is
-  added to both
-- `…:email_enqueue_notification` — AFTER INSERT on `notifications`; copies
-  title/message/`action_url`, only for a CONFIRMED `auth.users.email`. It
-  swallows every error into a WARNING, because `_notify` runs inside payment and
-  moderation transactions (**C19**) — an email problem must never roll those back
-- `…:email_marketing_consent_changed` — trigger on `profiles` (insert, update of
-  `marketing_email_consent`, delete) that queues a contact (un)subscribe. It
-  clears the row's claim so an in-flight dispatcher run cannot mark the OLD
-  intent synced
-- `…:email_claim_batch` / `:email_marketing_claim` — lease claims (10 min),
-  3-day expiry of unsent notification mail, re-check of suppressions
-- `src/app/api/email/dispatch/route.ts` — pg_cron every 5 min
-  (`20260925160100_email_dispatch_schedule.sql`, Vault-guarded like **C32**'s
-  sweeper; Bearer compared by SHA-256 against `EMAIL_DISPATCH_SECRET_SHA256`).
-  Fails closed without `EMAIL_DELIVERY_ENABLED=true`, and sends and claims
-  NOTHING unless `EMAIL_ALLOWED_RECIPIENTS` is set (a list, or `*` for everyone)
-  — staging holds a restored copy of real users. `EMAIL_DAILY_CAP` (default 80)
-  keeps notification mail below Resend's free 100/day so Auth mail still goes
-  out. Every write back matches the claim token
-- `src/lib/email/resend.ts:classifyResendResponse` — `Idempotency-Key` = the
-  `email_outbound.id`, so only a definitive 4xx is final; timeouts/5xx/409 retry
-  (max 6), a spent quota parks the whole batch, 401/403 stop the run
-- `src/lib/email/resend-contacts.ts:syncResendContact` — PATCH
-  `/contacts/{email}`, POST on 404 when subscribing. Needs a FULL-ACCESS key
-- `src/lib/email/render.ts` — everything user-written is HTML-escaped, subjects
-  lose CR/LF; the button link is `SITE_URL` + a `safeInternalPath` path only
-- `src/app/api/email/resend-webhook/route.ts` — Svix-verified
-  (`src/lib/email/svix.ts`). Permanent bounce / complaint → `email_suppressions`;
-  `contact.updated` with `unsubscribed: true` → `self_service_record_consent`
-  with source `email_unsubscribe` (the only writer, **C30**), but ONLY for a
-  user still opted in, because our own sync's PATCH is echoed back as the same
-  event. `/api/consent` refuses that source, so a user cannot stamp it themselves
-- `src/lib/email/server-paths.ts:EMAIL_ORIGINLESS_POST_PATHS` — the two routes
-  above are server to server; `src/middleware.ts` exempts exactly them from the
-  Origin check (`check-contracts` verifies)
-- `src/lib/consent/channels.ts:CONSENT_SOURCES` — includes `email_unsubscribe`
-  (the `user_consents.source` CHECK and the function's `v_source` list agree;
-  `check-db-contracts` compares)
-
-**DNS (DigitalOcean):** `resend._domainkey` TXT (DKIM), `send` and `rsend` CNAMEs
-to `*.forge.rmta.net` (return-path/SPF lives there, not on the root), `_dmarc`
-TXT `v=DMARC1; p=none;`. There is no root SPF record; if one is ever added for
-another sender it must be ONE record.
-
-**Known gaps:** staging and prod share the one free Resend team, so their
-contacts share one contact list (staging only ever syncs allow-listed
-addresses); a changed account email is not propagated to an existing contact;
-notification mail is Georgian only (so is the notification text itself); the
-`email-dispatch-5min` job is not in `check-db-contracts`' expected cron list.
-
-**Breaks silently when:** a notification writer uses a new type string (no email,
-no error); the enqueue trigger stops swallowing errors (an email hiccup rolls
-back a payment); a retry path is added that re-sends without the idempotency key
-(double send); a Broadcast is sent to an audience the app does not sync
-(bypasses consent); or the webhook's "still opted in" check is removed (every
-in-app opt-out also logs a bogus `email_unsubscribe` row).
-
-**S2 (2026-09-27, `20260927090100`):** `email_notification_priority(text)` classes every emailed type. Class 1: payment_success, payment_refund, company_subscription, membership_pending/approved/rejected, admin_payment_review. Class 3 (anyone can trigger at will): payment_failed, job_application, smart_match_request/offer, org_membership_request/response, cleaning_task_new/status/cancelled/cancellation_requested, admin_listing_pending, admin_content_change_pending, admin_company_pending, admin_sms_pending. Class 2: the rest. `email_claim_batch(p_limit, p_claim_token, p_shared_limit)` claims class 1, then 2, then 3 (oldest first within a class) and at most `p_shared_limit` rows of classes 2-3; the dispatcher (`src/lib/email/budget.ts:claimRoom`) keeps the last ceil(cap/4) of `EMAIL_DAILY_CAP` for class 1. Enqueue sends at most 3 class-3 emails per (recipient, type) per rolling 24 h; the in-app notification always lands. Final-state `email_outbound` rows older than 90 days are deleted (C37). **Breaks:** a new emailed type left unclassified (class 2, uncapped); a user-triggerable type put in class 1 (spends the reserve); the dispatcher deployed before the migration (`claim_failed`, nothing sent).
+**Breaks:** Add notification type without allow-list (no email); drop Cache-Control (stale redirects); unsubscribe webhook re-triggers (loop).
 
 **Per-role (2026-10-01, `20261001120000`, staging):** `email_outbound.dashboard_scope` (nullable, CHECK = the C19 list) is copied from the notification by `email_enqueue_notification`; `email_claim_batch` returns it as its LAST column (grants re-applied: service_role only). The dispatcher rewrites a bare `/dashboard` `action_url` to `/dashboard/<scope>` (`resolveNotificationPath`) and `renderNotificationEmail` adds a `კაბინეტი: <label>` line (HTML-escaped; none for NULL), so a multi-role user knows which role an email is about. The class-3 cap is per (recipient, type, scope) (`IS NOT DISTINCT FROM`, so NULL is its own bucket) and counts only `queued`/`sending`/`sent` rows, so one role's events or never-delivered rows cannot starve another's. `verification` is emailed (class 2). A claim from a database without the column falls back to the old link and no label (deploy order: migration first). **Breaks:** a scope added to the notifications CHECK but not to `email_outbound`'s; the cap keyed on (user, type) only; a cabinet-less `/dashboard` link in a new writer (resolves by scope, but only if the scope is set).
+
+**S2 (2026-09-27, `20260927090100`):** `email_notification_priority(text)` classes every emailed type. Class 1: payment_success, payment_refund, company_subscription, membership_pending/approved/rejected, admin_payment_review. Class 3 (anyone can trigger at will): payment_failed, job_application, smart_match_request/offer, org_membership_request/response, cleaning_task_new/status/cancelled/cancellation_requested, admin_listing_pending, admin_content_change_pending, admin_company_pending, admin_sms_pending. Class 2: the rest. `email_claim_batch(p_limit, p_claim_token, p_shared_limit)` claims class 1, then 2, then 3 (oldest first within a class) and at most `p_shared_limit` rows of classes 2-3; the dispatcher (`src/lib/email/budget.ts:claimRoom`) keeps the last ceil(cap/4) of `EMAIL_DAILY_CAP` for class 1. Enqueue sends at most 3 class-3 emails per (recipient, type) per rolling 24 h; the in-app notification always lands. Final-state `email_outbound` rows older than 90 days are deleted (C37). **Breaks:** a new emailed type left unclassified (class 2, uncapped); a user-triggerable type put in class 1 (spends the reserve); the dispatcher deployed before the migration (`claim_failed`, nothing sent).
 
 ---
 
@@ -3030,17 +398,7 @@ in-app opt-out also logs a bogus `email_unsubscribe` row).
 
 **Breaks:** a migration creates a table/RPC without GRANTs (client gets 42501 permission denied, not an empty RLS result); someone re-grants ALL on a view (anon DELETE through it); a SECURITY DEFINER fn executable by anon/PUBLIC outside the allow-list.
 
-**Client write grants (S1, 2026-09-26, `20260926190500`):** `authenticated` INSERT/UPDATE only the exact
-JSON keys the browser sends — profiles INSERT (6) / UPDATE `(role)`; properties INSERT (35) / UPDATE
-`(cadastral_code_public, organization_id)`; services INSERT (51) / UPDATE `(status)` — `anon` writes none
-of the four tables, and nobody but service_role writes `bookings` (no client writer exists; the two
-client write policies were dropped). `scripts/check-db-contracts.mjs:EXPECTED_CLIENT_WRITES` asserts it
-via `security_posture_snapshot()->client_write_grants`. `prevent_listing_protected_field_change()` also
-blocks a non-admin owner moving a SERVICE out of `blocked` (admin takedown, S06); owners keep
-active↔draft and active→blocked. **Breaks:** a new key in a create-form / register payload without a
-GRANT migration (the form fails with 401/403 42501 — add the column to the GRANT and to
-`EXPECTED_CLIENT_WRITES` in the same change); a table-level `GRANT INSERT/UPDATE` (re-opens trust,
-billing and counter columns); redefining that trigger from anything but the live definition. Staging ledger version `20260926185555`. Apply after `20260926171100` (the trigger body embeds its counters guard). DELETE stays table-level (RLS). "Admins full access bookings" is SELECT-only in effect — admin writes go through the service role. An invoker function/trigger that writes these tables in its own statement 42501s — make it DEFINER; BEFORE-trigger `NEW.col :=` is fine. `client_write_grants` reports direct and PUBLIC grants only. A 42501 test must not include unrelated ungranted columns (e.g. `id` on services).
+**Client write grants (S1, 2026-09-26, `20260926190500`):** `authenticated` INSERT/UPDATE only the exact JSON keys the browser sends — profiles INSERT (6) / UPDATE `(role)`; properties INSERT (35) / UPDATE `(cadastral_code_public, organization_id)`; services INSERT (51) / UPDATE `(status)` — `anon` writes none of the four tables, and nobody but service_role writes `bookings` (no client writer exists; the two client write policies were dropped). `scripts/check-db-contracts.mjs:EXPECTED_CLIENT_WRITES` asserts it via `security_posture_snapshot()->client_write_grants`. `prevent_listing_protected_field_change()` also blocks a non-admin owner moving a SERVICE out of `blocked` (admin takedown, S06); owners keep active↔draft and active→blocked. **Breaks:** a new key in a create-form / register payload without a GRANT migration (the form fails with 401/403 42501 — add the column to the GRANT and to `EXPECTED_CLIENT_WRITES` in the same change); a table-level `GRANT INSERT/UPDATE` (re-opens trust, billing and counter columns); redefining that trigger from anything but the live definition. Staging ledger version `20260926185555`. Apply after `20260926171100` (the trigger body embeds its counters guard). DELETE stays table-level (RLS). "Admins full access bookings" is SELECT-only in effect — admin writes go through the service role. An invoker function/trigger that writes these tables in its own statement 42501s — make it DEFINER; BEFORE-trigger `NEW.col :=` is fine. `client_write_grants` reports direct and PUBLIC grants only. A 42501 test must not include unrelated ungranted columns (e.g. `id` on services).
 
 **S2/S23 (2026-09-27, `20260927090000`, `20260927092000`):** `smart_match_requests`: authenticated INSERT (guest_id, check_in, check_out, guests_count, budget_min, budget_max, zone, status) and UPDATE (status), no DELETE. `manual_bookings`: no table writes for anon or authenticated (owner RPCs only). `reviews`: authenticated INSERT/UPDATE (table-level, RLS-scoped), anon none, nobody DELETE/TRUNCATE. `security_posture_snapshot()->client_write_grants` now reports all seven tables and `EXPECTED_CLIENT_WRITES` asserts them. The new definer `apply_pii_retention(integer)` is service_role/pg_cron only. **Breaks:** a new key in the smart-match request payload without a GRANT (42501).
 

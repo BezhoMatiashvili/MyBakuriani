@@ -522,6 +522,7 @@ export default function LandingPage({
     serverBlogPosts && serverBlogPosts.length > 0
       ? serverBlogPosts.map((bp) => ({
           id: bp.id,
+          slug: bp.slug,
           title: bp.title,
           excerpt: bp.excerpt ?? "",
           image: bp.image_url ?? "/placeholder-property.jpg",
@@ -845,7 +846,7 @@ export default function LandingPage({
               return (
                 <ScrollReveal key={post.id} delay={i * 0.1} className="h-full">
                   <Link
-                    href={`/blog/${post.id}`}
+                    href={`/blog/${post.slug}`}
                     data-home-blog-card
                     className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
                   >

@@ -9,7 +9,8 @@ import {
   getCachedPublicProperty,
   getCachedPublicReviews,
 } from "@/lib/data/getCachedPublicListing";
-import { buildListingMetadata } from "@/lib/seo";
+import { buildListingMetadata, redirectToCanonicalListing } from "@/lib/seo";
+import { propertyViewUrl } from "@/lib/utils/listingUrls";
 import SaleDetailClient from "./SaleDetailClient";
 
 interface Props {
@@ -37,9 +38,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "Metadata" });
   // Cached public listing only — the cookie-aware metadata fallback lives on
   // the /preview route. A miss (pending/blocked/deleted) gets the not-found title.
+  // A transient error rethrows, as in the page body, instead of being cached as
+  // a not-found title.
   const data = isMockPropertyId(id)
     ? getMockProperty(id)
-    : await getCachedPublicProperty(id).catch(() => null);
+    : await getCachedPublicProperty(id).catch((err: unknown) => {
+        unstable_rethrow(err);
+        throw err;
+      });
 
   if (!data) {
     return { title: t("detail.saleNotFound") };
@@ -47,7 +53,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = t("detail.saleTitle", { title: data.title });
   const description =
-    data.description ??
+    data.description?.trim() ||
     t("detail.saleDesc", { title: data.title, location: data.location });
 
   return {
@@ -64,7 +70,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function SaleDetailPage({ params }: Props) {
-  const { id } = await params;
+  const { locale, id } = await params;
   // Env-only read (static-safe). Owner/QA visibility is decided client-side
   // inside PriceDropAlertButton via useAuth() — no auth round-trip here.
   const priceAlertMode = smsFeatureMode("SMS_PRICE_DROP_MODE");
@@ -105,6 +111,12 @@ export default async function SaleDetailPage({ params }: Props) {
   if (!cached) {
     notFound();
   }
+
+  redirectToCanonicalListing(
+    `/sales/${id}`,
+    propertyViewUrl(cached),
+    locale,
+  );
 
   const reviews = await reviewsPromise;
 

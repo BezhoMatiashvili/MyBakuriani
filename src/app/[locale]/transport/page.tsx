@@ -2,6 +2,7 @@ import { createPublicClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import { buildPageMetadata } from "@/lib/seo";
 import TransportPageClient from "./TransportPageClient";
 import { firstPhotoOnly } from "@/lib/utils/photos";
 
@@ -19,10 +20,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  return {
+  return buildPageMetadata({
+    locale,
+    path: "/transport",
     title: t("transport"),
     description: t("transportDesc"),
-  };
+  });
 }
 
 export default async function TransportPage() {

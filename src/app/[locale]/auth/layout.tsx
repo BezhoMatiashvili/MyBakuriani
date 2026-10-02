@@ -20,6 +20,9 @@ export async function generateMetadata({
   return {
     title: t("auth"),
     description: t("authDesc"),
+    // Sign-in and listing-creation pages have no search value and are
+    // robots-disallowed; this keeps a stray link from indexing them (C40).
+    robots: { index: false, follow: false },
   };
 }
 

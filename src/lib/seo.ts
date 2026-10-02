@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { permanentRedirect } from "next/navigation";
 import { routing, type AppLocale } from "@/i18n/routing";
+import { buildAlternates, pathForLocale } from "@/lib/seo/alternates";
 import { sanitizePhotos } from "@/lib/utils/photos";
-import { localizedPath, ogCardUrlForPath } from "@/lib/utils/listingUrls";
+import { ogCardUrlForPath } from "@/lib/utils/listingUrls";
 
 const SITE_NAME = "MyBakuriani";
 /** Branded 1200x630 fallback in /public — used when a listing has no photos. */
@@ -27,6 +29,14 @@ const OG_LOCALE: Record<AppLocale, string> = {
   en: "en_US",
   ru: "ru_RU",
 };
+
+/** Google shows roughly this much of a meta description. */
+export const META_DESCRIPTION_MAX = 155;
+
+/** og:locale:alternate values: every locale except the page's own. */
+function alternateOgLocales(locale: AppLocale): string[] {
+  return routing.locales.filter((l) => l !== locale).map((l) => OG_LOCALE[l]);
+}
 
 /** Clamps on a word boundary and appends an ellipsis only if it actually cut. */
 export function clampDescription(
@@ -63,7 +73,7 @@ interface BuildListingMetadataOptions {
  */
 export function buildListingMetadata(
   opts: BuildListingMetadataOptions,
-): Pick<Metadata, "openGraph" | "twitter" | "alternates"> {
+): Pick<Metadata, "description" | "openGraph" | "twitter" | "alternates"> {
   // sanitizePhotos drops empty/base64/oversized entries so og:image never
   // embeds a multi-MB data URL (which would bloat the SSR response).
   const photos = sanitizePhotos(opts.images).slice(0, 4);
@@ -95,17 +105,27 @@ export function buildListingMetadata(
 
   const description = clampDescription(opts.description);
 
-  // localePrefix is "as-needed": the default locale (ka) has no path prefix.
-  const url = localizedPath(opts.path, opts.locale, routing.defaultLocale);
+  // canonical + hreflang come from the one function the sitemap uses too, so
+  // the HTML and the sitemap name byte-identical URLs (C40).
+  const { canonical: url, languages } = buildAlternates({
+    path: opts.path,
+    locale: opts.locale,
+    locales: routing.locales,
+    defaultLocale: routing.defaultLocale,
+  });
 
   return {
-    alternates: { canonical: url },
+    // Shorter than the OG description: the raw owner text can run to thousands
+    // of characters. Callers spread this after their own `description`.
+    description: clampDescription(opts.description, META_DESCRIPTION_MAX),
+    alternates: { canonical: url, languages },
     // Cast: the literal openGraph object is well-formed, but TS cannot narrow
     // the discriminated `type` union from a `"website" | "article"` value.
     openGraph: {
       type: opts.type ?? "website",
       siteName: SITE_NAME,
       locale: OG_LOCALE[opts.locale] ?? opts.locale,
+      alternateLocale: alternateOgLocales(opts.locale),
       title: opts.title,
       description,
       url,
@@ -117,5 +137,82 @@ export function buildListingMetadata(
       description,
       images: ogImages,
     },
+  };
+}
+
+/**
+ * A listing has exactly one canonical URL: the route of its kind
+ * (propertyViewUrl / serviceViewUrl). The detail routes resolve any id, so one
+ * listing used to answer 200 under /apartments, /hotels and /sales (or under
+ * five service routes), each copy self-canonical. A request on the wrong kind
+ * now 308s to the right one (C40). Never returns when it redirects.
+ */
+export function redirectToCanonicalListing(
+  requestPath: string,
+  canonicalPath: string,
+  locale: AppLocale,
+): void {
+  if (requestPath === canonicalPath) return;
+  permanentRedirect(
+    pathForLocale(canonicalPath, locale, routing.defaultLocale),
+  );
+}
+
+interface BuildPageMetadataOptions {
+  locale: AppLocale;
+  /** Locale-less path, e.g. `/apartments`; `/` for the home page. */
+  path: string;
+  /** Already-translated, complete title (it carries its own "— MyBakuriani"). */
+  title: string;
+  description: string;
+  type?: "website" | "article";
+  /** Keeps the page out of the index but lets crawlers follow its links. */
+  noindex?: boolean;
+}
+
+/**
+ * Title, description, canonical, hreflang, Open Graph and Twitter for the
+ * public index and static pages (C40); detail pages use buildListingMetadata,
+ * which adds their photo card. A page's `openGraph` object REPLACES the root
+ * layout's rather than merging with it, so the locale has to be set here.
+ */
+export function buildPageMetadata(opts: BuildPageMetadataOptions): Metadata {
+  const { canonical, languages } = buildAlternates({
+    path: opts.path,
+    locale: opts.locale,
+    locales: routing.locales,
+    defaultLocale: routing.defaultLocale,
+  });
+  const description = clampDescription(opts.description, META_DESCRIPTION_MAX);
+  const images = [
+    {
+      url: FALLBACK_OG_IMAGE,
+      width: OG_CARD_WIDTH,
+      height: OG_CARD_HEIGHT,
+      alt: SITE_NAME,
+    },
+  ];
+
+  return {
+    title: opts.title,
+    description,
+    alternates: { canonical, languages },
+    openGraph: {
+      type: opts.type ?? "website",
+      siteName: SITE_NAME,
+      locale: OG_LOCALE[opts.locale],
+      alternateLocale: alternateOgLocales(opts.locale),
+      title: opts.title,
+      description,
+      url: canonical,
+      images,
+    } as Metadata["openGraph"],
+    twitter: {
+      card: "summary_large_image",
+      title: opts.title,
+      description,
+      images,
+    },
+    ...(opts.noindex ? { robots: { index: false, follow: true } } : {}),
   };
 }

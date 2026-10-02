@@ -1,6 +1,6 @@
 import { createPublicClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
+import { buildPageMetadata } from "@/lib/seo";
 import LandingPage from "@/app/[locale]/_landing/LandingPage";
 import {
   LANDING_BLOG_COLUMNS,
@@ -10,7 +10,6 @@ import {
   LANDING_SERVICE_COLUMNS,
 } from "@/app/[locale]/_landing/columns";
 import { firstPhotoOnly } from "@/lib/utils/photos";
-import { SkierLoader } from "@/components/shared/SkierLoader";
 import { fetchSlotCreatives } from "@/lib/banner-slots-server";
 import {
   getActiveZones,
@@ -50,10 +49,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  return {
+  return buildPageMetadata({
+    locale,
+    path: "/",
     title: t("siteTitle"),
     description: t("siteDescription"),
-  };
+  });
 }
 
 export const revalidate = 120;
@@ -118,6 +119,7 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
         .from("public_properties")
         .select(LANDING_HOTEL_COLUMNS)
         .eq("type", "hotel")
+        .eq("is_for_sale", false)
         .order("is_super_vip", { ascending: false })
         .order("is_vip", { ascending: false })
         .limit(4),
@@ -445,10 +447,11 @@ async function LandingWithData() {
   );
 }
 
+// No <Suspense> around the landing (C40): a boundary streams the whole page as
+// a `<div hidden>` segment that an inline script swaps in, which crawlers that
+// do not run JavaScript never see as visible content. The page is ISR
+// (`revalidate` above), so the data is awaited at revalidation time, not per
+// visitor.
 export default function Home() {
-  return (
-    <Suspense fallback={<SkierLoader />}>
-      <LandingWithData />
-    </Suspense>
-  );
+  return <LandingWithData />;
 }

@@ -3,6 +3,7 @@ import { getCvCountsForServices } from "@/lib/data/getCachedPublicListing";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import { buildPageMetadata } from "@/lib/seo";
 import EmploymentPageClient from "./EmploymentPageClient";
 
 export const revalidate = 60;
@@ -19,10 +20,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  return {
+  return buildPageMetadata({
+    locale,
+    path: "/employment",
     title: t("employment"),
     description: t("employmentDesc"),
-  };
+  });
 }
 
 export default async function EmploymentPage() {

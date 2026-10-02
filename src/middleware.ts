@@ -8,8 +8,15 @@ import { KEEPZ_ORIGINLESS_POST_PATHS } from "@/lib/payments/keepz/server-paths";
 import { EMAIL_ORIGINLESS_POST_PATHS } from "@/lib/email/server-paths";
 import { OWNERSHIP_ORIGINLESS_POST_PATHS } from "@/lib/ownership/server-paths";
 import { SUPABASE_MEDIA_HOSTS, SUPABASE_PROJECT_HOST } from "@/lib/media-hosts";
+import { IS_INDEXABLE } from "@/lib/seo/site";
 
 const intlMiddleware = createIntlMiddleware(routing);
+
+// Search-engine directive for everything that must not be indexed: every page
+// of a non-canonical host (staging, previews, local) and the site-lock
+// redirects/page on any host (C40). A header also covers redirects and error
+// pages, which have no <meta> to carry it.
+const NOINDEX = "noindex, nofollow";
 const ORIGINAL_REQUEST_PATH_HEADER = "x-mybakuriani-request-path";
 
 // Password gate for closing the public site to browsing while keeping /api/*
@@ -118,6 +125,7 @@ function applySecurityHeaders(response: Response, secureRequest: boolean) {
       "max-age=63072000; includeSubDomains; preload",
     );
   }
+  if (!IS_INDEXABLE) response.headers.set("X-Robots-Tag", NOINDEX);
   return response;
 }
 
@@ -177,6 +185,7 @@ export async function middleware(request: NextRequest) {
   if (pathname === SITE_LOCK_PATH) {
     const response = NextResponse.next();
     response.headers.set("Cache-Control", "no-store");
+    response.headers.set("X-Robots-Tag", NOINDEX);
     return applySecurityHeaders(response, secureRequest);
   }
 
@@ -213,6 +222,7 @@ export async function middleware(request: NextRequest) {
       target.searchParams.set("from", pathname + request.nextUrl.search);
       const response = NextResponse.redirect(target);
       response.headers.set("Cache-Control", "no-store");
+      response.headers.set("X-Robots-Tag", NOINDEX);
       return applyBaselineSecurityHeaders(response, secureRequest);
     }
   }
