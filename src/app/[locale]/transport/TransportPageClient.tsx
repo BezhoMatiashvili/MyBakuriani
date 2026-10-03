@@ -117,7 +117,8 @@ export default function TransportPageClient({ services }: Props) {
             <h1 className="text-[30px] font-black leading-[38px] lg:text-[48px] lg:leading-[56px]">
               <span className="text-[#60A5FA]">{t("heroTitle1")}</span>{" "}
               <span className="text-white">{t("heroTitle2")}</span>{" "}
-              <span className="text-white">{t("heroTitle3")}</span>
+              <span className="text-white">{t("heroTitle3")}</span>{" "}
+              <span className="text-white">{t("heroLocation")}</span>
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-[15px] leading-[24px] text-white/70">
               {t("heroSubtitle")}

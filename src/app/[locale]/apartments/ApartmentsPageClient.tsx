@@ -26,6 +26,7 @@ import {
 import { buildRentSearchParams } from "@/lib/search/rentSearchQuery";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import { cn } from "@/lib/utils";
+import { HERO_NOISE_BACKGROUND } from "@/lib/utils/heroTexture";
 import { useActiveZones } from "@/lib/zones/client";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import StatusCards from "@/components/landing/StatusCards";
@@ -137,24 +138,22 @@ function ApartmentsHero({
           "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
       }}
     >
-      {/* Subtle texture overlay */}
+      {/* Subtle texture overlay (inline noise; see heroTexture.ts) */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
         style={{
-          backgroundImage:
-            "url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1600&h=600&fit=crop&q=30')",
-          backgroundSize: "cover",
-          backgroundPosition: "center bottom",
+          backgroundImage: HERO_NOISE_BACKGROUND,
           mixBlendMode: "overlay",
         }}
       />
       <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
-        <ScrollReveal>
+        {/* No entrance fade on the h1: it is the LCP element (C40). */}
+        <div>
           <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
-            {tLanding("trustedGuide")}{" "}
-            <span className="text-[#38BDF8]">{tLanding("inBakuriani")}</span>
+            {tLanding("apartmentsH1Lead")}{" "}
+            <span className="text-[#38BDF8]">{tLanding("h1InBakuriani")}</span>
           </h1>
-        </ScrollReveal>
+        </div>
 
         <div className="mt-6 flex justify-center">
           <RentBuyToggle value={mode} onChange={onModeChange} />

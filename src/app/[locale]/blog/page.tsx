@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { buildPageMetadata } from "@/lib/seo";
+import Breadcrumbs from "@/components/seo/Breadcrumbs";
 import BlogPageClient from "./BlogPageClient";
 
 export const revalidate = 60;
@@ -22,7 +23,13 @@ export async function generateMetadata({
   });
 }
 
-export default async function BlogPage() {
+export default async function BlogPage({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}) {
+  const { locale } = await params;
+  const tFooter = await getTranslations({ locale, namespace: "Footer" });
   const supabase = createPublicClient();
 
   // Only what the grid renders: the article body (`content`) and the other
@@ -36,5 +43,13 @@ export default async function BlogPage() {
 
   if (error) throw error;
 
-  return <BlogPageClient posts={posts ?? []} />;
+  return (
+    <>
+      <Breadcrumbs
+        locale={locale}
+        items={[{ name: tFooter("blog"), path: "/blog" }]}
+      />
+      <BlogPageClient posts={posts ?? []} />
+    </>
+  );
 }

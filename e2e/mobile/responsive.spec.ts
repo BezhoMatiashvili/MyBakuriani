@@ -1,5 +1,18 @@
 import { test, expect } from "@playwright/test";
 
+test.beforeEach(async ({ page, baseURL }) => {
+  // The consent panel otherwise covers the lower half of a phone viewport, so
+  // whether a control can be tapped depends on where the page happens to put
+  // it. Both answers are given: a v1 cookie leaves the location question open.
+  await page.context().addCookies([
+    {
+      name: "mb_cookie_consent",
+      value: "v2|analytics=0|location=0",
+      url: baseURL!,
+    },
+  ]);
+});
+
 const phoneViewports = [
   { width: 320, height: 568 },
   { width: 369, height: 800 },
@@ -1048,12 +1061,14 @@ test.describe("Public actions mobile", () => {
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/faq");
-    const question = page.locator("main button[aria-expanded]").first();
-    await expect(question).toHaveAttribute("aria-expanded", "false");
+    // Native <details>/<summary> (C40): `open` is the expanded state.
+    const item = page.locator("main details").first();
+    const question = item.locator("summary");
+    await expect(item).not.toHaveAttribute("open", "");
     await question.click();
-    await expect(question).toHaveAttribute("aria-expanded", "true");
+    await expect(item).toHaveAttribute("open", "");
     await question.click();
-    await expect(question).toHaveAttribute("aria-expanded", "false");
+    await expect(item).not.toHaveAttribute("open", "");
   });
 });
 
@@ -1135,7 +1150,8 @@ test.describe("Footer mobile", () => {
     await expect(footer.locator("details")).toHaveCount(0);
     await expect(footer.locator("h3")).toHaveCount(3);
     const groupLinks = footer.locator("ul a");
-    await expect(groupLinks).toHaveCount(14);
+    // 14 + hotels, sales, the Bakuriani guide and the blog (C40: crawl paths).
+    await expect(groupLinks).toHaveCount(18);
     for (const link of await groupLinks.all()) {
       await expect(link).toBeVisible();
       expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);

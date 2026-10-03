@@ -48,6 +48,7 @@ import EmploymentCard from "@/components/cards/EmploymentCard";
 import HotOffersCarousel from "@/components/cards/HotOffersCarousel";
 import { cn } from "@/lib/utils";
 import { isDiscountActive } from "@/lib/utils/pricing";
+import { HERO_NOISE_BACKGROUND } from "@/lib/utils/heroTexture";
 import { describeSalary, type SalaryDescriptor } from "@/lib/employment/salary";
 import type {
   LandingBlogPost,
@@ -245,18 +246,19 @@ function LandingHero({
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
         style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E\")",
+          backgroundImage: HERO_NOISE_BACKGROUND,
           mixBlendMode: "overlay",
         }}
       />
       <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
-        <ScrollReveal>
+        {/* No entrance fade on the h1: it is the LCP element, and a 0.5 s
+            opacity animation delays LCP by as much (C40). */}
+        <div>
           <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
             {t("trustedGuide")}{" "}
             <span className="text-[#38BDF8]">{t("inBakuriani")}</span>
           </h1>
-        </ScrollReveal>
+        </div>
 
         <div className="mt-[34px] flex justify-center sm:mt-6">
           <RentBuyToggle

@@ -10,8 +10,12 @@ import {
   getCachedPublicCalendar,
   getCachedPublicPriceOverrides,
 } from "@/lib/data/getCachedPublicListing";
+import { pickDescription } from "@/lib/seo/description";
 import { buildListingMetadata, redirectToCanonicalListing } from "@/lib/seo";
 import { propertyViewUrl } from "@/lib/utils/listingUrls";
+import ListingBreadcrumbs from "@/components/seo/ListingBreadcrumbs";
+import RelatedListings from "@/components/seo/RelatedListings";
+import { HotelJsonLd } from "@/components/seo/ListingJsonLd";
 import HotelDetailClient from "./HotelDetailClient";
 
 interface Props {
@@ -53,12 +57,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const title = t("detail.hotelTitle", { title: data.title });
-  const description =
-    data.description?.trim() ||
+  const description = pickDescription(
+    data.description,
     t("detail.hotelDesc", {
       title: data.title,
       location: data.location,
-    });
+    }),
+  );
 
   return {
     title,
@@ -130,12 +135,31 @@ export default async function HotelDetailPage({ params }: Props) {
   const [reviews, calendarBlocks, priceOverrides] = await extras;
 
   return (
-    <HotelDetailClient
-      property={cached}
-      isPending={false}
-      reviews={reviews}
-      calendarBlocks={calendarBlocks}
-      priceOverrides={priceOverrides}
-    />
+    <>
+      <ListingBreadcrumbs
+        locale={locale}
+        kind="hotels"
+        title={cached.title}
+        path={`/hotels/${id}`}
+      />
+      <HotelJsonLd
+        locale={locale}
+        path={`/hotels/${id}`}
+        property={cached}
+      />
+      <HotelDetailClient
+        property={cached}
+        isPending={false}
+        reviews={reviews}
+        calendarBlocks={calendarBlocks}
+        priceOverrides={priceOverrides}
+      />
+      <RelatedListings
+        locale={locale}
+        kind="hotels"
+        excludeId={id}
+        location={cached.location}
+      />
+    </>
   );
 }

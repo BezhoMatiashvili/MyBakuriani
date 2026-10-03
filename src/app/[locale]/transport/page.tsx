@@ -2,6 +2,8 @@ import { createPublicClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import Breadcrumbs from "@/components/seo/Breadcrumbs";
+import CategoryIntro from "@/components/seo/CategoryIntro";
 import { buildPageMetadata } from "@/lib/seo";
 import TransportPageClient from "./TransportPageClient";
 import { firstPhotoOnly } from "@/lib/utils/photos";
@@ -28,7 +30,13 @@ export async function generateMetadata({
   });
 }
 
-export default async function TransportPage() {
+export default async function TransportPage({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}) {
+  const { locale } = await params;
+  const tNav = await getTranslations({ locale, namespace: "Navbar" });
   const supabase = createPublicClient();
 
   const {
@@ -57,5 +65,14 @@ export default async function TransportPage() {
     );
   }
 
-  return <TransportPageClient services={(services ?? []).map(firstPhotoOnly)} />;
+  return (
+    <>
+      <Breadcrumbs
+        locale={locale}
+        items={[{ name: tNav("transport"), path: "/transport" }]}
+      />
+      <TransportPageClient services={(services ?? []).map(firstPhotoOnly)} />
+      <CategoryIntro locale={locale} topic="transport" listings={services} />
+    </>
+  );
 }

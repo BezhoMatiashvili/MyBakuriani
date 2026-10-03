@@ -35,6 +35,7 @@ import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { ShareMenu } from "@/components/shared/ShareMenu";
 import type { Tables, Database } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import LazyOnVisible from "@/components/shared/LazyOnVisible";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
@@ -502,7 +503,7 @@ export default function SaleDetailClient({
       </div>
 
       {/* Photo gallery */}
-      <div style={enterUp(0.12)} className="[&>div:first-child]:hidden">
+      <div className="[&>div:first-child]:hidden">
         <PhotoGallery
           photos={property.photos ?? []}
           title={property.title}
@@ -696,13 +697,15 @@ export default function SaleDetailClient({
             </div>
             {property.location_lat && property.location_lng ? (
               <div className="overflow-hidden rounded-[20px] border border-[#E2E8F0]">
-                <BakurianiMap
-                  className="h-[320px] w-full"
-                  embedded
-                  properties={mapMarkers}
-                  isForSale
-                  showRouteButton
-                />
+                <LazyOnVisible className="h-[320px] w-full">
+                  <BakurianiMap
+                    className="h-[320px] w-full"
+                    embedded
+                    properties={mapMarkers}
+                    isForSale
+                    showRouteButton
+                  />
+                </LazyOnVisible>
               </div>
             ) : (
               <div className="flex h-[200px] items-center justify-center rounded-[20px] border border-dashed border-[#E2E8F0] bg-[#F8FAFC] text-[13px] text-[#94A3B8]">

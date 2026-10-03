@@ -29,6 +29,7 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { HERO_NOISE_BACKGROUND } from "@/lib/utils/heroTexture";
 import { sortByPromotion } from "@/lib/utils/pricing";
 import BannerSlot from "@/components/banners/BannerSlot";
 import {
@@ -240,10 +241,7 @@ function SearchHero({
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
         style={{
-          backgroundImage:
-            "url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1600&h=600&fit=crop&q=30')",
-          backgroundSize: "cover",
-          backgroundPosition: "center bottom",
+          backgroundImage: HERO_NOISE_BACKGROUND,
           mixBlendMode: "overlay",
         }}
       />

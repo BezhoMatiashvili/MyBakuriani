@@ -5,8 +5,11 @@ import type { AppLocale } from "@/i18n/routing";
 import { getMockService, isMockServiceId } from "@/lib/mock/services";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import { getCachedPublicService } from "@/lib/data/getCachedPublicListing";
+import { pickDescription } from "@/lib/seo/description";
 import { buildListingMetadata, redirectToCanonicalListing } from "@/lib/seo";
 import { serviceViewUrl } from "@/lib/utils/listingUrls";
+import ListingBreadcrumbs from "@/components/seo/ListingBreadcrumbs";
+import RelatedListings from "@/components/seo/RelatedListings";
 import EntertainmentDetailClient from "./EntertainmentDetailClient";
 
 interface Props {
@@ -48,8 +51,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const title = t("detail.entertainmentTitle", { title: data.title });
-  const description =
-    data.description?.trim() || t("detail.entertainmentDesc", { title: data.title });
+  const description = pickDescription(
+    data.description,
+    t("detail.entertainmentDesc", { title: data.title }),
+  );
 
   return {
     title,
@@ -96,5 +101,21 @@ export default async function EntertainmentDetailPage({ params }: Props) {
     locale,
   );
 
-  return <EntertainmentDetailClient service={cached} isMock={false} isPending={false} />;
+  return (
+    <>
+      <ListingBreadcrumbs
+        locale={locale}
+        kind="entertainment"
+        title={cached.title}
+        path={`/entertainment/${id}`}
+      />
+      <EntertainmentDetailClient service={cached} isMock={false} isPending={false} />
+      <RelatedListings
+        locale={locale}
+        kind="entertainment"
+        excludeId={id}
+        location={cached.location}
+      />
+    </>
+  );
 }

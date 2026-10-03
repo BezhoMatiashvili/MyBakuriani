@@ -2,6 +2,8 @@ import { createPublicClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import Breadcrumbs from "@/components/seo/Breadcrumbs";
+import CategoryIntro from "@/components/seo/CategoryIntro";
 import { buildPageMetadata } from "@/lib/seo";
 import SalesPageClient from "./SalesPageClient";
 import { firstPhotoOnly } from "@/lib/utils/photos";
@@ -31,7 +33,13 @@ export async function generateMetadata({
   });
 }
 
-export default async function SalesPage() {
+export default async function SalesPage({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}) {
+  const { locale } = await params;
+  const tNav = await getTranslations({ locale, namespace: "Footer" });
   const supabase = createPublicClient();
 
   const {
@@ -60,5 +68,14 @@ export default async function SalesPage() {
     );
   }
 
-  return <SalesPageClient properties={(properties ?? []).map(firstPhotoOnly)} />;
+  return (
+    <>
+      <Breadcrumbs
+        locale={locale}
+        items={[{ name: tNav("forSale"), path: "/sales" }]}
+      />
+      <SalesPageClient properties={(properties ?? []).map(firstPhotoOnly)} />
+      <CategoryIntro locale={locale} topic="sales" listings={properties} />
+    </>
+  );
 }

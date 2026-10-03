@@ -22,6 +22,7 @@ import { BookingSidebar } from "@/components/booking/BookingSidebar";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import LazyOnVisible from "@/components/shared/LazyOnVisible";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
@@ -246,7 +247,7 @@ export default function ApartmentDetailClient({
         )}
       </div>
 
-      <div style={enterUp(0.15)}>
+      <div>
         <PhotoGallery
           photos={property.photos ?? []}
           title={property.title}
@@ -330,16 +331,18 @@ export default function ApartmentDetailClient({
             </p>
             {property.location_lat && property.location_lng ? (
               <div className="h-[300px] overflow-hidden rounded-2xl border border-[#E2E8F0]">
-                <BakurianiMap
-                  className="h-full w-full"
-                  center={{
-                    lat: Number(property.location_lat),
-                    lng: Number(property.location_lng),
-                  }}
-                  properties={mapMarkers}
-                  zoom={15}
-                  showRouteButton
-                />
+                <LazyOnVisible className="h-full w-full">
+                  <BakurianiMap
+                    className="h-full w-full"
+                    center={{
+                      lat: Number(property.location_lat),
+                      lng: Number(property.location_lng),
+                    }}
+                    properties={mapMarkers}
+                    zoom={15}
+                    showRouteButton
+                  />
+                </LazyOnVisible>
               </div>
             ) : (
               <div className="flex h-[200px] items-center justify-center rounded-2xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] text-[13px] text-[#94A3B8]">

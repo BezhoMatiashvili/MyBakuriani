@@ -5,8 +5,11 @@ import type { AppLocale } from "@/i18n/routing";
 import { getMockService, isMockServiceId } from "@/lib/mock/services";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import { getCachedPublicService } from "@/lib/data/getCachedPublicListing";
+import { pickDescription } from "@/lib/seo/description";
 import { buildListingMetadata, redirectToCanonicalListing } from "@/lib/seo";
 import { serviceViewUrl } from "@/lib/utils/listingUrls";
+import ListingBreadcrumbs from "@/components/seo/ListingBreadcrumbs";
+import RelatedListings from "@/components/seo/RelatedListings";
 import TransportDetailClient from "./TransportDetailClient";
 
 interface Props {
@@ -48,8 +51,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const title = t("detail.transportTitle", { title: data.title });
-  const description =
-    data.description?.trim() || t("detail.transportDesc", { title: data.title });
+  const description = pickDescription(
+    data.description,
+    t("detail.transportDesc", { title: data.title }),
+  );
 
   return {
     title,
@@ -96,5 +101,21 @@ export default async function TransportDetailPage({ params }: Props) {
     locale,
   );
 
-  return <TransportDetailClient service={cached} isMock={false} isPending={false} />;
+  return (
+    <>
+      <ListingBreadcrumbs
+        locale={locale}
+        kind="transport"
+        title={cached.title}
+        path={`/transport/${id}`}
+      />
+      <TransportDetailClient service={cached} isMock={false} isPending={false} />
+      <RelatedListings
+        locale={locale}
+        kind="transport"
+        excludeId={id}
+        location={cached.location}
+      />
+    </>
+  );
 }

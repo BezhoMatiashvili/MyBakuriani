@@ -21,6 +21,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import { BookingSidebar } from "@/components/booking/BookingSidebar";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import LazyOnVisible from "@/components/shared/LazyOnVisible";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 
 const BakurianiMap = dynamic(
@@ -263,7 +264,7 @@ export default function HotelDetailClient({
         </div>
       </div>
 
-      <div style={enterUp(0.15)}>
+      <div>
         <PhotoGallery
           photos={property.photos ?? []}
           title={property.title}
@@ -338,16 +339,18 @@ export default function HotelDetailClient({
             </p>
             {property.location_lat && property.location_lng ? (
               <div className="h-[300px] overflow-hidden rounded-2xl border border-[#E2E8F0]">
-                <BakurianiMap
-                  className="h-full w-full"
-                  center={{
-                    lat: Number(property.location_lat),
-                    lng: Number(property.location_lng),
-                  }}
-                  properties={mapMarkers}
-                  zoom={15}
-                  showRouteButton
-                />
+                <LazyOnVisible className="h-full w-full">
+                  <BakurianiMap
+                    className="h-full w-full"
+                    center={{
+                      lat: Number(property.location_lat),
+                      lng: Number(property.location_lng),
+                    }}
+                    properties={mapMarkers}
+                    zoom={15}
+                    showRouteButton
+                  />
+                </LazyOnVisible>
               </div>
             ) : (
               <div className="flex h-[200px] items-center justify-center rounded-2xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] text-[13px] text-[#94A3B8]">

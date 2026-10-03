@@ -8,8 +8,11 @@ import {
   getCachedPublicService,
   getCachedPublicCvCount,
 } from "@/lib/data/getCachedPublicListing";
+import { pickDescription } from "@/lib/seo/description";
 import { buildListingMetadata, redirectToCanonicalListing } from "@/lib/seo";
 import { serviceViewUrl } from "@/lib/utils/listingUrls";
+import ListingBreadcrumbs from "@/components/seo/ListingBreadcrumbs";
+import RelatedListings from "@/components/seo/RelatedListings";
 import EmploymentDetailClient from "./EmploymentDetailClient";
 
 interface Props {
@@ -50,9 +53,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: t("detail.employmentNotFound") };
   }
 
-  const title = t("detail.employmentTitle", { title: data.title });
-  const description =
-    data.description?.trim() || t("detail.employmentDesc", { title: data.title });
+  // The page's H1 is the position (EmploymentDetailClient); `title` is the
+  // employer, so the <title> follows the H1.
+  const heading = data.position?.trim() || data.title;
+  const title = t("detail.employmentTitle", { title: heading });
+  const description = pickDescription(
+    data.description,
+    t("detail.employmentDesc", { title: heading }),
+  );
 
   return {
     title,
@@ -117,11 +125,25 @@ export default async function EmploymentDetailPage({ params }: Props) {
   const applicationsCount = await applicationsPromise;
 
   return (
-    <EmploymentDetailClient
-      service={cached}
-      isMock={false}
-      applicationsCount={applicationsCount}
-      isPending={false}
-    />
+    <>
+      <ListingBreadcrumbs
+        locale={locale}
+        kind="employment"
+        title={cached.title}
+        path={`/employment/${id}`}
+      />
+      <EmploymentDetailClient
+        service={cached}
+        isMock={false}
+        applicationsCount={applicationsCount}
+        isPending={false}
+      />
+      <RelatedListings
+        locale={locale}
+        kind="employment"
+        excludeId={id}
+        location={cached.location}
+      />
+    </>
   );
 }

@@ -43,13 +43,14 @@ test("every page becomes one entry per locale, each with the full hreflang set",
   }
 });
 
-test("the home page keeps the head's shape: / for ka, /en and /ru without a slash", () => {
+test("the home page keeps the head's shape: no trailing slash in any locale", () => {
   const entries = build([{ path: "/" }]);
   assert.deepEqual(
     entries.map((e) => e.url),
-    [`${SITE}/`, `${SITE}/en`, `${SITE}/ru`],
+    [SITE, `${SITE}/en`, `${SITE}/ru`],
   );
-  assert.equal(entries[0].alternates.languages["x-default"], `${SITE}/`);
+  assert.equal(entries[0].alternates.languages.ka, SITE);
+  assert.equal(entries[0].alternates.languages["x-default"], SITE);
 });
 
 test("a sitemap url is the page's own canonical, resolved against the site", () => {

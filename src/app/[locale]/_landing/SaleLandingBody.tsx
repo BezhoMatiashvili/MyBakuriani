@@ -21,6 +21,7 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/utils/format";
+import { HERO_NOISE_BACKGROUND } from "@/lib/utils/heroTexture";
 import { isDiscountActive } from "@/lib/utils/pricing";
 import type { LandingSaleProperty } from "./columns";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
@@ -246,20 +247,18 @@ export default function SaleLandingBody({
             "linear-gradient(180deg, #0B3A2C 0%, #0F4C3A 55%, #134E3A 100%)",
         }}
       >
-        {/* subtle texture */}
+        {/* subtle texture (inline noise; see heroTexture.ts) */}
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.04]"
           style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1600&h=600&fit=crop&q=30')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
+            backgroundImage: HERO_NOISE_BACKGROUND,
             mixBlendMode: "overlay",
           }}
         />
 
         <div className="relative z-10 mx-auto w-full max-w-[1180px] text-center">
-          <ScrollReveal>
+          {/* No entrance fade on the h1: it is the LCP element (C40). */}
+          <div>
             <h1 className="text-[28px] font-black leading-[1.08] tracking-[-0.7px] text-white sm:text-[36px] lg:text-[64px] lg:leading-[68px] lg:tracking-[-1.25px]">
               {t("sale.heroTitleTop")}
               <br />
@@ -267,7 +266,7 @@ export default function SaleLandingBody({
                 {t("sale.heroTitleHighlight")}
               </span>
             </h1>
-          </ScrollReveal>
+          </div>
 
           <div className="mt-8 flex justify-center">
             <RentBuyToggle value={mode} onChange={onModeChange} />

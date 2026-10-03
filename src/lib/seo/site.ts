@@ -18,6 +18,12 @@ export const CANONICAL_HOST = "mybakuriani.ge";
  */
 export const DEFAULT_SITE_URL = "https://my-bakuriani.vercel.app";
 
+/** The brand as search engines should show it (Organization/WebSite markup). */
+export const SITE_NAME = "MyBakuriani";
+export const SITE_ALTERNATE_NAMES = ["MyBakuriani.ge", "My Bakuriani"] as const;
+/** Square brand mark, crawlable, >= 112 px: the Organization logo. */
+export const SITE_LOGO_PATH = "/android-chrome-512x512.png";
+
 /** The site origin without a trailing slash. */
 export function resolveSiteUrl(raw: string | null | undefined): string {
   const value = raw?.trim();

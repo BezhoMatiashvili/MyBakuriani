@@ -168,7 +168,11 @@
     "termsOfService": "Terms of Service",
     "marketingPolicy": "Marketing Policy",
     "copyright": "© {year} MYBAKURIANI.GE - All rights reserved",
-    "cookieSettings": "Cookie settings"
+    "cookieSettings": "Cookie settings",
+    "hotels": "Hotels",
+    "forSale": "For sale",
+    "blog": "Blog",
+    "guide": "Bakuriani guide"
   },
   "DashboardSidebar": {
     "roles": {
@@ -620,7 +624,10 @@
       "researchEyebrow": "Q3 2024 Research"
     },
     "superVipTitle": "SUPER VIP",
-    "superVipSubtitle": "Listings with the highest visibility package — shown first."
+    "superVipSubtitle": "Listings with the highest visibility package — shown first.",
+    "apartmentsH1Lead": "Apartments & cottages for daily rent",
+    "hotelsH1Lead": "Hotels",
+    "h1InBakuriani": "in Bakuriani"
   },
   "Error": {
     "title": "An Error Occurred",
@@ -1628,7 +1635,8 @@
       "tsentri": "Center",
       "d25": "25-ianebi",
       "other": "Other"
-    }
+    },
+    "heroLocation": "in Bakuriani"
   },
   "FoodDetail": {
     "hoursRange": "from {from} to {to}",
@@ -1667,7 +1675,8 @@
       "locks": "Locks",
       "repair": "Appliance repair",
       "other": "Other"
-    }
+    },
+    "heroLocation": "in Bakuriani"
   },
   "ServiceDetail": {
     "breadcrumbRoot": "Services",
@@ -1709,7 +1718,8 @@
       "buggy": "Buggy",
       "sportSchool": "Sports school",
       "other": "Other"
-    }
+    },
+    "heroLocation": "in Bakuriani"
   },
   "EntertainmentDetail": {
     "photoGallery": "Photo gallery ({count})",
@@ -1747,7 +1757,8 @@
       "tbilisi": "Tbilisi - Bakuriani",
       "airport": "Airport transfer",
       "other": "Other"
-    }
+    },
+    "heroLocation": "in Bakuriani"
   },
   "TransportDetail": {
     "driverFallback": "Driver",
@@ -1960,7 +1971,7 @@
     }
   },
   "BlogPage": {
-    "title": "Blog & News",
+    "title": "Bakuriani Blog & News",
     "subtitle": "The latest news, tips and articles about Bakuriani",
     "newsCategory": "News",
     "backToBlog": "Back to blog",
@@ -5075,7 +5086,7 @@
   "CookieConsent": {
     "title": "Cookies",
     "description": "We use essential cookies to run the site and keep you signed in. Analytics cookies help us measure usage and are only used with your consent.",
-    "learnMore": "Learn more",
+    "learnMore": "Cookie policy",
     "essentialOnly": "Essential only",
     "acceptAll": "Accept all",
     "locationTitle": "Share your location",
@@ -5308,5 +5319,266 @@
     "resolveDone": "Outcome saved.",
     "prev": "Previous",
     "next": "Next"
+  },
+  "CategoryIntro": {
+    "faqTitle": "Frequently asked questions",
+    "apartments": {
+      "title": "How to choose an apartment or cottage in Bakuriani",
+      "p1": "Bakuriani is a mountain resort in Samtskhe-Javakheti, about 1,700 m above sea level and roughly 180 km from Tbilisi. Apartments and cottages here are rented mostly in the ski season, which usually runs from December to March depending on snow, and again in summer.",
+      "p2": "Listings on MyBakuriani are posted by their owners. Filter by dates, area, number of guests and price, open a listing to see its photos, free dates and price, and contact the owner directly. Prefer a hotel? Browse <hotels>hotels in Bakuriani</hotels>. Thinking of buying an apartment or land? See <sales>property for sale</sales>. For the resort's areas and how to get here, read the <guide>Bakuriani guide</guide>.",
+      "q1": "How do I book an apartment in Bakuriani?",
+      "a1": "Open a listing, check the free dates, price and minimum stay in its calendar, then contact the owner directly. You and the listing's owner agree the final booking terms between yourselves.",
+      "q2": "Which area is best for skiing?",
+      "a2": "Didveli is next to the slope and the gondola, Kokhta and Mitarbi are on the side of the newer lifts, and the centre has the restaurants and the park. 25-ianebi is considered a good place for beginners and families with children. More in the <guide>guide</guide>.",
+      "q3": "Can I stay for just one night?",
+      "a3": "Each owner sets the minimum stay, and it is shown on the listing page. If your dates do not fit, ask the owner directly."
+    },
+    "hotels": {
+      "title": "Choosing a hotel in Bakuriani",
+      "p1": "This page lists hotels and hotel-style accommodation in Bakuriani. Each listing shows photos, the price per night, the star rating when one is given, the location on the map, and a button to contact the hotel.",
+      "p2": "In the ski season, which usually runs from December to March depending on snow, check dates with the hotel directly. If you would rather have a whole flat for a family or a group, see <apartments>apartments and cottages for daily rent</apartments>. For the resort's areas and how to get here, read the <guide>Bakuriani guide</guide>.",
+      "q1": "How do I contact a hotel?",
+      "a1": "Open the hotel's page and use the contact button. You agree the booking terms — dates, price and cancellation rules — directly with the hotel.",
+      "q2": "What does “verified owner” mean?",
+      "a2": "It means MyBakuriani has checked the listing author's identification details and proof of ownership or right of use. It helps you choose, but it is not a full legal guarantee. More in the <faq>frequently asked questions</faq>.",
+      "q3": "How can I pick a hotel by area?",
+      "a3": "Use the location filter and the map. Didveli is close to the slope, the centre has restaurants and the park, and Kokhta and Mitarbi are on the side of the newer lifts."
+    },
+    "sales": {
+      "title": "Buying an apartment, cottage or land in Bakuriani",
+      "p1": "The For sale section lists studios, apartments, cottages, villas, hotel rooms and land plots in Bakuriani. Each listing shows the price, the area, the number of rooms, the construction stage and the location on the map.",
+      "p2": "Before you buy, check the ownership documents and, if needed, consult a lawyer; nobody can guarantee market prices or rental income. To compare the resort's areas, read the <guide>Bakuriani guide</guide>, and to see what short-term rentals look like, browse <apartments>apartments for daily rent</apartments>.",
+      "q1": "What kinds of property are for sale in Bakuriani?",
+      "a1": "Studios, apartments, cottages, villas, hotel rooms and land plots, both under construction and already built.",
+      "q2": "What does the “verified owner” badge mean?",
+      "a2": "MyBakuriani has checked the listing author's identification details and proof of ownership or right of use. It is not a full legal guarantee of the property or of a future transaction.",
+      "q3": "How do I contact a seller?",
+      "a3": "Use the contact button on the listing page and speak to the seller directly. You and the seller agree the terms of the deal between yourselves."
+    },
+    "food": {
+      "title": "Where to eat in Bakuriani",
+      "p1": "This page brings together Bakuriani's restaurants, cafés and pastry shops, bars and fast-food places. Each venue shows photos, the cuisine (Georgian, European, Asian or mixed), opening hours, the menu when the venue has uploaded one, and its location on the map.",
+      "p2": "You can also filter venues by area: Didveli, Kokhta, the centre or 25-ianebi. Looking for somewhere to stay? See <apartments>apartments and cottages for daily rent</apartments>, and for the journey from Tbilisi, <transport>transfers</transport>. For what else the resort offers, read the <guide>Bakuriani guide</guide>.",
+      "q1": "How do I reserve a table?",
+      "a1": "Open the venue's page and use the contact button. You agree the terms of a table reservation with the venue directly.",
+      "q2": "Can I see the menu in advance?",
+      "a2": "When a venue has uploaded its menu, you will find it on the venue's page. Otherwise, ask the venue about prices directly.",
+      "q3": "How do I find a certain kind of venue?",
+      "a3": "Use the filters: pick the venue type — restaurant, café, bar or fast food — and the area."
+    },
+    "transport": {
+      "title": "Transfers and taxis in Bakuriani",
+      "p1": "Bakuriani is about 180 km from Tbilisi. This page lists drivers and carriers offering transfers from Tbilisi to Bakuriani, round trips, airport transfers, taxi rides within Bakuriani and tours in the region.",
+      "p2": "Filter by direction and by vehicle type (minivan, microbus or taxi), then open a driver's page for the price, the number of passengers and the vehicle details. For the road itself, read the <guide>Bakuriani guide</guide>; to find somewhere to stay, see <apartments>apartments and cottages</apartments>.",
+      "q1": "How do I contact a driver?",
+      "a1": "Open the driver's page and use the contact button. You agree the price and the time directly with the driver.",
+      "q2": "Can I get a transfer from the airport?",
+      "a2": "Choose “Airport transfer” in the direction filter to see the drivers who work that route.",
+      "q3": "Which vehicle suits a group?",
+      "a3": "Every listing states the vehicle type and its capacity, so pick the one that fits your group."
+    },
+    "entertainment": {
+      "title": "Things to do in Bakuriani",
+      "p1": "Bakuriani is not only about skiing. This page lists equipment rental, horse riding, snowmobiles, quad bikes, buggies and sports schools, covering extreme, sports, family and children's activities.",
+      "p2": "Use the activity type and category filters to narrow the offers, then open a listing to see the price, the duration and any age limit. The ski season usually runs from December to March depending on snow — for the lifts, read the <guide>Bakuriani guide</guide>. To find somewhere to stay, see <apartments>apartments and cottages</apartments>.",
+      "q1": "How do I book an activity?",
+      "a1": "Open the listing and use the contact button to reach the organiser. You agree the date and price directly with them.",
+      "q2": "Are there activities for children?",
+      "a2": "Choose “For kids” or “For families” in the filter to see matching offers. An age limit, if there is one, is stated in the listing.",
+      "q3": "Can I rent equipment?",
+      "a3": "The “Equipment” category groups rental offers; the exact equipment is described on each listing page."
+    },
+    "services": {
+      "title": "Handymen and services in Bakuriani",
+      "p1": "This page lists handymen and service providers who work in Bakuriani: cleaning, plumbing, electrical work, locks, appliance repair and other services.",
+      "p2": "Filter by service area, then open a listing to see the price, the area covered and the contact button. To find somewhere to stay, see <apartments>apartments and cottages</apartments>; for work, see <employment>jobs in Bakuriani</employment>.",
+      "q1": "How do I contact a handyman?",
+      "a1": "Open the listing and use the contact button. You agree the price and the timing of the job directly with them.",
+      "q2": "Which trades can I find?",
+      "a2": "Cleaning, plumbing, electrical work, locks, appliance repair and more — use the service-area filter.",
+      "q3": "Can I book a handyman in advance?",
+      "a3": "You agree the date, time and price directly with the handyman."
+    },
+    "employment": {
+      "title": "Seasonal jobs and vacancies in Bakuriani",
+      "p1": "This page collects vacancies in Bakuriani: housekeepers, waiters, bartenders, administrators and other positions, full-time, part-time or seasonal.",
+      "p2": "Use the filters to pick a position and a schedule, then open a vacancy to see the requirements, the pay and how to apply. If you are planning to move to Bakuriani for work, see <apartments>apartments and cottages</apartments> for somewhere to live and <transport>transport</transport> for the journey.",
+      "q1": "How do I apply for a vacancy?",
+      "a1": "Open the vacancy page and send your application. You agree any further terms with the employer.",
+      "q2": "Is seasonal work available?",
+      "a2": "Choose “Seasonal” in the schedule filter to see seasonal vacancies.",
+      "q3": "How do I post a vacancy?",
+      "a3": "Register and use “Add Listing” to publish a vacancy."
+    },
+    "allListings": "All {count} listings"
+  },
+  "HomeAbout": {
+    "title": "Apartments, hotels and services in Bakuriani, on one platform",
+    "p1": "MyBakuriani helps you plan a trip to Bakuriani: choose an <apartments>apartment or cottage for daily rent</apartments>, find a <hotels>hotel</hotels>, pick a <transport>transfer from Tbilisi</transport>, a <food>restaurant</food> and some <entertainment>things to do</entertainment>, or browse <sales>property for sale</sales> if you are thinking of buying in Bakuriani.",
+    "p2": "Listings are posted by owners and service providers themselves, and the “verified owner” badge shows that MyBakuriani has checked their details and proof of ownership. You agree booking and payment terms directly with the listing's author.",
+    "p3": "Bakuriani is a mountain resort in Samtskhe-Javakheti, about 1,700 m above sea level and roughly 180 km from Tbilisi. The ski season usually runs from December to March depending on snow. For the areas, lifts and the road, read the <guide>Bakuriani guide</guide>; for news and tips, the <blog>blog</blog>. We also have a page of <faq>frequently asked questions</faq>."
+  },
+  "Breadcrumbs": {
+    "home": "Home",
+    "label": "Breadcrumb"
+  },
+  "Seo": {
+    "locality": "Bakuriani",
+    "region": "Samtskhe-Javakheti"
+  },
+  "Guide": {
+    "crumb": "Guide",
+    "checked": "Facts checked: {date}",
+    "sourcesTitle": "Sources",
+    "faqTitle": "Frequently asked questions",
+    "listingsMore": "All apartments and cottages",
+    "alsoSee": "Also in the guide",
+    "meta": {
+      "hubTitle": "Bakuriani guide: season, areas and the road — MyBakuriani",
+      "hubDescription": "Bakuriani in Samtskhe-Javakheti: when the ski season runs, the areas (Didveli, Kokhta, the centre, 25-ianebi), the road from Tbilisi and where to stay.",
+      "gettingThereTitle": "How to get to Bakuriani from Tbilisi — MyBakuriani",
+      "gettingThereDescription": "Bakuriani is about 180 km from Tbilisi: by car, private transfer or minibus via Borjomi, plus what to check before a winter drive.",
+      "skiLiftsTitle": "Bakuriani ski lifts: Didveli, Kokhta and Mitarbi — MyBakuriani",
+      "skiLiftsDescription": "Bakuriani's ski zones — Didveli, Kokhta and Mitarbi: the season, the MTA ski pass, privately run Crystal and 25 Ski Park, and where to check opening dates.",
+      "didveliTitle": "Didveli / Crystal, Bakuriani: stay near the slopes — MyBakuriani",
+      "didveliDescription": "Didveli / Crystal is the Bakuriani area close to the slopes, with cable car views. What to know about the ski zone and apartments to rent there.",
+      "kokhtaTitle": "Kokhta / Mitarbi, Bakuriani: new cable cars — MyBakuriani",
+      "kokhtaDescription": "Kokhta / Mitarbi is a premium Bakuriani area with new cable cars. What to know about the ski zones and apartments to rent nearby.",
+      "centriTitle": "Bakuriani centre and park: restaurants and stays — MyBakuriani",
+      "centriDescription": "The centre of Bakuriani: restaurants, entertainment and the central park, plus apartments and hotels to stay in.",
+      "z25Title": "25-ianebi, Bakuriani: affordable apartments — MyBakuriani",
+      "z25Description": "25-ianebi is the Bakuriani area of affordable apartments, great for beginners. What to know about the area and apartments to rent."
+    },
+    "hub": {
+      "h1": "Bakuriani resort guide",
+      "lead": "Bakuriani is a mountain resort in Samtskhe-Javakheti, in southern Georgia, at about 1,700 m above sea level. It is best known for skiing, but its forests, parks and botanical garden make it a destination all year round. This guide covers when to go, the resort's areas, the ski lifts, the road from Tbilisi, and where to stay, eat and spend the day.",
+      "factsTitle": "Bakuriani at a glance",
+      "whereLabel": "Where",
+      "whereValue": "Borjomi Municipality, Samtskhe-Javakheti",
+      "elevationLabel": "Elevation",
+      "elevationValue": "About 1,700 m above sea level",
+      "fromTbilisiLabel": "From Tbilisi",
+      "fromTbilisiValue": "About 180 km by road, usually 2.5 to 3.5 hours",
+      "fromBorjomiLabel": "From Borjomi",
+      "fromBorjomiValue": "About 30 km",
+      "seasonLabel": "Ski season",
+      "seasonValue": "Usually December to March, depending on snow",
+      "climateLabel": "Climate",
+      "climateValue": "January averages about −7 °C, August about 15 °C",
+      "whenTitle": "When to go",
+      "winter": "Winter is the ski season, usually December to March depending on snow. For 2025–2026 the Mountain Trails Agency (MTA) opened the Kokhta lifts on 20 December and announced phased openings at Didveli and Mitarbi from 27 December. Dates move with the snow, so check with the operator before you book.",
+      "summer": "In the warmer months the resort is a base for hiking, cycling tours, horseback and jeep tours, paragliding and other outdoor sports. The alpine botanical garden is a popular place to hike, and the parks are made for slower days.",
+      "events": "Bakuriani has hosted international competitions, including the 2023 FIS Freestyle Ski and Snowboarding World Championships.",
+      "areasTitle": "The resort's areas",
+      "areasLead": "MyBakuriani groups listings into four areas. Each has its own page with what to know and the apartments and cottages available there.",
+      "skiingTitle": "Skiing",
+      "skiingP1": "The lifts run by the Mountain Trails Agency (MTA) are grouped into three zones: Didveli, Kokhta and Mitarbi. The highest lift, at Didveli, reaches 2,702 m. Travel guides report that one MTA ski pass works in all three zones. Crystal and the 25 Ski Park are privately operated and sell their own tickets.",
+      "skiingP2": "For the zones, the season and where to check opening dates, read the <skiLifts>full ski-lift guide</skiLifts>.",
+      "gettingTitle": "Getting there",
+      "gettingP1": "Bakuriani is about 180 km from Tbilisi and about 30 km from Borjomi. Most visitors come by road: by car, by private transfer or taxi, or by minibus via Borjomi. <gettingThere>Read how to get to Bakuriani</gettingThere> for the options and what to check in winter.",
+      "stayTitle": "Where to stay, eat and what to do",
+      "stayP1": "Choose a place to stay among <apartments>apartments and cottages for daily rent</apartments> and <hotels>hotels</hotels>, or look at <sales>property for sale</sales> if you are thinking of buying. For meals see <food>restaurants and cafés</food>; for the days themselves, <entertainment>sports schools, equipment rental, snowmobiles, horses and other activities</entertainment>. A <transport>transfer or taxi</transport> and local <services>handymen and cleaning</services> are on the same platform, and the <blog>blog</blog> carries news and tips.",
+      "q1": "When does the ski season in Bakuriani start?",
+      "a1": "It usually starts in December and runs until March, depending on snow. For 2025–2026 the Kokhta lifts opened on 20 December. Check with the lift operator for the dates of the season you are travelling in.",
+      "q2": "How far is Bakuriani from Tbilisi?",
+      "a2": "About 180 km by road, usually 2.5 to 3.5 hours depending on traffic and weather. The road goes through Borjomi.",
+      "q3": "Which area is best for beginners?",
+      "a3": "MyBakuriani describes <z25>25-ianebi</z25> as a district of affordable apartments that is great for beginners. Compare it with <didveli>Didveli / Crystal</didveli> (close to the slopes) and <kokhta>Kokhta / Mitarbi</kokhta> (a premium area with new cable cars).",
+      "q4": "Is there a train to Bakuriani?",
+      "a4": "The historic narrow-gauge railway from Borjomi, known as the Kukushka, has been out of service for several years, and a full restoration has been announced. Check its current status before planning a trip around it.",
+      "q5": "What is there to do in Bakuriani in summer?",
+      "a5": "Hiking (the alpine botanical garden is a popular place for it), cycling tours, horseback and jeep tours, paragliding and other outdoor sports, and relaxed days in the parks."
+    },
+    "gettingThere": {
+      "crumb": "Getting there",
+      "h1": "How to get to Bakuriani",
+      "lead": "Bakuriani is about 180 km from Tbilisi and about 30 km from Borjomi. By road the journey usually takes 2.5 to 3.5 hours, depending on traffic and weather. There is no airport in Bakuriani, so the last leg is always by road.",
+      "carTitle": "By car or private transfer",
+      "carP1": "The route from Tbilisi runs through Borjomi, and from there a mountain road climbs about 30 km to the resort. In winter, snow and ice can slow the last stretch, so winter tyres or chains are advisable, and it is worth checking the weather and the road before you leave. If you would rather not drive, drivers on MyBakuriani offer <transport>transfers from Tbilisi and from the airport, and taxis within Bakuriani</transport>.",
+      "busTitle": "By minibus (marshrutka)",
+      "busP1": "Minibuses (marshrutkas) run from Tbilisi to Borjomi, and another goes on from Borjomi to Bakuriani. Timetables and fares change from season to season, so confirm the departure point and times with your accommodation or at the station, and allow extra time for the change in Borjomi.",
+      "trainTitle": "The Kukushka narrow-gauge railway",
+      "trainP1": "The 37 km narrow-gauge line between Borjomi and Bakuriani, known as the Kukushka, is part of the resort's history. It has been out of service for several years, and the government has announced a full restoration. Check its current status before planning a trip around it.",
+      "beforeTitle": "Before you set off",
+      "beforeP1": "The road card on the MyBakuriani <home>home page</home> shows the estimated drive time from Tbilisi, and the maps on apartment, hotel and sale listings have a route button. Keep your host's contact details handy: they can tell you about snow, parking and the last stretch to the building.",
+      "q1": "How long does it take to get from Tbilisi to Bakuriani?",
+      "a1": "Usually 2.5 to 3.5 hours by road, depending on traffic and weather; longer in heavy snow.",
+      "q2": "Can I get a transfer from Tbilisi airport?",
+      "a2": "Yes. Open the <transport>transport section</transport> and choose “Airport transfer” in the Direction filter to see the drivers who work that route; you agree the price and time with the driver.",
+      "q3": "Does the Kukushka train run?",
+      "a3": "Not at the moment: it has been out of service for several years and a full restoration has been announced. Check its status before you rely on it.",
+      "q4": "What should I check before driving in winter?",
+      "a4": "The weather forecast and road conditions, your tyres or chains, and your fuel before the mountain section. If you have no experience of snowy mountain roads, book a driver."
+    },
+    "skiLifts": {
+      "crumb": "Ski lifts",
+      "h1": "Bakuriani ski lifts and slopes",
+      "lead": "Bakuriani's main lifts are run by the Mountain Trails Agency (MTA) in three zones: Didveli, Kokhta and Mitarbi. Two more ski areas, Crystal and the 25 Ski Park, are privately operated.",
+      "zonesTitle": "The zones",
+      "didveli": "Didveli has a gondola, chairlifts and a platter lift, and its highest lift reaches 2,702 m above sea level.",
+      "kokhta": "Kokhta is on Mount Kokhta, where the skiable terrain reaches 2,269 m. For the 2025–2026 season it was the first zone to open, on 20 December.",
+      "mitarbi": "Mitarbi is the third MTA zone. For 2025–2026 its lifts were announced to open in phases from 27 December, together with Didveli.",
+      "crystal": "Crystal is a privately operated ski area with its own chairlift and its own tickets, and the 25 Ski Park is likewise privately operated. Check what your ticket covers before you buy.",
+      "seasonTitle": "Season and opening dates",
+      "seasonP1": "The ski season usually runs from December to March, depending on snow, and snowmaking is used at Didveli and Mitarbi. For 2025–2026 the MTA opened the Kokhta lifts on 20 December and announced phased openings at Didveli and Mitarbi from 27 December. The operator announces the dates of each coming season, and conditions change daily with snow and wind.",
+      "seasonP2": "For current opening announcements, start from the website of the Mountain Trails Agency, <mta>mta.ski</mta>. Ticket prices and ski-pass rules change every season, so we do not list them here.",
+      "passTitle": "Ski pass",
+      "passP1": "Travel guides report that one MTA ski pass works in all three MTA zones, so you can ski Didveli one day and Kokhta the next without buying again. Crystal and the 25 Ski Park sell their own tickets. Rules and prices change, so confirm with the operator.",
+      "beginnersTitle": "Beginners and children",
+      "beginnersP1": "MyBakuriani describes <z25>25-ianebi</z25> as a district of affordable apartments that is great for beginners; travel guides describe the privately operated 25 Ski Park there as a short beginners' slope surrounded by ski-rental shops, instructors and children's rides. Sports schools and equipment rental are listed under <entertainment>entertainment</entertainment>.",
+      "stayTitle": "Where to stay near the lifts",
+      "stayP1": "<didveli>Didveli / Crystal</didveli> is close to the slopes, with cable car views; <kokhta>Kokhta / Mitarbi</kokhta> is a premium area with new cable cars; the <centri>centre</centri> has the restaurants and the park. Browse <apartments>apartments and cottages</apartments> or <hotels>hotels</hotels> by area.",
+      "q1": "When do the Bakuriani lifts open?",
+      "a1": "Usually in December. For 2025–2026 the Kokhta lifts opened on 20 December, with phased openings at Didveli and Mitarbi announced from 27 December. The operator announces each season's dates.",
+      "q2": "Where can I check opening dates?",
+      "a2": "Start from mta.ski, the website of the Mountain Trails Agency, which publishes the opening announcements. Conditions change daily with snow and wind.",
+      "q3": "Do I need a separate ticket for each zone?",
+      "a3": "Travel guides report that one MTA ski pass works in all three MTA zones. Crystal and the 25 Ski Park are privately operated and sell their own tickets, so ask before you buy.",
+      "q4": "Where can I rent ski equipment or find a ski school?",
+      "a4": "Under <entertainment>entertainment</entertainment>, the “Equipment” and “Sports school” categories list rentals and instructors."
+    },
+    "zone": {
+      "suitsTitle": "Who it suits",
+      "didveli": {
+        "h1": "Didveli / Crystal, Bakuriani",
+        "p1": "Didveli / Crystal is the part of Bakuriani described as close to the slopes, with cable car views. Didveli is one of the three zones run by the Mountain Trails Agency: it has a gondola, chairlifts and a platter lift, and its highest lift reaches 2,702 m above sea level.",
+        "p2": "Crystal, which MyBakuriani groups into the same area, is a privately operated ski area with its own chairlift and its own tickets, so check what your ticket covers before you buy.",
+        "suitsP": "Didveli / Crystal suits skiers who want to start the day close to the slopes and do not mind a short trip to the centre for restaurants and the park. If cafés and walks within reach matter more, compare it with the <centri>centre</centri>; for the other MTA zones with new cable cars, see <kokhta>Kokhta / Mitarbi</kokhta>.",
+        "listingsTitle": "Apartments and cottages in Didveli / Crystal"
+      },
+      "centri": {
+        "h1": "Centre / Park, Bakuriani",
+        "p1": "The centre is where Bakuriani's restaurants, entertainment and central park are, and MyBakuriani describes the area in just those words. The Georgian National Tourism Administration lists restaurants, parks for relaxation, a cinema, snow scooters and an ice-skating rink among the resort's attractions.",
+        "p2": "The lifts are a short trip away, so skiers can still start the day on the slopes.",
+        "suitsP": "Stay in the centre if you want cafés, restaurants and evening walks close by, or if not everyone in your group skis. For the slopes, see <didveli>Didveli / Crystal</didveli> and <kokhta>Kokhta / Mitarbi</kokhta>.",
+        "listingsTitle": "Apartments and cottages in Centre / Park"
+      },
+      "kokhta": {
+        "h1": "Kokhta / Mitarbi, Bakuriani",
+        "p1": "Kokhta / Mitarbi is described on MyBakuriani as a premium area with new cable cars. Kokhta and Mitarbi are two of the three zones run by the Mountain Trails Agency; Kokhta is on Mount Kokhta, where the skiable terrain reaches 2,269 m.",
+        "p2": "For the 2025–2026 season the Kokhta lifts were the first in Bakuriani to open, on 20 December, with phased openings at Mitarbi and Didveli announced from 27 December. Travel guides report that one MTA ski pass covers all three zones.",
+        "suitsP": "Kokhta / Mitarbi suits guests who want the new cable cars close by. For the gondola and the other MTA zone, see <didveli>Didveli / Crystal</didveli>; for restaurants and the park, the <centri>centre</centri>.",
+        "listingsTitle": "Apartments and cottages in Kokhta / Mitarbi"
+      },
+      "25ianebi": {
+        "h1": "25-ianebi, Bakuriani",
+        "p1": "25-ianebi is described on MyBakuriani as a district of affordable apartments that is great for beginners. Travel guides describe the privately operated 25 Ski Park there as a short beginners' slope surrounded by ski-rental shops, instructors and children's rides.",
+        "p2": "Amirani Park, a forest recreation area good for walks, is close by.",
+        "suitsP": "Choose 25-ianebi if you want a lower-cost base or are learning to ski. For the MTA lifts, see <didveli>Didveli / Crystal</didveli> and <kokhta>Kokhta / Mitarbi</kokhta>; for restaurants and the park, the <centri>centre</centri>.",
+        "listingsTitle": "Apartments and cottages in 25-ianebi"
+      }
+    }
+  },
+  "RelatedListings": {
+    "title": {
+      "apartments": "More apartments and cottages in Bakuriani",
+      "hotels": "More hotels in Bakuriani",
+      "sales": "More property for sale in Bakuriani",
+      "food": "More restaurants and cafés in Bakuriani",
+      "entertainment": "More activities in Bakuriani",
+      "transport": "More transport in Bakuriani",
+      "employment": "More jobs in Bakuriani",
+      "services": "More services in Bakuriani"
+    }
   }
 }

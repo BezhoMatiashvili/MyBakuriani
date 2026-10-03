@@ -2,6 +2,7 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { CONSENT_OPEN_EVENT } from "@/lib/consent/cookies";
+import { FooterLanguageLinks } from "./FooterLanguageLinks";
 
 // Bottom-bar legal links: 44px-tall centred grid cells on phones, inline in
 // one wrapping row from sm up. On phones the letter-spacing drops, as it does
@@ -16,6 +17,8 @@ export function Footer() {
 
   const platformLinks = [
     { label: t("allListings"), href: "/apartments" },
+    { label: t("hotels"), href: "/hotels" },
+    { label: t("forSale"), href: "/sales" },
     { label: t("howItWorks"), href: "/faq" },
     { label: t("verification"), href: "/faq" },
     { label: t("pricing"), href: "/pricing" },
@@ -34,6 +37,8 @@ export function Footer() {
   const helpLinks = [
     { label: t("contact"), href: "/contact" },
     { label: t("faq"), href: "/faq" },
+    { label: t("guide"), href: "/bakuriani" },
+    { label: t("blog"), href: "/blog" },
     { label: t("terms"), href: "/terms" },
   ];
 
@@ -115,6 +120,7 @@ export function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-10 flex flex-col items-center gap-2 border-t border-white/[0.05] pt-7 text-center text-[10px] font-bold uppercase tracking-[1px] text-white/60 max-sm:tracking-normal sm:mt-16 lg:mt-20 lg:pt-8">
+          <FooterLanguageLinks />
           <span>{t("copyright", { year: new Date().getFullYear() })}</span>
           {/* prefetch={false}: the footer sits on every page, so these two
               prefetched a full RSC payload (~30 KB each) on every page view for

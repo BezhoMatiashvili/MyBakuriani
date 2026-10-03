@@ -156,7 +156,7 @@ export default function FoodDetailClient({
         </div>
       </div>
 
-      <div style={enterUp(0.1)}>
+      <div>
         <FoodPhotoGallery photos={service.photos ?? []} title={service.title} />
       </div>
 

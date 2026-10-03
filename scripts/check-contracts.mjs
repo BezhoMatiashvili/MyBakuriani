@@ -1038,6 +1038,131 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C39: ${readers.length} browser reader(s) select the ${tsColumns.length} granted ownership_verifications columns`);
 }
 
+// ---------------------------------------------------------------------------
+// C40 — the SEO surface. (a) robots.txt: NON_INDEXABLE_PREFIXES covers every
+// prefix middleware protects (C8) and is expanded for every routing locale.
+// (b) Sitemap: every public page directory under src/app/[locale] is listed in
+// src/app/sitemap.ts (or is private / noindex on purpose), every listed path has
+// a page, the resort guide's paths match its directories, and listings are
+// emitted through the canonical-URL helpers. (c) Every public page builds its
+// metadata through buildPageMetadata / buildListingMetadata, which own canonical
+// and hreflang. (d) One canonical host in site.ts, check-production-config.mjs
+// and check-redirects.mjs. (e) The sitemap's /_next/image URLs use a width and a
+// quality next.config.ts allows (any other pair answers 400). (f) hreflang has a
+// single source: next-intl's alternateLinks stays off. (g) JSON-LD is written
+// only through components/seo/JsonLd.tsx (escaped by serializeJsonLd).
+// ---------------------------------------------------------------------------
+{
+  const quoted = (text) => [...text.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  const localeDir = "src/app/[locale]";
+
+  const robotsLib = read("src/lib/seo/robots.ts");
+  const prefixes = quoted(robotsLib.match(/NON_INDEXABLE_PREFIXES = \[([\s\S]*?)\] as const/)?.[1] ?? "");
+  const protectedPrefixes = quoted(read("src/middleware.ts").match(/const isProtected =([\s\S]*?);/)?.[1] ?? "");
+  const unlistedPrefixes = protectedPrefixes.filter((p) => !prefixes.includes(p));
+  if (!prefixes.length || !protectedPrefixes.length) fail("C40: could not read NON_INDEXABLE_PREFIXES or the protected prefixes in src/middleware.ts");
+  else if (unlistedPrefixes.length) fail(`C40: middleware protects [${unlistedPrefixes.join(", ")}] but NON_INDEXABLE_PREFIXES (robots.txt) does not list it`);
+  else if (prefixes.some((p) => p.endsWith("/"))) fail("C40: NON_INDEXABLE_PREFIXES must be written without a trailing slash (`/create` would stay crawlable)");
+  else if (!/for \(const locale of input\.locales\)/.test(robotsLib) || !/locales:\s*routing\.locales/.test(read("src/app/robots.ts")))
+    fail("C40: robots.txt must expand every private prefix for every entry of routing.locales");
+  else ok(`C40: robots.txt disallows the ${prefixes.length} private prefixes (middleware's ${protectedPrefixes.length} included) in every locale`);
+
+  const sitemapSrc = read("src/app/sitemap.ts");
+  const guideSrc = read("src/lib/guide.ts");
+  const guideBase = guideSrc.match(/GUIDE_BASE_PATH = "([^"]+)"/)?.[1] ?? "";
+  const guideSubs = [...guideSrc.matchAll(/`\$\{GUIDE_BASE_PATH\}\/([a-z-]+)`/g)].map((m) => m[1]);
+  const staticPaths = quoted(sitemapSrc.match(/const STATIC_PATHS = \[([\s\S]*?)\n\];/)?.[1] ?? "");
+  const spreadsGuide = /\.\.\.GUIDE_PATHS\b/.test(sitemapSrc);
+  const pageDirs = readdirSync(join(root, localeDir), { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !/^[_[]/.test(e.name) && existsSync(join(root, localeDir, e.name, "page.tsx")))
+    .map((e) => `/${e.name}`);
+  const NOINDEX_PAGES = ["/search"]; // noindex by metadata, out of the sitemap on purpose
+  const unlisted = pageDirs.filter((p) => !staticPaths.includes(p) && !prefixes.includes(p) && !NOINDEX_PAGES.includes(p) && !(spreadsGuide && p === guideBase));
+  const dangling = staticPaths.filter((p) => p !== "/" && !pageDirs.includes(p));
+  if (!staticPaths.length || !guideBase) fail("C40: could not read STATIC_PATHS from src/app/sitemap.ts or GUIDE_BASE_PATH from src/lib/guide.ts");
+  else if (unlisted.length) fail(`C40: public page directories missing from the sitemap's STATIC_PATHS (or from the private/noindex lists): ${unlisted.join(", ")}`);
+  else if (dangling.length) fail(`C40: STATIC_PATHS lists paths with no page: ${dangling.join(", ")}`);
+  else if (!spreadsGuide) fail("C40: src/app/sitemap.ts must spread GUIDE_PATHS");
+  else ok(`C40: the sitemap lists all ${staticPaths.length} static pages plus the guide; ${prefixes.length + NOINDEX_PAGES.length} private or noindex areas are left out`);
+
+  const guideDirPath = join(localeDir, guideBase.replace(/^\//, ""));
+  const guideDirs = existsSync(join(root, guideDirPath))
+    ? readdirSync(join(root, guideDirPath), { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith("[")).map((e) => e.name)
+    : [];
+  const guideSetOk = setEq(new Set(guideDirs), new Set(guideSubs));
+  const guidePagesOk = [...guideSubs, "[zone]"].every((d) => existsSync(join(root, guideDirPath, d, "page.tsx"))) && existsSync(join(root, guideDirPath, "page.tsx"));
+  if (!guideSetOk) describeSetMismatch("C40 guide pages", new Set(guideDirs), `${guideDirPath}/*`, new Set(guideSubs), "GUIDE_PATHS");
+  else if (!guidePagesOk) fail(`C40: ${guideDirPath} needs a page.tsx at its root, in each of [${guideSubs.join(", ")}] and in [zone]`);
+  else ok(`C40: the resort guide's ${guideSubs.length + 1} fixed pages and its [zone] page match GUIDE_PATHS`);
+
+  if (!/\bpropertyViewUrl\(/.test(sitemapSrc) || !/\bserviceViewUrl\(/.test(sitemapSrc) || !/blog_posts/.test(sitemapSrc))
+    fail("C40: src/app/sitemap.ts must emit properties and services through propertyViewUrl/serviceViewUrl, and blog posts");
+  else ok("C40: the sitemap emits listings through the canonical-URL helpers and includes blog posts");
+
+  const publicPages = [...walk(localeDir, ["page.tsx"])].filter((f) => !prefixes.includes(`/${f.split(/[\\/]/)[3]}`));
+  const rawMetadata = publicPages.filter((f) => {
+    const text = read(f);
+    return !/generateMetadata/.test(text) || !/\b(buildPageMetadata|buildListingMetadata)\(/.test(text);
+  });
+  if (rawMetadata.length) fail(`C40: public pages must build metadata with buildPageMetadata / buildListingMetadata (canonical + hreflang): ${rawMetadata.join(", ")}`);
+  else ok(`C40: all ${publicPages.length} public pages build their metadata through the shared helpers`);
+
+  const hosts = {
+    "src/lib/seo/site.ts": read("src/lib/seo/site.ts").match(/CANONICAL_HOST = "([^"]+)"/)?.[1],
+    "scripts/check-production-config.mjs": read("scripts/check-production-config.mjs").match(/CANONICAL_PRODUCTION_HOST = "([^"]+)"/)?.[1],
+    "scripts/check-redirects.mjs": read("scripts/check-redirects.mjs").match(/canonical: "([^"]+)"/)?.[1],
+  };
+  if (Object.values(hosts).some((h) => !h) || new Set(Object.values(hosts)).size !== 1)
+    fail(`C40: the canonical host must be one value in all three places: ${Object.entries(hosts).map(([f, h]) => `${f}=${h}`).join(" · ")}`);
+  else ok(`C40: ${Object.values(hosts)[0]} is the canonical host in site.ts and in both scripts`);
+
+  const imageSrc = read("src/lib/seo/image-url.ts");
+  const imageWidth = Number(imageSrc.match(/SEO_IMAGE_WIDTH = (\d+)/)?.[1]);
+  const imageQuality = Number(imageSrc.match(/SEO_IMAGE_QUALITY = (\d+)/)?.[1]);
+  const nextConfig = read("next.config.ts");
+  const numbersIn = (re) => (nextConfig.match(re)?.[1] ?? "").split(",").map((s) => Number(s.trim())).filter(Boolean);
+  if (!imageWidth || !imageQuality) fail("C40: could not read SEO_IMAGE_WIDTH / SEO_IMAGE_QUALITY from src/lib/seo/image-url.ts");
+  else if (!numbersIn(/deviceSizes:\s*\[([^\]]*)\]/).includes(imageWidth)) fail(`C40: next.config.ts images.deviceSizes must include ${imageWidth} (the sitemap image width), or /_next/image answers 400`);
+  else if (!numbersIn(/qualities:\s*\[([^\]]*)\]/).includes(imageQuality)) fail(`C40: next.config.ts images.qualities must include ${imageQuality} (the sitemap image quality), or /_next/image answers 400`);
+  else ok(`C40: sitemap images (w=${imageWidth}, q=${imageQuality}) are sizes the image optimizer allows`);
+
+  if (!/alternateLinks:\s*false/.test(read("src/i18n/routing.ts"))) fail("C40: src/i18n/routing.ts must keep alternateLinks: false (hreflang comes from buildAlternates alone)");
+  else ok("C40: hreflang has a single source (alternateLinks stays off)");
+
+  const middlewareSrc = read("src/middleware.ts");
+  if (!/IS_INDEXABLE/.test(middlewareSrc) || !/X-Robots-Tag/.test(middlewareSrc)) fail("C40: src/middleware.ts must send X-Robots-Tag: noindex on non-canonical hosts (IS_INDEXABLE)");
+  else ok("C40: non-canonical hosts answer with X-Robots-Tag noindex");
+
+  const jsonLdWriters = srcFiles.filter((f) => /application\/ld\+json/.test(srcText.get(f)));
+  const strayWriters = jsonLdWriters.filter((f) => f !== join("src", "components", "seo", "JsonLd.tsx") && f !== join("src", "lib", "seo", "jsonld.ts"));
+  if (strayWriters.length) fail(`C40: JSON-LD must be written through components/seo/JsonLd.tsx (escaped by serializeJsonLd): ${strayWriters.join(", ")}`);
+  else if (!/serializeJsonLd/.test(read("src/components/seo/JsonLd.tsx"))) fail("C40: components/seo/JsonLd.tsx must serialize with serializeJsonLd (a raw `<` would end the script tag)");
+  else ok("C40: JSON-LD is written only through JsonLd.tsx, escaped by serializeJsonLd");
+
+  const widthMap = Object.fromEntries([...read("src/components/seo/listing-kind.ts").matchAll(/^\s+(\w+): "(max-w-[\w-]+)",$/gm)].map((m) => [m[1], m[2]]));
+  const detailClients = { apartments: "ApartmentDetailClient", hotels: "HotelDetailClient", sales: "SaleDetailClient", food: "FoodDetailClient", services: "ServiceDetailClient", entertainment: "EntertainmentDetailClient", transport: "TransportDetailClient", employment: "EmploymentDetailClient" };
+  const widthDrift = Object.entries(detailClients)
+    .filter(([kind, client]) => read(`${localeDir}/${kind}/[id]/${client}.tsx`).match(/<div className="mx-auto (max-w-[\w-]+) px-4/)?.[1] !== widthMap[kind])
+    .map(([kind]) => kind);
+  if (Object.keys(widthMap).length !== Object.keys(detailClients).length) fail("C40: could not read DETAIL_WIDTH from src/components/seo/listing-kind.ts");
+  else if (widthDrift.length) fail(`C40: DETAIL_WIDTH (breadcrumb + related-listings column) disagrees with the detail client's root container for: ${widthDrift.join(", ")}`);
+  else ok("C40: the breadcrumb and related-listings width follows each detail client's column");
+
+  // A remote background image under a hero is painted even at 3% opacity, so it becomes the LCP (/sales: 4.6 s).
+  const appBackgrounds = srcFiles.filter((f) => f.startsWith(join("src", "app")) && /backgroundImage:\s*(?!\s|HERO_NOISE_BACKGROUND)/.test(srcText.get(f)));
+  if (appBackgrounds.length) fail(`C40: a page's background-image must be HERO_NOISE_BACKGROUND (a remote one becomes the LCP element): ${appBackgrounds.join(", ")}`);
+  else ok("C40: page heroes use the inline noise texture, not a remote background image");
+
+  // Crawl paths: a link-graph crawl of the production build found /en and /ru linked from nowhere (the header selector is a popover of buttons) and listing pages reachable only through the grid's JS pagination.
+  const indexTopics = ["apartments", "hotels", "sales", "food", "services", "entertainment", "transport", "employment"];
+  const noListingIndex = indexTopics.filter((t) => !new RegExp(`<CategoryIntro[^>]*topic="${t}"[^>]*listings=\\{`).test(read(`${localeDir}/${t}/page.tsx`)));
+  if (noListingIndex.length) fail(`C40: these category pages must pass their rows to <CategoryIntro listings={...}> (the crawlable all-listings index): ${noListingIndex.join(", ")}`);
+  else ok(`C40: all ${indexTopics.length} category pages hand their listings to the crawlable index`);
+  if (!/<FooterLanguageLinks\s*\/>/.test(read("src/components/layout/Footer.tsx")) || !/routing\.locales/.test(read("src/components/layout/FooterLanguageLinks.tsx")))
+    fail("C40: Footer must render <FooterLanguageLinks />, which links every entry of routing.locales (the header selector is buttons, so /en and /ru would have no inbound link)");
+  else ok("C40: the footer links the same page in every locale");
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);

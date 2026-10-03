@@ -117,10 +117,7 @@ export default function TransportDetailClient({
     <div className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:pt-8 lg:pb-[96px]">
       {isPending && <PendingReviewBanner />}
       {/* Hero photo with floating back button + status pill */}
-      <div
-        style={enterUp()}
-        className="relative aspect-[16/9] w-full overflow-hidden rounded-[20px] bg-gradient-to-br from-[#E2E8F0] to-[#CBD5E1]"
-      >
+      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-[20px] bg-gradient-to-br from-[#E2E8F0] to-[#CBD5E1]">
         {mainPhoto ? (
           <Image
             src={mainPhoto}
@@ -184,12 +181,12 @@ export default function TransportDetailClient({
             )}
           </div>
           <div className="pb-1">
-            <p className="flex items-center gap-1.5 text-[20px] font-black leading-tight text-[#1E293B] sm:text-[22px]">
+            <h1 className="flex items-center gap-1.5 text-[20px] font-black leading-tight text-[#1E293B] sm:text-[22px]">
               {driverName}
               {(owner?.is_verified ?? isMock) && (
                 <BadgeCheck className="h-5 w-5 text-[#22C55E]" />
               )}
-            </p>
+            </h1>
             <p className="mt-0.5 text-[14px] text-[#64748B]">
               {vehicleSubtitle}
             </p>

@@ -2,6 +2,8 @@ import { createPublicClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import Breadcrumbs from "@/components/seo/Breadcrumbs";
+import CategoryIntro from "@/components/seo/CategoryIntro";
 import { buildPageMetadata } from "@/lib/seo";
 import { getStatusCards } from "@/lib/status-cards/server";
 import ApartmentsPageClient from "./ApartmentsPageClient";
@@ -27,7 +29,13 @@ export async function generateMetadata({
   });
 }
 
-export default async function ApartmentsPage() {
+export default async function ApartmentsPage({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}) {
+  const { locale } = await params;
+  const tNav = await getTranslations({ locale, namespace: "Navbar" });
   const supabase = createPublicClient();
   // Fetch status cards and listings in parallel instead of serially.
   const [statusCards, { data: properties, error }] = await Promise.all([
@@ -50,9 +58,16 @@ export default async function ApartmentsPage() {
   if (error) throw error;
 
   return (
-    <ApartmentsPageClient
-      properties={(properties ?? []).map(firstPhotoOnly)}
-      statusCards={statusCards}
-    />
+    <>
+      <Breadcrumbs
+        locale={locale}
+        items={[{ name: tNav("apartments"), path: "/apartments" }]}
+      />
+      <ApartmentsPageClient
+        properties={(properties ?? []).map(firstPhotoOnly)}
+        statusCards={statusCards}
+      />
+      <CategoryIntro locale={locale} topic="apartments" listings={properties} />
+    </>
   );
 }

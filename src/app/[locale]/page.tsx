@@ -1,6 +1,17 @@
 import { createPublicClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
 import { buildPageMetadata } from "@/lib/seo";
+import HomeAbout from "@/components/seo/HomeAbout";
+import JsonLd from "@/components/seo/JsonLd";
+import { pathForLocale } from "@/lib/seo/alternates";
+import { siteJsonLd } from "@/lib/seo/jsonld";
+import {
+  SITE_ALTERNATE_NAMES,
+  SITE_LOGO_PATH,
+  SITE_NAME,
+  SITE_URL,
+} from "@/lib/seo/site";
+import { CONTACT_EMAIL, CONTACT_PHONE_E164 } from "@/lib/site-contact";
 import LandingPage from "@/app/[locale]/_landing/LandingPage";
 import {
   LANDING_BLOG_COLUMNS,
@@ -27,7 +38,7 @@ import { getSkiLifts, withLiveLifts } from "@/lib/ski-lifts/server";
 import { withTimeout } from "@/lib/with-timeout";
 import type { BannerCreative } from "@/lib/banner-creative";
 import type { Metadata } from "next";
-import type { AppLocale } from "@/i18n/routing";
+import { routing, type AppLocale } from "@/i18n/routing";
 
 const LANDING_DATA_TIMEOUT_MS = 15_000;
 const LANDING_DEP_TIMEOUT_MS = 7_000;
@@ -452,6 +463,31 @@ async function LandingWithData() {
 // do not run JavaScript never see as visible content. The page is ISR
 // (`revalidate` above), so the data is awaited at revalidation time, not per
 // visitor.
-export default function Home() {
-  return <LandingWithData />;
+export default async function Home({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}) {
+  const { locale } = await params;
+  return (
+    <>
+      <JsonLd
+        data={siteJsonLd({
+          siteUrl: SITE_URL,
+          homeUrl: new URL(
+            pathForLocale("/", locale, routing.defaultLocale),
+            SITE_URL,
+          ).href,
+          name: SITE_NAME,
+          alternateNames: SITE_ALTERNATE_NAMES,
+          inLanguage: locale,
+          logoUrl: `${SITE_URL}${SITE_LOGO_PATH}`,
+          telephone: CONTACT_PHONE_E164,
+          email: CONTACT_EMAIL,
+        })}
+      />
+      <LandingWithData />
+      <HomeAbout locale={locale} />
+    </>
+  );
 }

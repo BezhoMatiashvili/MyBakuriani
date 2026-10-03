@@ -3,6 +3,8 @@ import { getCvCountsForServices } from "@/lib/data/getCachedPublicListing";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import Breadcrumbs from "@/components/seo/Breadcrumbs";
+import CategoryIntro from "@/components/seo/CategoryIntro";
 import { buildPageMetadata } from "@/lib/seo";
 import EmploymentPageClient from "./EmploymentPageClient";
 
@@ -28,7 +30,13 @@ export async function generateMetadata({
   });
 }
 
-export default async function EmploymentPage() {
+export default async function EmploymentPage({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}) {
+  const { locale } = await params;
+  const tNav = await getTranslations({ locale, namespace: "Navbar" });
   const supabase = createPublicClient();
 
   const {
@@ -61,5 +69,14 @@ export default async function EmploymentPage() {
     (services ?? []).map((s) => s.id),
   );
 
-  return <EmploymentPageClient services={services ?? []} cvCounts={cvCounts} />;
+  return (
+    <>
+      <Breadcrumbs
+        locale={locale}
+        items={[{ name: tNav("employment"), path: "/employment" }]}
+      />
+      <EmploymentPageClient services={services ?? []} cvCounts={cvCounts} />
+      <CategoryIntro locale={locale} topic="employment" listings={services} />
+    </>
+  );
 }

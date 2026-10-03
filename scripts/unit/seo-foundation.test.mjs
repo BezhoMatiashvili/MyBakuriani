@@ -14,8 +14,31 @@ import {
   NON_INDEXABLE_PREFIXES,
   buildRobotsConfig,
 } from "../../src/lib/seo/robots.ts";
+import {
+  MIN_USEFUL_DESCRIPTION,
+  pickDescription,
+} from "../../src/lib/seo/description.ts";
 
 const LOCALES = ["ka", "en", "ru"];
+
+test("a listing description is used only when it has content to show", () => {
+  const generated = "Flat — rental in Bakuriani, Didveli";
+  for (const owner of [undefined, null, "", "   ", "nice", "0551 26 11 11"]) {
+    assert.equal(pickDescription(owner, generated), generated, String(owner));
+  }
+  const real = "Sunny two-room flat 80 m from the Didveli lift, with a balcony";
+  assert.equal(pickDescription(`  ${real}\n`, generated), real);
+  assert.equal(
+    pickDescription(
+      "A  long\n\n description   with   odd spaces ".repeat(2),
+      generated,
+    ),
+    "A long description with odd spaces A long description with odd spaces",
+  );
+  const edge = "x".repeat(MIN_USEFUL_DESCRIPTION);
+  assert.equal(pickDescription(edge, generated), edge);
+  assert.equal(pickDescription(edge.slice(1), generated), generated);
+});
 
 test("only the canonical host is indexable (fail-safe direction)", () => {
   assert.equal(CANONICAL_HOST, "mybakuriani.ge");

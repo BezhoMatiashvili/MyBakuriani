@@ -94,10 +94,7 @@ export default function EntertainmentDetailClient({
     <div className="mx-auto max-w-5xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
       {/* Hero photo with floating back button */}
-      <div
-        style={enterUp()}
-        className="relative aspect-[16/9] w-full overflow-hidden rounded-[24px] bg-[#F8FAFC]"
-      >
+      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-[24px] bg-[#F8FAFC]">
         {mainPhoto && (
           <Image
             src={mainPhoto}

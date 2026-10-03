@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { routing } from "@/i18n/routing";
+import { GUIDE_PATHS } from "@/lib/guide";
 import { createPublicClient } from "@/lib/supabase/server";
 import { buildAlternates } from "@/lib/seo/alternates";
 import { IS_INDEXABLE, SITE_URL } from "@/lib/seo/site";
@@ -34,6 +35,7 @@ const STATIC_PATHS = [
   "/transport",
   "/employment",
   "/blog",
+  ...GUIDE_PATHS,
   "/faq",
   "/pricing",
   "/contact",

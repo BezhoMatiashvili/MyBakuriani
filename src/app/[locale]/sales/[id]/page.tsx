@@ -9,8 +9,11 @@ import {
   getCachedPublicProperty,
   getCachedPublicReviews,
 } from "@/lib/data/getCachedPublicListing";
+import { pickDescription } from "@/lib/seo/description";
 import { buildListingMetadata, redirectToCanonicalListing } from "@/lib/seo";
 import { propertyViewUrl } from "@/lib/utils/listingUrls";
+import ListingBreadcrumbs from "@/components/seo/ListingBreadcrumbs";
+import RelatedListings from "@/components/seo/RelatedListings";
 import SaleDetailClient from "./SaleDetailClient";
 
 interface Props {
@@ -52,9 +55,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const title = t("detail.saleTitle", { title: data.title });
-  const description =
-    data.description?.trim() ||
-    t("detail.saleDesc", { title: data.title, location: data.location });
+  const description = pickDescription(
+    data.description,
+    t("detail.saleDesc", { title: data.title, location: data.location }),
+  );
 
   return {
     title,
@@ -121,11 +125,25 @@ export default async function SaleDetailPage({ params }: Props) {
   const reviews = await reviewsPromise;
 
   return (
-    <SaleDetailClient
-      property={cached}
-      reviews={reviews}
-      isPending={false}
-      priceAlertMode={priceAlertMode}
-    />
+    <>
+      <ListingBreadcrumbs
+        locale={locale}
+        kind="sales"
+        title={cached.title}
+        path={`/sales/${id}`}
+      />
+      <SaleDetailClient
+        property={cached}
+        reviews={reviews}
+        isPending={false}
+        priceAlertMode={priceAlertMode}
+      />
+      <RelatedListings
+        locale={locale}
+        kind="sales"
+        excludeId={id}
+        location={cached.location}
+      />
+    </>
   );
 }

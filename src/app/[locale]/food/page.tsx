@@ -2,6 +2,8 @@ import { createPublicClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import Breadcrumbs from "@/components/seo/Breadcrumbs";
+import CategoryIntro from "@/components/seo/CategoryIntro";
 import { buildPageMetadata } from "@/lib/seo";
 import FoodPageClient from "./FoodPageClient";
 import { firstPhotoOnly } from "@/lib/utils/photos";
@@ -28,7 +30,13 @@ export async function generateMetadata({
   });
 }
 
-export default async function FoodPage() {
+export default async function FoodPage({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}) {
+  const { locale } = await params;
+  const tNav = await getTranslations({ locale, namespace: "Navbar" });
   const supabase = createPublicClient();
 
   const {
@@ -58,5 +66,14 @@ export default async function FoodPage() {
     );
   }
 
-  return <FoodPageClient services={(services ?? []).map(firstPhotoOnly)} />;
+  return (
+    <>
+      <Breadcrumbs
+        locale={locale}
+        items={[{ name: tNav("food"), path: "/food" }]}
+      />
+      <FoodPageClient services={(services ?? []).map(firstPhotoOnly)} />
+      <CategoryIntro locale={locale} topic="food" listings={services} />
+    </>
+  );
 }

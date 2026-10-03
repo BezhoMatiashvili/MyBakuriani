@@ -57,8 +57,13 @@ export function xmlEscape(value: string): string {
 // `new URL` percent-encodes a Georgian blog slug exactly as Next does when it
 // resolves a page's canonical against metadataBase, so both sides print the
 // same bytes.
+// The root loses its slash: Next prints the home page's canonical and hreflang
+// hrefs without one (`https://mybakuriani.ge`), and the sitemap must name the
+// same bytes (an e2e check compares them).
 function absolute(siteUrl: string, path: string): string {
-  return xmlEscape(new URL(path, siteUrl).href);
+  const url = new URL(path, siteUrl);
+  const href = url.pathname === "/" && !url.search ? url.origin : url.href;
+  return xmlEscape(href);
 }
 
 /** One entry per page per locale, each carrying the page's full hreflang set. */

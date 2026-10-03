@@ -379,10 +379,12 @@ async function listingLayout(page: import("@playwright/test").Page) {
       '[data-testid="listing-results"]',
     );
     if (!hero || !results) throw new Error("listing layout markers missing");
+    // Document coordinates: opening a panel can make Playwright scroll to its
+    // buttons, which moves every viewport-relative box without moving the layout.
     return {
       heroHeight: hero.getBoundingClientRect().height,
-      heroBottom: hero.getBoundingClientRect().bottom,
-      resultsTop: results.getBoundingClientRect().top,
+      heroBottom: hero.getBoundingClientRect().bottom + window.scrollY,
+      resultsTop: results.getBoundingClientRect().top + window.scrollY,
     };
   });
 }
@@ -394,6 +396,16 @@ for (const path of ["/en/apartments", "/en/hotels", "/en/search?mode=rent"]) {
     }) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto(path);
+      // A click before React attaches its handlers is lost.
+      await expect
+        .poll(() =>
+          page
+            .getByTestId("search-desktop-dates")
+            .evaluate((node) =>
+              Object.keys(node).some((key) => key.startsWith("__reactProps$")),
+            ),
+        )
+        .toBe(true);
       const before = await listingLayout(page);
 
       await page.getByTestId("search-desktop-dates").click();
@@ -759,20 +771,22 @@ test.describe("FAQ page", () => {
 
   test("has expandable FAQ items", async ({ page }) => {
     await page.goto("/faq");
-    // FAQ uses plain buttons with chevron-down icons
-    const triggers = page.locator("button:has(svg.lucide-chevron-down)");
+    // Each question is a native <details>/<summary> with a chevron-down icon;
+    // the answers are in the HTML while collapsed (C40).
+    const triggers = page.locator(
+      "main details > summary:has(svg.lucide-chevron-down)",
+    );
     const count = await triggers.count();
     expect(count).toBeGreaterThan(0);
   });
 
   test("can expand an FAQ item", async ({ page }) => {
     await page.goto("/faq");
-    const trigger = page.locator("button:has(svg.lucide-chevron-down)").first();
-    if (await trigger.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await trigger.click();
-      // After clicking, content should appear
-      await expect(page.locator("main")).toBeVisible();
-    }
+    const item = page.locator("main details").first();
+    await expect(item).not.toHaveAttribute("open", "");
+    await item.locator("summary").click();
+    await expect(item).toHaveAttribute("open", "");
+    await expect(item.locator("summary + *")).toBeVisible();
   });
 });
 

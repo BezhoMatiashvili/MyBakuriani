@@ -3,7 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { cache } from "react";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { routing, type AppLocale } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { createPublicClient } from "@/lib/supabase/server";
@@ -12,6 +12,12 @@ import { pathForLocale } from "@/lib/seo/alternates";
 import { formatDate } from "@/lib/utils/format";
 import { isUuid } from "@/lib/utils/uuid";
 import BannerSlot from "@/components/banners/BannerSlot";
+import Breadcrumbs from "@/components/seo/Breadcrumbs";
+import JsonLd from "@/components/seo/JsonLd";
+import { optimizedImageUrls } from "@/lib/seo/image-url";
+import { blogPostingJsonLd } from "@/lib/seo/jsonld";
+import { SITE_LOGO_PATH, SITE_NAME, SITE_URL } from "@/lib/seo/site";
+import { sanitizePhotos } from "@/lib/utils/photos";
 
 interface Props {
   // The segment is the post's slug (canonical). The older uuid links still
@@ -89,10 +95,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function BlogDetailPage({ params }: Props) {
-  const { id } = await params;
+  const { locale, id } = await params;
   const key = decodeKey(id);
-  const t = await getTranslations("BlogPage");
-  const locale = await getLocale();
+  // Explicit locale: the bare string form reads headers(), which flips this ISR
+  // page to dynamic (E132).
+  const t = await getTranslations({ locale, namespace: "BlogPage" });
+  const tFooter = await getTranslations({ locale, namespace: "Footer" });
 
   const { data: post, error } = await getBlogPostDetail(key);
   // Errors propagate (uncached 500) instead of becoming a cacheable 404.
@@ -119,59 +127,91 @@ export default async function BlogDetailPage({ params }: Props) {
     avatar_url: string | null;
   } | null;
 
+  const postUrl = new URL(
+    pathForLocale(`/blog/${post.slug}`, locale, routing.defaultLocale),
+    SITE_URL,
+  ).href;
+
   return (
-    <article className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
-      {/* Back link */}
-      <Link
-        href="/blog"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        {t("backToBlog")}
-      </Link>
+    <>
+      <Breadcrumbs
+        locale={locale}
+        narrow
+        items={[
+          { name: tFooter("blog"), path: "/blog" },
+          { name: post.title, path: `/blog/${post.slug}` },
+        ]}
+      />
+      {/* Posts are written in Georgian whatever the page's UI locale is. */}
+      <JsonLd
+        data={blogPostingJsonLd({
+          url: postUrl,
+          headline: post.title,
+          description: post.excerpt,
+          images: optimizedImageUrls(
+            SITE_URL,
+            sanitizePhotos([post.image_url]),
+          ),
+          datePublished: post.published_at,
+          authorName: author?.display_name,
+          inLanguage: "ka",
+          publisherName: SITE_NAME,
+          publisherLogoUrl: `${SITE_URL}${SITE_LOGO_PATH}`,
+        })}
+      />
+      <article className="mx-auto max-w-3xl px-4 pb-8 pt-4 sm:pb-12 sm:pt-6">
+        {/* Back link */}
+        <Link
+          href="/blog"
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t("backToBlog")}
+        </Link>
 
-      {/* Title */}
-      <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
-        {post.title}
-      </h1>
+        {/* Title */}
+        <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
+          {post.title}
+        </h1>
 
-      {/* Meta */}
-      <div className="mt-4 flex items-center gap-3 text-sm text-[#64748B]">
-        {post.published_at && (
-          <time dateTime={post.published_at}>
-            {formatDate(post.published_at, locale)}
-          </time>
-        )}
-        {author && (
-          <>
-            <span>·</span>
-            <span>{author.display_name}</span>
-          </>
-        )}
-      </div>
-
-      {/* Featured image */}
-      {post.image_url && (
-        <div className="relative mt-8 aspect-[8/5] overflow-hidden rounded-[20px]">
-          <Image
-            src={post.image_url}
-            alt={post.title}
-            fill
-            sizes="(max-width: 768px) 100vw, 768px"
-            className="object-cover"
-            priority
-          />
+        {/* Meta */}
+        <div className="mt-4 flex items-center gap-3 text-sm text-[#64748B]">
+          {post.published_at && (
+            <time dateTime={post.published_at}>
+              {formatDate(post.published_at, locale)}
+            </time>
+          )}
+          {author && (
+            <>
+              <span>·</span>
+              <span>{author.display_name}</span>
+            </>
+          )}
         </div>
-      )}
 
-      {/* Content */}
-      <div className="prose prose-slate mt-8 max-w-none">
-        <div className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
-          {post.content}
+        {/* Featured image */}
+        {post.image_url && (
+          <div className="relative mt-8 aspect-[8/5] overflow-hidden rounded-[20px]">
+            <Image
+              src={post.image_url}
+              alt={post.title}
+              fill
+              sizes="(max-width: 768px) 100vw, 768px"
+              className="object-cover"
+              priority
+            />
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="prose prose-slate mt-8 max-w-none">
+          <div className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
+            {post.content}
+          </div>
         </div>
-      </div>
 
-      <BannerSlot placement="blog_inline" bare className="mt-10" />
-    </article>
+        <BannerSlot placement="blog_inline" bare className="mt-10" />
+      </article>
+    </>
   );
 }
