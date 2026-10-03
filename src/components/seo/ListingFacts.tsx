@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
+import { areaNamer } from "@/components/seo/areaName";
 import { DETAIL_WIDTH, type ListingKind } from "@/components/seo/listing-kind";
 import type { AppLocale } from "@/i18n/routing";
-import { GUIDE_ZONE_SLUGS } from "@/lib/guide";
 import {
   buildPropertyFacts,
   sentenceCase,
@@ -16,28 +16,12 @@ import { applyDiscount } from "@/lib/utils/pricing";
 // words come from messages `ListingFacts.*`; the type names are the filter's
 // (`FilterPanel.types.*`). No place name is inflected: the area follows a
 // colon, because Georgian and Russian would need a different case ending.
-// A listing picked from the zone list stores the zone's Georgian name as its
-// area. On an en/ru page that name is shown in the page's language (the site's
-// own `Zones.<slug>.name`); any other text, typed by the owner, stays as typed.
-async function areaName(
-  locale: AppLocale,
-  location: string | null,
-): Promise<string | null> {
-  if (!location || locale === "ka") return location;
-  const [ka, own] = await Promise.all([
-    getTranslations({ locale: "ka", namespace: "Zones" }),
-    getTranslations({ locale, namespace: "Zones" }),
-  ]);
-  const slug = GUIDE_ZONE_SLUGS.find((s) => ka(`${s}.name`) === location);
-  return slug ? own(`${slug}.name`) : location;
-}
-
 export async function listingFactsText(
   locale: AppLocale,
   facts: PropertyFacts,
 ): Promise<string> {
   const t = await getTranslations({ locale, namespace: "ListingFacts" });
-  const area = await areaName(locale, facts.location);
+  const area = (await areaNamer(locale))(facts.location);
   const tTypes = await getTranslations({ locale, namespace: "FilterPanel" });
 
   const type = facts.type ? tTypes(`types.${facts.type}`) : t("typeOther");

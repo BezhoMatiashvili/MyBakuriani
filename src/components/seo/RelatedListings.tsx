@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { areaNamer } from "@/components/seo/areaName";
 import { DETAIL_WIDTH, type ListingKind } from "@/components/seo/listing-kind";
 import { Link } from "@/i18n/navigation";
 import type { AppLocale } from "@/i18n/routing";
@@ -145,6 +146,7 @@ export default async function RelatedListings({
 
   const t = await getTranslations({ locale, namespace: "RelatedListings" });
   const tLanding = await getTranslations({ locale, namespace: "Landing" });
+  const areaOf = await areaNamer(locale);
 
   return (
     <section
@@ -177,7 +179,7 @@ export default async function RelatedListings({
               </span>
               {item.location && (
                 <span className="mt-1 block text-[13px] font-medium text-[#64748B]">
-                  {item.location}
+                  {areaOf(item.location)}
                 </span>
               )}
             </Link>
