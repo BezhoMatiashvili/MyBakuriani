@@ -1161,6 +1161,15 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (!/<FooterLanguageLinks\s*\/>/.test(read("src/components/layout/Footer.tsx")) || !/routing\.locales/.test(read("src/components/layout/FooterLanguageLinks.tsx")))
     fail("C40: Footer must render <FooterLanguageLinks />, which links every entry of routing.locales (the header selector is buttons, so /en and /ru would have no inbound link)");
   else ok("C40: the footer links the same page in every locale");
+
+  // A locked deployment must not publish listing URLs: the sitemap tests the same predicate as the middleware's lock.
+  const lockTest = /process\.env\.SITE_LOCKED === "true"/;
+  const siteSrc = read("src/lib/seo/site.ts");
+  if (!lockTest.test(read("src/middleware.ts")) || !/export function isSiteLocked\([^)]*\)[^{]*\{\s*return raw === "true";/.test(siteSrc))
+    fail('C40: src/middleware.ts (process.env.SITE_LOCKED === "true") and src/lib/seo/site.ts:isSiteLocked (raw === "true") must test the same value');
+  else if (!/isSiteLocked\(process\.env\.SITE_LOCKED\)/.test(read("src/app/sitemap.ts")))
+    fail("C40: src/app/sitemap.ts must return an empty sitemap while SITE_LOCKED is on (isSiteLocked(process.env.SITE_LOCKED))");
+  else ok("C40: a locked deployment serves an empty sitemap, by the same test as the middleware's lock");
 }
 
 if (failures) {

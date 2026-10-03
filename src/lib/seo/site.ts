@@ -43,6 +43,16 @@ export function isIndexableSiteUrl(siteUrl: string): boolean {
   }
 }
 
+/**
+ * SITE_LOCKED (C27) is the owner's launch gate: while it is on, every page
+ * answers a redirect to /site-locked. It is a server-only variable, so callers
+ * read it where they need it (the sitemap's hourly rebuild sees the running
+ * server's value). Same test as the middleware's: exactly "true".
+ */
+export function isSiteLocked(raw: string | undefined): boolean {
+  return raw === "true";
+}
+
 /** NEXT_PUBLIC_* is inlined at build time (middleware included). */
 export const SITE_URL = resolveSiteUrl(process.env.NEXT_PUBLIC_SITE_URL);
 

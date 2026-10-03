@@ -3,7 +3,7 @@ import { routing } from "@/i18n/routing";
 import { GUIDE_PATHS } from "@/lib/guide";
 import { createPublicClient } from "@/lib/supabase/server";
 import { buildAlternates } from "@/lib/seo/alternates";
-import { IS_INDEXABLE, SITE_URL } from "@/lib/seo/site";
+import { IS_INDEXABLE, SITE_URL, isSiteLocked } from "@/lib/seo/site";
 import { optimizedImageUrls } from "@/lib/seo/image-url";
 import {
   buildSitemapEntries,
@@ -126,6 +126,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Staging, previews and local builds are noindex; a sitemap there would only
   // advertise URLs that tell Google to ignore them.
   if (!IS_INDEXABLE) return [];
+  // A locked deployment (SITE_LOCKED, C27) sends every page to /site-locked, so
+  // its sitemap would list URLs that redirect and publish every listing of a
+  // site that has not launched. It fills in on the first rebuild after unlock.
+  if (isSiteLocked(process.env.SITE_LOCKED)) return [];
 
   let rowPages: SitemapPage[] = [];
   try {

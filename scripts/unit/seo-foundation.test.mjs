@@ -4,6 +4,7 @@ import {
   CANONICAL_HOST,
   DEFAULT_SITE_URL,
   isIndexableSiteUrl,
+  isSiteLocked,
   resolveSiteUrl,
 } from "../../src/lib/seo/site.ts";
 import {
@@ -51,6 +52,13 @@ test("only the canonical host is indexable (fail-safe direction)", () => {
   assert.equal(isIndexableSiteUrl("http://localhost:3000"), false);
   assert.equal(isIndexableSiteUrl("not a url"), false);
   assert.equal(isIndexableSiteUrl(""), false);
+});
+
+test('the lock is exactly the string "true", like the middleware\'s check', () => {
+  assert.equal(isSiteLocked("true"), true);
+  for (const off of [undefined, "", "false", "TRUE", "True", "1", " true"]) {
+    assert.equal(isSiteLocked(off), false, String(off));
+  }
 });
 
 test("resolveSiteUrl falls back to the non-indexable default and trims slashes", () => {
