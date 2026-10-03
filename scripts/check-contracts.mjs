@@ -1170,6 +1170,15 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else if (!/isSiteLocked\(process\.env\.SITE_LOCKED\)/.test(read("src/app/sitemap.ts")))
     fail("C40: src/app/sitemap.ts must return an empty sitemap while SITE_LOCKED is on (isSiteLocked(process.env.SITE_LOCKED))");
   else ok("C40: a locked deployment serves an empty sitemap, by the same test as the middleware's lock");
+
+  // Owner descriptions are mostly a few characters: the three property detail pages state the listing's own fields as a sentence, on the page and as the meta-description fallback.
+  const factsPages = ["apartments", "hotels", "sales"];
+  const noFacts = factsPages.filter((k) => {
+    const src = read(`${localeDir}/${k}/[id]/page.tsx`);
+    return !/<ListingFacts\b[\s\S]*?facts=\{propertyFactsFromRow\(/.test(src) || !/listingFactsText\(locale, propertyFactsFromRow\(/.test(src);
+  });
+  if (noFacts.length) fail(`C40: these detail pages must render <ListingFacts> and build their description fallback with listingFactsText: ${noFacts.join(", ")}`);
+  else ok(`C40: ${factsPages.length} property detail pages state their facts as text and as the description fallback`);
 }
 
 if (failures) {

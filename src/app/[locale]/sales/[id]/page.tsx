@@ -13,6 +13,10 @@ import { pickDescription } from "@/lib/seo/description";
 import { buildListingMetadata, redirectToCanonicalListing } from "@/lib/seo";
 import { propertyViewUrl } from "@/lib/utils/listingUrls";
 import ListingBreadcrumbs from "@/components/seo/ListingBreadcrumbs";
+import ListingFacts, {
+  listingFactsText,
+  propertyFactsFromRow,
+} from "@/components/seo/ListingFacts";
 import RelatedListings from "@/components/seo/RelatedListings";
 import SaleDetailClient from "./SaleDetailClient";
 
@@ -57,7 +61,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = t("detail.saleTitle", { title: data.title });
   const description = pickDescription(
     data.description,
-    t("detail.saleDesc", { title: data.title, location: data.location }),
+    await listingFactsText(locale, propertyFactsFromRow(data)),
   );
 
   return {
@@ -137,6 +141,11 @@ export default async function SaleDetailPage({ params }: Props) {
         reviews={reviews}
         isPending={false}
         priceAlertMode={priceAlertMode}
+      />
+      <ListingFacts
+        locale={locale}
+        kind="sales"
+        facts={propertyFactsFromRow(cached)}
       />
       <RelatedListings
         locale={locale}

@@ -5580,5 +5580,19 @@
       "employment": "Ещё вакансии в Бакуриани",
       "services": "Ещё услуги в Бакуриани"
     }
+  },
+  "ListingFacts": {
+    "heading": "Коротко",
+    "typeOther": "Объект",
+    "headlineRent": "{type} в Бакуриани",
+    "headlineSale": "{type} на продажу в Бакуриани",
+    "location": "Расположение: {location}",
+    "rooms": "{count, plural, one {# комната} few {# комнаты} many {# комнат} other {# комнаты}}",
+    "capacity": "{count, plural, one {# гость} other {до # гостей}}",
+    "area": "{count} м²",
+    "slope": "{count}м до трассы",
+    "stars": "{count, plural, one {# звезда} few {# звезды} many {# звёзд} other {# звезды}}",
+    "priceNight": "от {price} за ночь",
+    "priceSale": "цена {price}"
   }
 }

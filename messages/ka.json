@@ -5580,5 +5580,19 @@
       "employment": "კიდევ ვაკანსიები ბაკურიანში",
       "services": "კიდევ სერვისები ბაკურიანში"
     }
+  },
+  "ListingFacts": {
+    "heading": "მოკლე ინფორმაცია",
+    "typeOther": "ქონება",
+    "headlineRent": "{type} ბაკურიანში",
+    "headlineSale": "იყიდება {type} ბაკურიანში",
+    "location": "მდებარეობა: {location}",
+    "rooms": "{count} ოთახი",
+    "capacity": "{count} სტუმრამდე",
+    "area": "{count} მ²",
+    "slope": "{count}მ ტრასამდე",
+    "stars": "{count} ვარსკვლავი",
+    "priceNight": "{price}-დან ღამეში",
+    "priceSale": "ფასი: {price}"
   }
 }

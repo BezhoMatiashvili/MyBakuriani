@@ -491,6 +491,35 @@ test.describe("listing pages", () => {
     });
   }
 
+  test("property pages state their facts in the page's language", async ({
+    request,
+  }) => {
+    const index = await get(request, "/apartments");
+    const href = listingHref(index.body, "apartments");
+    test.skip(!href, "no apartment listing is linked from /apartments");
+    const phrase: Record<Locale, string> = {
+      ka: "ბაკურიანში",
+      en: "in Bakuriani",
+      ru: "в Бакуриани",
+    };
+    for (const locale of LOCALES) {
+      const page = await get(request, localized(href as string, locale));
+      const facts =
+        /<section aria-labelledby="listing-facts"[\s\S]*?<\/section>/.exec(
+          page.body,
+        )?.[0] ?? "";
+      expect(facts, `${locale}: the facts section`).toContain(phrase[locale]);
+      // Most owner descriptions are far shorter than a useful snippet, so the
+      // generated sentence stands in for them (MIN_USEFUL_DESCRIPTION).
+      const description =
+        metaContent(page.body, "name", "description")[0] ?? "";
+      expect(
+        description.length,
+        `${locale}: meta description`,
+      ).toBeGreaterThanOrEqual(40);
+    }
+  });
+
   test("unknown ids, mock ids and unknown guide areas answer 404", async ({
     request,
   }) => {

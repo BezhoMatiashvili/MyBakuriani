@@ -5580,5 +5580,19 @@
       "employment": "More jobs in Bakuriani",
       "services": "More services in Bakuriani"
     }
+  },
+  "ListingFacts": {
+    "heading": "At a glance",
+    "typeOther": "Property",
+    "headlineRent": "{type} in Bakuriani",
+    "headlineSale": "{type} for sale in Bakuriani",
+    "location": "Location: {location}",
+    "rooms": "{count, plural, one {# room} other {# rooms}}",
+    "capacity": "{count, plural, one {# guest} other {up to # guests}}",
+    "area": "{count} m²",
+    "slope": "{count}m to the slope",
+    "stars": "{count}-star",
+    "priceNight": "from {price} per night",
+    "priceSale": "price {price}"
   }
 }
