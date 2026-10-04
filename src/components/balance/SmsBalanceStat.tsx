@@ -1,8 +1,9 @@
 "use client";
 
 import { MessageSquare } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
+import { smsCreditsWord } from "@/lib/pricing-packages";
 
 /**
  * SMS credits left (`balances.sms_remaining`), shown beside the ₾ amount in
@@ -17,7 +18,7 @@ export default function SmsBalanceStat({
   loading: boolean;
 }) {
   const tSms = useTranslations("SMSCenter.balance");
-  const tTopbar = useTranslations("DashboardLayout.topbar");
+  const locale = useLocale();
 
   return (
     <div
@@ -34,7 +35,8 @@ export default function SmsBalanceStat({
         <p className="mt-2 text-[36px] font-black leading-[44px]">
           {remaining}
           <span className="text-[24px] text-white/60">
-            {tTopbar("smsSuffix")}
+            {" "}
+            {smsCreditsWord(remaining, locale)}
           </span>
         </p>
       )}

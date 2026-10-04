@@ -23,6 +23,7 @@ import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicke
 import {
   fetchPricingPackages,
   getPackageDisplay,
+  packageDescription,
   type PricingPackage,
 } from "@/lib/pricing-packages";
 import CardTopUpLauncher from "@/components/payments/CardTopUpLauncher";
@@ -218,7 +219,7 @@ export default function ServiceBalancePage() {
               iconBg={display.iconBg}
               iconColor={display.iconColor}
               title={pkg.name}
-              description={pkg.description ?? pkg.label ?? ""}
+              description={packageDescription(pkg, locale)}
               price={price}
               unit={display.unit}
               ctaColor={display.ctaColor}
@@ -319,7 +320,7 @@ export default function ServiceBalancePage() {
           if (confirmPkg) await handlePurchase(confirmPkg);
         }}
         title={confirmPkg?.name ?? ""}
-        description={confirmPkg?.description ?? confirmPkg?.label ?? ""}
+        description={confirmPkg ? packageDescription(confirmPkg, locale) : ""}
         priceLabel={confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""}
         balance={loading ? undefined : (balance?.amount ?? 0)}
         amount={confirmPkg?.amount_gel}
@@ -340,7 +341,10 @@ export default function ServiceBalancePage() {
         }
         conditions={
           confirmPkg?.category === "sms"
-            ? [tShared("purchaseTerms.smsConsent")]
+            ? [
+                tShared("purchaseTerms.smsCredits"),
+                tShared("purchaseTerms.smsConsent"),
+              ]
             : undefined
         }
       />

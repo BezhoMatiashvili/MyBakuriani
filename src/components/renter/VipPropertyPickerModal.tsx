@@ -284,7 +284,10 @@ export default function VipPropertyPickerModal({
   // validity and main conditions).
   const purchaseConditions =
     tier === "sms"
-      ? [tShared("purchaseTerms.smsConsent")]
+      ? [
+          tShared("purchaseTerms.smsCredits"),
+          tShared("purchaseTerms.smsConsent"),
+        ]
       : [
           tInfo(`${tierMeta.titleKey}.what`),
           tShared("purchaseTerms.extendsSameTier"),

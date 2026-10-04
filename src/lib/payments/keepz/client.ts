@@ -174,7 +174,16 @@ function safeCheckoutUrl(value: unknown): string | null {
 
 export type KeepzLanguage = "KA" | "EN";
 
-/** POST /api/integrator/order — returns Keepz's hosted checkout URL. */
+/**
+ * POST /api/integrator/order — returns Keepz's hosted checkout URL.
+ *
+ * The body deliberately has no successRedirectUri / failRedirectUri /
+ * callbackUri. Keepz takes them per order only from an integrator with the
+ * "dynamic redirect" / "dynamic callback" permission; without it the order is
+ * refused (6036 / 6056, group 3 — the test integrator got 6036 on 2026-10-03),
+ * which isDefinitiveRejection turns into a cancelled checkout. The payer's way
+ * back is the static URL Keepz registers for the integrator (PENDING.md, C32).
+ */
 export async function createOrder(
   config: KeepzConfig,
   input: { orderId: string; amountTetri: number; language: KeepzLanguage },

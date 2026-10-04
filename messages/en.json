@@ -871,8 +871,8 @@
           },
           "sms": {
             "title": "SMS package",
-            "what": "An SMS package lets you send service and promotional messages to guests on their mobile numbers.",
-            "how": "The package is added to your account and is spent automatically on each send. Remaining count is shown in the top bar and on the Balance & VIP page."
+            "what": "An SMS package adds credits to your SMS balance. Credits are spent on service and promotional messages to guests' mobile numbers.",
+            "how": "Each message sent uses 1 credit. One credit can cover 2 SMS or more: a long message, for example one with a link, is sent in parts, but only 1 credit is deducted. Remaining credits are shown in the top bar and on the Balance & VIP page."
           }
         }
       },
@@ -1417,7 +1417,7 @@
     "filters": "Filters",
     "resultsCount": "{count, plural, one {# result} other {# results}}",
     "resultsFor": "Results: “{keyword}”",
-    "foundAcrossSections": "Found {count, plural, one {# result} other {# results}} across apartments, services and the blog",
+    "foundAcrossSections": "Found {count, plural, one {# result} other {# results}} across all categories",
     "foundObjects": "{count, plural, one {Found # property} other {Found # properties}}",
     "foundOffersAt": "{count, plural, one {Found # offer} other {Found # offers}} in {location}",
     "foundOffers": "{count, plural, one {Found # offer} other {Found # offers}}",
@@ -1425,6 +1425,12 @@
     "tabAll": "All",
     "tabProperties": "Apartments",
     "tabServices": "Services",
+    "tabHotels": "Hotels",
+    "tabSales": "For sale",
+    "tabFood": "Food",
+    "tabEntertainment": "Entertainment",
+    "tabTransport": "Transport",
+    "tabEmployment": "Employment",
     "tabBlog": "Blog",
     "viewResults": "View results",
     "resetFilters": "Reset",
@@ -3412,7 +3418,8 @@
       "notLive": "This listing is not visible on the site yet (under review or turned off). The paid time starts now and keeps running while it is hidden.",
       "superReplacesVip": "SUPER VIP immediately replaces an active VIP status; the remaining VIP time is not kept.",
       "notPublication": "Payment and service activation do not mean the listing is published automatically. Listings are subject to administrative review under MyBakuriani's rules.",
-      "smsNoExpiry": "No expiry — the SMS are added to your SMS balance.",
+      "smsNoExpiry": "No expiry — the credits are added to your SMS balance.",
+      "smsCredits": "1 message = 1 credit. One credit can cover 2 SMS or more: a long message, for example one with a link, is sent in parts, but only 1 credit is deducted.",
       "smsConsent": "Promotional SMS are sent only when the corresponding marketing consent has been given."
     }
   },
@@ -5180,11 +5187,11 @@
     },
     "sms": {
       "title": "4. SMS packages",
-      "intro": "SMS packages let the user send service and/or promotional messages to guests' mobile numbers within the platform's relevant features.",
+      "intro": "SMS packages let the user send service and/or promotional messages to guests' mobile numbers within the platform's relevant features. Each message uses 1 credit; a long message, for example one with a link, may be sent as 2 or more SMS but still counts as 1 credit.",
       "colPackage": "Package",
-      "colCount": "Number of SMS",
+      "colCount": "Credits",
       "colPrice": "Price",
-      "count": "{count} SMS",
+      "count": "{count, plural, one {# credit} other {# credits}}",
       "consent": "Promotional SMS are sent only when the corresponding marketing consent exists."
     },
     "developer": {

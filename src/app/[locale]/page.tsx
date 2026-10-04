@@ -28,13 +28,7 @@ import {
   FALLBACK_ZONES,
   type Zone,
 } from "@/lib/zones/server";
-import {
-  getStatusCards,
-  DEFAULT_STATUS_CARDS,
-} from "@/lib/status-cards/server";
-import { getBakurianiWeather, withLiveWeather } from "@/lib/weather/server";
-import { getRoadCondition, withLiveRoad } from "@/lib/road-condition/server";
-import { getSkiLifts, withLiveLifts } from "@/lib/ski-lifts/server";
+import { getLiveStatusCards } from "@/lib/status-cards/live";
 import { withTimeout } from "@/lib/with-timeout";
 import type { BannerCreative } from "@/lib/banner-creative";
 import type { Metadata } from "next";
@@ -405,45 +399,26 @@ async function LandingWithData() {
     LANDING_DEP_TIMEOUT_MS,
     FALLBACK_ZONES,
   );
-  const [zones, props, bannerCreatives, statusCards, weather, road, lifts] =
-    await Promise.all([
-      zonesPromise,
-      fetchLandingProps(zonesPromise),
-      // One fetch covers every home placement. The landing page renders these
-      // server-side (no flash, no layout shift above the fold); every other
-      // surface gets them client-side from /api/banner-slots.
-      withTimeout(
-        fetchSlotCreatives(),
-        LANDING_DEP_TIMEOUT_MS,
-        [] as BannerCreative[],
-      ),
-      withTimeout(
-        getStatusCards(),
-        LANDING_DEP_TIMEOUT_MS,
-        DEFAULT_STATUS_CARDS,
-      ),
-      withTimeout(getBakurianiWeather(), LANDING_DEP_TIMEOUT_MS, null),
-      withTimeout(getRoadCondition(), LANDING_DEP_TIMEOUT_MS, null),
-      // Live ski-lift status is gated OFF until it can be verified against the
-      // live status.mta.ski site (currently 500; backend deployment deleted, not
-      // merely off-season) — see src/lib/ski-lifts/server.ts. When disabled it
-      // resolves null and the admin-editable lifts card shows through unchanged.
-      process.env.SKI_LIFTS_ENABLED === "true"
-        ? withTimeout(getSkiLifts(), LANDING_DEP_TIMEOUT_MS, null)
-        : Promise.resolve(null),
-    ]);
-
-  // Live weather / road / lift status override their cards' value + detail; each
-  // falls back to the DB/default value when its read failed, timed out, or is
-  // still 'unknown' (road === null / weather === null / lifts === null).
-  const statusCardsWithWeather = withLiveWeather(statusCards, weather);
-  const statusCardsWithRoad = withLiveRoad(statusCardsWithWeather, road);
-  const statusCardsLive = withLiveLifts(statusCardsWithRoad, lifts);
+  const [zones, props, bannerCreatives, statusCards] = await Promise.all([
+    zonesPromise,
+    fetchLandingProps(zonesPromise),
+    // One fetch covers every home placement. The landing page renders these
+    // server-side (no flash, no layout shift above the fold); every other
+    // surface gets them client-side from /api/banner-slots.
+    withTimeout(
+      fetchSlotCreatives(),
+      LANDING_DEP_TIMEOUT_MS,
+      [] as BannerCreative[],
+    ),
+    // The admin cards with live weather / road / lift status laid over them,
+    // the same cards every other page shows (src/lib/status-cards/live.ts).
+    getLiveStatusCards(LANDING_DEP_TIMEOUT_MS),
+  ]);
 
   return (
     <LandingPage
       zones={zones}
-      statusCards={statusCardsLive}
+      statusCards={statusCards}
       hotOffers={props.hotOffers}
       hotels={props.hotels}
       saleProperties={props.saleProperties}

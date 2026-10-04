@@ -77,7 +77,51 @@ type SearchListing = Pick<
   | "house_rules"
   | "ownership_verified"
 >;
-type ActiveTab = "all" | "properties" | "services" | "blog";
+// One tab per category. global_search returns three buckets (properties,
+// services, blog); the property and service buckets are split here by
+// is_for_sale/type and by `category`, so every category gets its own tab.
+const PROPERTY_TABS = ["apartments", "hotels", "sales"] as const;
+// "services" is what is left after the named categories (cleaning, handyman…).
+const SERVICE_TABS = [
+  "food",
+  "entertainment",
+  "transport",
+  "employment",
+  "services",
+] as const;
+type PropertyTab = (typeof PROPERTY_TABS)[number];
+type ServiceTab = (typeof SERVICE_TABS)[number];
+type SectionTab = PropertyTab | ServiceTab | "blog";
+type ActiveTab = "all" | SectionTab;
+
+const isPropertyTab = (tab: ActiveTab): tab is PropertyTab =>
+  (PROPERTY_TABS as readonly string[]).includes(tab);
+const isServiceTab = (tab: ActiveTab): tab is ServiceTab =>
+  (SERVICE_TABS as readonly string[]).includes(tab);
+
+function splitProperties(
+  items: SearchListing[],
+): Record<PropertyTab, SearchListing[]> {
+  const rentals = items.filter((p) => !p.is_for_sale);
+  return {
+    apartments: rentals.filter((p) => p.type !== "hotel"),
+    hotels: rentals.filter((p) => p.type === "hotel"),
+    sales: items.filter((p) => p.is_for_sale),
+  };
+}
+
+function splitServices(items: ServiceRow[]): Record<ServiceTab, ServiceRow[]> {
+  const byCategory = (category: string) =>
+    items.filter((s) => s.category === category);
+  const named = ["food", "entertainment", "transport", "employment"];
+  return {
+    food: byCategory("food"),
+    entertainment: byCategory("entertainment"),
+    transport: byCategory("transport"),
+    employment: byCategory("employment"),
+    services: items.filter((s) => !named.includes(s.category)),
+  };
+}
 
 interface Props {
   initialProperties: SearchListing[];
@@ -400,7 +444,9 @@ export default function SearchPageClient({
         if (search.checkOut) body.check_out = search.checkOut;
         if (search.guests) body.capacity = search.guests;
 
-        body.is_for_sale = currentMode === "sale";
+        // A keyword searches every category, sale listings included; the
+        // rent/sale split only scopes the plain property list.
+        if (!keyword) body.is_for_sale = currentMode === "sale";
 
         if (currentFilters.priceMin !== "")
           body.price_min = currentFilters.priceMin;
@@ -602,15 +648,49 @@ export default function SearchPageClient({
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
-  const tabCounts = useMemo(
-    () => ({
-      properties: kwProperties.length,
-      services: kwServices.length,
-      blog: kwBlog.length,
-      all: kwProperties.length + kwServices.length + kwBlog.length,
-    }),
-    [kwProperties.length, kwServices.length, kwBlog.length],
+  const kwPropertyGroups = useMemo(
+    () => splitProperties(kwProperties),
+    [kwProperties],
   );
+  const kwServiceGroups = useMemo(
+    () => splitServices(kwServices),
+    [kwServices],
+  );
+
+  const tabCounts = useMemo(() => {
+    const counts = {
+      all: kwProperties.length + kwServices.length + kwBlog.length,
+      blog: kwBlog.length,
+    } as Record<ActiveTab, number>;
+    for (const tab of PROPERTY_TABS) counts[tab] = kwPropertyGroups[tab].length;
+    for (const tab of SERVICE_TABS) counts[tab] = kwServiceGroups[tab].length;
+    return counts;
+  }, [
+    kwProperties.length,
+    kwServices.length,
+    kwBlog.length,
+    kwPropertyGroups,
+    kwServiceGroups,
+  ]);
+
+  const tabLabels: Record<ActiveTab, string> = {
+    all: t("tabAll"),
+    apartments: t("tabProperties"),
+    hotels: t("tabHotels"),
+    sales: t("tabSales"),
+    food: t("tabFood"),
+    entertainment: t("tabEntertainment"),
+    transport: t("tabTransport"),
+    employment: t("tabEmployment"),
+    services: t("tabServices"),
+    blog: t("tabBlog"),
+  };
+  // Only categories that have a hit get a tab. A refetch (e.g. a mode switch)
+  // can empty the selected one; fall back to "all" rather than an empty grid.
+  const visibleTabs = (
+    ["all", ...PROPERTY_TABS, ...SERVICE_TABS, "blog"] as const
+  ).filter((tab) => tab === "all" || tabCounts[tab] > 0);
+  const shownTab = visibleTabs.includes(activeTab) ? activeTab : "all";
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
@@ -701,45 +781,33 @@ export default function SearchPageClient({
             )}
 
             {/* Tabs (keyword mode only) */}
-            {hasKeyword && (
-              <div className="mb-6 flex flex-wrap gap-2 border-b border-[#E2E8F0]">
-                {(
-                  [
-                    { id: "all", label: t("tabAll"), count: tabCounts.all },
-                    {
-                      id: "properties",
-                      label: t("tabProperties"),
-                      count: tabCounts.properties,
-                    },
-                    {
-                      id: "services",
-                      label: t("tabServices"),
-                      count: tabCounts.services,
-                    },
-                    { id: "blog", label: t("tabBlog"), count: tabCounts.blog },
-                  ] as const
-                ).map((tab) => (
+            {hasKeyword && tabCounts.all > 0 && (
+              // One scrolling row: up to ten tabs would wrap into several rows
+              // on a phone. The baseline is an inset shadow because
+              // overflow-x clips the usual -mb-px underline overlap.
+              <div className="mb-6 flex gap-2 overflow-x-auto shadow-[inset_0_-1px_0_#E2E8F0] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {visibleTabs.map((tab) => (
                   <button
-                    key={tab.id}
+                    key={tab}
                     type="button"
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => setActiveTab(tab)}
                     className={cn(
-                      "relative -mb-px px-4 py-3 text-[14px] font-semibold transition-colors",
-                      activeTab === tab.id
+                      "relative shrink-0 whitespace-nowrap px-4 py-3 text-[14px] font-semibold transition-colors",
+                      shownTab === tab
                         ? "border-b-2 border-[#2563EB] text-[#2563EB]"
                         : "border-b-2 border-transparent text-[#64748B] hover:text-[#1E293B]",
                     )}
                   >
-                    {tab.label}{" "}
+                    {tabLabels[tab]}{" "}
                     <span
                       className={cn(
                         "ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold",
-                        activeTab === tab.id
+                        shownTab === tab
                           ? "bg-[#DBEAFE] text-[#2563EB]"
                           : "bg-[#F1F5F9] text-[#64748B]",
                       )}
                     >
-                      {tab.count}
+                      {tabCounts[tab]}
                     </span>
                   </button>
                 ))}
@@ -795,10 +863,11 @@ export default function SearchPageClient({
             {/* Keyword path: tab-specific rendering */}
             {!loading && hasKeyword && tabCounts.all > 0 && (
               <KeywordResults
-                activeTab={activeTab}
+                activeTab={shownTab}
                 onTabChange={setActiveTab}
-                propertiesArr={kwProperties}
-                servicesArr={kwServices}
+                labels={tabLabels}
+                propertyGroups={kwPropertyGroups}
+                serviceGroups={kwServiceGroups}
                 blogArr={kwBlog}
               />
             )}
@@ -908,50 +977,59 @@ function EmptyState() {
 function KeywordResults({
   activeTab,
   onTabChange,
-  propertiesArr,
-  servicesArr,
+  labels,
+  propertyGroups,
+  serviceGroups,
   blogArr,
 }: {
   activeTab: ActiveTab;
   onTabChange: (t: ActiveTab) => void;
-  propertiesArr: SearchListing[];
-  servicesArr: ServiceRow[];
+  labels: Record<ActiveTab, string>;
+  propertyGroups: Record<PropertyTab, SearchListing[]>;
+  serviceGroups: Record<ServiceTab, ServiceRow[]>;
   blogArr: BlogRow[];
 }) {
-  const t = useTranslations("SearchPage");
-  if (activeTab === "properties") {
-    return <PropertiesGrid items={propertiesArr} />;
+  if (isPropertyTab(activeTab)) {
+    return <PropertiesGrid items={propertyGroups[activeTab]} />;
   }
-  if (activeTab === "services") {
-    return <ServicesGrid items={servicesArr} />;
+  if (isServiceTab(activeTab)) {
+    return <ServicesGrid items={serviceGroups[activeTab]} />;
   }
   if (activeTab === "blog") {
     return <BlogGrid items={blogArr} />;
   }
-  // "all"
+  // "all": one section per category that has a hit
   return (
     <div className="flex flex-col gap-10">
-      {propertiesArr.length > 0 && (
-        <Section
-          title={t("tabProperties")}
-          count={propertiesArr.length}
-          onSeeAll={() => onTabChange("properties")}
-        >
-          <PropertiesGrid items={propertiesArr.slice(0, 6)} />
-        </Section>
+      {PROPERTY_TABS.map(
+        (tab) =>
+          propertyGroups[tab].length > 0 && (
+            <Section
+              key={tab}
+              title={labels[tab]}
+              count={propertyGroups[tab].length}
+              onSeeAll={() => onTabChange(tab)}
+            >
+              <PropertiesGrid items={propertyGroups[tab].slice(0, 6)} />
+            </Section>
+          ),
       )}
-      {servicesArr.length > 0 && (
-        <Section
-          title={t("tabServices")}
-          count={servicesArr.length}
-          onSeeAll={() => onTabChange("services")}
-        >
-          <ServicesGrid items={servicesArr.slice(0, 6)} />
-        </Section>
+      {SERVICE_TABS.map(
+        (tab) =>
+          serviceGroups[tab].length > 0 && (
+            <Section
+              key={tab}
+              title={labels[tab]}
+              count={serviceGroups[tab].length}
+              onSeeAll={() => onTabChange(tab)}
+            >
+              <ServicesGrid items={serviceGroups[tab].slice(0, 6)} />
+            </Section>
+          ),
       )}
       {blogArr.length > 0 && (
         <Section
-          title={t("tabBlog")}
+          title={labels.blog}
           count={blogArr.length}
           onSeeAll={() => onTabChange("blog")}
         >

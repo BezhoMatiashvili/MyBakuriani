@@ -77,6 +77,7 @@ export interface SaleSearchFilters {
   roiMin: number | null; // 5 | 8 | 10 | null
   constructionStatus: string | null; // "completed" | "under_construction" | null
   renovationStatus: string | null; // "black_frame" | "white_frame" | "furnished" | null
+  keyword: string;
 }
 
 type SaleTab = "search" | "appraise";
@@ -221,6 +222,8 @@ export function SaleSearchBox({
 }: SaleSearchBoxProps) {
   const t = useTranslations("SaleSearchBox");
   const tZones = useTranslations("Zones");
+  // Keyword strings are the rental box's own, so both boxes read the same.
+  const tSearch = useTranslations("SearchBox");
   // Tabs
   const [tab, setTab] = useState<SaleTab>("search");
 
@@ -233,6 +236,8 @@ export function SaleSearchBox({
   const [priceMin, setPriceMin] = useState<string>("");
   const [priceMax, setPriceMax] = useState<string>("");
   const [cadastralCode, setCadastralCode] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const keywordInputId = useId();
   const [rooms, setRooms] = useState<number[]>([]);
   const [areaMin, setAreaMin] = useState(DEFAULT_AREA_MIN);
   const [areaMax, setAreaMax] = useState(DEFAULT_AREA_MAX);
@@ -415,10 +420,12 @@ export function SaleSearchBox({
       setAppraisalResult(null);
       try {
         const supabase = createClient();
+        // The `properties` base table only returns the viewer's own rows (RLS),
+        // so every zone came back empty. `public_properties` is the public,
+        // active-only view the landing zone cards already aggregate from.
         const { data, error } = await supabase
-          .from("properties")
+          .from("public_properties")
           .select("sale_price, area_sqm, location_lat, location_lng")
-          .eq("status", "active")
           .eq("is_for_sale", true)
           .not("sale_price", "is", null);
 
@@ -519,6 +526,7 @@ export function SaleSearchBox({
       roiMin,
       constructionStatus,
       renovationStatus,
+      keyword,
     });
   };
 
@@ -582,7 +590,7 @@ export function SaleSearchBox({
       )}
     >
       {/* ═══ Tab row ═══ */}
-      <div className="mb-4 flex items-center gap-6 border-b border-[#F1F5F9] px-2">
+      <div className="mb-4 flex items-end gap-6 border-b border-[#F1F5F9] px-2">
         <TabButton
           active={tab === "search"}
           onClick={() => {
@@ -601,6 +609,21 @@ export function SaleSearchBox({
         >
           {t("tabSellAppraise")}
         </TabButton>
+        {/* Desktop keyword field: here, not in the pill below, where it would
+            squeeze the price inputs (see the quick-filter row's comment). */}
+        {tab === "search" && (
+          <div className="relative ml-auto hidden w-[260px] pb-1.5 lg:block">
+            <Search className="pointer-events-none absolute left-4 top-[calc(50%-3px)] size-4 -translate-y-1/2 text-[#94A3B8]" />
+            <input
+              type="text"
+              placeholder={tSearch("keywordSearchShort")}
+              aria-label={tSearch("keywordSearch")}
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              className="h-[45.5px] w-full rounded-full border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-5 text-[13px] font-medium text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#16A34A] focus:bg-white"
+            />
+          </div>
+        )}
       </div>
 
       {tab === "search" ? (
@@ -693,6 +716,26 @@ export function SaleSearchBox({
                 })}
               </div>
             </MobileField>
+
+            <div>
+              <label
+                htmlFor={keywordInputId}
+                className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]"
+              >
+                {tSearch("keywordSearch")}
+              </label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
+                <input
+                  id={keywordInputId}
+                  type="text"
+                  placeholder={tSearch("keywordSearchShort")}
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  className="h-11 w-full rounded-lg border border-[#E2E8F0] bg-white pl-9 pr-3 text-base text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#16A34A]"
+                />
+              </div>
+            </div>
 
             <div className="flex gap-2">
               <button

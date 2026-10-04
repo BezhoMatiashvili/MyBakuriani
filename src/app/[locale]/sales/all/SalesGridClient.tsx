@@ -21,6 +21,7 @@ type SaleGridListing = Pick<
   | "id"
   | "created_at"
   | "title"
+  | "description"
   | "location"
   | "photos"
   | "type"
@@ -61,6 +62,7 @@ interface Props {
   initialRoiMin?: number;
   initialConstruction?: string;
   initialRenovation?: string;
+  initialKeyword?: string;
 }
 
 // Sale-tab `construction` URL param uses the Figma-aligned values which map
@@ -87,6 +89,7 @@ export default function SalesGridClient({
   initialRoiMin,
   initialConstruction,
   initialRenovation,
+  initialKeyword,
 }: Props) {
   const t = useTranslations("SalesGrid");
   const tShared = useTranslations("Shared");
@@ -178,6 +181,15 @@ export default function SalesGridClient({
     if (initialRenovation) {
       list = list.filter((p) => p.renovation_status === initialRenovation);
     }
+    // Same fields the rental keyword matches on /search.
+    const keyword = initialKeyword?.trim().toLowerCase();
+    if (keyword) {
+      list = list.filter((p) =>
+        [p.title, p.description, p.location, p.cadastral_code].some((field) =>
+          field?.toLowerCase().includes(keyword),
+        ),
+      );
+    }
 
     if (listingTab === "vip") {
       list = list.filter((p) => p.is_vip || p.is_super_vip);
@@ -206,6 +218,7 @@ export default function SalesGridClient({
     initialRoiMin,
     initialConstruction,
     initialRenovation,
+    initialKeyword,
   ]);
 
   const totalPages = Math.max(

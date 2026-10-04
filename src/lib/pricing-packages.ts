@@ -67,6 +67,44 @@ function unitLabels(locale?: string): { hour: string; day: string } {
   return UNIT_LABELS[locale === "en" || locale === "ru" ? locale : "ka"];
 }
 
+/**
+ * SMS packages and the SMS balance are counted in credits: one credit is one
+ * message, however many SMS segments a long text takes (each debit is 1).
+ * Georgian keeps the singular after any number.
+ */
+const CREDIT_WORDS: Record<"ka" | "en" | "ru", Record<string, string>> = {
+  ka: { other: "კრედიტი" },
+  en: { one: "credit", other: "credits" },
+  ru: { one: "кредит", few: "кредита", many: "кредитов", other: "кредита" },
+};
+
+/** "კრედიტი" / "credits" / "кредитов": the word that follows `count`. */
+export function smsCreditsWord(count: number, locale?: string): string {
+  const lang = locale === "en" || locale === "ru" ? locale : "ka";
+  const words = CREDIT_WORDS[lang];
+  return words[new Intl.PluralRules(lang).select(count)] ?? words.other;
+}
+
+/** "100 კრედიტი" / "100 credits" / "100 кредитов". */
+export function smsCreditsLabel(count: number, locale?: string): string {
+  return `${count} ${smsCreditsWord(count, locale)}`;
+}
+
+/**
+ * Subtitle of a package card and its confirm dialog. An SMS package's admin
+ * label reads "100 SMS"; its size is shown in credits instead.
+ */
+export function packageDescription(
+  pkg: PricingPackage,
+  locale?: string,
+): string {
+  if (pkg.description) return pkg.description;
+  const count =
+    pkg.category === "sms" ? metaNumber(pkg.meta, "sms_count") : null;
+  if (count) return smsCreditsLabel(count, locale);
+  return pkg.label ?? "";
+}
+
 function metaString(
   meta: Record<string, unknown> | null,
   key: string,
@@ -139,7 +177,7 @@ export function getPackageDisplay(
       iconBg: "bg-[#DBEAFE]",
       iconColor: "text-[#2563EB]",
       ctaColor: "bg-[#2563EB] hover:bg-[#1E40AF] text-white",
-      unit: count ? `₾ / ${count} SMS` : "₾",
+      unit: count ? `₾ / ${smsCreditsLabel(count, locale)}` : "₾",
     };
   }
 

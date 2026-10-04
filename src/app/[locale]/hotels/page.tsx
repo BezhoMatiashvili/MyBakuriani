@@ -5,7 +5,8 @@ import type { AppLocale } from "@/i18n/routing";
 import Breadcrumbs from "@/components/seo/Breadcrumbs";
 import CategoryIntro from "@/components/seo/CategoryIntro";
 import { buildPageMetadata } from "@/lib/seo";
-import { getStatusCards } from "@/lib/status-cards/server";
+import { getLiveStatusCards } from "@/lib/status-cards/live";
+import { DETAIL_AUX_TIMEOUT_MS } from "@/lib/with-timeout";
 import HotelsPageClient from "./HotelsPageClient";
 import { firstPhotoOnly } from "@/lib/utils/photos";
 
@@ -36,7 +37,7 @@ export default async function HotelsPage({
   const supabase = createPublicClient();
   // Fetch status cards and listings in parallel instead of serially.
   const [statusCards, { data: properties, error }] = await Promise.all([
-    getStatusCards(),
+    getLiveStatusCards(DETAIL_AUX_TIMEOUT_MS),
     supabase
       .from("public_properties")
       // Only the columns the hotel cards + map use (not all 57). Keep in sync

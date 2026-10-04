@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   fetchPricingPackages,
   getPackageDisplay,
+  packageDescription,
   type PricingPackage,
 } from "@/lib/pricing-packages";
 import VipInfoModal, {
@@ -197,7 +198,7 @@ export default function FoodBalancePage() {
                 iconBg={display.iconBg}
                 iconColor={display.iconColor}
                 title={pkg.name}
-                description={pkg.description ?? pkg.label ?? ""}
+                description={packageDescription(pkg, locale)}
                 price={pkg.amount_gel}
                 unit={display.unit}
                 ctaColor={display.ctaColor}
@@ -310,7 +311,7 @@ export default function FoodBalancePage() {
           if (confirmPkg) await handlePurchase(confirmPkg);
         }}
         title={confirmPkg?.name ?? ""}
-        description={confirmPkg?.description ?? confirmPkg?.label ?? ""}
+        description={confirmPkg ? packageDescription(confirmPkg, locale) : ""}
         priceLabel={confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""}
         balance={loading ? undefined : (balance?.amount ?? 0)}
         amount={confirmPkg?.amount_gel}
@@ -331,7 +332,10 @@ export default function FoodBalancePage() {
         }
         conditions={
           confirmPkg?.category === "sms"
-            ? [tShared("purchaseTerms.smsConsent")]
+            ? [
+                tShared("purchaseTerms.smsCredits"),
+                tShared("purchaseTerms.smsConsent"),
+              ]
             : undefined
         }
       />

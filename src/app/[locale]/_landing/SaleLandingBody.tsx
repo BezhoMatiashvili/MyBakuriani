@@ -166,6 +166,7 @@ export default function SaleLandingBody({
       if (sf.constructionStatus)
         params.set("construction", sf.constructionStatus);
       if (sf.renovationStatus) params.set("renovation", sf.renovationStatus);
+      if (sf.keyword.trim()) params.set("q", sf.keyword.trim());
       router.push(`/sales/all?${params.toString()}`);
     },
     [router],

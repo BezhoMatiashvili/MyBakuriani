@@ -18,6 +18,7 @@ import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import {
   fetchPricingPackages,
   getPackageDisplay,
+  packageDescription,
   type PricingPackage,
 } from "@/lib/pricing-packages";
 import { isSuperVipActive } from "@/lib/utils/pricing";
@@ -321,7 +322,7 @@ export default function PropertyBalanceClient() {
                   iconBg={display.iconBg}
                   iconColor={display.iconColor}
                   title={pkg.name}
-                  description={pkg.description ?? pkg.label ?? ""}
+                  description={packageDescription(pkg, locale)}
                   price={pkg.amount_gel}
                   unit={display.unit}
                   ctaColor={display.ctaColor}
@@ -407,7 +408,7 @@ export default function PropertyBalanceClient() {
           if (confirmPkg) await purchaseSmsPackage(confirmPkg);
         }}
         title={confirmPkg?.name ?? ""}
-        description={confirmPkg?.description ?? confirmPkg?.label ?? ""}
+        description={confirmPkg ? packageDescription(confirmPkg, locale) : ""}
         priceLabel={confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""}
         balance={loading ? undefined : (balance?.amount ?? 0)}
         amount={confirmPkg?.amount_gel}
@@ -428,7 +429,7 @@ export default function PropertyBalanceClient() {
         }
         conditions={
           confirmPkg?.category === "sms"
-            ? [t("purchaseTerms.smsConsent")]
+            ? [t("purchaseTerms.smsCredits"), t("purchaseTerms.smsConsent")]
             : undefined
         }
       />

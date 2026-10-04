@@ -4,7 +4,8 @@ import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { buildPageMetadata } from "@/lib/seo";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
-import { getStatusCards } from "@/lib/status-cards/server";
+import { getLiveStatusCards } from "@/lib/status-cards/live";
+import { DETAIL_AUX_TIMEOUT_MS } from "@/lib/with-timeout";
 import SearchPageClient from "./SearchPageClient";
 import { firstPhotoOnly } from "@/lib/utils/photos";
 
@@ -134,8 +135,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     query = query.eq("ownership_verified", true);
   }
 
+  // This page renders per request, so the live-card reads get the short
+  // secondary-read budget: a slow provider falls back to the admin card instead
+  // of holding the results.
   const [statusCards, { data: properties }] = await Promise.all([
-    getStatusCards(),
+    getLiveStatusCards(DETAIL_AUX_TIMEOUT_MS),
     query
       .order("is_super_vip", { ascending: false })
       .order("is_vip", { ascending: false })
