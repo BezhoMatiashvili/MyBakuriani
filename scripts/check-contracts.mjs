@@ -281,6 +281,33 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else fail(`C31: gate migration ${gateFile} raises HINT '${sqlHint}' but plans.ts matches '${hint}'`);
 }
 
+// C31 — a rental is public only while its owner's membership is active. The
+// newest public_properties definition must keep the gate's predicate (a view
+// re-created from an older text silently shows lapsed rentals again), and the
+// contact route must check that view before revealing a property's number.
+{
+  const viewFile = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .filter((f) => /VIEW public\.public_properties\b/.test(read(join("supabase/migrations", f))))
+    .at(-1);
+  const view = viewFile && read(join("supabase/migrations", viewFile)).match(/CREATE OR REPLACE VIEW public\.public_properties\b[^;]*;/)?.[0];
+  const needed = [
+    /COALESCE\(pr\.is_for_sale, false\) OR \(EXISTS/,
+    /FROM public\.user_subscriptions s/,
+    /s\.user_id = pr\.owner_id/,
+    /s\.status = 'active'/,
+    /s\.starts_at <= now\(\)/,
+    /s\.expires_at > now\(\)/,
+  ];
+  const missing = view ? needed.filter((re) => !re.test(view)).map(String) : ["view statement"];
+  if (missing.length) fail(`C31: ${viewFile ?? "no migration"} public_properties lacks the membership predicate: ${missing.join(", ")}`);
+  else ok(`C31: ${viewFile} hides rentals of owners without an active membership`);
+  const contact = read("src/app/api/listings/[kind]/[id]/contact/route.ts");
+  if (/from\("public_properties"\)/.test(contact)) ok("C31: the contact route checks public_properties before revealing a property's number");
+  else fail("C31: src/app/api/listings/[kind]/[id]/contact/route.ts no longer checks public_properties (a hidden rental's number is revealed)");
+}
+
 // ---------------------------------------------------------------------------
 // C32 — Keepz payments. (a) The origin-less POST routes (callback, reconcile)
 // exist, and the middleware exempts exactly the shared list — not a copy that

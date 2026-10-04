@@ -3772,6 +3772,34 @@
         "legacy_deleted": "Booking deleted"
       }
     },
+    "list": {
+      "title": "Bookings",
+      "searchPlaceholder": "Name or phone",
+      "filtersLabel": "Filter bookings",
+      "filters": {
+        "current": "Current",
+        "upcoming": "Upcoming",
+        "past": "Past",
+        "recent": "Recently added",
+        "cancelled": "Cancelled"
+      },
+      "empty": {
+        "current": "No guests are staying here right now.",
+        "upcoming": "No upcoming bookings.",
+        "past": "No past bookings.",
+        "recent": "No bookings yet.",
+        "cancelled": "No cancelled bookings."
+      },
+      "noMatches": "No bookings match this search.",
+      "loadError": "Couldn't load bookings.",
+      "retry": "Try again",
+      "unnamedGuest": "No guest name",
+      "nights": "{count, plural, one {# night} other {# nights}}",
+      "guests": "{count, plural, one {# guest} other {# guests}}",
+      "addedOn": "Added {date}",
+      "restore": "Restore",
+      "showMore": "Show more ({count})"
+    },
     "saveError": "Couldn't save. Please try again."
   },
   "RenterListings": {

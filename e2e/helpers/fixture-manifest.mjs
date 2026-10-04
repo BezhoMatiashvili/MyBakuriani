@@ -11,6 +11,7 @@ export const FIXTURE_IDS = Object.freeze({
   employment: "aae2ff00-0009-4000-a000-000000000009",
   organization: "aae2ff00-d001-4000-a000-000000000001",
   organizationSubscription: "aae2ff00-d002-4000-a000-000000000001",
+  renterMembership: "aae2ff00-d003-4000-a000-000000000001",
   apartment: "aae2ff00-1001-4000-a000-000000000001",
   villa: "aae2ff00-1002-4000-a000-000000000002",
   sale: "aae2ff00-1003-4000-a000-000000000003",

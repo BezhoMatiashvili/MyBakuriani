@@ -307,6 +307,17 @@ test.describe("Ownership verification", () => {
       .update({ phone: null })
       .in("id", [owner.id, stranger.id, admin.id]);
     expect(cleared.error).toBeNull();
+    // C31: a rental is public only while its owner's membership is active.
+    // Deleting the profiles in afterAll cascades these away.
+    const memberships = await supabaseAdmin.from("user_subscriptions").insert(
+      [owner.id, stranger.id, admin.id].map((user_id) => ({
+        user_id,
+        starts_at: new Date(Date.now() - 86_400_000).toISOString(),
+        expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+        status: "active",
+      })),
+    );
+    expect(memberships.error).toBeNull();
 
     const rental = {
       type: "apartment" as const,

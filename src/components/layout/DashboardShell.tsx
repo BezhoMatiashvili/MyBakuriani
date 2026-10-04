@@ -594,6 +594,10 @@ export function DashboardShell({
 
   // One notifications subscription for every cabinet: the provider wraps
   // whichever shell branch renders, so each topbar's bell shares it.
+  // Each scrolling <main> is `relative` so absolutely positioned page content
+  // (every `sr-only` input or label) scrolls inside it; without a positioned
+  // ancestor it sits in the window instead and stretches the document, letting
+  // the whole shell scroll up over blank space.
   function renderShell() {
     if (isAdmin) {
       return (
@@ -608,7 +612,7 @@ export function DashboardShell({
               userName={displayName}
               notificationCount={totalUnread}
             />
-            <main className="h-0 w-full flex-1 overflow-y-auto p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-8 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8 xl:p-10">
+            <main className="relative h-0 w-full flex-1 overflow-y-auto p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-8 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8 xl:p-10">
               {children}
             </main>
           </div>
@@ -644,7 +648,7 @@ export function DashboardShell({
               smsRemaining={smsRemaining}
               notificationCount={totalUnread}
             />
-            <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+            <main className="relative h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
               {normalizedPath === "/dashboard/renter" && (
                 <div className="border-b border-[#E2E8F0] bg-white px-4 lg:hidden">
                   <button
@@ -725,7 +729,7 @@ export function DashboardShell({
                 smsRemaining={smsRemaining}
                 notificationCount={totalUnread}
               />
-              <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+              <main className="relative h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
                 <div
                   className={
                     normalizedPath === "/dashboard/seller"
@@ -765,7 +769,7 @@ export function DashboardShell({
           />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <GuestTopbar notificationCount={totalUnread} />
-            <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+            <main className="relative h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
               <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
                 {children}
               </div>
@@ -798,7 +802,7 @@ export function DashboardShell({
               available={cleanerAvailable}
               onAvailableChange={handleCleanerAvailableChange}
             />
-            <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+            <main className="relative h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
               <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
                 {children}
               </div>
@@ -830,7 +834,7 @@ export function DashboardShell({
               smsRemaining={smsRemaining}
               notificationCount={totalUnread}
             />
-            <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+            <main className="relative h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
               <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
                 {children}
               </div>
@@ -869,7 +873,7 @@ export function DashboardShell({
               notificationCount={totalUnread}
               basePath={serviceBasePath}
             />
-            <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+            <main className="relative h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
               <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
                 {children}
               </div>

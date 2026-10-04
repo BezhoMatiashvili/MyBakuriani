@@ -2,7 +2,7 @@ import { test, expect } from "../helpers/fixtures";
 import type { Locator, Page, Response } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { properties, supabaseAdmin } from "../helpers/supabase";
-import { TEST_IDS } from "../helpers/seed";
+import { TEST_IDS, seedRenterMembership } from "../helpers/seed";
 
 const RENTER_MEMBERSHIP_PACKAGE_IDS = {
   season: "aae2ff00-e101-4000-a000-000000000001",
@@ -799,6 +799,8 @@ test.describe("Renter membership", () => {
 
   test.afterAll(async () => {
     await clearMemberships();
+    // Public pages show the renter's seeded rentals only with a membership (C31).
+    await seedRenterMembership();
     await supabaseAdmin
       .from("pricing_packages")
       .delete()

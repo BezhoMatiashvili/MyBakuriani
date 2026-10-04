@@ -25,6 +25,7 @@ import AddBookingModal, {
 } from "@/components/renter/AddBookingModal";
 import PriceRangeModal from "@/components/renter/PriceRangeModal";
 import BookingHistoryDrawer from "@/components/renter/BookingHistoryDrawer";
+import BookingListPanel from "@/components/renter/BookingListPanel";
 import AvailabilityRangeModal, {
   type AvailabilityAction,
 } from "@/components/calendar/AvailabilityRangeModal";
@@ -157,6 +158,10 @@ export default function RenterCalendarPage() {
   const [platformBookings, setPlatformBookings] = useState<
     PlatformBookingRow[]
   >([]);
+  // Every manual booking of the property, for the filterable list.
+  const [bookingList, setBookingList] = useState<ManualBooking[]>([]);
+  const [bookingListLoading, setBookingListLoading] = useState(true);
+  const [bookingListError, setBookingListError] = useState(false);
 
   // Details modal opened by tapping a booked day.
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -384,10 +389,45 @@ export default function RenterCalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId, year, month]);
 
+  // All manual bookings of the property, any date or status, for the list
+  // under the grid. Month-independent; refetched after every write below.
+  const fetchBookingList = useCallback(async () => {
+    if (!selectedPropertyId || !user) return;
+    const propertyId = selectedPropertyId;
+    const { data, error } = await supabase
+      .from("manual_bookings")
+      .select("*")
+      .eq("owner_id", user.id)
+      .eq("property_id", propertyId)
+      .order("check_in", { ascending: false });
+    if (selectedPropertyRef.current !== propertyId) return;
+    setBookingListError(Boolean(error));
+    if (!error) setBookingList(data ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId, user]);
+
+  // Only the latest load may clear the spinner, so a slow response for the
+  // previous property can't flash the new one's empty state.
+  const bookingListSeqRef = useRef(0);
+  const loadBookingList = useCallback(() => {
+    const seq = ++bookingListSeqRef.current;
+    setBookingListLoading(true);
+    return fetchBookingList().finally(() => {
+      if (seq === bookingListSeqRef.current) setBookingListLoading(false);
+    });
+  }, [fetchBookingList]);
+
+  useEffect(() => {
+    setBookingList([]);
+    setBookingListError(false);
+    if (selectedPropertyId) void loadBookingList();
+  }, [loadBookingList, selectedPropertyId]);
+
   // `manual_bookings` is not in the supabase_realtime publication (contract
   // C7), so there is no live channel for it: every write path on this page
-  // awaits fetchBookings() itself, and the calendar_blocks channel below covers
-  // cross-client convergence for the nights a booking occupies.
+  // awaits fetchBookings() and fetchBookingList() itself, and the
+  // calendar_blocks channel below covers cross-client convergence for the
+  // nights a booking occupies.
 
   const scheduleCalendarRefresh = useCallback(
     (includeBookings = false) => {
@@ -400,11 +440,12 @@ export default function RenterCalendarPage() {
         const shouldFetchBookings = calendarRefreshBookingsRef.current;
         calendarRefreshBookingsRef.current = false;
         const jobs: Promise<unknown>[] = [fetchBlocks(), fetchOccupancy()];
-        if (shouldFetchBookings) jobs.push(fetchBookings());
+        if (shouldFetchBookings)
+          jobs.push(fetchBookings(), fetchBookingList());
         void Promise.all(jobs);
       }, 200);
     },
-    [fetchBlocks, fetchBookings, fetchOccupancy],
+    [fetchBlocks, fetchBookings, fetchOccupancy, fetchBookingList],
   );
 
   const scheduleCalendarRefreshRef = useRef(scheduleCalendarRefresh);
@@ -738,7 +779,12 @@ export default function RenterCalendarPage() {
       p_client_list: payload.clientList,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
-    await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
+    await Promise.all([
+      fetchBlocks(),
+      fetchBookings(),
+      fetchOccupancy(),
+      fetchBookingList(),
+    ]);
     await revalidatePublicProperty(selectedPropertyId);
     return { ok: true, bookingId: data.id };
   };
@@ -768,7 +814,12 @@ export default function RenterCalendarPage() {
       p_client_list: payload.clientList,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
-    await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
+    await Promise.all([
+      fetchBlocks(),
+      fetchBookings(),
+      fetchOccupancy(),
+      fetchBookingList(),
+    ]);
     if (selectedPropertyId) await revalidatePublicProperty(selectedPropertyId);
     return { ok: true };
   };
@@ -782,7 +833,12 @@ export default function RenterCalendarPage() {
       p_id: editingBooking.id,
     });
     if (error) return { ok: false, errorCode: "generic" };
-    await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
+    await Promise.all([
+      fetchBlocks(),
+      fetchBookings(),
+      fetchOccupancy(),
+      fetchBookingList(),
+    ]);
     setHistoryRefreshToken((value) => value + 1);
     try {
       await revalidatePublicProperty(selectedPropertyId);
@@ -812,7 +868,12 @@ export default function RenterCalendarPage() {
       toast.error(t("history.restoreError"));
       return "error";
     }
-    await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
+    await Promise.all([
+      fetchBlocks(),
+      fetchBookings(),
+      fetchOccupancy(),
+      fetchBookingList(),
+    ]);
     setHistoryRefreshToken((value) => value + 1);
     if (selectedPropertyId) {
       try {
@@ -838,6 +899,17 @@ export default function RenterCalendarPage() {
       setEditingBooking(null);
       setDetailsMode("view");
     }
+    setDetailsOpen(true);
+  };
+
+  // A row in the booking list opens the same edit modal as a booked day and
+  // moves the grid to the month the stay starts in.
+  const handleListOpen = (booking: ManualBooking) => {
+    const [y, m] = booking.check_in.split("-").map(Number);
+    setCurrentDate(new Date(y, m - 1, 1));
+    setEditingBooking(booking);
+    setViewBooking(null);
+    setDetailsMode("edit");
     setDetailsOpen(true);
   };
 
@@ -885,6 +957,8 @@ export default function RenterCalendarPage() {
                           setPriceOverrides([]);
                           setManualBookings([]);
                           setPlatformBookings([]);
+                          setBookingList([]);
+                          setBookingListLoading(true);
                           setOccupancyReady(false);
                           setSelectedPropertyId(p.id);
                           setPropertyOpen(false);
@@ -1053,6 +1127,18 @@ export default function RenterCalendarPage() {
       </motion.div>
 
       <p className="text-[11px] text-[#94A3B8] md:text-[12px]">{t("hint")}</p>
+
+      {selectedPropertyId && (
+        <BookingListPanel
+          bookings={bookingList}
+          loading={bookingListLoading}
+          error={bookingListError}
+          onRetry={() => void loadBookingList()}
+          todayIso={todayIso}
+          onOpen={handleListOpen}
+          onRestore={handleRestoreBooking}
+        />
+      )}
 
       <AddBookingModal
         isOpen={addBookingOpen}

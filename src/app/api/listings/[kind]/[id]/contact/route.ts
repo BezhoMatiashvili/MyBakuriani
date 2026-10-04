@@ -45,6 +45,16 @@ export async function POST(
           .maybeSingle(),
   );
   lookup.catch(() => {});
+  // C31: a rental whose owner holds no active seasonal membership is hidden
+  // from the public, and so is its number. public_properties is the one
+  // definition of "publicly visible", so the check reads it, in parallel.
+  const shown =
+    kind === "property"
+      ? Promise.resolve(
+          db.from("public_properties").select("id").eq("id", id).maybeSingle(),
+        )
+      : null;
+  shown?.catch(() => {});
   const body = (await req.json().catch(() => null)) as ContactRequest | null;
   const ip = getClientIp(req);
   const user = await getCurrentUser();
@@ -100,6 +110,18 @@ export async function POST(
     return Response.json({ error: "lookup_failed" }, { status: 500 });
   }
   if (!row) return Response.json({ error: "not_found" }, { status: 404 });
+  if (shown) {
+    const { data: visible, error: shownError } = await shown;
+    if (shownError) {
+      console.error("Listing contact visibility lookup failed", {
+        kind,
+        id,
+        code: shownError.code,
+      });
+      return Response.json({ error: "lookup_failed" }, { status: 500 });
+    }
+    if (!visible) return Response.json({ error: "not_found" }, { status: 404 });
+  }
   // This table is intentionally service-write-only.  It records the reveal,
   // not the revealed value, and makes rate-limit/audit investigations possible.
   // Its result was never checked, so it runs after the response is sent
