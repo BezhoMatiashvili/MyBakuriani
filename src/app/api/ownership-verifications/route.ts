@@ -47,8 +47,10 @@ function parseRequest(body: unknown): OwnershipSubmitRequest | null {
   for (const item of items) {
     if (!item || typeof item !== "object") return null;
     const { kind, id, documentId } = item as Record<string, unknown>;
+    // Only property listings (rentals, sales, hotels) are verified. The RPC
+    // still takes service items, so this route is the gate.
     if (
-      (kind !== "property" && kind !== "service") ||
+      kind !== "property" ||
       typeof id !== "string" ||
       !isUuid(id) ||
       typeof documentId !== "string" ||

@@ -21,7 +21,6 @@ import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { isValidGePhone } from "@/lib/utils/number";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
-import { ownershipVerificationUrl } from "@/lib/utils/listingUrls";
 import {
   contentChangeErrorKey,
   isContentChangeError,
@@ -374,25 +373,15 @@ function CreateTransportPageInner() {
         await submitContentChange("service", editId, payload);
         router.push("/dashboard/transport");
       } else {
-        const { data: inserted, error: insertError } = await supabase
-          .from("services")
-          .insert({
-            ...payload,
-            owner_id: user.id,
-            category: "transport",
-            status: "pending",
-          })
-          .select("id")
-          .single();
+        const { error: insertError } = await supabase.from("services").insert({
+          ...payload,
+          owner_id: user.id,
+          category: "transport",
+          status: "pending",
+        });
 
         if (insertError) throw insertError;
-        if (!inserted) throw new Error(tShared("genericError"));
-        router.push(
-          ownershipVerificationUrl("service", inserted.id, {
-            created: true,
-            next: "/dashboard/transport",
-          }),
-        );
+        router.push("/dashboard/transport");
       }
     } catch (err) {
       setError(

@@ -30,7 +30,7 @@ export function cabinetLabel(cabinet: SupportCabinet): string {
 }
 
 const SHARED_MAP = `- /create "განცხადების დამატება" (orange button in the header, the cabinet switcher and dashboards): pick a category, then fill in its form.
-- Cabinet switcher: the name chip at the top of the sidebar opens "სივრცის შეცვლა" with the user's cabinets, "შესვლის მეთოდები" (/dashboard/account), "მესაკუთრეობის დადასტურება" (/dashboard/account/ownership) and "სტუმრის რეჟიმი" (/dashboard/guest).
+- Cabinet switcher: the name chip at the top of the sidebar opens "სივრცის შეცვლა" with the user's cabinets, "შესვლის მეთოდები" (/dashboard/account), "მესაკუთრეობის დადასტურება" (/dashboard/account/ownership; only for users with a rental, hotel or sale listing) and "სტუმრის რეჟიმი" (/dashboard/guest).
 - Header bell: notifications from every cabinet; "ყველას ნახვა" opens /notifications.
 - On phones the sidebar is replaced by a bottom bar with 3 tabs and "მეტი" (more).
 - Public pages: /pricing (prices), /faq, /contact.`;
@@ -96,7 +96,7 @@ const CABINET_MAPS: Record<SupportCabinet, string> = {
 - /dashboard/admin/settings "ტარიფები და პაკეტები": prices.
 - "ლოკაციის ზონები", "სტატუს-ბარათები" (weather, lifts, road, cameras), "გზამკვლევი" (the /bakuriani resort guide's texts in ka/en/ru: a tab per guide page, a language switch, "შენახვა"), "ფინანსები", /dashboard/admin/payments "ბარათით გადახდები", /dashboard/admin/moderation "რეკლამები", "მასობრივი დაგზავნა", "პრომო კოდები", "ბანერები", /dashboard/admin/seo "სიახლეები" (blog).`,
   account: `- /dashboard/account "შესვლის მეთოდები": link Google ("Google-ის დაკავშირება"), the ownership card, "შეტყობინებების პარამეტრები" (marketing SMS / e-mail choices).
-- /dashboard/account/ownership "მესაკუთრეობის დადასტურება": pick listings, upload an ID and a registry extract, "გაგზავნა დასადასტურებლად".`,
+- /dashboard/account/ownership "მესაკუთრეობის დადასტურება": pick property listings (rentals, hotels, sales), upload an ID and a registry extract, "გაგზავნა დასადასტურებლად".`,
   public: `- / (home page): the search box with "გაქირავება" / "ყიდვა" (rent or buy), "ლოკაცია (ზონა)", dates, guests and "ძებნა"; live cards for weather, lifts, the road and cameras; "ცხელი შეთავაზებები" (discounts); sections for hotels, apartments and cottages, transport, services, entertainment, food, jobs and the blog.
 - Listings by category: /apartments "ბინები", /hotels "სასტუმროები", /sales (property for sale), /food "კვება", /services "სერვისები", /entertainment "გართობა", /transport "ტრანსპორტი", /employment "დასაქმება"; /search searches everything with filters ("ფილტრები").
 - A listing page: photos, price, facts, the map, "დარეკვა" (shows the owner's number; there is no online booking), WhatsApp, the heart "რჩეულებში დამატება" (needs an account), share. A job page has an apply button (CV optional).
@@ -116,7 +116,7 @@ export function siteMapFor(cabinet: SupportCabinet): string {
 }
 
 export const SITE_FACTS = `Publishing
-- Every new listing is saved as pending ("მოლოდინში") and appears on the site only after an admin approves it. After publishing, the user is offered ownership verification right away ("მოგვიანებით" skips it).
+- Every new listing is saved as pending ("მოლოდინში") and appears on the site only after an admin approves it. After publishing a rental, hotel or sale listing, the user is offered ownership verification right away ("მოგვიანებით" skips it); service listings (food, transport, entertainment, employment, cleaning, handyman) have no ownership verification.
 - Editing a published listing's public fields sends the change to admin review; only one pending change per listing. Calendar availability, day prices and profile name/phone/photo change at once.
 - Required fields are marked *. Titles: max 35 characters (rental, sale). Phone: 9 digits starting with 5.
 - Photos per form: rental 1-10, sale 3-15, food 2-10, transport 1-10, entertainment 1-5, employment none. The first photo is the cover; photos can be dragged to reorder.
@@ -150,7 +150,7 @@ Guests and bookings
 - Cleaners: the owner presses "გამოძახება" on "დამლაგებლები", fills type, start time, address and note, then "გამოძახების გაგზავნა". The cleaner accepts or declines on their dashboard. A pending call-out can be cancelled directly; an accepted one needs "გაუქმების მოთხოვნა" and the cleaner's consent.
 
 Trust and account
-- Ownership verification ("მესაკუთრეობის დადასტურება", /dashboard/account/ownership): choose listings, upload an ID card or passport plus a registry extract (napr.gov.ge for property; the entrepreneurs' registry extract for services), then "გაგზავნა დასადასტურებლად". Only admins see the files, and they are deleted after the decision. Approved listings show "დადასტურებული მესაკუთრე". Changing the owner, cadastral code, address or map pin (for services: title, provider name or category) removes the badge; photo, description and price edits keep it.
+- Ownership verification ("მესაკუთრეობის დადასტურება", /dashboard/account/ownership): only for property listings (rentals, hotels, sales; never services): choose listings, upload an ID card or passport plus a Public Registry extract (napr.gov.ge) per listing, then "გაგზავნა დასადასტურებლად". Only admins see the files, and they are deleted after the decision. Approved listings show "დადასტურებული მესაკუთრე". Changing the owner, cadastral code, address or map pin removes the badge; photo, description and price edits keep it.
 - Sign-in is by e-mail and password or Google. Google can be linked on "შესვლის მეთოდები" (/dashboard/account) with "Google-ის დაკავშირება"; the last sign-in method cannot be removed.
 - Notification settings: marketing SMS and e-mail can be switched off there; service messages cannot.
 - A user can hold several cabinets (guest, rentals, sales, services...) and switches between them with the cabinet switcher.

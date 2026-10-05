@@ -28,8 +28,9 @@ import { supabaseAdmin } from "../helpers/supabase";
 //
 // Everything here is this file's own: three fresh accounts (owner, a stranger
 // and an admin; their phone numbers are cleared, so no SMS can go out, and
-// their @e2e.mybakuriani.test addresses are never e-mailed), two rentals and a
-// restaurant of the owner's, one rental of the stranger's. It does not need the
+// their @e2e.mybakuriani.test addresses are never e-mailed), two rentals, a sale
+// listing and a restaurant of the owner's (services are never verified: the
+// restaurant only proves that), one rental of the stranger's. It does not need the
 // shared seed: run it with --project=cross-role --no-deps --workers=1 against a
 // local production build (E2E_BASE_URL). Every row, file and notice it makes is
 // removed in afterAll. The purge-route test needs E2E_OWNERSHIP_PURGE_SECRET,
@@ -84,6 +85,7 @@ const extract = (name = "extract.pdf"): Upload => ({
 const listings = {
   rental: randomUUID(),
   sibling: randomUUID(),
+  sale: randomUUID(),
   food: randomUUID(),
   strangers: randomUUID(),
   adminOwn: randomUUID(),
@@ -371,6 +373,26 @@ test.describe("Ownership verification", () => {
         description: "E2E ადმინის საკუთარი ბინა",
         location: LOCATION_BEFORE,
       },
+      {
+        id: listings.sale,
+        owner_id: owner.id,
+        type: "apartment" as const,
+        is_for_sale: true,
+        status: "active" as const,
+        title: `${TOKEN} გასაყიდი ბინა`,
+        description: "E2E გასაყიდი ბინა",
+        location: LOCATION_BEFORE,
+        area_sqm: 80,
+        rooms: 3,
+        bathrooms: 1,
+        capacity: 6,
+        sale_price: 120000,
+        currency: "GEL",
+        construction_status: "completed",
+        amenities: [],
+        photos: ["/placeholder-property.jpg"],
+        phone: "+995599000321",
+      },
     ]);
     expect(created.error).toBeNull();
     const restaurant = await supabaseAdmin.from("services").insert({
@@ -445,6 +467,7 @@ test.describe("Ownership verification", () => {
               listings.sibling,
               listings.strangers,
               listings.adminOwn,
+              listings.sale,
             ]),
       ],
       [
@@ -615,7 +638,7 @@ test.describe("Ownership verification", () => {
     expect(Number(busy.headers()["retry-after"])).toBeGreaterThan(0);
   });
 
-  test("an owner verifies a rental and a restaurant in one submission", async () => {
+  test("an owner verifies a rental and a sale listing in one submission", async () => {
     test.setTimeout(150_000);
     // The rental's public page before any decision: no badge.
     const visitor = await anonContext.newPage();
@@ -627,13 +650,15 @@ test.describe("Ownership verification", () => {
       `/dashboard/account/ownership?listing=${key("property", listings.rental)}`,
     );
     const rental = rentalRow(page, "property", listings.rental);
-    const food = rentalRow(page, "service", listings.food);
+    const sale = rentalRow(page, "property", listings.sale);
     await expect(rental).toHaveAttribute("data-status", "none");
-    await expect(food).toHaveAttribute("data-status", "none");
+    await expect(sale).toHaveAttribute("data-status", "none");
+    // Services are not verified: the owner's restaurant is not offered.
+    await expect(rentalRow(page, "service", listings.food)).toHaveCount(0);
     await waitForHydration(page, '[data-testid="ownership-submit"]');
-    // ?listing= preselected the rental; the restaurant joins the same submission.
+    // ?listing= preselected the rental; the sale joins the same submission.
     await expect(rental.getByRole("checkbox")).toBeChecked();
-    await food.getByRole("checkbox").check();
+    await sale.getByRole("checkbox").check();
 
     await page.getByTestId("ownership-identity-input").setInputFiles(idCard());
     await page
@@ -643,9 +668,9 @@ test.describe("Ownership verification", () => {
       .setInputFiles(extract("extract-rental.pdf"));
     await page
       .locator(
-        `[data-testid="ownership-extract-input"][data-listing-key="${key("service", listings.food)}"]`,
+        `[data-testid="ownership-extract-input"][data-listing-key="${key("property", listings.sale)}"]`,
       )
-      .setInputFiles(extract("extract-restaurant.pdf"));
+      .setInputFiles(extract("extract-sale.pdf"));
     await expect(
       page.locator('[data-testid="ownership-slot"][data-state="uploaded"]'),
     ).toHaveCount(3, { timeout: 90_000 });
@@ -655,7 +680,7 @@ test.describe("Ownership verification", () => {
       timeout: 30_000,
     });
     await expect(rental).toHaveAttribute("data-status", "pending");
-    await expect(food).toHaveAttribute("data-status", "pending");
+    await expect(sale).toHaveAttribute("data-status", "pending");
 
     const rows = await verifications(owner.id);
     expect(rows.map((row) => row.status)).toEqual(["pending", "pending"]);
@@ -667,7 +692,7 @@ test.describe("Ownership verification", () => {
     expect(
       rows.find((row) => row.property_id === listings.rental),
     ).toBeTruthy();
-    expect(rows.find((row) => row.service_id === listings.food)).toBeTruthy();
+    expect(rows.find((row) => row.property_id === listings.sale)).toBeTruthy();
 
     // One coalesced queue notice for the admin, pointing at the ownership tab.
     const { data: queue } = await supabaseAdmin
@@ -740,6 +765,31 @@ test.describe("Ownership verification", () => {
       "request_exists",
     );
 
+    // A service listing is never verified, even through the API.
+    const serviceItem = await submit(ownerContext.request, {
+      identityDocumentId: identity,
+      items: [
+        {
+          kind: "service",
+          id: listings.food,
+          documentId: await uploadedId(
+            ownerContext.request,
+            "registry_extract",
+            extract("restaurant.pdf"),
+          ),
+        },
+      ],
+    });
+    expect(serviceItem.status()).toBe(400);
+    expect(((await serviceItem.json()) as { error: string }).error).toBe(
+      "invalid_input",
+    );
+    expect(
+      (await verifications(owner.id)).some(
+        (row) => row.service_id === listings.food,
+      ),
+    ).toBe(false);
+
     // Malformed bodies never reach the database.
     const malformed = await submit(ownerContext.request, {
       identityDocumentId: "x",
@@ -767,7 +817,7 @@ test.describe("Ownership verification", () => {
     };
     const mine = items.filter((item) => item.owner?.id === owner.id);
     expect(mine.map((item) => item.listing.id).sort()).toEqual(
-      [listings.rental, listings.food].sort(),
+      [listings.rental, listings.sale].sort(),
     );
     const rentalItem = mine.find(
       (item) => item.listing.id === listings.rental,
@@ -846,10 +896,10 @@ test.describe("Ownership verification", () => {
     await plain.dispose();
   });
 
-  test("the admin approves the rental and rejects the restaurant", async () => {
+  test("the admin approves the rental and rejects the sale listing", async () => {
     test.setTimeout(120_000);
     const rentalRequest = await verificationFor(listings.rental);
-    const foodRequest = await verificationFor(listings.food);
+    const saleRequest = await verificationFor(listings.sale);
     const identityId = rentalRequest.identity_document_id;
 
     const page = await adminContext.newPage();
@@ -857,8 +907,8 @@ test.describe("Ownership verification", () => {
     const rentalItem = page.locator(
       `[data-ownership-request="${rentalRequest.id}"]`,
     );
-    const foodItem = page.locator(
-      `[data-ownership-request="${foodRequest.id}"]`,
+    const saleItem = page.locator(
+      `[data-ownership-request="${saleRequest.id}"]`,
     );
     await expect(rentalItem).toBeVisible({ timeout: 30_000 });
     await expect(rentalItem.getByText(CADASTRAL)).toBeVisible();
@@ -873,7 +923,7 @@ test.describe("Ownership verification", () => {
     await expect(rentalItem).toHaveCount(0, { timeout: 30_000 });
     expect((await verificationFor(listings.rental)).status).toBe("approved");
     // The rental's extract is deleted at once; the ID stays while the
-    // restaurant still needs it.
+    // sale listing still needs it.
     const rentalExtract = await documentRow(
       rentalRequest.registry_extract_document_id,
     );
@@ -883,21 +933,21 @@ test.describe("Ownership verification", () => {
     expect(identityWhilePending.purged_at).toBeNull();
     expect(await objectExists(identityWhilePending.storage_path)).toBe(true);
 
-    await foodItem
+    await saleItem
       .getByRole("button", { name: "უარყოფა", exact: true })
       .click();
-    await foodItem.getByLabel("უარყოფის მიზეზი").fill(REJECT_REASON);
-    await foodItem
+    await saleItem.getByLabel("უარყოფის მიზეზი").fill(REJECT_REASON);
+    await saleItem
       .getByRole("button", { name: "უარყოფა", exact: true })
       .click();
-    await expect(foodItem).toHaveCount(0, { timeout: 30_000 });
-    const rejected = await verificationFor(listings.food);
+    await expect(saleItem).toHaveCount(0, { timeout: 30_000 });
+    const rejected = await verificationFor(listings.sale);
     expect(rejected).toMatchObject({
       status: "rejected",
       decision_note: REJECT_REASON,
       reviewed_by: admin.id,
     });
-    for (const id of [identityId, foodRequest.registry_extract_document_id]) {
+    for (const id of [identityId, saleRequest.registry_extract_document_id]) {
       const row = await documentRow(id);
       expect(row.purged_at, id).not.toBeNull();
       expect(await objectExists(row.storage_path)).toBe(false);
@@ -913,7 +963,7 @@ test.describe("Ownership verification", () => {
       status: "approved",
       idempotent: true,
     });
-    const flip = await review(adminContext.request, foodRequest.id, "approve");
+    const flip = await review(adminContext.request, saleRequest.id, "approve");
     expect(flip.status()).toBe(409);
     expect(((await flip.json()) as { error: string }).error).toBe(
       "already_decided",
@@ -933,8 +983,8 @@ test.describe("Ownership verification", () => {
     expect(
       notices.map((n) => [n.dashboard_scope, n.title, n.action_url]).sort(),
     ).toEqual([
-      ["food", DECIDED_TITLE, "/dashboard/account/ownership"],
       ["renter", DECIDED_TITLE, "/dashboard/account/ownership"],
+      ["seller", DECIDED_TITLE, "/dashboard/account/ownership"],
     ]);
   });
 
@@ -942,14 +992,14 @@ test.describe("Ownership verification", () => {
     const page = await ownerContext.newPage();
     await page.goto("/dashboard/account/ownership");
     const rental = rentalRow(page, "property", listings.rental);
-    const food = rentalRow(page, "service", listings.food);
+    const sale = rentalRow(page, "property", listings.sale);
     await expect(rental).toHaveAttribute("data-status", "approved");
     await expect(rental).toContainText("მესაკუთრეობა: დადასტურებულია");
     await expect(rental.getByRole("checkbox")).toHaveCount(0);
-    await expect(food).toHaveAttribute("data-status", "rejected");
-    await expect(food).toContainText(`მიზეზი: ${REJECT_REASON}`);
+    await expect(sale).toHaveAttribute("data-status", "rejected");
+    await expect(sale).toContainText(`მიზეზი: ${REJECT_REASON}`);
     // A rejected listing can be sent again.
-    await expect(food.getByRole("checkbox")).toHaveCount(1);
+    await expect(sale.getByRole("checkbox")).toHaveCount(1);
 
     // The renter cabinet shows each rental's state, with a way in for the other.
     await page.goto("/dashboard/renter");
@@ -981,6 +1031,7 @@ test.describe("Ownership verification", () => {
     await expect(page.getByText(BADGE_EXPLANATION)).toBeVisible();
 
     await expectDetailBadge(page, siblingUrl(), false);
+    await expectDetailBadge(page, `/sales/${listings.sale}`, false);
     await expectDetailBadge(page, `/food/${listings.food}`, false);
 
     const card = (id: string) =>

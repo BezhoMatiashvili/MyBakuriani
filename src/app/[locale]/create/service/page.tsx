@@ -24,7 +24,6 @@ import { createClient, createUploadClient } from "@/lib/supabase/client";
 import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { isValidGePhone } from "@/lib/utils/number";
 import { cn } from "@/lib/utils";
-import { ownershipVerificationUrl } from "@/lib/utils/listingUrls";
 import {
   contentChangeErrorKey,
   isContentChangeError,
@@ -343,23 +342,16 @@ function CreateServicePageInner() {
             : "/dashboard/services",
         );
       } else {
-        const { data: inserted, error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from("services")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .insert({ ...payload, owner_id: user.id, status: "pending" } as any)
-          .select("id")
-          .single();
+          .insert({ ...payload, owner_id: user.id, status: "pending" } as any);
 
         if (insertError) throw insertError;
-        if (!inserted) throw new Error(tShared("genericError"));
         router.push(
-          ownershipVerificationUrl("service", inserted.id, {
-            created: true,
-            next:
-              categoryValue === "cleaning"
-                ? "/dashboard/cleaner"
-                : "/dashboard/services",
-          }),
+          categoryValue === "cleaning"
+            ? "/dashboard/cleaner"
+            : "/dashboard/services",
         );
       }
     } catch (err) {

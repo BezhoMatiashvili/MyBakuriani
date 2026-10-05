@@ -38,17 +38,15 @@ import type {
   OwnershipSubmitError,
   OwnershipSubmitRequest,
 } from "@/lib/ownership/types";
-import type { Database } from "@/lib/types/database";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 
-// Owner page for ownership verification (C39): pick listings, upload one ID
-// plus a registry extract per listing, submit for admin review.
+// Owner page for ownership verification (C39): pick property listings
+// (rentals, sales, hotels; services are not verified), upload one ID plus a
+// registry extract per listing, submit for admin review.
 
-type ServiceCategory = Database["public"]["Enums"]["service_category"];
 type StatusKey = "none" | OwnershipVerificationStatus;
-type KindKey = "rental" | "sale" | "hotel" | ServiceCategory;
+type KindKey = "rental" | "sale" | "hotel";
 
 type OwnedListing = {
   kind: OwnershipListingKind;
@@ -58,7 +56,6 @@ type OwnedListing = {
   title: string;
   kindKey: KindKey;
   blocked: boolean;
-  createdAt: number;
 };
 
 type SlotState = "empty" | "waiting" | "uploading" | "uploaded" | "error";
@@ -100,8 +97,6 @@ type UploadJob = {
 };
 
 const IDENTITY_SLOT = "identity";
-/** The one extract the selected services share while the switch is on. */
-const SHARED_SERVICES_SLOT = "services";
 const UPLOAD_URL = "/api/ownership-verifications/documents";
 const SUBMIT_URL = "/api/ownership-verifications";
 const UPLOAD_TIMEOUT_MS = 90_000;
@@ -344,7 +339,6 @@ function OwnershipPageContent() {
   const [listingsError, setListingsError] = useState(false);
   // null until the owner touches the list; `?listing=` preselects meanwhile.
   const [selection, setSelection] = useState<ReadonlySet<string> | null>(null);
-  const [sharedExtract, setSharedExtract] = useState(false);
   const [slots, setSlots] = useState<Record<string, Slot>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<SubmitErrorKey | null>(null);
@@ -374,21 +368,14 @@ function OwnershipPageContent() {
     setListingsError(false);
     const supabase = createClient();
     try {
-      const [properties, services] = await Promise.all([
-        supabase
-          .from("properties")
-          .select("id, title, type, is_for_sale, status, created_at")
-          .eq("owner_id", ownerId)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("services")
-          .select("id, title, category, status, created_at")
-          .eq("owner_id", ownerId)
-          .order("created_at", { ascending: false }),
-      ]);
-      if (properties.error || services.error) throw new Error("load failed");
-      const merged: OwnedListing[] = [
-        ...(properties.data ?? []).map((p): OwnedListing => ({
+      const properties = await supabase
+        .from("properties")
+        .select("id, title, type, is_for_sale, status")
+        .eq("owner_id", ownerId)
+        .order("created_at", { ascending: false });
+      if (properties.error) throw new Error("load failed");
+      setListings(
+        (properties.data ?? []).map((p): OwnedListing => ({
           kind: "property",
           id: p.id,
           key: `property:${p.id}`,
@@ -399,19 +386,8 @@ function OwnershipPageContent() {
               ? "hotel"
               : "rental",
           blocked: p.status === "blocked",
-          createdAt: Date.parse(p.created_at ?? "") || 0,
         })),
-        ...(services.data ?? []).map((s): OwnedListing => ({
-          kind: "service",
-          id: s.id,
-          key: `service:${s.id}`,
-          title: s.title,
-          kindKey: s.category,
-          blocked: s.status === "blocked",
-          createdAt: Date.parse(s.created_at ?? "") || 0,
-        })),
-      ].sort((a, b) => b.createdAt - a.createdAt);
-      setListings(merged);
+      );
     } catch {
       setListingsError(true);
     }
@@ -446,18 +422,11 @@ function OwnershipPageContent() {
   // Selection ∩ selectable, so a listing that gained a request drops out.
   const selected = selectable.filter((l) => rawSelection.has(l.key));
   const selectedKeys = new Set(selected.map((l) => l.key));
-  const selectedProperties = selected.filter((l) => l.kind === "property");
-  const selectedServices = selected.filter((l) => l.kind === "service");
-  const sharedOn = sharedExtract && selectedServices.length >= 2;
   const atCap = selected.length >= MAX_OWNERSHIP_ITEMS;
 
-  // Properties never share an extract; services only through the switch.
-  const extractSlotKey = (listing: OwnedListing) =>
-    listing.kind === "service" && sharedOn ? SHARED_SERVICES_SLOT : listing.key;
+  // Every listing has its own extract.
   const neededSlots =
-    selected.length > 0
-      ? [IDENTITY_SLOT, ...new Set(selected.map(extractSlotKey))]
-      : [];
+    selected.length > 0 ? [IDENTITY_SLOT, ...selected.map((l) => l.key)] : [];
   const missingFiles = neededSlots.some(
     (key) => slots[key]?.state !== "uploaded",
   );
@@ -582,7 +551,7 @@ function OwnershipPageContent() {
     const items = selected.map((l) => ({
       kind: l.kind,
       id: l.id,
-      documentId: slots[extractSlotKey(l)]?.documentId ?? "",
+      documentId: slots[l.key]?.documentId ?? "",
     }));
     if (!identityDocumentId || items.some((item) => !item.documentId)) return;
     const body: OwnershipSubmitRequest = { identityDocumentId, items };
@@ -620,7 +589,6 @@ function OwnershipPageContent() {
       documentIdsRef.current.clear();
       setSlots({});
       setSelection(new Set());
-      setSharedExtract(false);
     } catch {
       // No answer: the submission may still have been stored.
       setSubmitError("generic");
@@ -638,7 +606,6 @@ function OwnershipPageContent() {
   const loadError = listingsError || statusError;
   const loading =
     !loadError && (authLoading || listings === null || statusLoading);
-  const sharedSwitchId = "ownership-shared-extract";
 
   return (
     <div className="mx-auto w-full max-w-[720px] space-y-6">
@@ -853,7 +820,7 @@ function OwnershipPageContent() {
                   </p>
                 ) : (
                   <div className="mt-3 space-y-3">
-                    {selectedProperties.map((listing) => (
+                    {selected.map((listing) => (
                       <FileSlot
                         key={listing.key}
                         slot={slots[listing.key]}
@@ -867,56 +834,6 @@ function OwnershipPageContent() {
                         }
                       />
                     ))}
-                    {selectedServices.length >= 2 ? (
-                      <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-[#F8FAFC] px-3.5">
-                        <label
-                          htmlFor={sharedSwitchId}
-                          className="flex-1 cursor-pointer py-2 text-sm font-medium text-[#0F172A]"
-                        >
-                          {t("ownership.sharedExtract")}
-                        </label>
-                        <Switch
-                          id={sharedSwitchId}
-                          size="lg"
-                          checked={sharedExtract}
-                          onCheckedChange={setSharedExtract}
-                          disabled={submitting}
-                          aria-label={t("ownership.sharedExtract")}
-                        />
-                      </div>
-                    ) : null}
-                    {sharedOn ? (
-                      <FileSlot
-                        slot={slots[SHARED_SERVICES_SLOT]}
-                        title={selectedServices.map((l) => l.title).join(", ")}
-                        hint={t("ownership.extractHintService")}
-                        inputTestId="ownership-extract-input"
-                        listingKey={SHARED_SERVICES_SLOT}
-                        disabled={submitting}
-                        onPick={(file) =>
-                          pickFile(
-                            SHARED_SERVICES_SLOT,
-                            "registry_extract",
-                            file,
-                          )
-                        }
-                      />
-                    ) : (
-                      selectedServices.map((listing) => (
-                        <FileSlot
-                          key={listing.key}
-                          slot={slots[listing.key]}
-                          title={listing.title}
-                          hint={t("ownership.extractHintService")}
-                          inputTestId="ownership-extract-input"
-                          listingKey={listing.key}
-                          disabled={submitting}
-                          onPick={(file) =>
-                            pickFile(listing.key, "registry_extract", file)
-                          }
-                        />
-                      ))
-                    )}
                   </div>
                 )}
               </section>

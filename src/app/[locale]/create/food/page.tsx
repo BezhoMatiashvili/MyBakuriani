@@ -33,7 +33,6 @@ import { safeHttpsUrl } from "@/lib/security";
 import { readMenuPdf, type MenuPdfProblem } from "@/lib/menu-pdf";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
-import { ownershipVerificationUrl } from "@/lib/utils/listingUrls";
 import {
   contentChangeErrorKey,
   isContentChangeError,
@@ -375,24 +374,14 @@ function CreateFoodPageInner() {
         await submitContentChange("service", editId, payload);
         router.push("/dashboard/food");
       } else {
-        const { data: inserted, error: insertError } = await supabase
-          .from("services")
-          .insert({
-            ...payload,
-            owner_id: user.id,
-            status: "pending",
-          })
-          .select("id")
-          .single();
+        const { error: insertError } = await supabase.from("services").insert({
+          ...payload,
+          owner_id: user.id,
+          status: "pending",
+        });
 
         if (insertError) throw insertError;
-        if (!inserted) throw new Error(tShared("genericError"));
-        router.push(
-          ownershipVerificationUrl("service", inserted.id, {
-            created: true,
-            next: "/dashboard/food",
-          }),
-        );
+        router.push("/dashboard/food");
       }
     } catch (err) {
       setError(
