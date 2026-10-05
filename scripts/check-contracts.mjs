@@ -1246,6 +1246,16 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   });
   if (noFacts.length) fail(`C40: these detail pages must render <ListingFacts> and build their description fallback with listingFactsText: ${noFacts.join(", ")}`);
   else ok(`C40: ${factsPages.length} property detail pages state their facts as text and as the description fallback`);
+
+  // The admin edits the guide's copy (site_settings guide_content): it reaches only the surfaces that read `Guide` through
+  // src/lib/guide-content.ts:getGuideTranslator, so no other file may build a `Guide` translator (useTranslations included).
+  const guideReader = "src/lib/guide-content.ts";
+  const noComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/[^\n]*/g, "$1");
+  const guideBypass = srcFiles.filter((f) => f !== guideReader && /namespace:\s*"Guide"|Translations\(\s*"Guide"/.test(noComments(srcText.get(f))));
+  const guideSurfaces = srcFiles.filter((f) => /getGuideTranslator\(/.test(srcText.get(f)) && f !== guideReader);
+  if (guideBypass.length) fail(`C40: these files read the Guide namespace without getGuideTranslator, so admin edits of the guide never reach them: ${guideBypass.join(", ")}`);
+  else if (guideSurfaces.length < 6) fail(`C40: expected the four guide pages, GuideEnd and ZoneListings to read Guide through getGuideTranslator; found ${guideSurfaces.length}`);
+  else ok(`C40: ${guideSurfaces.length} guide surfaces read the admin-editable copy through getGuideTranslator`);
 }
 
 // ---------------------------------------------------------------------------
@@ -1376,20 +1386,23 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
-// C43 — dashboard support assistant (Jev + Gemini via OpenRouter). (a) The key
-// is read only in the server-only OpenRouter client and never NEXT_PUBLIC_;
-// (b) Jev gets its forced show_steps tool built from the on-screen ids and its
-// answer goes through parseJevPlan, never response_format; (c) both model
-// calls keep data_collection "deny"; (d) the route needs a user and rate-limits;
-// (e) the snapshot type carries no field value; (f) both mounts are gated on
-// isSupportConfigured().
+// C43 — support assistant on every page (Gemini Flash + the Jev router via
+// OpenRouter). (a) The key is read only in the server-only OpenRouter client
+// and never NEXT_PUBLIC_; (b) the steps calls get their forced show_steps tool
+// built from the on-screen ids and the answer goes through parseJevPlan, never
+// response_format; (c) both model calls keep data_collection "deny"; (d) the
+// route rate-limits per user, or per IP plus a shared allowance when signed
+// out; (e) the snapshot type carries no field value; (f) all three mounts are
+// gated on isSupportConfigured(); (g) every model id is a Gemini Flash model or
+// the Jev router, and the router's pool is cut to Gemini Flash (the owner's
+// choice: no GPT, DeepSeek or other models).
 // ---------------------------------------------------------------------------
 {
   const clientFile = "src/lib/support/openrouter.ts";
   const serverFile = "src/lib/support/server.ts";
   const routeFile = "src/app/api/support/route.ts";
   const planFile = "src/lib/support/plan.ts";
-  const mounts = ["src/app/[locale]/dashboard/layout.tsx", "src/app/[locale]/create/layout.tsx"];
+  const mounts = ["src/app/[locale]/layout.tsx", "src/app/[locale]/dashboard/layout.tsx", "src/app/[locale]/create/layout.tsx"];
   const problems = [];
   const keyReaders = srcFiles.filter((f) => f !== join(clientFile) && /OPENROUTER_API_KEY/.test(srcText.get(f)));
   if (keyReaders.length) problems.push(`OPENROUTER_API_KEY is read outside ${clientFile}: ${keyReaders.join(", ")}`);
@@ -1402,14 +1415,19 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (!/buildShowStepsTool\(ids\)/.test(server) || !/parseJevPlan\(\s*call\.function\?\.arguments,\s*allowed\s*\)/.test(server)) problems.push(`${serverFile} must build the tool from the on-screen ids and check Jev's answer with parseJevPlan(…, allowed)`);
   if (!/NO_RETENTION = \{ data_collection: "deny" \}/.test(server) || (server.match(/provider: NO_RETENTION/g) ?? []).length < 2) problems.push(`${serverFile}: both model calls must send provider: NO_RETENTION (data_collection "deny")`);
   const route = read(routeFile);
-  if (!/await getCurrentUser\(\)/.test(route) || !/checkRateLimit\(/.test(route)) problems.push(`${routeFile} must require a signed-in user and rate-limit`);
+  if (!/await getCurrentUser\(\)/.test(route) || !/checkRateLimit\(/.test(route)) problems.push(`${routeFile} must rate-limit per signed-in user`);
+  if (!/support:\$\{parsed\.mode\}:ip:\$\{getClientIp\(request\)\}/.test(route) || !/"support:day:anon"/.test(route)) problems.push(`${routeFile} must rate-limit signed-out callers per IP (getClientIp) and under a shared "support:day:anon" allowance`);
+  const modelIds = [...server.matchAll(/"([a-z0-9-]+\/[a-z0-9.*-]+)"/g)].map((m) => m[1]);
+  const offList = modelIds.filter((id) => id !== "typesafe/jev-router" && !/^google\/gemini-[a-z0-9.*-]*flash[a-z0-9.*-]*$/.test(id));
+  if (!modelIds.length || offList.length) problems.push(`${serverFile}: only Gemini Flash models and typesafe/jev-router may be called${offList.length ? ` (found ${offList.join(", ")})` : ""}`);
+  if (!/\{\s*model: JEV_MODEL,\s*plugins: JEV_GEMINI_FLASH/.test(server) || !/id:\s*"jev-router",\s*models:\s*\["google\/gemini-\*flash\*"\],\s*excluded_models:\s*\[[^\]]*"openai\*"[^\]]*"deepseek\*"/.test(server)) problems.push(`${serverFile}: the Jev router must be called with its pool cut to Gemini Flash and the other makers excluded (plugins: JEV_GEMINI_FLASH)`);
   const elementType = read(planFile).match(/export type PageElement = \{([\s\S]*?)\};/)?.[1];
   if (!elementType) problems.push(`could not read PageElement from ${planFile}`);
   else if (/\bvalue\b/.test(elementType)) problems.push(`PageElement in ${planFile} must not carry a field's value`);
   const ungated = mounts.filter((f) => !/\{isSupportConfigured\(\) && <SupportAssistantLoader/.test(read(f)));
   if (ungated.length) problems.push(`the assistant must mount only when isSupportConfigured(): ${ungated.join(", ")}`);
   if (problems.length) problems.forEach((p) => fail(`C43: ${p}`));
-  else ok("C43: OpenRouter key server-only; Jev forced through show_steps + parseJevPlan; no-retention on both calls; route gated; snapshot carries no values");
+  else ok("C43: OpenRouter key server-only; steps forced through show_steps + parseJevPlan; no-retention on both calls; per-user/per-IP limits; Gemini Flash + Jev (Gemini Flash pool) only; snapshot carries no values");
 }
 
 if (failures) {

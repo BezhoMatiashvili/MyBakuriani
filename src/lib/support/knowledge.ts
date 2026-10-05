@@ -21,6 +21,8 @@ const CABINET_LABELS: Record<SupportCabinet, string> = {
   admin: "the Admin panel (/dashboard/admin)",
   account: "the account pages (/dashboard/account)",
   create: "the listing forms (/create)",
+  auth: "sign-in and registration (/auth)",
+  public: "the public site (home page, listings, guides)",
 };
 
 export function cabinetLabel(cabinet: SupportCabinet): string {
@@ -32,6 +34,10 @@ const SHARED_MAP = `- /create "განცხადების დამატ
 - Header bell: notifications from every cabinet; "ყველას ნახვა" opens /notifications.
 - On phones the sidebar is replaced by a bottom bar with 3 tabs and "მეტი" (more).
 - Public pages: /pricing (prices), /faq, /contact.`;
+
+// Visitors outside the dashboards: the public site and sign-in.
+const PUBLIC_SHARED_MAP = `- Header: "შესვლა" (sign in or register; /auth/login), "განცხადების დამატება" (add a listing; needs an account), the language switch, and once signed in "კაბინეტი" (the user's dashboard). On phones and tablets the header shows only "+" (add a listing) and the menu (☰): "შესვლა" and the category links are inside that menu.
+- Public pages: /pricing (prices), /faq, /contact, /blog, /bakuriani (resort guide).`;
 
 const SERVICE_MAP = (base: string, orders: string) =>
   `- ${base} "ჩემი კაბინეტი": the user's listings, "დაამატე სერვისი" (add a listing).
@@ -88,16 +94,25 @@ const CABINET_MAPS: Record<SupportCabinet, string> = {
 - /dashboard/admin/memberships "საწევროს დადასტურება": approve renter memberships.
 - /dashboard/admin/clients "მომხმარებლები": users (with search). Also "კომპანიები", "განცხადებები", "ლოგები", "შეფასებები".
 - /dashboard/admin/settings "ტარიფები და პაკეტები": prices.
-- "ლოკაციის ზონები", "სტატუს-ბარათები" (weather, lifts, road, cameras), "ფინანსები", /dashboard/admin/payments "ბარათით გადახდები", /dashboard/admin/moderation "რეკლამები", "მასობრივი დაგზავნა", "პრომო კოდები", "ბანერები", /dashboard/admin/seo "სიახლეები" (blog).`,
+- "ლოკაციის ზონები", "სტატუს-ბარათები" (weather, lifts, road, cameras), "გზამკვლევი" (the /bakuriani resort guide's texts in ka/en/ru: a tab per guide page, a language switch, "შენახვა"), "ფინანსები", /dashboard/admin/payments "ბარათით გადახდები", /dashboard/admin/moderation "რეკლამები", "მასობრივი დაგზავნა", "პრომო კოდები", "ბანერები", /dashboard/admin/seo "სიახლეები" (blog).`,
   account: `- /dashboard/account "შესვლის მეთოდები": link Google ("Google-ის დაკავშირება"), the ownership card, "შეტყობინებების პარამეტრები" (marketing SMS / e-mail choices).
 - /dashboard/account/ownership "მესაკუთრეობის დადასტურება": pick listings, upload an ID and a registry extract, "გაგზავნა დასადასტურებლად".`,
-  create: `- /create "განცხადების დამატება": tiles "ქირაობა" (rental), "ყიდვა / გაყიდვა" (sale), "დასაქმება" (job), "სერვისები" (services), "ტრანსპორტი", "კვება" (food), "გართობა" (entertainment).
+  public: `- / (home page): the search box with "გაქირავება" / "ყიდვა" (rent or buy), "ლოკაცია (ზონა)", dates, guests and "ძებნა"; live cards for weather, lifts, the road and cameras; "ცხელი შეთავაზებები" (discounts); sections for hotels, apartments and cottages, transport, services, entertainment, food, jobs and the blog.
+- Listings by category: /apartments "ბინები", /hotels "სასტუმროები", /sales (property for sale), /food "კვება", /services "სერვისები", /entertainment "გართობა", /transport "ტრანსპორტი", /employment "დასაქმება"; /search searches everything with filters ("ფილტრები").
+- A listing page: photos, price, facts, the map, "დარეკვა" (shows the owner's number; there is no online booking), WhatsApp, the heart "რჩეულებში დამატება" (needs an account), share. A job page has an apply button (CV optional).
+- Guests looking for a place can also send a Smart Match request after signing in (/dashboard/guest, "ახალი მოთხოვნა"): owners answer with offers.`,
+  auth: `- /auth/login "შესვლა / რეგისტრაცია": e-mail ("ელ. ფოსტა") and password ("პაროლი"), then "შესვლა"; "გაგრძელება Google-ით" signs in or registers with Google; "დაგავიწყდათ პაროლი?" -> /auth/forgot-password (a reset link is e-mailed).
+- To register with e-mail: "არ გაქვთ ანგარიში? რეგისტრაცია", then e-mail, a password of at least 12 characters, "პაროლის დადასტურება" and "რეგისტრაცია". A confirmation link is e-mailed ("ბმულის ხელახლა გაგზავნა" resends it after 60 s; check the spam folder); the link opens a page with the button "ელ. ფოსტის დადასტურება".
+- /auth/register, right after the first sign-in: "პროფილის შექმნა" (name* "სახელი", optional photo "ფოტოს ატვირთვა" and bio), "შემდეგი", then "აირჩიეთ როლი": სტუმარი (guest), გამქირავებელი (renter), გამყიდველი (seller), დამლაგებელი (cleaner), კვება, გართობა, ტრანსპორტი, დასაქმება, ხელოსანი (handyman); "დასრულება". A seller then picks "ინდივიდუალურად", "კომპანიის რეგისტრაცია" or "აგენტად მიბმა".`,
+  create: `- /create "განცხადების დამატება": tiles "გაქირავება" (rental), "ყიდვა / გაყიდვა" (sale), "დასაქმება" (job), "სერვისები" (services), "ტრანსპორტი", "კვება" (food), "გართობა" (entertainment).
 - /create/rental: a 5-step wizard, "გაგრძელება" moves on, the last step has "გამოქვეყნება": 1 "ძირითადი ინფორმაცია" (type*, zone*, cadastral code, description), 2 "ბინის დეტალები და მდებარეობა" (title*, map pin), 3 "კეთილმოწყობა და დეტალები" (area*, smoking*, pets*, meals* for hotels, rooms, guests, amenities), 4 "ფასი და ხელმისაწვდომობა" (price per night*, minimum days, availability), 5 "ფოტოები და კონტაქტი" (1-10 photos*, phone*, WhatsApp). A yellow notice "გაქირავების განცხადებისთვის საჭიროა სეზონური წევრობა" on step 1 means the user has no active membership (or it awaits approval): the rental cannot be published until a membership is active; its button "წევრობის შეძენა" (or "წევრობის სტატუსი") leads to /dashboard/renter.
 - /create/sale, /create/food, /create/service, /create/transport, /create/entertainment, /create/employment: one page each, sections with a progress bar; required fields carry *.`,
 };
 
 export function siteMapFor(cabinet: SupportCabinet): string {
-  return `${CABINET_MAPS[cabinet]}\nEverywhere:\n${SHARED_MAP}`;
+  const shared =
+    cabinet === "public" || cabinet === "auth" ? PUBLIC_SHARED_MAP : SHARED_MAP;
+  return `${CABINET_MAPS[cabinet]}\nEverywhere:\n${shared}`;
 }
 
 export const SITE_FACTS = `Publishing
@@ -125,7 +140,7 @@ Promotion
 - Prices: the package cards on "ბალანსი და VIP", the membership payment window and the public /pricing page.
 
 Money and SMS
-- "ბალანსის შევსება" (top up) is on every "ბალანსი და VIP" page. Card details are entered on Keepz's payment page, never on MyBakuriani. Max 2000 ₾ per card payment. The balance updates after Keepz confirms the payment.
+- "ბალანსის შევსება" (top up) is on every "ბალანსი და VIP" page. The balance is topped up by bank card only (no bank transfer, cash or other method); card details are entered on Keepz's payment page, never on MyBakuriani. Max 2000 ₾ per card payment. The balance updates after Keepz confirms the payment.
 - SMS packages add credits; one message costs 1 credit even when it is split into several SMS. "SMS ცენტრი" sends automatic texts to guests: a check-in reminder the day before, a review request the day after check-out, a win-back invitation 90 days later.
 
 Guests and bookings

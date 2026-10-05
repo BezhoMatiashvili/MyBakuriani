@@ -293,11 +293,7 @@ export default function PropertyCard(props: PropertyCardProps) {
             )}
             <NewlyAddedBadge
               createdAt={createdAt}
-              className={
-                compactGrid
-                  ? "max-w-full truncate px-2 text-[8px] sm:px-2.5 sm:text-[9px]"
-                  : undefined
-              }
+              className={compactGrid ? "max-w-full truncate" : undefined}
             />
           </div>
         </div>

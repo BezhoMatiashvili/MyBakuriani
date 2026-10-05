@@ -3,6 +3,7 @@
 import { Clock } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { LISTING_PILL } from "@/components/shared/listingPill";
 import {
   formatRelativeGe,
   isListingNewlyAdded,
@@ -48,10 +49,7 @@ export function NewlyAddedBadge({
     <span
       data-newly-added
       suppressHydrationWarning
-      className={cn(
-        "inline-flex items-center rounded-full bg-[#22C55E] px-2.5 py-1 text-[9px] font-bold leading-none text-white shadow-[0px_1px_2px_rgba(0,0,0,0.12)]",
-        className,
-      )}
+      className={cn(LISTING_PILL, "bg-[#2563EB] px-6", className)}
     >
       {t("newlyAdded")}
     </span>

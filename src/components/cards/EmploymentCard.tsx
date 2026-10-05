@@ -92,8 +92,14 @@ export default function EmploymentCard({
           : "border-[#E2E8F0] shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)]"
       }`}
     >
-      <div className={cn("flex items-start justify-between gap-2", compactGrid && "pr-10 sm:pr-14")}>
-        <div className="flex min-w-0 flex-wrap gap-1.5">
+      {/* A fresh listing's "new" pill is wider than the room left beside the
+          time chip and heart on a narrow card, so the row wraps in reverse:
+          the time chip and heart keep the top-right corner and the chips drop
+          to a line below (items-end is the top edge under wrap-reverse). The
+          chips' min-content basis wraps the row only when one chip cannot fit;
+          otherwise they wrap inside their own column as before. */}
+      <div className={cn("flex flex-wrap-reverse items-end justify-between gap-2", compactGrid && "pr-10 sm:pr-14")}>
+        <div className="flex min-w-0 grow basis-[min-content] flex-wrap gap-1.5">
           {badge === "urgent" && (
             <span className="inline-flex items-center gap-1 rounded-md bg-[#DCFCE7] px-2 py-1 text-[11px] font-bold text-[#166534]">
               <span className="inline-block size-1.5 rounded-full bg-[#16A34A]" />
@@ -112,7 +118,7 @@ export default function EmploymentCard({
             matches a VIP/urgent chip's height, and -my-3 keeps the heart's
             44px hit area from growing the row, so the title below stays where
             it was. compact-grid keeps its corner heart. */}
-        <div className={cn("flex shrink-0 items-center gap-2", badge && "min-h-6")}>
+        <div className={cn("ml-auto flex shrink-0 items-center gap-2", badge && "min-h-6")}>
           <ListingAgeBadge
             createdAt={createdAt}
             className={compactGrid ? "px-1.5 text-[8px] sm:px-2 sm:text-[10px]" : undefined}

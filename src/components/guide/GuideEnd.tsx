@@ -1,4 +1,3 @@
-import { getTranslations } from "next-intl/server";
 import GuideSection from "@/components/guide/GuideSection";
 import { Link } from "@/i18n/navigation";
 import type { AppLocale } from "@/i18n/routing";
@@ -10,6 +9,7 @@ import {
   GUIDE_ZONE_SLUGS,
   type GuidePageKey,
 } from "@/lib/guide";
+import { getGuideTranslator } from "@/lib/guide-content";
 
 // The closing blocks every guide page shares: links to the rest of the guide,
 // the sources behind its figures and the date they were checked (C40). The
@@ -21,7 +21,7 @@ export default async function GuideEnd({
   locale: AppLocale;
   page: GuidePageKey;
 }) {
-  const t = await getTranslations({ locale, namespace: "Guide" });
+  const t = await getGuideTranslator(locale);
 
   const links: { key: GuidePageKey; href: string; label: string }[] = [
     { key: "hub", href: GUIDE_BASE_PATH, label: t("hub.h1") },

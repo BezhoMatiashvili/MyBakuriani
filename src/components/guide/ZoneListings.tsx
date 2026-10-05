@@ -1,4 +1,3 @@
-import { getTranslations } from "next-intl/server";
 import {
   LANDING_RENTAL_COLUMNS,
   type LandingProperty,
@@ -7,6 +6,7 @@ import PropertyCard from "@/components/cards/PropertyCard";
 import { Link } from "@/i18n/navigation";
 import type { AppLocale } from "@/i18n/routing";
 import type { GuideZoneSlug } from "@/lib/guide";
+import { getGuideTranslator } from "@/lib/guide-content";
 import { isSeedListingId } from "@/lib/seo/sitemap";
 import { createPublicClient } from "@/lib/supabase/server";
 import { firstPhotoOnly } from "@/lib/utils/photos";
@@ -71,7 +71,7 @@ export default async function ZoneListings({
     .slice(0, SHOWN);
   if (rows.length === 0) return null;
 
-  const t = await getTranslations({ locale, namespace: "Guide" });
+  const t = await getGuideTranslator(locale);
 
   return (
     <section

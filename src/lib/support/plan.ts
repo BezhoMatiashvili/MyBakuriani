@@ -11,7 +11,8 @@ export const SUPPORT_LOCALES = ["ka", "en", "ru"] as const;
 export type SupportLocale = (typeof SUPPORT_LOCALES)[number];
 
 // The area of the site the user is in: a dashboard cabinet, the shared
-// account pages, or the /create listing forms.
+// account pages, the /create listing forms, sign-in and registration, or the
+// public site.
 export const SUPPORT_CABINETS = [
   "guest",
   "renter",
@@ -25,6 +26,8 @@ export const SUPPORT_CABINETS = [
   "admin",
   "account",
   "create",
+  "auth",
+  "public",
 ] as const;
 export type SupportCabinet = (typeof SUPPORT_CABINETS)[number];
 
@@ -408,6 +411,16 @@ export function parseGuideGoal(raw: unknown): string {
 }
 
 /**
+ * A start_guide hand-off the model wrote out as text instead of calling the
+ * tool ('Call the start_guide tool with the goal "..."', Flash Lite on
+ * 2026-10-05): its goal ("" when none is quoted), or null for a real answer.
+ */
+export function writtenGuideGoal(text: string): string | null {
+  if (!text.includes(START_GUIDE_TOOL)) return null;
+  return parseGuideGoal({ goal: text.match(/["“„]([^"“”„]{3,})["”“]/)?.[1] });
+}
+
+/**
  * Validates Jev's show_steps arguments against the ids that were on screen.
  * Steps with an unknown target, an unknown action or no instruction are
  * dropped; null means nothing usable is left.
@@ -420,7 +433,18 @@ export function parseJevPlan(
   if (!value) return null;
   const intro = cleanText(value.intro, SUPPORT_LIMITS.intro);
 
-  if (value.kind === "ask") {
+  // The schema requires kind, but a routed model sometimes leaves it out of an
+  // otherwise good answer (DeepSeek did on 1 of 8 probes, 2026-10-05).
+  const kind =
+    value.kind === "ask" || value.kind === "steps"
+      ? value.kind
+      : Array.isArray(value.steps) && value.steps.length > 0
+        ? "steps"
+        : typeof value.question === "string" && value.question.trim()
+          ? "ask"
+          : null;
+
+  if (kind === "ask") {
     const question = cleanText(value.question, SUPPORT_LIMITS.question);
     if (!question) return null;
     const options: string[] = [];
@@ -432,7 +456,7 @@ export function parseJevPlan(
     return { kind: "ask", intro, question, options };
   }
 
-  if (value.kind !== "steps") return null;
+  if (kind !== "steps") return null;
   const steps: JevStep[] = [];
   for (const item of Array.isArray(value.steps) ? value.steps : []) {
     if (steps.length === SUPPORT_LIMITS.steps) break;
@@ -455,9 +479,11 @@ export function cabinetForPath(
   path: string,
   homeRole?: string | null,
 ): SupportCabinet {
-  if (path === "/create" || path.startsWith("/create/")) return "create";
   const [, root, segment] = path.split("/");
-  if (root === "dashboard" && segment) {
+  if (root === "create") return "create";
+  if (root === "auth" || root === "join") return "auth";
+  if (root !== "dashboard") return "public";
+  if (segment) {
     if (segment === "sms") return "renter";
     if (segment === "account" || segment === "payments") return "account";
     if (segment === "service" || segment === "handyman") return "services";

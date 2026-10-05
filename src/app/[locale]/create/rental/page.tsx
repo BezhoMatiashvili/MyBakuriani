@@ -830,23 +830,6 @@ function CreateRentalPageInner() {
                         className={inputClass}
                       />
                     </Field>
-
-                    <Field label={t("location")}>
-                      <select
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        className={inputClass}
-                      >
-                        <option value="" disabled>
-                          {t("selectLocation")}
-                        </option>
-                        {zones.map((zone) => (
-                          <option key={zone.id} value={zone.name_ka}>
-                            {zone.name_ka}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
                   </div>
                   <div className="space-y-5">
                     <Field label={t("exactLocation")}>

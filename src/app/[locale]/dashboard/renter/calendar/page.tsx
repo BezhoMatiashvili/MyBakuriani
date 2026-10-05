@@ -1010,60 +1010,63 @@ export default function RenterCalendarPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-3">
-          <div className="flex flex-wrap items-center gap-2 md:contents">
+        {/* Phones: History + month, then Availability + Price by range, then
+            Add, the same rows whatever the month's name. On md+ the month label
+            has a fixed width, so switching months moves nothing either. */}
+        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+          <div className="flex items-center gap-2 md:contents">
             <button
               type="button"
               disabled={!selectedPropertyId}
               onClick={() => setHistoryOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-black text-[#475569] transition-colors hover:bg-[#F8FAFC] disabled:opacity-50"
+              className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-[12px] font-black text-[#475569] transition-colors hover:bg-[#F8FAFC] disabled:opacity-50 md:min-h-0 md:gap-2 md:px-4 md:text-[13px]"
             >
               <History className="h-4 w-4" />
               {t("history.button")}
             </button>
 
-            <div className="inline-flex items-center rounded-xl border border-[#E2E8F0] bg-white px-2 py-1 shadow-[0px_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="flex min-h-11 min-w-0 flex-1 items-center justify-between rounded-xl border border-[#E2E8F0] bg-white px-1 py-1 shadow-[0px_1px_2px_rgba(15,23,42,0.04)] md:min-h-0 md:flex-none md:px-2">
               <button
                 type="button"
                 onClick={handlePrevMonth}
                 aria-label={t("prevMonth")}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="px-3 text-[13px] font-black text-[#0F172A]">
+              <span className="min-w-0 flex-1 truncate text-center text-[13px] font-black text-[#0F172A] max-[374px]:text-[12px] md:w-[8.5rem] md:flex-none">
                 {tMonths(MONTH_KEYS[month])} {year}
               </span>
               <button
                 type="button"
                 onClick={handleNextMonth}
                 aria-label={t("nextMonth")}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 md:contents">
+          <div className="flex gap-1.5 md:contents">
             <button
               type="button"
               disabled={!selectedPropertyId}
               onClick={() => setAvailabilityModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#D97706] bg-white px-4 py-2.5 text-[13px] font-black text-[#B45309] transition-colors hover:bg-[#FFFBEB] disabled:opacity-50"
+              className="inline-flex min-h-11 min-w-0 flex-auto items-center justify-center gap-1.5 rounded-xl border border-[#D97706] bg-white px-0.5 py-2.5 text-[11px] font-black text-[#B45309] transition-colors hover:bg-[#FFFBEB] disabled:opacity-50 md:min-h-0 md:flex-none md:gap-2 md:px-4 md:text-[13px]"
             >
-              <CalendarRange className="h-4 w-4" strokeWidth={2.4} />
-              {t("availability.button")}
+              <CalendarRange className="h-4 w-4 shrink-0" strokeWidth={2.4} />
+              <span className="truncate">{t("availability.button")}</span>
             </button>
 
             <button
               type="button"
               disabled={!selectedPropertyId}
               onClick={() => setRangeModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#F97316] bg-white px-4 py-2.5 text-[13px] font-black text-[#F97316] transition-colors hover:bg-[#FFF7ED] disabled:opacity-50"
+              className="inline-flex min-h-11 min-w-0 flex-auto items-center justify-center gap-1.5 rounded-xl border border-[#F97316] bg-white px-0.5 py-2.5 text-[11px] font-black text-[#F97316] transition-colors hover:bg-[#FFF7ED] disabled:opacity-50 md:min-h-0 md:flex-none md:gap-2 md:px-4 md:text-[13px]"
             >
-              <CalendarRange className="h-4 w-4" strokeWidth={2.4} />
-              {t("priceRange")}
+              <CalendarRange className="h-4 w-4 shrink-0" strokeWidth={2.4} />
+              <span className="truncate">{t("priceRange")}</span>
             </button>
           </div>
 
@@ -1074,7 +1077,7 @@ export default function RenterCalendarPage() {
               setAddBookingInitial({ checkIn: "", checkOut: "" });
               setAddBookingOpen(true);
             }}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#22C55E] px-5 py-2.5 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(34,197,94,0.3)] transition-colors hover:bg-[#16A34A] disabled:opacity-50 md:w-auto"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#22C55E] px-5 py-2.5 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(34,197,94,0.3)] transition-colors hover:bg-[#16A34A] disabled:opacity-50 md:min-h-0 md:w-auto"
           >
             <Plus className="h-4 w-4" strokeWidth={2.6} />
             {tShared("add")}

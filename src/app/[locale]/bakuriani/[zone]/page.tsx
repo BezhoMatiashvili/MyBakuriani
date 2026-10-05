@@ -14,15 +14,18 @@ import {
   isGuideZoneSlug,
   type GuideZoneSlug,
 } from "@/lib/guide";
+import { getGuideTranslator } from "@/lib/guide-content";
 import { buildPageMetadata } from "@/lib/seo";
 
 // ISR (C28): the copy is static, the nearby listings come from the cookie-free
 // public client. Ten minutes, so a new listing shows up reasonably soon.
 export const revalidate = 600;
 
-// Only the four seeded zones have guide copy; anything else is a real 404.
-export const dynamicParams = false;
-
+// Only the four seeded zones have guide copy; the page answers notFound() for
+// anything else. Not `dynamicParams = false`: in Next 15.5 a page of such a
+// route 404s for good once one of its cache tags is revalidated on demand (an
+// admin save), because the cache then holds no entry and the route has no
+// fallback.
 export function generateStaticParams() {
   return GUIDE_ZONE_SLUGS.map((zone) => ({ zone }));
 }
@@ -43,7 +46,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale, zone } = await params;
   if (!isGuideZoneSlug(zone)) return {};
-  const t = await getTranslations({ locale, namespace: "Guide" });
+  const t = await getGuideTranslator(locale);
   const prefix = META_PREFIX[zone];
   return buildPageMetadata({
     locale,
@@ -64,7 +67,7 @@ export default async function GuideZonePage({
   const { locale, zone } = await params;
   if (!isGuideZoneSlug(zone)) notFound();
 
-  const t = await getTranslations({ locale, namespace: "Guide" });
+  const t = await getGuideTranslator(locale);
   const tZones = await getTranslations({ locale, namespace: "Zones" });
 
   return (

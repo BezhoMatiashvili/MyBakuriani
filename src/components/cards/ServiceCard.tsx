@@ -216,12 +216,15 @@ export default function ServiceCard({
                   size={compactGrid ? "card" : "compact"}
                 />
               </div>
-              <div className="flex items-center gap-1">
+              {/* A fresh listing's "new" pill can be as wide as this column on
+                  a narrow card (the landing rail's 280 px), so the rating
+                  wraps under it instead of pushing the row into the avatar. */}
+              <div className="flex flex-wrap items-center justify-end gap-1">
                 <NewlyAddedBadge
                   createdAt={createdAt}
                   className={
                     compactGrid
-                      ? "max-w-[72px] truncate px-1.5 text-[7px] sm:max-w-none sm:px-2.5 sm:text-[9px]"
+                      ? "max-w-[72px] truncate sm:max-w-none max-sm:h-4 max-sm:px-1.5 max-sm:text-[7px]"
                       : undefined
                   }
                 />
@@ -591,7 +594,7 @@ export default function ServiceCard({
               createdAt={createdAt}
               className={
                 compactGrid
-                  ? "max-w-[calc(100%-0.5rem)] truncate px-1.5 text-[8px] sm:px-2.5 sm:text-[9px]"
+                  ? "max-w-full truncate max-sm:h-4 max-sm:px-1.5 max-sm:text-[8px]"
                   : undefined
               }
             />

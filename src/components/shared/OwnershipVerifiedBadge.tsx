@@ -3,12 +3,14 @@
 import { ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { LISTING_PILL } from "@/components/shared/listingPill";
 
-// The public "ownership verified" mark (C39). Navy brand-primary, a colour no other listing badge
-// uses; the white ring and shadow keep it readable on dark photos. Never an <a>, <button>, <h2>
-// or <h3>: the card-geometry spec finds card titles and CTAs by those tags.
+// The public "ownership verified" mark (C39). Solid green with a white icon and text, no ring or
+// shadow (designer spec of 2026-10-05); on cards it is the size and type of the blue "newly added"
+// pill (LISTING_PILL). Never an <a>, <button>, <h2> or <h3>: the card-geometry spec finds card
+// titles and CTAs by those tags.
 const PILL =
-  "inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-brand-primary text-white ring-1 ring-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.3)]";
+  "inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-[#038033] text-white";
 
 interface OwnershipVerifiedBadgeProps {
   variant: "card" | "icon" | "detail";
@@ -40,11 +42,7 @@ export function OwnershipVerifiedBadge({
     return (
       <span
         data-ownership-verified=""
-        className={cn(
-          PILL,
-          "h-5 shrink-0 px-1.5 text-[11px] font-semibold leading-4",
-          className,
-        )}
+        className={cn(PILL, LISTING_PILL, "shrink-0 gap-1.5 px-3", className)}
       >
         <ShieldCheck aria-hidden className="size-3 shrink-0" />
         {/* Truncates only where a caller lets the pill shrink; leading-4

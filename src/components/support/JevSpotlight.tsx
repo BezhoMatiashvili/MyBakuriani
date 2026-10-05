@@ -260,7 +260,7 @@ export function JevSpotlight({
         ref={bubbleRef}
         role="dialog"
         aria-modal="false"
-        aria-label="Jev"
+        aria-label={t("name")}
         data-testid="jev-bubble"
         className="fixed z-[92] rounded-2xl border border-[#DBEAFE] bg-white p-3.5 shadow-[0_18px_50px_-12px_rgba(15,23,42,0.35)]"
         style={bubbleStyle}
@@ -281,7 +281,9 @@ export function JevSpotlight({
         )}
         <div className="flex items-center gap-2">
           <JevAvatar size="sm" />
-          <span className="text-[13px] font-extrabold text-[#0F172A]">Jev</span>
+          <span className="text-[13px] font-extrabold text-[#0F172A]">
+            {t("name")}
+          </span>
           <span className="rounded-full bg-[#EFF6FF] px-2 py-0.5 text-[11px] font-bold text-[#2563EB]">
             {t("stepOf", { current: index + 1, total })}
           </span>

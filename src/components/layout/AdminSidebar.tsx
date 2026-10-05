@@ -68,6 +68,7 @@ const sections: { titleKey: string; items: NavItem[] }[] = [
         labelKey: "statusCards",
         href: "/dashboard/admin/status-cards",
       },
+      { labelKey: "guide", href: "/dashboard/admin/guide" },
     ],
   },
   {

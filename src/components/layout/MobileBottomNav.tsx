@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import {
   BarChart3,
   Bell,
+  BookOpen,
   Building,
   CalendarDays,
   ChevronRight,
@@ -132,6 +133,11 @@ function getNavigation(role: string): RoleNavigation {
             labelKey: "statusCards",
             href: "/dashboard/admin/status-cards",
             icon: LayoutGrid,
+          },
+          {
+            labelKey: "guide",
+            href: "/dashboard/admin/guide",
+            icon: BookOpen,
           },
           {
             labelKey: "finances",

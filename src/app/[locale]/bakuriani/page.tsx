@@ -10,13 +10,16 @@ import { guideLinks } from "@/components/seo/richLinks";
 import { Link } from "@/i18n/navigation";
 import { routing, type AppLocale } from "@/i18n/routing";
 import { GUIDE_BASE_PATH, GUIDE_ZONE_SLUGS } from "@/lib/guide";
+import { getGuideTranslator } from "@/lib/guide-content";
 import { buildPageMetadata } from "@/lib/seo";
 import { pathForLocale } from "@/lib/seo/alternates";
 import { touristDestinationJsonLd } from "@/lib/seo/jsonld";
 import { SITE_URL } from "@/lib/seo/site";
 
-// ISR (C28): copy only, no cookies or headers.
-export const revalidate = 3600;
+// ISR (C28): copy only, no cookies or headers. Ten minutes, the same as the
+// admin-edited copy's cache (src/lib/guide-content.ts), so an edit reaches
+// visitors behind the edge cache within that.
+export const revalidate = 600;
 
 const FACTS = [
   "where",
@@ -34,7 +37,7 @@ export async function generateMetadata({
   params: Promise<{ locale: AppLocale }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Guide" });
+  const t = await getGuideTranslator(locale);
   return buildPageMetadata({
     locale,
     path: GUIDE_BASE_PATH,
@@ -52,7 +55,7 @@ export default async function GuideHubPage({
   params: Promise<{ locale: AppLocale }>;
 }) {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Guide" });
+  const t = await getGuideTranslator(locale);
   const tZones = await getTranslations({ locale, namespace: "Zones" });
   const tSeo = await getTranslations({ locale, namespace: "Seo" });
 

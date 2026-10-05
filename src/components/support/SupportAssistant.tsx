@@ -10,7 +10,7 @@ import {
 import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { CheckCircle2, Loader2, Sparkles, X } from "lucide-react";
+import { CheckCircle2, Loader2, MessageCircle, X } from "lucide-react";
 import { scanPage, type PageScan } from "@/lib/support/scan";
 import {
   SUPPORT_LIMITS,
@@ -25,7 +25,7 @@ import { JevAvatar } from "./JevAvatar";
 import { JevSpotlight } from "./JevSpotlight";
 import { SupportPanel, type ChatEntry } from "./SupportPanel";
 
-// Each chip starts a Jev walkthrough directly (no Gemini round trip).
+// Each chip starts an on-screen walkthrough directly (no Gemini round trip).
 const QUICK_ACTIONS: Record<SupportCabinet, readonly string[]> = {
   renter: ["addRental", "uploadPhotos", "addBooking", "topUp"],
   seller: ["addSale", "uploadPhotos", "topUp"],
@@ -39,7 +39,10 @@ const QUICK_ACTIONS: Record<SupportCabinet, readonly string[]> = {
   admin: ["reviewListings", "reviewOwnership", "findUser"],
   account: ["verifyOwnership", "linkGoogle"],
   create: ["uploadPhotos", "requiredFields", "publish"],
+  auth: ["register", "forgotPassword", "googleSignIn"],
+  public: ["findPlace", "register", "postListing"],
 };
+const PUBLIC_SIGNED_IN = ["findPlace", "postListing"] as const;
 
 type Guide = {
   goal: string;
@@ -60,8 +63,17 @@ const MAX_ENTRIES = 30;
 const MAX_PLANS = 6;
 // A walkthrough survives page changes in the same tab, not a later visit.
 const GUIDE_TTL_MS = 15 * 60_000;
-// Lets a route change, a modal or the next wizard step render first.
+// Longest wait for a route change, a modal or the next wizard step to render
+// before the page is scanned; most screens settle well before it.
 const SETTLE_MS = 700;
+// The page counts as settled after this long without a change.
+const QUIET_MS = 150;
+// A first question that reads like "how do I / where / I can't" (ka, en, ru):
+// its steps are planned while Gemini decides between an answer and a
+// walkthrough, so a walkthrough starts without a second wait.
+const HOW_TO =
+  /როგორ|სად |ვერ |მინდა|მაჩვენე|დამეხმარ|\b(?:how|where|can'?t|cannot|unable|show me|help me)\b|как |где |не могу|не получается|покажи|помоги/i;
+const PREFETCH_TTL_MS = 2 * 60_000;
 const ADVANCE_MS = 350;
 const CLIENT_TIMEOUT_MS = 45_000;
 const OPTION_SELECTOR =
@@ -92,6 +104,138 @@ async function callSupport(
 
 const wait = (ms: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+type Settle = "none" | "quiet" | "change";
+
+function isOurs(node: Node | null): boolean {
+  const element = node instanceof Element ? node : node?.parentElement;
+  return Boolean(element?.closest("[data-jev-ignore]"));
+}
+
+/**
+ * Resolves once the page has gone QUIET_MS without changing (the widget's
+ * own DOM aside), after SETTLE_MS at most. "change" first waits for the page
+ * to change at all (a click that opens a modal or starts a navigation), so
+ * the scan never catches the screen the user is leaving.
+ */
+function pageSettled(mode: Settle): Promise<void> {
+  if (mode === "none") return Promise.resolve();
+  return new Promise((resolve) => {
+    let quiet: number | undefined;
+    const finish = () => {
+      observer.disconnect();
+      window.clearTimeout(quiet);
+      window.clearTimeout(cap);
+      resolve();
+    };
+    const arm = () => {
+      window.clearTimeout(quiet);
+      quiet = window.setTimeout(finish, QUIET_MS);
+    };
+    const observer = new MutationObserver((records) => {
+      const changed = records.some(
+        (record) =>
+          !isOurs(record.target) &&
+          (record.type !== "childList" ||
+            [...record.addedNodes, ...record.removedNodes].some(
+              (node) => !isOurs(node),
+            )),
+      );
+      if (changed) arm();
+    });
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      characterData: true,
+    });
+    const cap = window.setTimeout(finish, SETTLE_MS);
+    if (mode === "quiet") arm();
+  });
+}
+
+// Supabase keeps the session in sb-<ref>-auth-token cookies that scripts can
+// read; only a hint for which quick questions to offer.
+function looksSignedIn(): boolean {
+  return /(?:^|;\s*)sb-[^=]+-auth-token(?:\.0)?=/.test(document.cookie);
+}
+
+type Lift = { px: number; bar: boolean };
+
+/**
+ * How far above the bottom edge the launcher sits: clear of any fixed bar
+ * along the bottom of the screen (the dashboards' tab bar on phones, a
+ * listing's call bar, a floating banner or notice, the cookie notice),
+ * re-checked as such bars come and go.
+ */
+function useCornerLift(): Lift {
+  const [lift, setLift] = useState<Lift>({ px: 16, bar: false });
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (document.hidden) return;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      // Bars can stack (a floating notice above a listing's call bar), so
+      // look again just above each bar found.
+      let top = height;
+      for (let round = 0; round < 3; round += 1) {
+        const floor = top;
+        for (const x of [width - 24, width - 64]) {
+          for (const y of [floor - 20, floor - 48]) {
+            let node: Element | null | undefined = document
+              .elementsFromPoint(x, y)
+              .find((el) => !el.closest("[data-jev-ignore]"));
+            while (node && node !== document.body) {
+              const { position } = getComputedStyle(node);
+              if (position === "fixed" || position === "sticky") break;
+              node = node.parentElement;
+            }
+            if (!node || node === document.body) continue;
+            const rect = node.getBoundingClientRect();
+            // A bar, not a full-screen overlay or a tall sticky column.
+            if (rect.bottom >= floor - 40 && rect.height < height * 0.4)
+              top = Math.min(top, rect.top);
+          }
+        }
+        if (top === floor) break;
+      }
+      const next =
+        top < height
+          ? { px: Math.round(height - top) + 12, bar: true }
+          : { px: width >= 1024 ? 24 : 16, bar: false };
+      setLift((prev) =>
+        prev.px === next.px && prev.bar === next.bar ? prev : next,
+      );
+    };
+    measure();
+    const timer = window.setInterval(measure, 800);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+  return lift;
+}
+
+// A bar already reaches the screen's edge (safe area included); otherwise the
+// launcher keeps clear of the home indicator.
+function liftStyle(lift: Lift, extra = 0): React.CSSProperties {
+  return {
+    bottom: lift.bar
+      ? lift.px + extra
+      : `calc(env(safe-area-inset-bottom) + ${lift.px + extra}px)`,
+  };
+}
+
+/** Steps planned ahead for a first "how do I" question (see HOW_TO). */
+type Prefetch = {
+  goal: string;
+  path: string;
+  at: number;
+  scan: PageScan;
+  response: Promise<SupportResponse>;
+};
 
 /** Scans once a route that is still loading (skeletons) has rendered. */
 async function settledScan(): Promise<PageScan> {
@@ -155,6 +299,8 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   );
   const [celebrate, setCelebrate] = useState(false);
   const [restored, setRestored] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const lift = useCornerLift();
 
   // Async plan runs and DOM listeners read the latest values from refs.
   const guideRef = useRef<Guide | null>(null);
@@ -166,6 +312,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   const ticketRef = useRef(0);
   const timerRef = useRef<number | undefined>(undefined);
   const lastPathRef = useRef(path);
+  const prefetchRef = useRef<Prefetch | null>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const wasOpenRef = useRef(false);
 
@@ -207,7 +354,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   }, []);
 
   const runPlan = useCallback(
-    async (ticket: number) => {
+    async (ticket: number, settle: Settle) => {
       const stale = () => ticket !== ticketRef.current;
       const current = guideRef.current;
       if (!current || stale()) return;
@@ -222,20 +369,42 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
         return;
       }
       setBusy("plan");
-      const scan = await settledScan();
-      if (stale()) return;
       const { locale, cabinet, path } = contextRef.current;
-      const response = await callSupport({
-        mode: "plan",
-        locale,
-        cabinet,
-        path,
-        title: document.title,
-        goal: current.goal,
-        progress: current.progress,
-        elements: scan.elements,
-      });
+      // Steps already planned for this goal on this screen (see HOW_TO).
+      const prefetch = prefetchRef.current;
+      prefetchRef.current = null;
+      const ahead =
+        prefetch &&
+        current.plans === 0 &&
+        prefetch.goal === current.goal &&
+        prefetch.path === path &&
+        Date.now() - prefetch.at < PREFETCH_TTL_MS
+          ? await prefetch.response
+          : null;
       if (stale()) return;
+      let scan: PageScan;
+      let response: SupportResponse;
+      // An error (a timeout, the hourly limit) is retried by a fresh request.
+      if (ahead && ahead.type !== "error" && prefetch) {
+        scan = prefetch.scan;
+        response = ahead;
+      } else {
+        await pageSettled(settle);
+        if (stale()) return;
+        scan = await settledScan();
+        if (stale()) return;
+        response = await callSupport({
+          mode: "plan",
+          locale,
+          cabinet,
+          path,
+          title: document.title,
+          goal: current.goal,
+          progress: current.progress,
+          elements: scan.elements,
+        });
+        if (stale()) return;
+      }
       setBusy(null);
 
       if (response.type === "plan" && response.plan.kind === "steps") {
@@ -289,12 +458,12 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   );
 
   const schedulePlan = useCallback(
-    (delay: number) => {
+    (settle: Settle) => {
       window.clearTimeout(timerRef.current);
       const ticket = ++ticketRef.current;
       timerRef.current = window.setTimeout(() => {
-        void runPlan(ticket);
-      }, delay);
+        void runPlan(ticket, settle);
+      }, 0);
     },
     [runPlan],
   );
@@ -331,7 +500,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
         status: "planning",
       });
       setOpen(false);
-      schedulePlan(0);
+      schedulePlan("none");
     },
     [cancelPlan, commitGuide, push, schedulePlan],
   );
@@ -364,7 +533,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
       finish();
     } else {
       commitGuide({ ...current, progress, status: "planning" });
-      schedulePlan(SETTLE_MS);
+      schedulePlan("change");
     }
   }, [commitGuide, finish, schedulePlan]);
 
@@ -383,7 +552,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
     const current = guideRef.current;
     if (!current || current.status !== "running") return;
     commitGuide({ ...current, status: "planning" });
-    schedulePlan(SETTLE_MS);
+    schedulePlan("quiet");
   }, [commitGuide, schedulePlan]);
 
   const ask = useCallback(
@@ -398,6 +567,28 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
       setDraft("");
       setBusy("answer");
       const { locale, cabinet, path } = contextRef.current;
+      prefetchRef.current = null;
+      if (history.length === 0 && HOW_TO.test(message)) {
+        const scan = scanPage();
+        const goal = message.slice(0, SUPPORT_LIMITS.goal);
+        if (scan.elements.length > 0)
+          prefetchRef.current = {
+            goal,
+            path,
+            at: Date.now(),
+            scan,
+            response: callSupport({
+              mode: "plan",
+              locale,
+              cabinet,
+              path,
+              title: document.title,
+              goal,
+              progress: [],
+              elements: scan.elements,
+            }),
+          };
+      }
       const response = await callSupport({
         mode: "ask",
         locale,
@@ -410,7 +601,8 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
       if (response.type === "answer") {
         push({ role: "assistant", text: response.text, showMe: message });
       } else if (response.type === "guide") {
-        startGuide(response.goal);
+        // Walk through the steps already planned for the question itself.
+        startGuide(prefetchRef.current?.goal ?? response.goal);
       } else if (response.type === "error") {
         push({
           role: "assistant",
@@ -460,6 +652,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   }, [entries, draft, busy, choose, ask]);
 
   const reset = useCallback(() => {
+    prefetchRef.current = null;
     cancelPlan();
     commitGuide(null);
     setEntries([]);
@@ -489,7 +682,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
           index: 0,
           status: "planning",
         });
-        schedulePlan(SETTLE_MS);
+        schedulePlan("quiet");
       }
     } catch {
       // Storage unavailable or corrupt: start fresh.
@@ -510,7 +703,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
     const current = guideRef.current;
     if (!current) return;
     commitGuide({ ...current, status: "planning" });
-    schedulePlan(SETTLE_MS);
+    schedulePlan("quiet");
   }, [path, commitGuide, schedulePlan]);
 
   useEffect(() => {
@@ -624,9 +817,12 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
     };
   }, [step, target, advance]);
 
-  const quickActions = QUICK_ACTIONS[cabinet].map((key) => t(`quick.${key}`));
-  const corner =
-    "fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-4 lg:bottom-6 lg:right-6";
+  const quickKeys =
+    cabinet === "public" && signedIn
+      ? PUBLIC_SIGNED_IN
+      : QUICK_ACTIONS[cabinet];
+  const quickActions = quickKeys.map((key) => t(`quick.${key}`));
+  const corner = "fixed right-4 lg:right-6";
 
   return (
     <div data-jev-ignore>
@@ -636,18 +832,25 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
             key="launcher"
             ref={launcherRef}
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={() => {
+              setSignedIn(looksSignedIn());
+              setOpen(true);
+            }}
             aria-label={t("launcher")}
             aria-controls="jev-panel"
             data-testid="jev-launcher"
-            className={`${corner} z-[80] flex size-14 items-center justify-center rounded-full bg-gradient-to-br from-[#2563EB] to-[#4F46E5] text-white shadow-[0_12px_32px_-8px_rgba(37,99,235,0.65)] ring-4 ring-white/80`}
+            style={liftStyle(lift)}
+            className={`${corner} z-[80] flex h-14 min-w-14 items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[#2563EB] to-[#4F46E5] text-white shadow-[0_12px_32px_-8px_rgba(37,99,235,0.65)] ring-4 ring-white/80 sm:pl-4 sm:pr-5`}
             initial={reduceMotion ? false : { opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.6 }}
             whileHover={reduceMotion ? undefined : { scale: 1.06 }}
             whileTap={reduceMotion ? undefined : { scale: 0.94 }}
           >
-            <Sparkles className="size-6" strokeWidth={2.25} aria-hidden />
+            <MessageCircle className="size-6" strokeWidth={2.25} aria-hidden />
+            <span className="hidden text-[15px] font-bold sm:inline">
+              {t("name")}
+            </span>
           </motion.button>
         )}
       </AnimatePresence>
@@ -656,6 +859,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
         <div
           role="status"
           data-testid="jev-planning"
+          style={liftStyle(lift)}
           className={`${corner} z-[80] flex min-h-14 items-center gap-2.5 rounded-full bg-white py-1.5 pl-2 pr-1 text-[13px] font-semibold text-[#1E293B] shadow-[0_12px_32px_-8px_rgba(15,23,42,0.35)] ring-1 ring-[#DBEAFE]`}
         >
           <JevAvatar size="md" />
@@ -680,7 +884,8 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
           <motion.div
             key="done"
             role="status"
-            className="fixed bottom-[calc(env(safe-area-inset-bottom)+10rem)] right-4 z-[81] flex items-center gap-2 rounded-full bg-[#16A34A] px-4 py-2.5 text-[14px] font-bold text-white shadow-lg lg:bottom-24 lg:right-6"
+            style={liftStyle(lift, 72)}
+            className={`${corner} z-[81] flex items-center gap-2 rounded-full bg-[#16A34A] px-4 py-2.5 text-[14px] font-bold text-white shadow-lg`}
             initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12 }}

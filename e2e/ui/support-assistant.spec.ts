@@ -46,6 +46,31 @@ async function openAssistant(page: Page) {
 }
 
 test.describe("support assistant (Jev)", () => {
+  test("signed-out visitors get it on the home page, named საპორტი", async ({
+    page,
+  }) => {
+    await page.route("**/api/support", (route: Route) =>
+      route.fulfill({
+        json: {
+          type: "answer",
+          text: "Smart Match-ით სტუმარი მოთხოვნას აგზავნის.",
+        },
+      }),
+    );
+    await acceptCookies(page);
+    await page.goto("/");
+    await openAssistant(page);
+    const panel = page.getByTestId("jev-panel");
+    await expect(panel.getByRole("heading", { name: "საპორტი" })).toBeVisible();
+    await expect(panel).not.toContainText("Jev");
+    await expect(
+      panel.getByRole("button", { name: "როგორ დავრეგისტრირდე?" }),
+    ).toBeVisible();
+    await panel.locator("textarea").fill("რა არის Smart Match?");
+    await panel.locator("textarea").press("Enter");
+    await expect(panel).toContainText("Smart Match-ით სტუმარი");
+  });
+
   test("a plan glows on the element it names and moves on when the user clicks it", async ({
     renterPage: page,
   }) => {

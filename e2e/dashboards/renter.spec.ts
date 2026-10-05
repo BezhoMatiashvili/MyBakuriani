@@ -3,6 +3,7 @@ import type { Locator, Page, Response } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { properties, supabaseAdmin } from "../helpers/supabase";
 import { TEST_IDS, seedRenterMembership } from "../helpers/seed";
+import { configureIsolatedE2E } from "../helpers/env";
 
 const RENTER_MEMBERSHIP_PACKAGE_IDS = {
   season: "aae2ff00-e101-4000-a000-000000000001",
@@ -29,6 +30,18 @@ async function cleanupRenterBlacklistCases() {
     .delete()
     .eq("owner_id", TEST_IDS.renter)
     .in("phone", Object.values(RENTER_BLACKLIST_CASES));
+}
+
+// The cookie banner covers the bottom of a phone screen and would take the
+// clicks meant for the controls under it, so the user has already answered it.
+async function answerCookieBanner(page: Page) {
+  await page.context().addCookies([
+    {
+      name: "mb_cookie_consent",
+      value: encodeURIComponent("v2|analytics=0|location=0"),
+      url: configureIsolatedE2E().baseUrl,
+    },
+  ]);
 }
 
 /** If page redirected to login, skip assertion gracefully */
@@ -418,6 +431,102 @@ test.describe("Renter Dashboard", () => {
     ).toHaveAttribute("aria-pressed", "true");
     await renterPage.waitForTimeout(300);
     expect(calendarMutations).toBe(0);
+  });
+
+  // ბაკურიანი 5 ოქტ.pdf, slide 2: on a phone the controls used to wrap into
+  // other rows whenever a month's name got longer (იანვარი -> თებერვალი).
+  test("calendar controls keep the phone layout in every month", async ({
+    renterPage,
+  }) => {
+    await answerCookieBanner(renterPage);
+    await renterPage.setViewportSize({ width: 360, height: 800 });
+    await renterPage.goto("/dashboard/renter/calendar");
+    if (!(await assertDashboard(renterPage, "/dashboard/renter/calendar")))
+      return;
+
+    const button = (name: string) =>
+      renterPage.getByRole("button", { name, exact: true });
+    const history = button("ისტორია");
+    const prev = button("წინა თვე");
+    const next = button("შემდეგი თვე");
+    const availability = button("ხელმისაწვდომობა");
+    const priceRange = button("ფასი დიაპაზონზე");
+    const add = button("დამატება");
+    const controls = [history, prev, next, availability, priceRange, add];
+    const monthLabel = next.locator("xpath=preceding-sibling::span[1]");
+    await expect(availability).toBeEnabled();
+
+    const boxes = () =>
+      Promise.all(
+        controls.map(async (control) => {
+          const box = await control.boundingBox();
+          expect(box).not.toBeNull();
+          return box!;
+        }),
+      );
+    const truncated = () =>
+      Promise.all(
+        [
+          monthLabel,
+          availability.locator("span"),
+          priceRange.locator("span"),
+        ].map((label) =>
+          label.evaluate((el) => el.scrollWidth > el.clientWidth),
+        ),
+      );
+
+    const first = await boxes();
+    const [hist, prevBox, nextBox, avail, price, addBox] = first;
+    // Row 1: History + month switcher; row 2: Availability + Price by range;
+    // then Add across the full width.
+    expect(prevBox.y + prevBox.height / 2).toBeCloseTo(
+      hist.y + hist.height / 2,
+      0,
+    );
+    expect(nextBox.y).toBeCloseTo(prevBox.y, 0);
+    expect(price.y).toBeCloseTo(avail.y, 0);
+    expect(avail.y).toBeGreaterThanOrEqual(hist.y + hist.height);
+    expect(addBox.y).toBeGreaterThanOrEqual(avail.y + avail.height);
+    expect(addBox.x).toBeCloseTo(hist.x, 0);
+    expect(addBox.x + addBox.width).toBeCloseTo(price.x + price.width, 0);
+    for (const box of [hist, avail, price, addBox])
+      expect(box.height).toBeGreaterThanOrEqual(44);
+
+    // Twelve steps from the current month pass every month name once.
+    for (let i = 0; i < 12; i += 1) {
+      const before = (await monthLabel.textContent()) ?? "";
+      await next.click();
+      await expect(monthLabel).not.toHaveText(before);
+      expect(await truncated()).toEqual([false, false, false]);
+      expect(await boxes()).toEqual(first);
+    }
+  });
+
+  // ბაკურიანი 5 ოქტ.pdf, slide 1: the zone is chosen on step 1 only; step 2
+  // used to repeat the same select, so a second pick overwrote the first.
+  test("rental form asks for the zone on step 1 only", async ({
+    renterPage,
+  }) => {
+    await answerCookieBanner(renterPage);
+    await renterPage.goto(`/create/rental?edit=${TEST_IDS.apartment}`);
+    if (!(await assertDashboard(renterPage, "/create/rental"))) return;
+
+    await expect(renterPage.locator("textarea")).toHaveValue(
+      "ტესტ ბინა ავტომატური ტესტებისთვის",
+    );
+    await expect(
+      renterPage.locator('[data-field="location"] select'),
+    ).toHaveCount(1);
+
+    await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
+    await expect(
+      renterPage.getByText("ბინის დეტალები და მდებარეობა").first(),
+    ).toBeVisible();
+    await expect(
+      renterPage.locator('[data-field="title"] input'),
+    ).toBeVisible();
+    await expect(renterPage.getByText("ზუსტი მდებარეობა რუკაზე")).toBeVisible();
+    await expect(renterPage.locator("select")).toHaveCount(0);
   });
 
   test("win-back automation shows the live production SMS template", async ({

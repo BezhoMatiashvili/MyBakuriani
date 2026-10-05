@@ -231,8 +231,9 @@ export default function InvestmentCard({
 
           {/* A full chip stack (for sale, VIP, discount and the long
               "completed" chip) reaches y 160 px, so the pill, stacked above a
-              "new" chip on the same side, needs a photo of at least 219 px:
-              lg cards only just reach it (223 px at 1024), xl cards clear it.
+              "new" chip on the same side, needs a photo of at least 226 px:
+              lg cards only just reach it (226.5 px at 1024), xl cards clear
+              it (260.5 px).
               Below xl the badge is an icon under the favourite button, where
               no chip reaches. */}
           {isOwnershipVerified && (
@@ -257,7 +258,11 @@ export default function InvestmentCard({
             )}
             <NewlyAddedBadge
               createdAt={createdAt}
-              className={compactGrid ? "px-2 text-[8px]" : undefined}
+              className={
+                compactGrid
+                  ? "max-sm:h-4 max-sm:px-2 max-sm:text-[8px]"
+                  : undefined
+              }
             />
           </div>
         </div>

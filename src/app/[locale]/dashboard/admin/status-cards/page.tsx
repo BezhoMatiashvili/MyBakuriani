@@ -30,6 +30,11 @@ import {
   UPDATED_AT_CARD_IDS,
   formatStatusUpdatedAt,
 } from "@/lib/status-cards/updated-at";
+import {
+  LIFTS_CARD_ID,
+  liftTextFromStatus,
+  liftsFaceValue,
+} from "@/lib/status-cards/lifts";
 
 const LANGS: (keyof LocalizedText)[] = ["ka", "en", "ru"];
 
@@ -62,9 +67,11 @@ const inputClass =
 function LocalizedField({
   value,
   onChange,
+  disabled = false,
 }: {
   value: LocalizedText;
   onChange: (next: LocalizedText) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -76,7 +83,11 @@ function LocalizedField({
           <input
             value={value[lang] ?? ""}
             onChange={(e) => onChange({ ...value, [lang]: e.target.value })}
-            className={inputClass}
+            disabled={disabled}
+            className={cn(
+              inputClass,
+              "disabled:bg-[#F1F5F9] disabled:text-[#64748B]",
+            )}
           />
         </label>
       ))}
@@ -283,6 +294,9 @@ export default function AdminStatusCardsPage() {
               ? formatStatusUpdatedAt(card.updatedAt, locale)
               : null;
             const isMarked = markedIds.has(card.id);
+            // Lifts: the face count follows the lifts' statuses (as the
+            // public card does), so it is shown, not typed.
+            const liftsFace = liftsFaceValue(card);
             return (
               <div
                 key={card.id}
@@ -325,7 +339,7 @@ export default function AdminStatusCardsPage() {
                       {card.label.ka || t("untitled")}
                     </p>
                     <p className="truncate text-xs text-[#94A3B8]">
-                      {card.value.ka}
+                      {(liftsFace ?? card.value).ka}
                       {card.expandable
                         ? ` · ${card.items.length} ${t("items").toLowerCase()}`
                         : ""}
@@ -453,9 +467,15 @@ export default function AdminStatusCardsPage() {
                         {t("value")}
                       </p>
                       <LocalizedField
-                        value={card.value}
+                        value={liftsFace ?? card.value}
                         onChange={(v) => patchCard(idx, { value: v })}
+                        disabled={liftsFace !== null}
                       />
+                      {liftsFace && (
+                        <p className="mt-1.5 text-xs text-[#64748B]">
+                          {t("liftsAutoHint")}
+                        </p>
+                      )}
                     </div>
 
                     {/* Children items */}
@@ -533,9 +553,17 @@ export default function AdminStatusCardsPage() {
                                     }
                                   />
                                   <LocalizedField
-                                    value={item.value ?? { ka: "" }}
+                                    value={
+                                      (card.id === LIFTS_CARD_ID &&
+                                        liftTextFromStatus(item.status)) ||
+                                      item.value || { ka: "" }
+                                    }
                                     onChange={(v) =>
                                       patchItem(idx, j, { value: v })
+                                    }
+                                    disabled={
+                                      card.id === LIFTS_CARD_ID &&
+                                      liftTextFromStatus(item.status) !== null
                                     }
                                   />
                                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

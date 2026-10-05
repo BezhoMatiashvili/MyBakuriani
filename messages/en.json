@@ -38,7 +38,62 @@
     "neverUpdated": "No update date yet",
     "markUpdated": "Update the date",
     "updatedAtHint": "The home page shows this card's last update date. It changes when you edit the card and save. If nothing changed but you checked the information, press “Update the date” and save.",
-    "markedHint": "The date will update when you save"
+    "markedHint": "The date will update when you save",
+    "liftsAutoHint": "Filled in automatically: lifts with the status “Open” / all lifts. A lift set to “Open” or “Closed” gets that word as its text."
+  },
+  "AdminGuide": {
+    "title": "Resort guide",
+    "subtitle": "The texts of the Bakuriani guide (/bakuriani) in Georgian, English and Russian. An edited text replaces the standard one; an empty field brings the standard text back.",
+    "lastSaved": "Last saved: {date}",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Changes saved",
+    "loadError": "Could not load the texts",
+    "saveError": "Could not save",
+    "pending": "{count, plural, one {# unsaved change} other {# unsaved changes}}",
+    "fixProblems": "{count, plural, one {Fix the marked field} other {Fix the # marked fields}}",
+    "pagesLabel": "Guide pages",
+    "languageLabel": "Language",
+    "viewPage": "View page",
+    "note": "The page is rebuilt as soon as you save, but visitors may see the previous version for up to 10 minutes. Sections, the number of questions and the source list stay as they are.",
+    "edited": "Edited",
+    "reset": "Restore standard text",
+    "defaultText": "Standard text",
+    "tagsHint": "Write a link like this:",
+    "groups": {
+      "hub": "Main page",
+      "gettingThere": "Getting there",
+      "skiLifts": "Ski lifts",
+      "didveli": "Didveli",
+      "centri": "Centre",
+      "kokhta": "Kokhta",
+      "25ianebi": "25-ianebi",
+      "common": "Shared texts"
+    },
+    "languages": {
+      "ka": "ქართული",
+      "en": "English",
+      "ru": "Русский"
+    },
+    "fields": {
+      "h1": "Page title (H1)",
+      "lead": "Introduction",
+      "crumb": "Breadcrumb name",
+      "question": "Question {n}",
+      "answer": "Answer {n}",
+      "sectionTitle": "Section title",
+      "metaTitle": "Title for Google",
+      "metaDescription": "Description for Google",
+      "text": "Text"
+    },
+    "problems": {
+      "unknown_key": "This text no longer exists in the guide",
+      "too_long": "The text is too long",
+      "unbalanced_tags": "A link tag is not closed",
+      "tag_not_allowed": "This link is not allowed in this field",
+      "placeholders": "The word in curly braces must stay unchanged",
+      "invalid_format": "The text format is invalid: check braces and apostrophes"
+    }
   },
   "Metadata": {
     "siteTitle": "MyBakuriani — Apartments, Hotels & Cottages in Bakuriani",
@@ -234,6 +289,7 @@
       "tariffsAndPackages": "Tariffs & Packages",
       "locationZones": "Location Zones",
       "statusCards": "Status cards",
+      "guide": "Resort guide",
       "finances": "Finances",
       "ads": "Ads",
       "smsApproval": "SMS Approval",
@@ -6507,19 +6563,20 @@
     "priceSale": "price {price}"
   },
   "Support": {
-    "launcher": "Jev — help",
+    "launcher": "Support — help",
+    "name": "Support",
     "subtitle": "Your MyBakuriani assistant",
-    "greetingTitle": "Hi! I'm Jev",
+    "greetingTitle": "Hi! How can we help?",
     "greetingBody": "Ask me anything about the site. If something is hard to do, I'll show you on screen where to tap and what to type.",
     "quickTitle": "Quick help",
     "placeholder": "Type your question…",
     "send": "Send",
     "close": "Close",
     "reset": "New conversation",
-    "thinking": "Jev is thinking…",
-    "looking": "Jev is looking at your screen…",
+    "thinking": "Writing an answer…",
+    "looking": "Looking at your screen…",
     "showMe": "Show me on screen",
-    "disclaimer": "Jev can make mistakes. Never share passwords or card details.",
+    "disclaimer": "Answers are automatic and can be wrong. Never share passwords or card details.",
     "guideStarting": "Okay! I'll show you on screen, step by step.",
     "stepOf": "Step {current} of {total}",
     "next": "Next",
@@ -6560,7 +6617,12 @@
       "verifyOwnership": "How do I verify ownership?",
       "linkGoogle": "How do I link my Google account?",
       "requiredFields": "Which fields are required?",
-      "publish": "How do I publish my listing?"
+      "publish": "How do I publish my listing?",
+      "findPlace": "How do I find an apartment or hotel?",
+      "register": "How do I register?",
+      "postListing": "How do I post a listing?",
+      "forgotPassword": "I forgot my password",
+      "googleSignIn": "How do I sign in with Google?"
     }
   }
 }

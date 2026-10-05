@@ -13,6 +13,7 @@ import {
   type StatusCard,
   type StatusCardItem,
 } from "@/lib/status-cards/types";
+import { liftsCardFromStatus } from "@/lib/status-cards/lifts";
 import { stampUpdatedAt } from "@/lib/status-cards/updated-at";
 import { safeHttpsUrl } from "@/lib/security";
 
@@ -69,7 +70,9 @@ function sanitizeCard(value: unknown): StatusCard | null {
         .filter((it): it is StatusCardItem => it !== null)
     : [];
   const subValue = sanitizeLocalized(obj.subValue, false);
-  return {
+  // Lifts: the face count and each lift's text follow the statuses. Runs on the
+  // stored cards too, so stampUpdatedAt compares like with like.
+  return liftsCardFromStatus({
     id: str(obj.id) || randomUUID(),
     icon: isStatusIcon(obj.icon) ? obj.icon : "none",
     label,
@@ -79,7 +82,7 @@ function sanitizeCard(value: unknown): StatusCard | null {
     expandable: obj.expandable === true,
     active: obj.active !== false,
     items,
-  };
+  });
 }
 
 export async function GET() {

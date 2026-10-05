@@ -13,6 +13,7 @@ import {
   parseJevPlan,
   parseSupportRequest,
   stripLocale,
+  writtenGuideGoal,
 } from "../../src/lib/support/plan.ts";
 
 test("maskPersonalData hides e-mails and long digit runs, keeps short numbers", () => {
@@ -293,6 +294,40 @@ test("cabinetForPath maps every area of the site", () => {
   assert.equal(cabinetForPath("/dashboard", "seller"), "seller");
   assert.equal(cabinetForPath("/dashboard", "handyman"), "services");
   assert.equal(cabinetForPath("/dashboard", "spaceship"), "guest");
+  // The root layout's copy: public pages, sign-in and registration.
+  assert.equal(cabinetForPath("/"), "public");
+  assert.equal(cabinetForPath("/apartments/abc"), "public");
+  assert.equal(cabinetForPath("/notifications", "seller"), "public");
+  assert.equal(cabinetForPath("/auth/login"), "auth");
+  assert.equal(cabinetForPath("/auth/register"), "auth");
+  assert.equal(cabinetForPath("/join/winter"), "auth");
+  assert.equal(cabinetForPath("/created-by"), "public");
+});
+
+test("parseJevPlan infers a kind the model left out", () => {
+  const allowed = new Set(["e1", "e2"]);
+  assert.deepEqual(
+    parseJevPlan(
+      {
+        intro: "შეავსეთ ველები.",
+        steps: [{ target: "e1", action: "type", say: "ჩაწერეთ „სათაური“" }],
+        done: false,
+      },
+      allowed,
+    ),
+    {
+      kind: "steps",
+      intro: "შეავსეთ ველები.",
+      steps: [{ target: "e1", action: "type", say: "ჩაწერეთ „სათაური“" }],
+      done: false,
+    },
+  );
+  const asked = parseJevPlan(
+    { intro: "", question: "რომელი ტარიფი?", options: ["ზამთარი"] },
+    allowed,
+  );
+  assert.equal(asked?.kind, "ask");
+  assert.equal(parseJevPlan({ intro: "x", steps: [] }, allowed), null);
 });
 
 test("stripLocale removes only a real locale prefix", () => {
@@ -300,4 +335,18 @@ test("stripLocale removes only a real locale prefix", () => {
   assert.equal(stripLocale("/ru"), "/");
   assert.equal(stripLocale("/dashboard/renter"), "/dashboard/renter");
   assert.equal(stripLocale("/english/x"), "/english/x");
+});
+
+test("writtenGuideGoal turns a hand-off written as text into a goal", () => {
+  assert.equal(
+    writtenGuideGoal(
+      'Call the start_guide tool with the goal "პროფილის ფოტოს შეცვლა".',
+    ),
+    "პროფილის ფოტოს შეცვლა",
+  );
+  assert.equal(writtenGuideGoal("start_guide"), "");
+  assert.equal(
+    writtenGuideGoal("„ბალანსი და VIP“ გვერდზე დააჭირეთ „ბალანსის შევსება“."),
+    null,
+  );
 });

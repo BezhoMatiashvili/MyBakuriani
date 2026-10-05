@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { MousePointerClick, RotateCcw, Send, X } from "lucide-react";
@@ -12,12 +12,12 @@ export type ChatEntry = {
   role: "user" | "assistant";
   text: string;
   tone?: "info" | "error";
-  /** A question Jev can also walk through on screen. */
+  /** A question the assistant can also walk through on screen. */
   showMe?: string;
-  /** Jev's simple choices, refining `goal`. */
+  /** The assistant's simple choices, refining `goal`. */
   options?: string[];
   goal?: string;
-  /** What the user had already done when Jev asked. */
+  /** What the user had already done when the assistant asked. */
   progress?: string[];
 };
 
@@ -36,6 +36,40 @@ type Props = {
   onClose: () => void;
 };
 
+/**
+ * Phones: the on-screen keyboard covers fixed elements instead of shrinking
+ * the page (iOS Safari, Android Chrome), so while it is open the sheet is
+ * lifted to the visible area's bottom and fitted into it.
+ */
+function useKeyboardFit(): React.CSSProperties | undefined {
+  const [fit, setFit] = useState<React.CSSProperties>();
+  useEffect(() => {
+    const view = window.visualViewport;
+    const phone = window.matchMedia("(max-width: 639px)");
+    if (!view) return;
+    const update = () => {
+      const covered = window.innerHeight - view.height - view.offsetTop;
+      // A pinch zoom also shrinks the visual viewport: only a keyboard counts.
+      if (!phone.matches || covered < 80 || Math.abs(view.scale - 1) > 0.01) {
+        setFit(undefined);
+        return;
+      }
+      setFit({
+        bottom: Math.round(covered),
+        height: Math.round(Math.min(view.height - 8, 640)),
+      });
+    };
+    update();
+    view.addEventListener("resize", update);
+    view.addEventListener("scroll", update);
+    return () => {
+      view.removeEventListener("resize", update);
+      view.removeEventListener("scroll", update);
+    };
+  }, []);
+  return fit;
+}
+
 export function SupportPanel({
   entries,
   busy,
@@ -53,9 +87,12 @@ export function SupportPanel({
   const t = useTranslations("Support");
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const keyboardFit = useKeyboardFit();
 
+  // Only with a mouse: on a phone the keyboard would cover the quick questions.
   useEffect(() => {
-    inputRef.current?.focus({ preventScroll: true });
+    if (window.matchMedia("(pointer: fine)").matches)
+      inputRef.current?.focus({ preventScroll: true });
   }, []);
 
   useEffect(() => {
@@ -94,6 +131,7 @@ export function SupportPanel({
         aria-modal="false"
         aria-labelledby="jev-panel-title"
         data-testid="jev-panel"
+        style={keyboardFit}
         className="fixed inset-x-0 bottom-0 z-[85] flex h-[min(85dvh,640px)] flex-col overflow-hidden rounded-t-3xl border border-[#E2E8F0] bg-white shadow-[0_24px_60px_-12px_rgba(15,23,42,0.35)] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:h-[min(620px,calc(100dvh-2rem))] sm:w-[380px] sm:rounded-2xl lg:bottom-6 lg:right-6"
         initial={reduceMotion ? false : { opacity: 0, y: 24, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -109,7 +147,7 @@ export function SupportPanel({
               id="jev-panel-title"
               className="text-[15px] font-extrabold leading-tight text-[#0F172A]"
             >
-              Jev
+              {t("name")}
             </h2>
             <p className="truncate text-[12px] font-medium text-[#64748B]">
               {t("subtitle")}
@@ -281,7 +319,7 @@ export function SupportPanel({
               }}
               placeholder={t("placeholder")}
               aria-label={t("placeholder")}
-              className="min-h-11 flex-1 resize-none rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 py-2.5 text-[14px] leading-snug text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#93C5FD] focus:bg-white"
+              className="min-h-11 flex-1 resize-none rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 py-2.5 text-[16px] leading-snug sm:text-[14px] text-[#0F172A] outline-none transition-colors placeholder:text-[#94A3B8] focus:border-[#93C5FD] focus:bg-white"
             />
             <button
               type="submit"

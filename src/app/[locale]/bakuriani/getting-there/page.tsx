@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
 import GuideEnd from "@/components/guide/GuideEnd";
 import GuideHeading from "@/components/guide/GuideHeading";
 import GuideSection from "@/components/guide/GuideSection";
@@ -8,12 +7,15 @@ import FaqList from "@/components/seo/FaqList";
 import { guideLinks } from "@/components/seo/richLinks";
 import type { AppLocale } from "@/i18n/routing";
 import { GUIDE_BASE_PATH } from "@/lib/guide";
+import { getGuideTranslator } from "@/lib/guide-content";
 import { buildPageMetadata } from "@/lib/seo";
 
 const PATH = `${GUIDE_BASE_PATH}/getting-there`;
 
-// ISR (C28): copy only, no cookies or headers.
-export const revalidate = 3600;
+// ISR (C28): copy only, no cookies or headers. Ten minutes, the same as the
+// admin-edited copy's cache (src/lib/guide-content.ts), so an edit reaches
+// visitors behind the edge cache within that.
+export const revalidate = 600;
 
 const QUESTIONS = [1, 2, 3, 4] as const;
 
@@ -23,7 +25,7 @@ export async function generateMetadata({
   params: Promise<{ locale: AppLocale }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Guide" });
+  const t = await getGuideTranslator(locale);
   return buildPageMetadata({
     locale,
     path: PATH,
@@ -40,7 +42,7 @@ export default async function GettingTherePage({
   params: Promise<{ locale: AppLocale }>;
 }) {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Guide" });
+  const t = await getGuideTranslator(locale);
 
   return (
     <>

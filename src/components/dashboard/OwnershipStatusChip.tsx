@@ -12,11 +12,11 @@ import { cn } from "@/lib/utils";
 import { ownershipVerificationUrl } from "@/lib/utils/listingUrls";
 
 // Cabinet pill for a listing's stored ownership status (C39). Approved uses the
-// public badge's navy, so owners recognise what visitors see.
+// public badge's green, so owners recognise what visitors see.
 const STATUS_CLASS: Record<"none" | OwnershipVerificationStatus, string> = {
   none: "bg-[#F1F5F9] text-[#475569]",
   pending: "bg-[#EFF6FF] text-[#1D4ED8]",
-  approved: "bg-brand-primary text-white",
+  approved: "bg-[#038033] text-white",
   rejected: "bg-[#FEF2F2] text-[#B91C1C]",
   revoked: "bg-[#FFFBEB] text-[#B45309]",
 };
