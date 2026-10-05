@@ -61,6 +61,12 @@ type PublicViews = {
   public_listing_profiles: { Row: Row<"profiles">; Relationships: [] };
   public_organizations: { Row: Row<"organizations">; Relationships: [] };
   public_reviews: { Row: Row<"reviews">; Relationships: [] };
+  // Finance registers (C42): admin-only, read with the service role. They
+  // keep the generated (all-nullable) shape.
+  finance_payments_v: GenPublic["Views"]["finance_payments_v"];
+  finance_refunds_v: GenPublic["Views"]["finance_refunds_v"];
+  finance_ledger_v: GenPublic["Views"]["finance_ledger_v"];
+  finance_invoices_v: GenPublic["Views"]["finance_invoices_v"];
 };
 
 // Compile-time tripwire: every view the generator knows about must be

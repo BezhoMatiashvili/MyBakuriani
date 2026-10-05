@@ -10,6 +10,8 @@ import { CREATE_NAMESPACES, pickMessages } from "@/i18n/namespaces";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { requireConsent } from "@/lib/auth/require-consent";
 import { CreateHeader } from "@/components/layout/CreateHeader";
+import { SupportAssistantLoader } from "@/components/support/SupportAssistantLoader";
+import { isSupportConfigured } from "@/lib/support/openrouter";
 import type { AppLocale } from "@/i18n/routing";
 
 // The locale must be passed explicitly. getTranslations("Metadata") resolves the
@@ -75,6 +77,7 @@ export default async function CreateLayout({
           </p>
         </footer>
       </div>
+      {isSupportConfigured() && <SupportAssistantLoader />}
     </NextIntlClientProvider>
   );
 }

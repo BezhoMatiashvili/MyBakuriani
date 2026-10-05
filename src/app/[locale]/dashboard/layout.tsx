@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser, getCurrentProfile } from "@/lib/auth/current-user";
 import { requireConsent } from "@/lib/auth/require-consent";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { SupportAssistantLoader } from "@/components/support/SupportAssistantLoader";
+import { isSupportConfigured } from "@/lib/support/openrouter";
 import { DASHBOARD_NAMESPACES, pickMessages } from "@/i18n/namespaces";
 import { deriveAvailableCabinets } from "@/lib/cabinets";
 import type { DashboardUnreadCounts } from "@/lib/notifications/scopes";
@@ -137,6 +139,7 @@ export default async function DashboardLayout({
       >
         {children}
       </DashboardShell>
+      {isSupportConfigured() && <SupportAssistantLoader homeRole={role} />}
     </NextIntlClientProvider>
   );
 }

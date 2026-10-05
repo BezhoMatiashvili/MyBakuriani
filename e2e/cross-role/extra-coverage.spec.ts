@@ -538,7 +538,7 @@ test.describe("Public API surface (no auth required)", () => {
       "/api/admin/listings/pending",
       "/api/admin/promocodes",
       "/api/admin/pricing-packages",
-      "/api/admin/finances/summary",
+      "/api/admin/finance/summary",
     ];
     for (const ep of endpoints) {
       const res = await page.request.get(ep);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   Plus,
@@ -12,6 +12,7 @@ import {
   Save,
   Eye,
   EyeOff,
+  CalendarCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
@@ -25,6 +26,10 @@ import {
   type StatusIcon,
   type StatusKind,
 } from "@/lib/status-cards/types";
+import {
+  UPDATED_AT_CARD_IDS,
+  formatStatusUpdatedAt,
+} from "@/lib/status-cards/updated-at";
 
 const LANGS: (keyof LocalizedText)[] = ["ka", "en", "ru"];
 
@@ -121,7 +126,11 @@ const STATUS_LABEL_KEY: Record<StatusKind, string> = {
 
 export default function AdminStatusCardsPage() {
   const t = useTranslations("AdminStatusCards");
+  const locale = useLocale();
   const [cards, setCards] = useState<StatusCard[]>([]);
+  // Cards the admin confirmed as still accurate: the next save moves their
+  // public "updated" date to now even if nothing in them changed.
+  const [markedIds, setMarkedIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -201,7 +210,7 @@ export default function AdminStatusCardsPage() {
       const res = await fetch("/api/admin/status-cards", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ cards }),
+        body: JSON.stringify({ cards, markUpdated: [...markedIds] }),
       });
       const payload = await res.json();
       if (!res.ok) {
@@ -209,6 +218,7 @@ export default function AdminStatusCardsPage() {
         return;
       }
       setCards(payload.cards);
+      setMarkedIds(new Set());
       toast.success(t("saved"));
     } catch {
       toast.error(t("saveError"));
@@ -268,6 +278,11 @@ export default function AdminStatusCardsPage() {
             const idx = cards.findIndex((c) => c.id === card.id);
             const Icon = ICON_MAP[card.icon];
             const isEditing = expandedId === card.id;
+            const showsUpdatedAt = UPDATED_AT_CARD_IDS.has(card.id);
+            const updatedAt = showsUpdatedAt
+              ? formatStatusUpdatedAt(card.updatedAt, locale)
+              : null;
+            const isMarked = markedIds.has(card.id);
             return (
               <div
                 key={card.id}
@@ -314,6 +329,9 @@ export default function AdminStatusCardsPage() {
                       {card.expandable
                         ? ` · ${card.items.length} ${t("items").toLowerCase()}`
                         : ""}
+                      {updatedAt
+                        ? ` · ${t("lastUpdated", { date: updatedAt })}`
+                        : ""}
                     </p>
                   </div>
 
@@ -346,6 +364,42 @@ export default function AdminStatusCardsPage() {
                 {/* Editor body */}
                 {isEditing && (
                   <div className="space-y-5 border-t border-[#E2E8F0] px-4 py-4">
+                    {showsUpdatedAt && (
+                      <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-bold text-[#0F172A]">
+                            {updatedAt
+                              ? t("lastUpdated", { date: updatedAt })
+                              : t("neverUpdated")}
+                          </p>
+                          <button
+                            type="button"
+                            aria-pressed={isMarked}
+                            onClick={() =>
+                              setMarkedIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(card.id)) next.delete(card.id);
+                                else next.add(card.id);
+                                return next;
+                              })
+                            }
+                            className={cn(
+                              "flex min-h-11 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold lg:min-h-0",
+                              isMarked
+                                ? "border-[#2563EB] bg-[#EFF6FF] text-[#2563EB]"
+                                : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]",
+                            )}
+                          >
+                            <CalendarCheck className="size-4" />
+                            {t("markUpdated")}
+                          </button>
+                        </div>
+                        <p className="mt-1.5 text-xs text-[#64748B]">
+                          {isMarked ? t("markedHint") : t("updatedAtHint")}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex flex-wrap items-end gap-4">
                       <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-bold uppercase tracking-wide text-[#94A3B8]">

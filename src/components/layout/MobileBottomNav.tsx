@@ -17,6 +17,7 @@ import {
   IdCard,
   KeyRound,
   LayoutGrid,
+  Link2,
   LogOut,
   MapPin,
   Settings,
@@ -156,6 +157,11 @@ function getNavigation(role: string): RoleNavigation {
             labelKey: "promoCodes",
             href: "/dashboard/admin/promocodes",
             icon: Sparkles,
+          },
+          {
+            labelKey: "signupLinks",
+            href: "/dashboard/admin/signup-links",
+            icon: Link2,
           },
           {
             labelKey: "banners",

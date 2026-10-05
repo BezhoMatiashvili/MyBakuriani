@@ -11,6 +11,10 @@ import { Button } from "@/components/ui/button";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { safeInternalPath } from "@/lib/security";
+import {
+  SIGNUP_LINK_METADATA_KEY,
+  readSignupLinkCookie,
+} from "@/lib/signup-links";
 import { createClient } from "@/lib/supabase/client";
 import { withRetry, isRetryableAuthError } from "@/lib/with-timeout";
 
@@ -57,7 +61,11 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { signInWithPassword } = useAuth();
 
-  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  // ?mode=register opens the sign-up form (admin sign-up links, C41). The auth
+  // layout is force-dynamic, so the server render sees the same params.
+  const [authMode, setAuthMode] = useState<AuthMode>(() =>
+    searchParams.get("mode") === "register" ? "register" : "login",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -194,13 +202,21 @@ export default function LoginPage() {
     try {
       // Called directly rather than through useAuth().signUp, which takes no
       // options: the confirmation link must come back to /auth/confirm.
+      // An admin sign-up link's code rides along in user_metadata, so the
+      // wizard still finds it when the link is opened in another browser (C41).
       const supabase = createClient();
+      const signupLink = readSignupLinkCookie(document.cookie);
       const { data, error: signUpError } = await withRetry(
         () =>
           supabase.auth.signUp({
             email: submittedEmail,
             password: submittedPassword,
-            options: { emailRedirectTo: CONFIRM_REDIRECT_URL },
+            options: {
+              emailRedirectTo: CONFIRM_REDIRECT_URL,
+              ...(signupLink
+                ? { data: { [SIGNUP_LINK_METADATA_KEY]: signupLink } }
+                : {}),
+            },
           }),
         isRetryableAuthError,
       );

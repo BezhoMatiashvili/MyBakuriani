@@ -421,6 +421,46 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
+// C18 — one SMS per purchase (20261004150000). _enqueue_system_sms deletes the
+// payment_success mirror row queued earlier in the same transaction, so the
+// newest purchase_package / purchase_vip must write 'payment_success' BEFORE
+// they call _enqueue_system_sms, and the newest _enqueue_system_sms must still
+// carry that delete.
+// ---------------------------------------------------------------------------
+{
+  const migDir = join(root, "supabase/migrations");
+  const bodyOf = (fn) => {
+    const re = new RegExp(`create\\s+(or\\s+replace\\s+)?function\\s+public\\.${fn}\\(`, "i");
+    const file = readdirSync(migDir)
+      .filter((f) => f.endsWith(".sql"))
+      .sort()
+      .filter((f) => re.test(read(join("supabase/migrations", f))))
+      .at(-1);
+    if (!file) return { file: null, body: "" };
+    const text = read(join("supabase/migrations", file));
+    const from = text.search(re);
+    const tag = /\$[a-z_]*\$/i.exec(text.slice(from))?.[0];
+    const start = tag ? text.indexOf(tag, from) + tag.length : -1;
+    const end = tag ? text.indexOf(tag, start) : -1;
+    const body = start > 0 && end > start ? text.slice(start, end).replace(/--[^\n]*/g, "") : "";
+    return { file, body };
+  };
+  const problems = [];
+  for (const fn of ["purchase_package", "purchase_vip"]) {
+    const { file, body } = bodyOf(fn);
+    const paid = body.indexOf("'payment_success'");
+    const sms = body.indexOf("_enqueue_system_sms(");
+    if (paid < 0 || sms < 0) problems.push(`${fn} (${file ?? "not found"}) must write 'payment_success' and call _enqueue_system_sms`);
+    else if (sms < paid) problems.push(`${fn} (${file}) calls _enqueue_system_sms before writing 'payment_success' (the buyer gets two texts again)`);
+  }
+  const helper = bodyOf("_enqueue_system_sms");
+  if (!/delete\s+from\s+sms_outbound[\s\S]*'payment_success'/i.test(helper.body))
+    problems.push(`_enqueue_system_sms (${helper.file ?? "not found"}) no longer drops the same-transaction payment_success text`);
+  if (problems.length) problems.forEach((p) => fail(`C18: ${p}`));
+  else ok("C18: purchases write payment_success before their system SMS, and _enqueue_system_sms drops the duplicate");
+}
+
+// ---------------------------------------------------------------------------
 // C36 — sign-up confirmation link. /auth/confirm is a client page (no route.ts
 // in that segment) that verifies only when its button is clicked: a mail
 // scanner's prefetch GET must not confirm an address, and /verify must count
@@ -1206,6 +1246,170 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   });
   if (noFacts.length) fail(`C40: these detail pages must render <ListingFacts> and build their description fallback with listingFactsText: ${noFacts.join(", ")}`);
   else ok(`C40: ${factsPages.length} property detail pages state their facts as text and as the description fallback`);
+}
+
+// ---------------------------------------------------------------------------
+// C41 — admin sign-up links. Every preset destination in src/lib/signup-links.ts
+// must be a real page (a typo sends every new user of that link to a 404), the
+// code pattern must equal the signup_links_code_check constraint, the cookie
+// name lives only in that module, and the three hand-offs stay wired: the
+// sign-up copies the code into user_metadata, the wizard asks the resolve
+// route, and the guest dashboard opens the request form from the param.
+// ---------------------------------------------------------------------------
+{
+  const modFile = "src/lib/signup-links.ts";
+  const mod = read(modFile);
+  const localeDir = "src/app/[locale]";
+  const presetPaths = [...(mod.match(/SIGNUP_LINK_PRESETS = \[([\s\S]*?)\] as const;/)?.[1] ?? "").matchAll(/destination:\s*[`"](\/[^`"?$]*)/g)].map((m) => m[1]);
+  const missingPages = presetPaths.filter((path) => !existsSync(join(root, localeDir, path, "page.tsx")));
+  const tsCode = mod.match(/const CODE_PATTERN = \/(.+)\/;/)?.[1];
+  const migration = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort().filter((f) => /signup_links_code_check/.test(read(join("supabase/migrations", f)))).at(-1);
+  const sqlCode = migration ? read(join("supabase/migrations", migration)).match(/signup_links_code_check\s+CHECK \(code ~ '([^']+)'\)/)?.[1] : undefined;
+  const cookieUsers = srcFiles.filter((f) => f !== join(modFile) && srcText.get(f).includes('"mb_signup_link"'));
+  const problems = [];
+  if (!presetPaths.length) problems.push(`could not read SIGNUP_LINK_PRESETS from ${modFile}`);
+  if (missingPages.length) problems.push(`preset destinations with no page under ${localeDir}: ${missingPages.join(", ")}`);
+  if (!tsCode || !sqlCode) problems.push("could not read CODE_PATTERN or signup_links_code_check");
+  else if (tsCode !== sqlCode) problems.push(`CODE_PATTERN /${tsCode}/ differs from signup_links_code_check '${sqlCode}' (${migration})`);
+  if (cookieUsers.length) problems.push(`the cookie name is spelled outside ${modFile} (import SIGNUP_LINK_COOKIE): ${cookieUsers.join(", ")}`);
+  if (!existsSync(join(root, localeDir, "join/[code]/route.ts"))) problems.push(`${localeDir}/join/[code]/route.ts is missing`);
+  if (!/\[SIGNUP_LINK_METADATA_KEY\]:\s*signupLink/.test(read(`${localeDir}/auth/login/page.tsx`))) problems.push("the login page's signUp must copy the cookie's code into user_metadata[SIGNUP_LINK_METADATA_KEY]");
+  if (!/fetch\("\/api\/signup-links\/resolve"/.test(read(`${localeDir}/auth/register/page.tsx`))) problems.push("the registration wizard must ask /api/signup-links/resolve where to go");
+  if (!/params\[SMART_MATCH_NEW_PARAM\] === SMART_MATCH_NEW_VALUE/.test(read(`${localeDir}/dashboard/guest/page.tsx`))) problems.push("dashboard/guest/page.tsx must open the request form for ?SMART_MATCH_NEW_PARAM=SMART_MATCH_NEW_VALUE");
+  if (problems.length) problems.forEach((p) => fail(`C41: ${p}`));
+  else ok(`C41: ${presetPaths.length} sign-up link destinations are real pages; code pattern, cookie and hand-offs agree`);
+}
+
+// ---------------------------------------------------------------------------
+// C42 — finance module. (a) Every vocabulary in src/lib/finance/constants.ts
+// equals its CHECK constraint in the finance migrations (the API validates
+// with the constants, the database with the CHECK: a value on one side only
+// is a 400 or a 23514). (b) MAX_FINANCE_DOCUMENT_BYTES = the finance-documents
+// bucket limit. (c) constants/filters/money/xlsx stay free of "@/" imports
+// (scripts/unit loads them with --experimental-strip-types). (d) Finance
+// tables and the finance-documents bucket are written only by the finance API
+// and src/lib/finance/server. (e) The public invoice link looks the token up
+// by its hash and answers noindex. (f) Each register's filter is defined once
+// and shared by its page list and its export.
+// ---------------------------------------------------------------------------
+{
+  const constantsFile = "src/lib/finance/constants.ts";
+  const constants = read(constantsFile);
+  const migrations = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql") && f.includes("finance"))
+    .sort()
+    .map((f) => read(join("supabase/migrations", f)));
+  const tsList = (name) =>
+    [...(constants.match(new RegExp(`export const ${name} = \\[([\\s\\S]*?)\\]`))?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  // The body of the newest CHECK named `name`, read to its own closing paren.
+  const checkBody = (name) => {
+    for (const sql of [...migrations].reverse()) {
+      const at = sql.search(new RegExp(`CONSTRAINT ${name}\\b`));
+      if (at < 0) continue;
+      const open = sql.indexOf("(", sql.indexOf("CHECK", at));
+      let depth = 0;
+      for (let i = open; i < sql.length; i += 1) {
+        if (sql[i] === "(") depth += 1;
+        else if (sql[i] === ")" && --depth === 0) return sql.slice(open + 1, i);
+      }
+    }
+    return null;
+  };
+  const pairs = [
+    ["finance_entries_kind_check", "ENTRY_KINDS"],
+    ["finance_entries_status_check", "ENTRY_STATUSES"],
+    ["finance_entries_revenue_type_check", "REVENUE_TYPES"],
+    ["finance_entries_payment_method_check", "PAYMENT_METHODS"],
+    ["finance_expenses_payment_method_check", "PAYMENT_METHODS"],
+    ["invoices_payment_method_check", "PAYMENT_METHODS"],
+    ["finance_expenses_category_check", "EXPENSE_CATEGORIES"],
+    ["finance_documents_doc_type_check", "DOCUMENT_TYPES"],
+    ["finance_documents_status_check", "DOCUMENT_STATUSES"],
+    ["finance_documents_content_type_check", "FINANCE_DOCUMENT_CONTENT_TYPES"],
+    ["invoices_status_check", "INVOICE_STATUSES"],
+    ["invoices_recipient_type_check", "RECIPIENT_TYPES"],
+  ];
+  const problems = [];
+  for (const [constraint, constant] of pairs) {
+    const body = checkBody(constraint);
+    const ts = tsList(constant);
+    if (body === null || !ts.length) {
+      problems.push(`could not read ${body === null ? constraint : constant}`);
+      continue;
+    }
+    const db = new Set([...body.matchAll(/'([^']+)'/g)].map((m) => m[1]));
+    const code = new Set(ts);
+    if (!setEq(db, code)) {
+      problems.push(`${constraint} [${[...db].join(", ")}] ≠ ${constant} [${ts.join(", ")}]`);
+    }
+  }
+
+  const bytes = constants.match(/MAX_FINANCE_DOCUMENT_BYTES = ([\d\s*]+);/)?.[1];
+  const tsBytes = bytes ? bytes.split("*").reduce((product, n) => product * Number(n.trim()), 1) : NaN;
+  const bucketBytes = Number(migrations.join("\n").match(/'finance-documents',\s*'finance-documents',\s*false,\s*(\d+)/)?.[1]);
+  if (tsBytes !== bucketBytes) problems.push(`MAX_FINANCE_DOCUMENT_BYTES ${tsBytes} ≠ finance-documents file_size_limit ${bucketBytes}`);
+
+  for (const pure of ["constants", "filters", "money", "xlsx"]) {
+    if (/from "@\//.test(read(`src/lib/finance/${pure}.ts`))) problems.push(`src/lib/finance/${pure}.ts imports from "@/" (unit tests load it bare)`);
+  }
+
+  const owners = ["src/app/api/admin/finance/", "src/lib/finance/server/"];
+  const tables = "finance_entries|finance_expenses|finance_documents|finance_settings|invoices|invoice_templates|invoice_counters";
+  const writer = new RegExp(`\\.from\\(\\s*"(?:${tables})"\\s*\\)[\\s\\S]{0,160}?\\.(?:insert|update|upsert|delete)\\(|\\.from\\(\\s*"finance-documents"\\s*\\)`);
+  const strangers = srcFiles.filter(
+    (f) => !owners.some((dir) => f.startsWith(dir)) && writer.test(srcText.get(f)),
+  );
+  if (strangers.length) problems.push(`finance tables or the finance-documents bucket written outside the finance API: ${strangers.join(", ")}`);
+
+  const publicRoute = read("src/app/api/invoices/[token]/route.ts");
+  if (!/hashShareToken\(/.test(publicRoute) || !/share_token_hash/.test(publicRoute)) problems.push("the public invoice route must look the token up by hashShareToken()");
+  if (!/"X-Robots-Tag":\s*"noindex/.test(publicRoute)) problems.push("the public invoice route must answer X-Robots-Tag noindex");
+
+  const data = read("src/lib/finance/server/data.ts");
+  for (const register of ["payment", "refund", "expense", "document", "invoice"]) {
+    const uses = (data.match(new RegExp(`\\b${register}Ops\\(`, "g")) ?? []).length;
+    if (uses < 3) problems.push(`${register}Ops must be the one filter definition of its list and its export (found ${uses} uses in data.ts)`);
+  }
+
+  if (problems.length) problems.forEach((p) => fail(`C42: ${p}`));
+  else ok(`C42: ${pairs.length} finance CHECK lists = constants.ts; document limit = bucket; pure modules bare; finance writes only in the finance API; public invoice link hashed + noindex; one filter per register`);
+}
+
+// ---------------------------------------------------------------------------
+// C43 — dashboard support assistant (Jev + Gemini via OpenRouter). (a) The key
+// is read only in the server-only OpenRouter client and never NEXT_PUBLIC_;
+// (b) Jev gets its forced show_steps tool built from the on-screen ids and its
+// answer goes through parseJevPlan, never response_format; (c) both model
+// calls keep data_collection "deny"; (d) the route needs a user and rate-limits;
+// (e) the snapshot type carries no field value; (f) both mounts are gated on
+// isSupportConfigured().
+// ---------------------------------------------------------------------------
+{
+  const clientFile = "src/lib/support/openrouter.ts";
+  const serverFile = "src/lib/support/server.ts";
+  const routeFile = "src/app/api/support/route.ts";
+  const planFile = "src/lib/support/plan.ts";
+  const mounts = ["src/app/[locale]/dashboard/layout.tsx", "src/app/[locale]/create/layout.tsx"];
+  const problems = [];
+  const keyReaders = srcFiles.filter((f) => f !== join(clientFile) && /OPENROUTER_API_KEY/.test(srcText.get(f)));
+  if (keyReaders.length) problems.push(`OPENROUTER_API_KEY is read outside ${clientFile}: ${keyReaders.join(", ")}`);
+  if (!/^import "server-only";/m.test(read(clientFile))) problems.push(`${clientFile} must import "server-only"`);
+  const publicKey = srcFiles.filter((f) => /NEXT_PUBLIC_OPENROUTER/.test(srcText.get(f)));
+  if (publicKey.length) problems.push(`an OpenRouter variable is NEXT_PUBLIC_ (ships to every browser): ${publicKey.join(", ")}`);
+  const server = read(serverFile).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/[^\n]*/g, "$1");
+  if (/response_format/.test(server)) problems.push(`${serverFile} uses response_format (Jev answered in prose with it); keep the forced tool call`);
+  if (!/tool_choice:\s*\{\s*type:\s*"function",\s*function:\s*\{\s*name:\s*SHOW_STEPS_TOOL\s*\}\s*\}/.test(server)) problems.push(`${serverFile} must force the show_steps tool for Jev`);
+  if (!/buildShowStepsTool\(ids\)/.test(server) || !/parseJevPlan\(\s*call\.function\?\.arguments,\s*allowed\s*\)/.test(server)) problems.push(`${serverFile} must build the tool from the on-screen ids and check Jev's answer with parseJevPlan(…, allowed)`);
+  if (!/NO_RETENTION = \{ data_collection: "deny" \}/.test(server) || (server.match(/provider: NO_RETENTION/g) ?? []).length < 2) problems.push(`${serverFile}: both model calls must send provider: NO_RETENTION (data_collection "deny")`);
+  const route = read(routeFile);
+  if (!/await getCurrentUser\(\)/.test(route) || !/checkRateLimit\(/.test(route)) problems.push(`${routeFile} must require a signed-in user and rate-limit`);
+  const elementType = read(planFile).match(/export type PageElement = \{([\s\S]*?)\};/)?.[1];
+  if (!elementType) problems.push(`could not read PageElement from ${planFile}`);
+  else if (/\bvalue\b/.test(elementType)) problems.push(`PageElement in ${planFile} must not carry a field's value`);
+  const ungated = mounts.filter((f) => !/\{isSupportConfigured\(\) && <SupportAssistantLoader/.test(read(f)));
+  if (ungated.length) problems.push(`the assistant must mount only when isSupportConfigured(): ${ungated.join(", ")}`);
+  if (problems.length) problems.forEach((p) => fail(`C43: ${p}`));
+  else ok("C43: OpenRouter key server-only; Jev forced through show_steps + parseJevPlan; no-retention on both calls; route gated; snapshot carries no values");
 }
 
 if (failures) {

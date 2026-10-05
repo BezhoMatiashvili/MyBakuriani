@@ -98,6 +98,7 @@ const sections: { titleKey: string; items: NavItem[] }[] = [
         labelKey: "promoCodes",
         href: "/dashboard/admin/promocodes",
       },
+      { labelKey: "signupLinks", href: "/dashboard/admin/signup-links" },
       { labelKey: "banners", href: "/dashboard/admin/banners" },
       { labelKey: "news", href: "/dashboard/admin/seo" },
     ],

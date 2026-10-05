@@ -85,6 +85,8 @@ export function normalizeE164Phone(value: unknown): string | null {
 }
 
 export function safeCsvCell(value: unknown): string {
+  // A real number stays a number cell (a negative amount is not a formula).
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
   const text = String(value ?? "").replace(/\r\n?|\n/g, "\n");
   const neutralized = /^[=+\-@]/.test(text) ? `'${text}` : text;
   return `"${neutralized.replace(/"/g, '""')}"`;

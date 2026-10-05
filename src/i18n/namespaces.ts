@@ -95,6 +95,7 @@ export const CREATE_NAMESPACES = [
   "ListingOptions",
   "PhotoUploader",
   "Shared",
+  "Support",
   "UISelect",
   "Wizard",
 ] as const;
@@ -129,6 +130,7 @@ export const DASHBOARD_NAMESPACES = [
   "AdminClients",
   "AdminDashboard",
   "AdminFinances",
+  "AdminInvoices",
   "AdminListings",
   "AdminLogs",
   "AdminMemberships",
@@ -136,6 +138,7 @@ export const DASHBOARD_NAMESPACES = [
   "AdminPayments",
   "AdminPromocodes",
   "AdminShared",
+  "AdminSignupLinks",
   "AdminStatusCards",
   "Calendar",
   "CleanerDashboard",
@@ -187,6 +190,7 @@ export const DASHBOARD_NAMESPACES = [
   "SmartMatchCard",
   "SmartMatchModal",
   "StatusBadge",
+  "Support",
   "UISelect",
   "Wizard",
 ] as const;

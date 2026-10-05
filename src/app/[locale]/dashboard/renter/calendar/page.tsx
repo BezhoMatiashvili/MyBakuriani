@@ -925,9 +925,9 @@ export default function RenterCalendarPage() {
               <button
                 type="button"
                 onClick={() => setPropertyOpen((v) => !v)}
-                className="inline-flex items-center gap-2 text-[20px] font-black text-[#0F172A] hover:text-[#2563EB]"
+                className="inline-flex max-w-full items-center gap-2 text-[20px] font-black text-[#0F172A] hover:text-[#2563EB]"
               >
-                <span className="truncate">
+                <span className="min-w-0 truncate">
                   {selectedProperty?.title ?? "—"}
                 </span>
                 <ChevronDown
@@ -1011,7 +1011,7 @@ export default function RenterCalendarPage() {
         </div>
 
         <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-3">
-          <div className="flex items-center gap-2 md:contents">
+          <div className="flex flex-wrap items-center gap-2 md:contents">
             <button
               type="button"
               disabled={!selectedPropertyId}
@@ -1045,7 +1045,7 @@ export default function RenterCalendarPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 md:contents">
+          <div className="flex flex-wrap items-center gap-2 md:contents">
             <button
               type="button"
               disabled={!selectedPropertyId}

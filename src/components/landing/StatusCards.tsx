@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { ChevronDown, ExternalLink, PlayCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,10 @@ import {
   type StatusCardItem,
   type StatusKind,
 } from "@/lib/status-cards/types";
+import {
+  UPDATED_AT_CARD_IDS,
+  formatStatusUpdatedAt,
+} from "@/lib/status-cards/updated-at";
 import BottomSheet from "@/components/shared/BottomSheet";
 import Modal from "@/components/shared/Modal";
 import { safeHttpsUrl } from "@/lib/security";
@@ -119,6 +123,7 @@ export default function StatusCards({
   mobileLayout?: "preview" | "home-compact";
 }) {
   const locale = useLocale();
+  const t = useTranslations("StatusCards");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewingItem, setViewingItem] = useState<StatusCardItem | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -181,6 +186,9 @@ export default function StatusCards({
           const label = pickLocalized(card.label, locale);
           const value = pickLocalized(card.value, locale);
           const subValue = pickLocalized(card.subValue, locale);
+          const updatedAt = UPDATED_AT_CARD_IDS.has(card.id)
+            ? formatStatusUpdatedAt(card.updatedAt, locale)
+            : null;
 
           const inner = (
             <div className="flex w-full flex-col gap-1">
@@ -205,6 +213,11 @@ export default function StatusCards({
               {subValue && (
                 <span className="text-[12px] font-semibold leading-none text-[#94A3B8]">
                   {subValue}
+                </span>
+              )}
+              {updatedAt && (
+                <span className="text-[11px] font-medium leading-none text-[#94A3B8]">
+                  {t("updatedAt", { date: updatedAt })}
                 </span>
               )}
             </div>

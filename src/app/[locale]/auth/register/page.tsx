@@ -63,6 +63,23 @@ const ROLES: {
   { value: "handyman", iconSrc: "/category-icons/handyman.svg" },
 ];
 
+// Where an admin sign-up link sends this new account (C41), or null for the
+// home page. Asked only once the profile exists, and never fails registration.
+// The company and agent seller paths keep their own required next step.
+async function signupLinkDestination(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/signup-links/resolve", {
+      method: "POST",
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { destination?: string | null };
+    return body.destination ?? null;
+  } catch {
+    return null;
+  }
+}
+
 type SellerOrg = {
   id: string;
   brand_name: string;
@@ -315,7 +332,7 @@ export default function RegisterPage() {
     setError(null);
     try {
       await persistProfile();
-      router.push("/");
+      router.push((await signupLinkDestination()) ?? "/");
     } catch (err) {
       setError(err instanceof Error ? err.message : t("errors.generic"));
     } finally {
@@ -343,7 +360,7 @@ export default function RegisterPage() {
       await persistProfile();
 
       if (sellerKind === "individual") {
-        router.push("/");
+        router.push((await signupLinkDestination()) ?? "/");
       } else if (sellerKind === "company") {
         router.push("/dashboard/seller/organizations/new");
       } else if (sellerKind === "agent" && selectedOrg) {

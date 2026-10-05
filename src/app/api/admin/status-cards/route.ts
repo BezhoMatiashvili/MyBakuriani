@@ -13,6 +13,7 @@ import {
   type StatusCard,
   type StatusCardItem,
 } from "@/lib/status-cards/types";
+import { stampUpdatedAt } from "@/lib/status-cards/updated-at";
 import { safeHttpsUrl } from "@/lib/security";
 
 export const runtime = "nodejs";
@@ -108,6 +109,9 @@ export async function PUT(req: NextRequest) {
 
   const body = (await req.json().catch(() => null)) as {
     cards?: unknown;
+    // Ids of cards the admin confirmed as still accurate: their date moves to
+    // now even when nothing in them changed.
+    markUpdated?: unknown;
   } | null;
   if (!body || !Array.isArray(body.cards)) {
     return Response.json({ error: "cards array required" }, { status: 400 });
@@ -146,10 +150,41 @@ export async function PUT(req: NextRequest) {
   }
 
   const db = createServiceClient(guard.admin.userId);
+
+  // Each card keeps its own last-update date, so saving the cameras does not
+  // move the date the lifts card shows. The stored cards go through the same
+  // sanitizer as the incoming ones, so only a real edit counts as a change.
+  const { data: storedRow, error: readError } = await db
+    .from("site_settings")
+    .select("value")
+    .eq("key", SETTING_KEY)
+    .maybeSingle();
+  if (readError) {
+    return Response.json({ error: readError.message }, { status: 500 });
+  }
+  const storedRaw = (storedRow?.value as { cards?: unknown } | null)?.cards;
+  const stored = (Array.isArray(storedRaw) ? storedRaw : []).flatMap((raw) => {
+    const card = sanitizeCard(raw);
+    if (!card) return [];
+    const at = (raw as { updatedAt?: unknown }).updatedAt;
+    return [{ ...card, updatedAt: typeof at === "string" ? at : null }];
+  });
+  const markedIds = new Set(
+    Array.isArray(body.markUpdated)
+      ? body.markUpdated.filter((id): id is string => typeof id === "string")
+      : [],
+  );
+  const stampedCards = stampUpdatedAt(
+    cards,
+    stored,
+    markedIds,
+    new Date().toISOString(),
+  );
+
   const { error } = await db.from("site_settings").upsert(
     {
       key: SETTING_KEY,
-      value: { cards },
+      value: { cards: stampedCards },
       updated_at: new Date().toISOString(),
       updated_by: guard.admin.userId,
     },
@@ -161,5 +196,5 @@ export async function PUT(req: NextRequest) {
   // Public pages cache status cards (revalidate = 60/120); bust them now.
   revalidatePath("/", "layout");
 
-  return Response.json({ cards });
+  return Response.json({ cards: stampedCards });
 }

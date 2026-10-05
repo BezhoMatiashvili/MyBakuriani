@@ -482,4 +482,69 @@ if (posture) {
   }
 }
 
+// C42 — finance module. finance_contract_snapshot() (migration 20261005120000) reports the
+// finance tables' RLS, every anon/authenticated/PUBLIC privilege on the tables, views and
+// finance functions (all must be service_role only), the private finance-documents bucket and
+// any storage policy naming it, the CHECK constraints and the triggers that keep the ledger
+// append-only (forbid-delete, guards) and audited (trg_audit_row).
+{
+  const fin = await tryRpc("finance_contract_snapshot", "20261005120000");
+  if (fin) {
+    const constantsTs = readFileSync(join(root, "src/lib/finance/constants.ts"), "utf8");
+    const tsList = (name) =>
+      [...(constantsTs.match(new RegExp(`export const ${name} = \\[([\\s\\S]*?)\\]`))?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+    const dbList = (constraint) => [...String(fin.checks?.[constraint] ?? "").matchAll(/'([^']+)'::text/g)].map((m) => m[1]);
+    for (const [constraint, constant] of [
+      ["finance_entries_kind_check", "ENTRY_KINDS"],
+      ["finance_entries_status_check", "ENTRY_STATUSES"],
+      ["finance_entries_revenue_type_check", "REVENUE_TYPES"],
+      ["finance_entries_payment_method_check", "PAYMENT_METHODS"],
+      ["finance_expenses_category_check", "EXPENSE_CATEGORIES"],
+      ["finance_documents_doc_type_check", "DOCUMENT_TYPES"],
+      ["finance_documents_status_check", "DOCUMENT_STATUSES"],
+      ["invoices_status_check", "INVOICE_STATUSES"],
+      ["invoices_recipient_type_check", "RECIPIENT_TYPES"],
+    ]) {
+      compareSets(`C42 ${constraint}`, dbList(constraint), tsList(constant), "CHECK", constant);
+    }
+
+    const rls = fin.rls ?? {};
+    const tables = ["finance_settings", "finance_entries", "finance_expenses", "finance_documents", "invoices", "invoice_counters", "invoice_templates"];
+    const rlsOff = tables.filter((t) => rls[t] !== true);
+    if (rlsOff.length) fail(`C42: RLS off (or table missing) on ${rlsOff.join(", ")}`);
+    else ok(`C42: RLS is on for all ${tables.length} finance tables`);
+
+    const grants = fin.client_grants ?? [];
+    if (grants.length) fail(`C42: client privileges on finance tables/views (service_role only): ${grants.map((g) => `${g.table}.${g.grantee}.${g.privilege}`).join(", ")}`);
+    else ok("C42: anon, authenticated and PUBLIC hold nothing on the finance tables and views");
+    const fnGrants = fin.client_function_grants ?? [];
+    if (fnGrants.length) fail(`C42: finance functions executable by anon/authenticated/PUBLIC: ${fnGrants.join(", ")}`);
+    else ok("C42: every finance function is service_role only");
+
+    const bucket = fin.bucket;
+    if (!bucket) fail("C42: bucket finance-documents is missing");
+    else {
+      if (bucket.public !== false) fail("C42: bucket finance-documents is PUBLIC (invoices, contracts and receipts would be world-readable)");
+      if (Number(bucket.file_size_limit) !== 10485760) fail(`C42: bucket file_size_limit ${bucket.file_size_limit} ≠ 10485760 (MAX_FINANCE_DOCUMENT_BYTES)`);
+      compareSets("C42 bucket MIME list", bucket.allowed_mime_types ?? [], tsList("FINANCE_DOCUMENT_CONTENT_TYPES"), "bucket", "FINANCE_DOCUMENT_CONTENT_TYPES");
+      if (bucket.public === false && Number(bucket.file_size_limit) === 10485760) ok("C42: bucket finance-documents is private with a 10 MiB limit");
+    }
+    if ((fin.policies_mentioning_bucket ?? []).length) fail(`C42: storage.objects policies name finance-documents (only the service-role routes may reach it): ${fin.policies_mentioning_bucket.join(", ")}`);
+    else ok("C42: no storage.objects policy names finance-documents");
+
+    const triggers = fin.triggers ?? {};
+    const required = [
+      ...["finance_entries", "finance_expenses", "finance_documents", "invoices"].map((t) => `public.${t}.${t}_forbid_delete`),
+      "public.finance_entries.finance_entries_guard",
+      "public.finance_expenses.finance_expenses_guard",
+      "public.finance_documents.finance_documents_guard",
+      "public.invoices.invoices_guard",
+      ...["finance_entries", "finance_expenses", "finance_documents", "invoices", "invoice_templates", "finance_settings"].map((t) => `public.${t}.trg_audit_row`),
+    ];
+    const broken = required.filter((name) => !["O", "A"].includes(triggers[name]));
+    if (broken.length) fail(`C42: triggers missing or disabled (ledger no longer append-only/audited): ${broken.join(", ")}`);
+    else ok(`C42: ${required.length} forbid-delete, guard and audit triggers are enabled`);
+  }
+}
+
 finish();

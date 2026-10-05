@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { timeoutFetch } from "@/lib/with-timeout";
 import type {
@@ -22,7 +23,7 @@ export type { LiftsSummary } from "./parse";
 
 // Live Bakuriani ski-lift status for the landing "lifts" status card. Same shape
 // as src/lib/road-condition/server.ts: server-side provider fetches behind
-// cache() + next:{revalidate}, live data overrides the card's value/subValue/items,
+// cache() + a revalidate window, live data overrides the card's value/subValue/items,
 // and ANY failure returns null so the admin-editable default card shows through
 // instead of a blank or wrong one. The pure parse/rule logic lives in ./parse.ts
 // (unit-tested against archived fixtures); this file only fetches and overlays.
@@ -49,30 +50,33 @@ const LIFTS_CARD_ID = "lifts";
 export const LIFTS_REVALIDATE_SECONDS = 5 * 60;
 const LIFTS_FETCH_TIMEOUT_MS = 5000;
 
-async function fetchZonePage(
-  zone: string,
-  locale: string,
-): Promise<string | null> {
-  try {
-    const res = await timeoutFetch(LIFTS_FETCH_TIMEOUT_MS)(
-      zonePageUrl(zone, locale),
-      {
-        headers: { "user-agent": MTA_USER_AGENT },
-        next: { revalidate: LIFTS_REVALIDATE_SECONDS },
-      },
-    );
-    if (!res.ok) return null;
-    return await res.text();
-  } catch {
-    return null;
-  }
-}
+// Next's fetch cache keeps only 200 responses, so while MTA answered 500 every
+// per-request render (/search) re-fetched all six pages and waited for the
+// slowest: 0.3-1 s of a /search response (2026-10-04). unstable_cache keeps the
+// outcome, page or null, for the same window, so a failing site costs one
+// fetch per page per window like a working one.
+const fetchZonePage = unstable_cache(
+  async (zone: string, locale: string): Promise<string | null> => {
+    try {
+      const res = await timeoutFetch(LIFTS_FETCH_TIMEOUT_MS)(
+        zonePageUrl(zone, locale),
+        { headers: { "user-agent": MTA_USER_AGENT } },
+      );
+      if (!res.ok) return null;
+      return await res.text();
+    } catch {
+      return null;
+    }
+  },
+  ["ski-lifts-zone-page"],
+  { revalidate: LIFTS_REVALIDATE_SECONDS },
+);
 
 // Fetches all Bakuriani zones (ka for status + Georgian names, en for English
 // names), matches the two locales by lift id, and applies MTA's own open/closed
 // rule at the current Tbilisi time. Returns null if NO zone yielded any lift, so
 // the caller falls back to the admin card. cache() dedupes within a render; the
-// fetch revalidate window bounds upstream volume (~12 requests / 5 min).
+// fetchZonePage cache window bounds upstream volume (~12 requests / 5 min).
 export const getSkiLifts = cache(async (): Promise<LiftsSummary | null> => {
   const pages: ZonePage[] = await Promise.all(
     LIFT_ZONES.flatMap((zone) =>

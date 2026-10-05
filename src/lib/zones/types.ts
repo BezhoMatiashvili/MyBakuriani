@@ -61,7 +61,7 @@ export const FALLBACK_ZONES: Zone[] = [
     id: "fallback-25",
     slug: "25ianebi",
     name_ka: "25-იანები",
-    description_ka: "იაფფასიანი ბინები და დამწყებთათვის",
+    description_ka: "საუკეთესო ადგილი დამწყებთათვის და ბავშვებისთვის",
     lat: 41.746,
     lng: 43.538,
     icon: "pin",

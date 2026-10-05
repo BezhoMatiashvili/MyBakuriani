@@ -21,6 +21,7 @@ import GuestOffersModal, {
 import type { Tables } from "@/lib/types/database";
 import { isStale } from "@/lib/smart-match/match";
 import { safeInternalPath } from "@/lib/security";
+import { SMART_MATCH_NEW_PARAM } from "@/lib/signup-links";
 import MyRequestCard from "@/components/guest/MyRequestCard";
 import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import {
@@ -36,9 +37,12 @@ const COLLAPSED_COUNT = 3;
 export default function GuestDashboardClient({
   userId,
   initial,
+  openNewRequest = false,
 }: {
   userId: string;
   initial: GuestData;
+  /** `?smartMatch=new` (an admin sign-up link's destination, C41). */
+  openNewRequest?: boolean;
 }) {
   const t = useTranslations("GuestDashboard");
   const tNewReq = useTranslations("GuestDashboard.newRequestModal");
@@ -83,6 +87,16 @@ export default function GuestDashboardClient({
   const [newRequestOpen, setNewRequestOpen] = useState(false);
   const [offersOpen, setOffersOpen] = useState(false);
   const [recentExpanded, setRecentExpanded] = useState(false);
+
+  // Open the request form once, then drop the param so a reload or Back
+  // doesn't reopen it.
+  useEffect(() => {
+    if (!openNewRequest) return;
+    setNewRequestOpen(true);
+    const url = new URL(window.location.href);
+    url.searchParams.delete(SMART_MATCH_NEW_PARAM);
+    window.history.replaceState(null, "", url);
+  }, [openNewRequest]);
 
   const pendingOffers = offers.filter((o) => o.status === "pending");
   const newOfferCount = pendingOffers.length;

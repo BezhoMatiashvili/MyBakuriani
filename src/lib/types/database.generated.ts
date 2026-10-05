@@ -1109,6 +1109,734 @@ export type Database = {
           },
         ];
       };
+      finance_documents: {
+        Row: {
+          amount: number | null;
+          byte_size: number;
+          content_type: string;
+          counterparty: string | null;
+          created_at: string;
+          doc_type: string;
+          document_date: string | null;
+          document_no: number;
+          document_number: string | null;
+          entry_id: string | null;
+          expense_id: string | null;
+          file_name: string;
+          id: string;
+          invoice_id: string | null;
+          payment_id: string | null;
+          refund_id: string | null;
+          sha256: string;
+          status: string;
+          storage_path: string;
+          title: string;
+          uploaded_by: string | null;
+          void_reason: string | null;
+          voided_at: string | null;
+          voided_by: string | null;
+        };
+        Insert: {
+          amount?: number | null;
+          byte_size: number;
+          content_type: string;
+          counterparty?: string | null;
+          created_at?: string;
+          doc_type: string;
+          document_date?: string | null;
+          document_no?: never;
+          document_number?: string | null;
+          entry_id?: string | null;
+          expense_id?: string | null;
+          file_name: string;
+          id?: string;
+          invoice_id?: string | null;
+          payment_id?: string | null;
+          refund_id?: string | null;
+          sha256: string;
+          status?: string;
+          storage_path: string;
+          title: string;
+          uploaded_by?: string | null;
+          void_reason?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+        };
+        Update: {
+          amount?: number | null;
+          byte_size?: number;
+          content_type?: string;
+          counterparty?: string | null;
+          created_at?: string;
+          doc_type?: string;
+          document_date?: string | null;
+          document_no?: never;
+          document_number?: string | null;
+          entry_id?: string | null;
+          expense_id?: string | null;
+          file_name?: string;
+          id?: string;
+          invoice_id?: string | null;
+          payment_id?: string | null;
+          refund_id?: string | null;
+          sha256?: string;
+          status?: string;
+          storage_path?: string;
+          title?: string;
+          uploaded_by?: string | null;
+          void_reason?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "finance_documents_entry_id_fkey";
+            columns: ["entry_id"];
+            isOneToOne: false;
+            referencedRelation: "finance_entries";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_documents_expense_id_fkey";
+            columns: ["expense_id"];
+            isOneToOne: false;
+            referencedRelation: "finance_expenses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_documents_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "finance_invoices_v";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_documents_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_documents_payment_id_fkey";
+            columns: ["payment_id"];
+            isOneToOne: false;
+            referencedRelation: "payments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_documents_refund_id_fkey";
+            columns: ["refund_id"];
+            isOneToOne: false;
+            referencedRelation: "payment_refunds";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_documents_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_documents_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_documents_voided_by_fkey";
+            columns: ["voided_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_documents_voided_by_fkey";
+            columns: ["voided_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      finance_entries: {
+        Row: {
+          amount: number;
+          created_at: string;
+          created_by: string | null;
+          entry_no: number;
+          id: string;
+          invoice_id: string | null;
+          kind: string;
+          note: string | null;
+          occurred_at: string;
+          original_entry_id: string | null;
+          owner_amount: number;
+          owner_id: string | null;
+          owner_name: string | null;
+          payer_id: string | null;
+          payer_name: string | null;
+          payer_tax_id: string | null;
+          payment_method: string | null;
+          property_id: string | null;
+          provider_name: string | null;
+          reference: string | null;
+          revenue_type: string | null;
+          reverses_id: string | null;
+          service_id: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          created_at?: string;
+          created_by?: string | null;
+          entry_no?: never;
+          id?: string;
+          invoice_id?: string | null;
+          kind: string;
+          note?: string | null;
+          occurred_at: string;
+          original_entry_id?: string | null;
+          owner_amount?: number;
+          owner_id?: string | null;
+          owner_name?: string | null;
+          payer_id?: string | null;
+          payer_name?: string | null;
+          payer_tax_id?: string | null;
+          payment_method?: string | null;
+          property_id?: string | null;
+          provider_name?: string | null;
+          reference?: string | null;
+          revenue_type?: string | null;
+          reverses_id?: string | null;
+          service_id?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          created_by?: string | null;
+          entry_no?: never;
+          id?: string;
+          invoice_id?: string | null;
+          kind?: string;
+          note?: string | null;
+          occurred_at?: string;
+          original_entry_id?: string | null;
+          owner_amount?: number;
+          owner_id?: string | null;
+          owner_name?: string | null;
+          payer_id?: string | null;
+          payer_name?: string | null;
+          payer_tax_id?: string | null;
+          payment_method?: string | null;
+          property_id?: string | null;
+          provider_name?: string | null;
+          reference?: string | null;
+          revenue_type?: string | null;
+          reverses_id?: string | null;
+          service_id?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "finance_entries_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_entries_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_entries_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "finance_invoices_v";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_entries_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_entries_original_entry_id_fkey";
+            columns: ["original_entry_id"];
+            isOneToOne: false;
+            referencedRelation: "finance_entries";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_entries_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_entries_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_entries_payer_id_fkey";
+            columns: ["payer_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_entries_payer_id_fkey";
+            columns: ["payer_id"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_entries_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_entries_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "public_properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_entries_reverses_id_fkey";
+            columns: ["reverses_id"];
+            isOneToOne: true;
+            referencedRelation: "finance_entries";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_entries_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "public_services";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_entries_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      finance_expenses: {
+        Row: {
+          amount: number;
+          category: string;
+          created_at: string;
+          created_by: string | null;
+          document_number: string | null;
+          expense_date: string;
+          expense_no: number;
+          id: string;
+          kind: string;
+          note: string | null;
+          payment_method: string;
+          reverses_id: string | null;
+          supplier_name: string;
+          supplier_tax_id: string | null;
+          vat_amount: number;
+        };
+        Insert: {
+          amount: number;
+          category: string;
+          created_at?: string;
+          created_by?: string | null;
+          document_number?: string | null;
+          expense_date: string;
+          expense_no?: never;
+          id?: string;
+          kind?: string;
+          note?: string | null;
+          payment_method: string;
+          reverses_id?: string | null;
+          supplier_name: string;
+          supplier_tax_id?: string | null;
+          vat_amount?: number;
+        };
+        Update: {
+          amount?: number;
+          category?: string;
+          created_at?: string;
+          created_by?: string | null;
+          document_number?: string | null;
+          expense_date?: string;
+          expense_no?: never;
+          id?: string;
+          kind?: string;
+          note?: string | null;
+          payment_method?: string;
+          reverses_id?: string | null;
+          supplier_name?: string;
+          supplier_tax_id?: string | null;
+          vat_amount?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "finance_expenses_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_expenses_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_expenses_reverses_id_fkey";
+            columns: ["reverses_id"];
+            isOneToOne: true;
+            referencedRelation: "finance_expenses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      finance_settings: {
+        Row: {
+          bank_iban: string | null;
+          bank_name: string | null;
+          bank_swift: string | null;
+          email: string | null;
+          id: boolean;
+          invoice_due_days: number;
+          invoice_prefix: string;
+          invoice_terms: string | null;
+          legal_address: string | null;
+          legal_name: string | null;
+          phone: string | null;
+          small_business_high_rate: number;
+          small_business_rate: number;
+          small_business_threshold: number;
+          tax_id: string | null;
+          threshold_warning_percent: number;
+          updated_at: string;
+          updated_by: string | null;
+          vat_rate: number;
+          vat_registered: boolean;
+          vat_threshold: number;
+        };
+        Insert: {
+          bank_iban?: string | null;
+          bank_name?: string | null;
+          bank_swift?: string | null;
+          email?: string | null;
+          id?: boolean;
+          invoice_due_days?: number;
+          invoice_prefix?: string;
+          invoice_terms?: string | null;
+          legal_address?: string | null;
+          legal_name?: string | null;
+          phone?: string | null;
+          small_business_high_rate?: number;
+          small_business_rate?: number;
+          small_business_threshold?: number;
+          tax_id?: string | null;
+          threshold_warning_percent?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+          vat_rate?: number;
+          vat_registered?: boolean;
+          vat_threshold?: number;
+        };
+        Update: {
+          bank_iban?: string | null;
+          bank_name?: string | null;
+          bank_swift?: string | null;
+          email?: string | null;
+          id?: boolean;
+          invoice_due_days?: number;
+          invoice_prefix?: string;
+          invoice_terms?: string | null;
+          legal_address?: string | null;
+          legal_name?: string | null;
+          phone?: string | null;
+          small_business_high_rate?: number;
+          small_business_rate?: number;
+          small_business_threshold?: number;
+          tax_id?: string | null;
+          threshold_warning_percent?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+          vat_rate?: number;
+          vat_registered?: boolean;
+          vat_threshold?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "finance_settings_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finance_settings_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      invoice_counters: {
+        Row: {
+          last_number: number;
+          year: number;
+        };
+        Insert: {
+          last_number?: number;
+          year: number;
+        };
+        Update: {
+          last_number?: number;
+          year?: number;
+        };
+        Relationships: [];
+      };
+      invoice_templates: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          name: string;
+          payload: Json;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name: string;
+          payload: Json;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name?: string;
+          payload?: Json;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "invoice_templates_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoice_templates_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      invoices: {
+        Row: {
+          cancel_reason: string | null;
+          cancelled_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          discount_amount: number;
+          due_date: string | null;
+          duplicated_from: string | null;
+          id: string;
+          invoice_number: string | null;
+          issue_date: string | null;
+          issued_at: string | null;
+          issuer: Json | null;
+          items: Json;
+          last_sent_to: string | null;
+          notes: string | null;
+          number_seq: number | null;
+          number_year: number | null;
+          payment_id: string | null;
+          payment_method: string | null;
+          recipient_address: string | null;
+          recipient_email: string | null;
+          recipient_name: string;
+          recipient_phone: string | null;
+          recipient_profile_id: string | null;
+          recipient_tax_id: string | null;
+          recipient_type: string;
+          related_reference: string | null;
+          sent_at: string | null;
+          sent_count: number;
+          share_expires_at: string | null;
+          share_token_hash: string | null;
+          status: string;
+          subtotal: number;
+          terms: string | null;
+          total: number;
+          updated_at: string;
+          vat_amount: number;
+          vat_rate: number | null;
+        };
+        Insert: {
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          discount_amount?: number;
+          due_date?: string | null;
+          duplicated_from?: string | null;
+          id?: string;
+          invoice_number?: string | null;
+          issue_date?: string | null;
+          issued_at?: string | null;
+          issuer?: Json | null;
+          items?: Json;
+          last_sent_to?: string | null;
+          notes?: string | null;
+          number_seq?: number | null;
+          number_year?: number | null;
+          payment_id?: string | null;
+          payment_method?: string | null;
+          recipient_address?: string | null;
+          recipient_email?: string | null;
+          recipient_name: string;
+          recipient_phone?: string | null;
+          recipient_profile_id?: string | null;
+          recipient_tax_id?: string | null;
+          recipient_type?: string;
+          related_reference?: string | null;
+          sent_at?: string | null;
+          sent_count?: number;
+          share_expires_at?: string | null;
+          share_token_hash?: string | null;
+          status?: string;
+          subtotal?: number;
+          terms?: string | null;
+          total?: number;
+          updated_at?: string;
+          vat_amount?: number;
+          vat_rate?: number | null;
+        };
+        Update: {
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          discount_amount?: number;
+          due_date?: string | null;
+          duplicated_from?: string | null;
+          id?: string;
+          invoice_number?: string | null;
+          issue_date?: string | null;
+          issued_at?: string | null;
+          issuer?: Json | null;
+          items?: Json;
+          last_sent_to?: string | null;
+          notes?: string | null;
+          number_seq?: number | null;
+          number_year?: number | null;
+          payment_id?: string | null;
+          payment_method?: string | null;
+          recipient_address?: string | null;
+          recipient_email?: string | null;
+          recipient_name?: string;
+          recipient_phone?: string | null;
+          recipient_profile_id?: string | null;
+          recipient_tax_id?: string | null;
+          recipient_type?: string;
+          related_reference?: string | null;
+          sent_at?: string | null;
+          sent_count?: number;
+          share_expires_at?: string | null;
+          share_token_hash?: string | null;
+          status?: string;
+          subtotal?: number;
+          terms?: string | null;
+          total?: number;
+          updated_at?: string;
+          vat_amount?: number;
+          vat_rate?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "invoices_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_duplicated_from_fkey";
+            columns: ["duplicated_from"];
+            isOneToOne: false;
+            referencedRelation: "finance_invoices_v";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_duplicated_from_fkey";
+            columns: ["duplicated_from"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_payment_id_fkey";
+            columns: ["payment_id"];
+            isOneToOne: true;
+            referencedRelation: "payments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_recipient_profile_id_fkey";
+            columns: ["recipient_profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_recipient_profile_id_fkey";
+            columns: ["recipient_profile_id"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       job_applications: {
         Row: {
           applicant_user_id: string | null;
@@ -3869,6 +4597,51 @@ export type Database = {
           },
         ];
       };
+      signup_links: {
+        Row: {
+          code: string;
+          created_at: string;
+          created_by: string | null;
+          destination: string;
+          id: string;
+          is_active: boolean;
+          label: string;
+        };
+        Insert: {
+          code: string;
+          created_at?: string;
+          created_by?: string | null;
+          destination: string;
+          id?: string;
+          is_active?: boolean;
+          label: string;
+        };
+        Update: {
+          code?: string;
+          created_at?: string;
+          created_by?: string | null;
+          destination?: string;
+          id?: string;
+          is_active?: boolean;
+          label?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "signup_links_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "signup_links_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       site_settings: {
         Row: {
           key: string;
@@ -4723,6 +5496,177 @@ export type Database = {
       };
     };
     Views: {
+      finance_invoices_v: {
+        Row: {
+          cancel_reason: string | null;
+          cancelled_at: string | null;
+          created_at: string | null;
+          created_by: string | null;
+          discount_amount: number | null;
+          display_status: string | null;
+          due_date: string | null;
+          duplicated_from: string | null;
+          has_share_link: boolean | null;
+          id: string | null;
+          invoice_number: string | null;
+          is_overdue: boolean | null;
+          issue_date: string | null;
+          issued_at: string | null;
+          issuer: Json | null;
+          items: Json | null;
+          last_sent_to: string | null;
+          net_paid: number | null;
+          notes: string | null;
+          number_seq: number | null;
+          number_year: number | null;
+          paid_amount: number | null;
+          payment_id: string | null;
+          payment_method: string | null;
+          recipient_address: string | null;
+          recipient_email: string | null;
+          recipient_name: string | null;
+          recipient_phone: string | null;
+          recipient_profile_id: string | null;
+          recipient_tax_id: string | null;
+          recipient_type: string | null;
+          refunded_amount: number | null;
+          related_reference: string | null;
+          remaining: number | null;
+          sent_at: string | null;
+          sent_count: number | null;
+          share_expires_at: string | null;
+          status: string | null;
+          subtotal: number | null;
+          terms: string | null;
+          total: number | null;
+          updated_at: string | null;
+          vat_amount: number | null;
+          vat_rate: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "invoices_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_duplicated_from_fkey";
+            columns: ["duplicated_from"];
+            isOneToOne: false;
+            referencedRelation: "finance_invoices_v";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_duplicated_from_fkey";
+            columns: ["duplicated_from"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_payment_id_fkey";
+            columns: ["payment_id"];
+            isOneToOne: true;
+            referencedRelation: "payments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_recipient_profile_id_fkey";
+            columns: ["recipient_profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_recipient_profile_id_fkey";
+            columns: ["recipient_profile_id"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      finance_ledger_v: {
+        Row: {
+          amount: number | null;
+          flow: string | null;
+          occurred_at: string | null;
+          owner_amount: number | null;
+          record_id: string | null;
+          revenue_type: string | null;
+          source: string | null;
+        };
+        Relationships: [];
+      };
+      finance_payments_v: {
+        Row: {
+          amount: number | null;
+          created_at: string | null;
+          entry_no: number | null;
+          id: string | null;
+          invoice_id: string | null;
+          invoice_number: string | null;
+          net_amount: number | null;
+          note: string | null;
+          object_title: string | null;
+          occurred_at: string | null;
+          own_amount: number | null;
+          owner_amount: number | null;
+          owner_id: string | null;
+          owner_name: string | null;
+          owner_net: number | null;
+          owner_refunded: number | null;
+          payer_id: string | null;
+          payer_name: string | null;
+          payer_tax_id: string | null;
+          payment_method: string | null;
+          property_id: string | null;
+          provider_name: string | null;
+          reference: string | null;
+          refunded_amount: number | null;
+          revenue_type: string | null;
+          reversed: boolean | null;
+          review_flag: string | null;
+          service_id: string | null;
+          source: string | null;
+          source_status: string | null;
+          status: string | null;
+        };
+        Relationships: [];
+      };
+      finance_refunds_v: {
+        Row: {
+          amount: number | null;
+          created_at: string | null;
+          entry_no: number | null;
+          id: string | null;
+          occurred_at: string | null;
+          original_amount: number | null;
+          original_id: string | null;
+          original_reference: string | null;
+          original_source: string | null;
+          owner_amount: number | null;
+          payer_id: string | null;
+          payer_name: string | null;
+          payment_method: string | null;
+          reason: string | null;
+          revenue_type: string | null;
+          reversed: boolean | null;
+          source: string | null;
+          source_status: string | null;
+          status: string | null;
+        };
+        Relationships: [];
+      };
       public_listing_profiles: {
         Row: {
           avatar_url: string | null;
@@ -5386,6 +6330,121 @@ export type Database = {
         Returns: string;
       };
       expire_media_upload_intents: { Args: never; Returns: number };
+      finance_cancel_invoice: {
+        Args: { p_invoice_id: string; p_reason: string };
+        Returns: undefined;
+      };
+      finance_check_invoice_room: {
+        Args: { p_amount: number; p_invoice_id: string };
+        Returns: undefined;
+      };
+      finance_contract_snapshot: { Args: never; Returns: Json };
+      finance_intent_revenue_type: {
+        Args: { p_resume: Json };
+        Returns: string;
+      };
+      finance_invoice_totals: {
+        Args: { p_invoice_id: string };
+        Returns: {
+          paid: number;
+          refunded: number;
+        }[];
+      };
+      finance_issue_invoice: {
+        Args: { p_invoice_id: string };
+        Returns: string;
+      };
+      finance_mark_invoice_sent: {
+        Args: { p_invoice_id: string; p_to: string };
+        Returns: undefined;
+      };
+      finance_monthly_totals: {
+        Args: { p_from_month: string; p_to_month: string };
+        Returns: {
+          adjustments: number;
+          month: string;
+          net: number;
+          other_income: number;
+          owner_share: number;
+          platform_revenue: number;
+          received: number;
+          refunds: number;
+          taxable: number;
+        }[];
+      };
+      finance_owner_payables: {
+        Args: never;
+        Returns: {
+          collected: number;
+          last_activity: string;
+          outstanding: number;
+          owner_id: string;
+          owner_name: string;
+          paid_out: number;
+          refunded: number;
+        }[];
+      };
+      finance_package_revenue_type: {
+        Args: { p_category: string; p_code: string };
+        Returns: string;
+      };
+      finance_tax_year: {
+        Args: { p_year: number };
+        Returns: {
+          adjustments: number;
+          cumulative_taxable: number;
+          estimated_tax: number;
+          month: string;
+          net: number;
+          other_income: number;
+          owner_share: number;
+          platform_revenue: number;
+          rate: number;
+          received: number;
+          refunds: number;
+          taxable: number;
+        }[];
+      };
+      finance_transaction_revenue_type: {
+        Args: {
+          p_reference_id: string;
+          p_type: Database["public"]["Enums"]["transaction_type"];
+        };
+        Returns: string;
+      };
+      finance_try_uuid: { Args: { p_value: string }; Returns: string };
+      finance_vat_window: {
+        Args: { p_as_of: string };
+        Returns: {
+          rate: number;
+          registered: boolean;
+          threshold: number;
+          turnover: number;
+          window_end: string;
+          window_start: string;
+        }[];
+      };
+      finance_wallet_reconciliation: {
+        Args: never;
+        Returns: {
+          balances_total: number;
+          card_credits: number;
+          difference: number;
+          ledger_total: number;
+          mismatched_wallets: number;
+          other_credits: number;
+        }[];
+      };
+      finance_wallet_usage: {
+        Args: { p_from: string; p_to: string };
+        Returns: {
+          net: number;
+          purchase_count: number;
+          purchases: number;
+          refunds: number;
+          revenue_type: string;
+        }[];
+      };
       get_cleaner_renter_counts: {
         Args: never;
         Returns: {

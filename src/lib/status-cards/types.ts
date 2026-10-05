@@ -79,6 +79,10 @@ export type StatusCard = {
   expandable: boolean;
   active: boolean;
   items: StatusCardItem[];
+  // ISO time an admin last changed (or confirmed) this card, stamped by the
+  // admin API (src/lib/status-cards/updated-at.ts). Absent on cards saved
+  // before it existed and on DEFAULT_STATUS_CARDS: no date is shown then.
+  updatedAt?: string | null;
 };
 
 // Caps enforced by the admin API to keep the document sane.

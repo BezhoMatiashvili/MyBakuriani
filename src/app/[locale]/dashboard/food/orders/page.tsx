@@ -13,6 +13,8 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { Link } from "@/i18n/navigation";
+import { serviceEditUrl } from "@/lib/utils/listingUrls";
 import {
   contentChangeErrorKey,
   submitContentChange,
@@ -273,11 +275,17 @@ export default function FoodOrdersPage() {
             <p className="mt-4 rounded-xl bg-[#F8FAFC] px-3 py-2.5 text-[11px] font-medium text-[#64748B]">
               {t("maxSize")}
             </p>
-            <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#0F172A] px-5 py-2.5 text-[12px] font-bold text-white hover:bg-[#1E293B]">
-              <Plus className="h-4 w-4" />
-              {t("uploadMenu")}
-              <input type="file" accept="application/pdf" className="hidden" />
-            </label>
+            {/* The PDF upload lives in the restaurant's edit form only: it checks the
+                file's bytes (C5) and queues the change for review (C14). */}
+            {service && (
+              <Link
+                href={serviceEditUrl(service)}
+                className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-[#0F172A] px-5 py-2.5 text-[12px] font-bold text-white hover:bg-[#1E293B]"
+              >
+                <Plus className="h-4 w-4" />
+                {t("uploadMenu")}
+              </Link>
+            )}
           </div>
 
           <div className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">

@@ -149,7 +149,7 @@ export default function DateField({
             className={cn(
               "flex h-12 w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-[16px] font-semibold text-[#0F172A] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none transition-colors hover:border-[#CBD5E1] disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]",
               error && "border-[#EF4444]",
-              showClear && "pr-10",
+              showClear && "pr-12",
               className,
             )}
           >
@@ -208,7 +208,7 @@ export default function DateField({
             className={cn(
               "flex h-12 w-full items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-left text-[13px] font-semibold text-[#0F172A] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none transition-colors hover:border-[#CBD5E1] data-[popup-open]:border-[#2563EB] data-[popup-open]:ring-2 data-[popup-open]:ring-[#DBEAFE] disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]",
               error && "border-[#EF4444]",
-              showClear && "pr-10",
+              showClear && "pr-12",
               className,
             )}
           >
@@ -258,13 +258,16 @@ export default function DateField({
         </Popover>
       )}
       {showClear && (
+        // 44px tap area (touch target) around the same 24px circle.
         <button
           type="button"
           aria-label={t("clear")}
           onClick={() => onChange("")}
-          className="absolute right-3 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-[#94A3B8] transition-colors hover:bg-[#F1F5F9] hover:text-[#64748B]"
+          className="group/clear absolute right-0.5 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-[#94A3B8] transition-colors hover:text-[#64748B]"
         >
-          <X className="size-3.5" />
+          <span className="flex size-6 items-center justify-center rounded-full transition-colors group-hover/clear:bg-[#F1F5F9]">
+            <X className="size-3.5" />
+          </span>
         </button>
       )}
     </div>
