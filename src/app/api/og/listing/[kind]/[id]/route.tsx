@@ -6,6 +6,7 @@ import {
   getCachedPublicService,
 } from "@/lib/data/getCachedPublicListing";
 import { isUuid } from "@/lib/utils/uuid";
+import { ogCardSearch } from "@/lib/utils/listingUrls";
 import { renderableImageUrl } from "@/lib/banner-creative";
 // applyDiscount is a no-op when the discount is inactive/expired, so it alone
 // satisfies C10 ("every price surface applies the shared helper").
@@ -126,7 +127,25 @@ export async function GET(
     return new Response("Not found", { status: 404 });
   }
 
-  const story = new URL(request.url).searchParams.get("format") === "story";
+  const url = new URL(request.url);
+  const story = url.searchParams.get("format") === "story";
+  // Cache-key normalisation (A2): the CDN keys on the whole URL — path AND
+  // query — so normalise both to the single form `ogCardUrlForPath` emits
+  // (`?v=<version>` + optional `&format=story`, lower-case id). `isUuid` and
+  // Postgres accept a UUID in any case, so without lower-casing the id an
+  // upper-case or percent-encoded path would render a fresh card (satori +
+  // resvg + a cover fetch) under its own key — the cache-buster DoS. A real
+  // crawler fetches the exact canonical URL, so it is a 200, never a 308.
+  const canonical = `/api/og/listing/${kind}/${id.toLowerCase()}${ogCardSearch(story)}`;
+  if (url.pathname + url.search !== canonical) {
+    return new Response(null, {
+      status: 308,
+      headers: {
+        Location: canonical,
+        "Cache-Control": "public, max-age=86400, s-maxage=86400",
+      },
+    });
+  }
   const size = story ? STORY : LANDSCAPE;
 
   let card: Card | null = null;

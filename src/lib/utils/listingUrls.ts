@@ -167,6 +167,16 @@ export function ogCardTargetForPath(
  */
 const OG_CARD_VERSION = "2";
 
+/**
+ * The canonical query string of the OG card URL. The card renderer
+ * (api/og/listing/[kind]/[id]) imports this to build its canonical cache key,
+ * so the key it accepts and the URL emitted here are equal by construction — a
+ * param reorder or addition here can never leave real crawlers chasing a 308.
+ */
+export function ogCardSearch(story: boolean): string {
+  return `?v=${OG_CARD_VERSION}${story ? "&format=story" : ""}`;
+}
+
 /** Absolute URL of the composed Open Graph card for a public detail path. */
 export function ogCardUrlForPath(
   path: string,
@@ -174,6 +184,5 @@ export function ogCardUrlForPath(
 ): string | null {
   const target = ogCardTargetForPath(path);
   if (!target) return null;
-  const story = format === "story" ? "&format=story" : "";
-  return `/api/og/listing/${target.kind}/${target.id}?v=${OG_CARD_VERSION}${story}`;
+  return `/api/og/listing/${target.kind}/${target.id}${ogCardSearch(format === "story")}`;
 }
