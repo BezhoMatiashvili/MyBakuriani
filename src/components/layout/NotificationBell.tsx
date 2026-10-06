@@ -142,6 +142,8 @@ export function NotificationBell({
             </div>
           ) : (
             <ul
+              data-jev-private
+              data-jev-section={t("notifications")}
               className={
                 isMobile
                   ? "max-h-[min(58dvh,430px)] overflow-y-auto overscroll-contain"
@@ -252,7 +254,11 @@ export function NotificationBell({
                   ),
                 );
                 return (
-                  <div className="flex flex-col gap-4">
+                  <div
+                    data-jev-private
+                    data-jev-section={t("notificationTitle")}
+                    className="flex flex-col gap-4"
+                  >
                     <div className="flex items-start gap-3">
                       <div
                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${style.bg}`}
@@ -289,6 +295,7 @@ export function NotificationBell({
                       <Link
                         href={actionPath as never}
                         onClick={() => setSelected(null)}
+                        data-jev-label={t("viewNotification")}
                         className="inline-flex items-center justify-center rounded-xl bg-[#2563EB] px-5 py-2.5 text-[13px] font-bold text-white hover:bg-[#1D4ED8]"
                       >
                         {t("viewNotification")}

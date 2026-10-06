@@ -11,21 +11,108 @@ import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { CheckCircle2, Loader2, MessageCircle, X } from "lucide-react";
+import { useRouter } from "@/i18n/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { CONTACT_EMAIL, CONTACT_PHONE_E164 } from "@/lib/site-contact";
 import { scanPage, type PageScan } from "@/lib/support/scan";
 import {
+  ACTION_PARAM_KEYS,
+  FEEDBACK_REF,
   SUPPORT_LIMITS,
   cabinetForPath,
+  cleanPrivate,
   stripLocale,
+  type ActionParams,
   type JevStep,
+  type SupportActionRef,
+  type SupportButton,
   type SupportCabinet,
   type SupportLocale,
   type SupportResponse,
 } from "@/lib/support/plan";
+import {
+  actionHref,
+  isExternalHref,
+  isSafeActionHref,
+  type ActionContext,
+} from "@/lib/support/actions";
+import { SUPPORT_STORAGE_KEY } from "@/lib/support/storage";
 import { JevAvatar } from "./JevAvatar";
 import { JevSpotlight } from "./JevSpotlight";
-import { SupportPanel, type ChatEntry } from "./SupportPanel";
+import { SupportPanel, type ChatEntry, type QuickChip } from "./SupportPanel";
 
-// Each chip starts an on-screen walkthrough directly (no Gemini round trip).
+const CONTACT = { phone: CONTACT_PHONE_E164, email: CONTACT_EMAIL };
+
+// What a quick question does when pressed, with no answer-model call:
+// "answer" shows a pre-written answer (Support.canned.<key>) with buttons,
+// "guide" starts the on-screen walkthrough, "create" opens the listing form
+// and walks through it there.
+type ChipPlan =
+  | {
+      kind: "answer";
+      actions: SupportActionRef[];
+      /** Offer "Show me on screen" with the question as the goal. */
+      guide?: boolean;
+      /** Example replies (Support.canned.<key>Example1..n). */
+      examples?: number;
+    }
+  | { kind: "guide" }
+  | { kind: "create"; category?: string };
+
+const CHIPS: Record<string, ChipPlan> = {
+  addRental: { kind: "create", category: "rental" },
+  addSale: { kind: "create", category: "sale" },
+  addService: { kind: "create" },
+  addVacancy: { kind: "create", category: "employment" },
+  postListing: { kind: "create" },
+  uploadPhotos: { kind: "guide" },
+  addBooking: { kind: "guide" },
+  topUp: { kind: "answer", actions: [{ id: "topup" }], guide: true },
+  smartMatch: { kind: "answer", actions: [{ id: "smart_match" }], guide: true },
+  favorites: { kind: "answer", actions: [{ id: "favorites" }] },
+  profilePhoto: { kind: "guide" },
+  acceptTask: { kind: "guide" },
+  schedule: { kind: "answer", actions: [{ id: "schedule" }] },
+  uploadMenu: { kind: "guide" },
+  dishDiscount: { kind: "guide" },
+  readCvs: { kind: "answer", actions: [{ id: "orders" }] },
+  reviewListings: {
+    kind: "answer",
+    actions: [{ id: "admin_verifications" }],
+  },
+  reviewOwnership: {
+    kind: "answer",
+    actions: [{ id: "admin_verifications", params: { tab: "ownership" } }],
+    guide: true,
+  },
+  findUser: { kind: "answer", actions: [{ id: "admin_clients" }], guide: true },
+  verifyOwnership: {
+    kind: "answer",
+    actions: [{ id: "ownership" }],
+    guide: true,
+  },
+  linkGoogle: { kind: "answer", actions: [{ id: "account" }], guide: true },
+  requiredFields: { kind: "guide" },
+  publish: { kind: "guide" },
+  findPlace: {
+    kind: "answer",
+    actions: [{ id: "browse", params: { category: "apartments" } }],
+    examples: 2,
+  },
+  register: { kind: "answer", actions: [{ id: "register" }], guide: true },
+  forgotPassword: { kind: "answer", actions: [{ id: "forgot_password" }] },
+  googleSignIn: { kind: "guide" },
+};
+
+// "addService" in a services cabinet opens that cabinet's own form.
+const SERVICE_FORM: Partial<Record<SupportCabinet, string>> = {
+  entertainment: "entertainment",
+  transport: "transport",
+  services: "service",
+  employment: "employment",
+  food: "food",
+};
+
 const QUICK_ACTIONS: Record<SupportCabinet, readonly string[]> = {
   renter: ["addRental", "uploadPhotos", "addBooking", "topUp"],
   seller: ["addSale", "uploadPhotos", "topUp"],
@@ -55,22 +142,29 @@ type Guide = {
   status: "planning" | "running";
 };
 
-type Saved = { entries: ChatEntry[]; guide: Guide | null; savedAt: number };
+/** The saved chat; `owner` is the signed-in user's id or "anon". */
+type Saved = {
+  owner: string;
+  entries: ChatEntry[];
+  guide: Guide | null;
+  savedAt: number;
+};
 
-const STORAGE_KEY = "mb.jev.v1";
 const MAX_ENTRIES = 30;
 // The first plan plus re-plans after each screen change, per goal.
 const MAX_PLANS = 6;
 // A walkthrough survives page changes in the same tab, not a later visit.
 const GUIDE_TTL_MS = 15 * 60_000;
+// A conversation left alone this long is forgotten.
+const CHAT_IDLE_MS = 30 * 60_000;
 // Longest wait for a route change, a modal or the next wizard step to render
 // before the page is scanned; most screens settle well before it.
 const SETTLE_MS = 700;
 // The page counts as settled after this long without a change.
 const QUIET_MS = 150;
 // A first question that reads like "how do I / where / I can't" (ka, en, ru):
-// its steps are planned while Gemini decides between an answer and a
-// walkthrough, so a walkthrough starts without a second wait.
+// its steps are planned while the answer is written, so a walkthrough starts
+// without a second wait.
 const HOW_TO =
   /როგორ|სად |ვერ |მინდა|მაჩვენე|დამეხმარ|\b(?:how|where|can'?t|cannot|unable|show me|help me)\b|как |где |не могу|не получается|покажи|помоги/i;
 const PREFETCH_TTL_MS = 2 * 60_000;
@@ -78,6 +172,14 @@ const ADVANCE_MS = 350;
 const CLIENT_TIMEOUT_MS = 45_000;
 const OPTION_SELECTOR =
   "[role='option'], [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']";
+// Proactive help: an error shown this soon after the user's own click,
+// submit or Enter counts as "it didn't work".
+const NUDGE_WINDOW_MS = 2_000;
+const NUDGE_SHOW_MS = 12_000;
+const NUDGED_KEY = "mb.jev.nudged";
+const ERROR_SELECTOR = "[data-sonner-toast][data-type='error'], [role='alert']";
+const DISABLED_SELECTOR =
+  "button:disabled, [role='button'][aria-disabled='true'], button[aria-disabled='true']";
 
 async function callSupport(
   body: Record<string, unknown>,
@@ -155,9 +257,30 @@ function pageSettled(mode: Settle): Promise<void> {
 }
 
 // Supabase keeps the session in sb-<ref>-auth-token cookies that scripts can
-// read; only a hint for which quick questions to offer.
+// read; only a hint for which quick questions and buttons to offer (the
+// server decides with the real session).
 function looksSignedIn(): boolean {
   return /(?:^|;\s*)sb-[^=]+-auth-token(?:\.0)?=/.test(document.cookie);
+}
+
+/** Whose chat this tab holds: the session's user id (read locally) or "anon". */
+async function currentOwner(): Promise<string> {
+  if (!looksSignedIn()) return "anon";
+  try {
+    const { data } = await createClient().auth.getSession();
+    return data.session?.user.id ?? "anon";
+  } catch {
+    return "anon";
+  }
+}
+
+function tbilisiToday(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tbilisi",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 type Lift = { px: number; bar: boolean };
@@ -251,23 +374,80 @@ async function settledScan(): Promise<PageScan> {
   return scan;
 }
 
-function isEntry(value: unknown): value is ChatEntry {
-  if (!value || typeof value !== "object") return false;
-  const entry = value as Record<string, unknown>;
-  return (
-    typeof entry.id === "string" &&
-    (entry.role === "user" || entry.role === "assistant") &&
-    typeof entry.text === "string"
-  );
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function strings(value: unknown, max: number): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const list = value.filter((item): item is string => typeof item === "string");
+  return list.length > 0 ? list.slice(0, max) : undefined;
+}
+
+/** A button from the server or a saved chat, if its link passes the guard. */
+function toButton(value: unknown): SupportButton | null {
+  if (!isRecord(value) || typeof value.id !== "string") return null;
+  if (!isSafeActionHref(value.href, CONTACT)) return null;
+  const button: SupportButton = { id: value.id, href: value.href };
+  if (isRecord(value.params)) {
+    const params: ActionParams = {};
+    for (const key of ACTION_PARAM_KEYS) {
+      const item = value.params[key];
+      if (typeof item === "string" || typeof item === "number")
+        params[key] = item;
+      else if (Array.isArray(item))
+        params[key] = item.filter(
+          (part): part is string => typeof part === "string",
+        );
+    }
+    if (Object.keys(params).length > 0) button.params = params;
+  }
+  return button;
+}
+
+function toButtons(value: unknown): SupportButton[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const list = value
+    .map(toButton)
+    .filter((button): button is SupportButton => button !== null)
+    .slice(0, SUPPORT_LIMITS.actions);
+  return list.length > 0 ? list : undefined;
+}
+
+/** A saved entry, re-checked field by field (storage can be edited). */
+function toEntry(value: unknown): ChatEntry | null {
+  if (!isRecord(value)) return null;
+  if (
+    typeof value.id !== "string" ||
+    (value.role !== "user" && value.role !== "assistant") ||
+    typeof value.text !== "string"
+  )
+    return null;
+  const entry: ChatEntry = { id: value.id, role: value.role, text: value.text };
+  if (value.tone === "info" || value.tone === "error") entry.tone = value.tone;
+  const actions = toButtons(value.actions);
+  if (actions) entry.actions = actions;
+  if (typeof value.guide === "string" && value.guide) entry.guide = value.guide;
+  const suggestions = strings(value.suggestions, SUPPORT_LIMITS.suggestions);
+  if (suggestions) entry.suggestions = suggestions;
+  if (typeof value.ref === "string" && FEEDBACK_REF.test(value.ref))
+    entry.ref = value.ref;
+  if (value.rating === "up" || value.rating === "down")
+    entry.rating = value.rating;
+  const options = strings(value.options, SUPPORT_LIMITS.options);
+  if (options) entry.options = options;
+  if (typeof value.goal === "string") entry.goal = value.goal;
+  const progress = strings(value.progress, SUPPORT_LIMITS.progress);
+  if (progress) entry.progress = progress;
+  return entry;
 }
 
 function isGuide(value: unknown): value is Guide {
-  if (!value || typeof value !== "object") return false;
-  const guide = value as Record<string, unknown>;
+  if (!isRecord(value)) return false;
   return (
-    typeof guide.goal === "string" &&
-    Array.isArray(guide.progress) &&
-    typeof guide.plans === "number"
+    typeof value.goal === "string" &&
+    Array.isArray(value.progress) &&
+    typeof value.plans === "number"
   );
 }
 
@@ -275,15 +455,41 @@ function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function nudgedPaths(): string[] {
+  try {
+    const raw = window.sessionStorage.getItem(NUDGED_KEY);
+    const list: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list)
+      ? list.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberNudge(path: string) {
+  try {
+    const list = [...nudgedPaths().filter((item) => item !== path), path];
+    window.sessionStorage.setItem(NUDGED_KEY, JSON.stringify(list.slice(-50)));
+  } catch {
+    // Storage unavailable: the nudge may show again on this page.
+  }
+}
+
+/** What went wrong, as the planner will read it (masked, one line). */
+type Trouble = { kind: "error" | "disabled"; text: string };
+
 /**
- * The dashboard support assistant (C43). Questions go to Gemini through
- * /api/support; when the user needs to do something, Jev plans on-screen
+ * The support assistant on every page (C43). Questions go to Gemini through
+ * /api/support and come back as an answer with buttons that open the right
+ * page or form; when the user needs to do something on screen, Jev plans
  * steps from a snapshot of the page and JevSpotlight walks through them,
  * re-planning after every screen change until the goal is done.
  */
 export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   const t = useTranslations("Support");
   const locale = useLocale() as SupportLocale;
+  const router = useRouter();
   const pathname = usePathname() ?? "/";
   const path = stripLocale(pathname);
   const cabinet = cabinetForPath(path, homeRole);
@@ -300,14 +506,17 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   const [celebrate, setCelebrate] = useState(false);
   const [restored, setRestored] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
+  const [nudge, setNudge] = useState<Trouble | null>(null);
   const lift = useCornerLift();
 
   // Async plan runs and DOM listeners read the latest values from refs.
   const guideRef = useRef<Guide | null>(null);
   const contextRef = useRef({ locale, cabinet, path });
   const tRef = useRef(t);
+  const routerRef = useRef(router);
   const labelsRef = useRef<Map<string, string>>(new Map());
   const entriesRef = useRef<ChatEntry[]>([]);
+  const ownerRef = useRef("anon");
   const restoredRef = useRef(false);
   const ticketRef = useRef(0);
   const timerRef = useRef<number | undefined>(undefined);
@@ -315,10 +524,14 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   const prefetchRef = useRef<Prefetch | null>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const wasOpenRef = useRef(false);
+  const quietRef = useRef(true);
 
   useLayoutEffect(() => {
     contextRef.current = { locale, cabinet, path };
     tRef.current = t;
+    routerRef.current = router;
+    // No nudge while the chat or a walkthrough is open.
+    quietRef.current = !open && !guide;
   });
 
   // Saved at once as well as from the effect below: a click on a link can
@@ -328,11 +541,12 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
     if (!restoredRef.current) return;
     try {
       const saved: Saved = {
+        owner: ownerRef.current,
         entries: entriesRef.current,
         guide: next,
         savedAt: Date.now(),
       };
-      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+      window.sessionStorage.setItem(SUPPORT_STORAGE_KEY, JSON.stringify(saved));
     } catch {
       // Private mode or full storage: the chat just won't survive a reload.
     }
@@ -352,6 +566,18 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
       [...list, { ...entry, id: newId() }].slice(-MAX_ENTRIES),
     );
   }, []);
+
+  /** The browser's view for buttons it builds itself (quick questions). */
+  const clientContext = useCallback(
+    (): ActionContext => ({
+      cabinet: contextRef.current.cabinet,
+      signedIn: looksSignedIn(),
+      today: tbilisiToday(),
+      zones: [],
+      contact: CONTACT,
+    }),
+    [],
+  );
 
   const runPlan = useCallback(
     async (ticket: number, settle: Settle) => {
@@ -482,9 +708,15 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
     [],
   );
 
+  /**
+   * Starts a walkthrough. With `href` it first opens that page (a listing
+   * form) and plans there: the route change, or the next layout restoring
+   * the saved walkthrough, triggers the plan.
+   */
   const startGuide = useCallback(
-    (goal: string, progress: string[] = []) => {
+    (goal: string, progress: string[] = [], href?: string) => {
       cancelPlan();
+      setNudge(null);
       push({
         role: "assistant",
         text: tRef.current("guideStarting"),
@@ -500,6 +732,10 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
         status: "planning",
       });
       setOpen(false);
+      if (href && href.split("?")[0] !== contextRef.current.path) {
+        routerRef.current.push(href);
+        return;
+      }
       schedulePlan("none");
     },
     [cancelPlan, commitGuide, push, schedulePlan],
@@ -560,7 +796,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
       const message = text.trim();
       if (!message || busy) return;
       const history = entries
-        .filter((entry) => !entry.tone)
+        .filter((entry) => !entry.tone && entry.text)
         .slice(-SUPPORT_LIMITS.history)
         .map(({ role, text: said }) => ({ role, text: said }));
       push({ role: "user", text: message });
@@ -599,10 +835,22 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
       });
       setBusy(null);
       if (response.type === "answer") {
-        push({ role: "assistant", text: response.text, showMe: message });
-      } else if (response.type === "guide") {
-        // Walk through the steps already planned for the question itself.
-        startGuide(prefetchRef.current?.goal ?? response.goal);
+        // The steps planned in parallel answer the question itself, so a
+        // walkthrough offered for it starts from them (same goal).
+        const prefetched = prefetchRef.current?.goal;
+        const goal = response.guide ? (prefetched ?? response.guide) : "";
+        push({
+          role: "assistant",
+          text: response.text,
+          actions: toButtons(response.actions),
+          guide: goal || undefined,
+          suggestions: strings(
+            response.suggestions,
+            SUPPORT_LIMITS.suggestions,
+          ),
+          ref: FEEDBACK_REF.test(response.ref) ? response.ref : undefined,
+        });
+        if (response.guideNow && goal) startGuide(goal);
       } else if (response.type === "error") {
         push({
           role: "assistant",
@@ -620,13 +868,72 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
     [busy, entries, push, startGuide],
   );
 
+  // Quick questions: a pre-written answer with buttons, a walkthrough, or
+  // the listing form; none of them waits for the answer model.
   const quick = useCallback(
-    (text: string) => {
-      push({ role: "user", text });
-      startGuide(text);
+    (chip: QuickChip) => {
+      const plan = CHIPS[chip.key] ?? { kind: "guide" };
+      push({ role: "user", text: chip.text });
+      if (plan.kind === "guide") {
+        startGuide(chip.text);
+        return;
+      }
+      const ctx = clientContext();
+      if (plan.kind === "create") {
+        const category = plan.category ?? SERVICE_FORM[ctx.cabinet];
+        const href = actionHref(
+          { id: "add_listing", params: category ? { category } : undefined },
+          ctx,
+        );
+        startGuide(chip.text, [], href ?? undefined);
+        return;
+      }
+      const actions: SupportButton[] = [];
+      for (const ref of plan.actions) {
+        const href = actionHref(ref, ctx);
+        if (href) actions.push({ ...ref, href });
+      }
+      const examples = Array.from({ length: plan.examples ?? 0 }, (_, index) =>
+        tRef.current(`canned.${chip.key}Example${index + 1}` as never),
+      );
+      push({
+        role: "assistant",
+        text: tRef.current(`canned.${chip.key}` as never),
+        actions: actions.length > 0 ? actions : undefined,
+        guide: plan.guide ? chip.text : undefined,
+        suggestions: examples.length > 0 ? examples : undefined,
+        ref: `canned:${chip.key}`,
+      });
     },
-    [push, startGuide],
+    [clientContext, push, startGuide],
   );
+
+  // A button under an answer: a note in the chat, then the page opens (the
+  // site's own form does the rest; nothing is sent or paid from here).
+  const pressAction = useCallback(
+    (button: SupportButton, label: string) => {
+      if (!isSafeActionHref(button.href, CONTACT)) return;
+      if (isExternalHref(button.href)) return; // a plain tel:/mailto: link
+      push({
+        role: "assistant",
+        text: tRef.current("opened", { label }),
+        tone: "info",
+      });
+      setOpen(false);
+      routerRef.current.push(button.href);
+    },
+    [push],
+  );
+
+  // 👍/👎: only the answer's ref and the rating are sent.
+  const rate = useCallback((entryId: string, rating: "up" | "down") => {
+    const entry = entriesRef.current.find((item) => item.id === entryId);
+    if (!entry?.ref || entry.rating) return;
+    setEntries((list) =>
+      list.map((item) => (item.id === entryId ? { ...item, rating } : item)),
+    );
+    void callSupport({ mode: "feedback", ref: entry.ref, rating });
+  }, []);
 
   // An answer keeps the goal and what was done; Jev reads it as a step.
   const choose = useCallback(
@@ -661,34 +968,51 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   const close = useCallback(() => setOpen(false), []);
 
   // Restore the conversation and an unfinished walkthrough after a page change
-  // that swapped layouts (dashboard <-> /create) or a reload.
+  // that swapped layouts (dashboard <-> /create) or a reload, unless it
+  // belongs to another account or was left alone too long.
   useEffect(() => {
-    try {
-      const raw = window.sessionStorage.getItem(STORAGE_KEY);
-      const saved = raw ? (JSON.parse(raw) as Partial<Saved>) : null;
-      if (saved && Array.isArray(saved.entries)) {
-        entriesRef.current = saved.entries.filter(isEntry).slice(-MAX_ENTRIES);
-        setEntries(entriesRef.current);
+    let cancelled = false;
+    void (async () => {
+      const owner = await currentOwner();
+      if (cancelled) return;
+      ownerRef.current = owner;
+      try {
+        const raw = window.sessionStorage.getItem(SUPPORT_STORAGE_KEY);
+        const saved = raw ? (JSON.parse(raw) as Partial<Saved>) : null;
+        const age = Date.now() - Number(saved?.savedAt ?? 0);
+        // A visitor's chat carries over when they sign in; a signed-in
+        // user's chat is never shown to anyone else.
+        const theirs = saved?.owner === owner || saved?.owner === "anon";
+        if (saved && theirs && age < CHAT_IDLE_MS) {
+          if (Array.isArray(saved.entries)) {
+            entriesRef.current = saved.entries
+              .map(toEntry)
+              .filter((entry): entry is ChatEntry => entry !== null)
+              .slice(-MAX_ENTRIES);
+            setEntries(entriesRef.current);
+          }
+          if (isGuide(saved.guide) && age < GUIDE_TTL_MS) {
+            // Its steps point at elements of a page that is gone: plan again here.
+            commitGuide({
+              ...saved.guide,
+              steps: [],
+              index: 0,
+              status: "planning",
+            });
+            schedulePlan("quiet");
+          }
+        } else if (raw) {
+          window.sessionStorage.removeItem(SUPPORT_STORAGE_KEY);
+        }
+      } catch {
+        // Storage unavailable or corrupt: start fresh.
       }
-      if (
-        saved &&
-        isGuide(saved.guide) &&
-        Date.now() - Number(saved.savedAt ?? 0) < GUIDE_TTL_MS
-      ) {
-        // Its steps point at elements of a page that is gone: plan again here.
-        commitGuide({
-          ...saved.guide,
-          steps: [],
-          index: 0,
-          status: "planning",
-        });
-        schedulePlan("quiet");
-      }
-    } catch {
-      // Storage unavailable or corrupt: start fresh.
-    }
-    restoredRef.current = true;
-    setRestored(true);
+      restoredRef.current = true;
+      setRestored(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [commitGuide, schedulePlan]);
 
   useEffect(() => {
@@ -700,6 +1024,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   useEffect(() => {
     if (lastPathRef.current === path) return;
     lastPathRef.current = path;
+    setNudge(null);
     const current = guideRef.current;
     if (!current) return;
     commitGuide({ ...current, status: "planning" });
@@ -718,6 +1043,107 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
     }
     wasOpenRef.current = open;
   }, [open]);
+
+  // Proactive help, local only: an error the user's own click, submit or
+  // Enter just caused (an error toast, a new role=alert), or a press on a
+  // disabled button. Offered once per page per tab; nothing is sent unless
+  // the user presses "Show me".
+  useEffect(() => {
+    let actedAt = 0;
+    let actedPath = "";
+    const offer = (trouble: Trouble) => {
+      const here = contextRef.current.path;
+      if (!quietRef.current || nudgedPaths().includes(here)) return;
+      rememberNudge(here);
+      setNudge(trouble);
+    };
+    const onAct = (event: Event) => {
+      if (isOurs(event.target as Node | null)) return;
+      if (
+        event instanceof KeyboardEvent &&
+        (event.key !== "Enter" || event.isComposing)
+      )
+        return;
+      actedAt = performance.now();
+      actedPath = contextRef.current.path;
+    };
+    // A disabled button gets no click, but the press lands on the page.
+    const onPress = (event: PointerEvent) => {
+      if (isOurs(event.target as Node | null)) return;
+      const hit = document
+        .elementsFromPoint(event.clientX, event.clientY)
+        .find((el) => el.matches(DISABLED_SELECTOR));
+      if (!hit || isOurs(hit)) return;
+      // A greyed-out pager or tab arrow is not a step the user is stuck on.
+      if (hit.closest("nav, [role='navigation'], [role='tablist']")) return;
+      const label = cleanPrivate(
+        hit.getAttribute("aria-label") || (hit as HTMLElement).innerText,
+        SUPPORT_LIMITS.progressText - 30,
+      );
+      if (label) offer({ kind: "disabled", text: label });
+    };
+    const observer = new MutationObserver((records) => {
+      if (
+        !actedAt ||
+        performance.now() - actedAt > NUDGE_WINDOW_MS ||
+        actedPath !== contextRef.current.path
+      )
+        return;
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (!(node instanceof HTMLElement) || isOurs(node)) continue;
+          const found = node.matches(ERROR_SELECTOR)
+            ? node
+            : node.querySelector<HTMLElement>(ERROR_SELECTOR);
+          // Next.js announces route changes in a role=alert of its own.
+          if (!found || found.closest("next-route-announcer")) continue;
+          if (found.id === "__next-route-announcer__") continue;
+          const text = cleanPrivate(
+            found.innerText,
+            SUPPORT_LIMITS.progressText - 30,
+          );
+          if (text) {
+            offer({ kind: "error", text });
+            return;
+          }
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    document.addEventListener("click", onAct, true);
+    document.addEventListener("submit", onAct, true);
+    document.addEventListener("keydown", onAct, true);
+    document.addEventListener("pointerdown", onPress, true);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("click", onAct, true);
+      document.removeEventListener("submit", onAct, true);
+      document.removeEventListener("keydown", onAct, true);
+      document.removeEventListener("pointerdown", onPress, true);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!nudge) return;
+    if (open || guide) {
+      setNudge(null);
+      return;
+    }
+    const timer = window.setTimeout(() => setNudge(null), NUDGE_SHOW_MS);
+    return () => window.clearTimeout(timer);
+  }, [nudge, open, guide]);
+
+  const helpWithTrouble = useCallback(() => {
+    const trouble = nudge;
+    if (!trouble) return;
+    setNudge(null);
+    const seen =
+      trouble.kind === "error"
+        ? `saw error "${trouble.text}"`
+        : `pressed disabled "${trouble.text}"`;
+    push({ role: "user", text: tRef.current("nudge.ask") });
+    startGuide(tRef.current("nudge.goal"), [seen]);
+  }, [nudge, push, startGuide]);
 
   const step =
     guide?.status === "running" ? guide.steps[guide.index] : undefined;
@@ -821,11 +1247,50 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
     cabinet === "public" && signedIn
       ? PUBLIC_SIGNED_IN
       : QUICK_ACTIONS[cabinet];
-  const quickActions = quickKeys.map((key) => t(`quick.${key}`));
+  const quickChips: QuickChip[] = quickKeys.map((key) => ({
+    key,
+    text: t(`quick.${key}` as never),
+  }));
   const corner = "fixed right-4 lg:right-6";
 
   return (
     <div data-jev-ignore>
+      <AnimatePresence>
+        {nudge && !open && !guide && (
+          <motion.div
+            key="nudge"
+            role="status"
+            data-testid="jev-nudge"
+            style={liftStyle(lift, 68)}
+            className={`${corner} z-[81] flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-2xl bg-white py-2 pl-3 pr-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.35)] ring-1 ring-[#DBEAFE] sm:max-w-[340px]`}
+            initial={reduceMotion ? false : { opacity: 0, y: 10, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10 }}
+          >
+            <JevAvatar size="sm" />
+            <p className="min-w-0 flex-1 text-[13px] font-semibold leading-snug text-[#0F172A]">
+              {t("nudge.text")}
+            </p>
+            <button
+              type="button"
+              onClick={helpWithTrouble}
+              data-testid="jev-nudge-show"
+              className="min-h-11 shrink-0 rounded-xl bg-[#2563EB] px-3 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+            >
+              {t("nudge.show")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setNudge(null)}
+              aria-label={t("close")}
+              className="flex size-11 shrink-0 items-center justify-center rounded-full text-[#64748B] transition-colors hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+            >
+              <X className="size-4" aria-hidden />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {!open && !guide && (
           <motion.button
@@ -834,6 +1299,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
             type="button"
             onClick={() => {
               setSignedIn(looksSignedIn());
+              setNudge(null);
               setOpen(true);
             }}
             aria-label={t("launcher")}
@@ -903,13 +1369,17 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
             entries={entries}
             busy={busy}
             draft={draft}
-            quickActions={quickActions}
+            quickChips={quickChips}
+            cabinet={cabinet}
             reduceMotion={reduceMotion}
             onDraft={setDraft}
             onSend={send}
-            onShowMe={startGuide}
+            onShowMe={(goal) => startGuide(goal)}
             onOption={choose}
             onQuick={quick}
+            onAction={pressAction}
+            onSuggestion={(text) => void ask(text)}
+            onRate={rate}
             onReset={reset}
             onClose={close}
           />

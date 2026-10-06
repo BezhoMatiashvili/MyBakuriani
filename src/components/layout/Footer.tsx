@@ -14,6 +14,7 @@ const LEGAL_LINK_CLASS =
 
 export function Footer() {
   const t = useTranslations("Footer");
+  const tNav = useTranslations("Navbar");
 
   const platformLinks = [
     { label: t("allListings"), href: "/apartments" },
@@ -24,14 +25,15 @@ export function Footer() {
     { label: t("pricing"), href: "/pricing" },
   ];
 
+  // The header's categories, in the header's order and with its labels
+  // (Navbar.tsx:navItemKeys).
   const serviceLinks = [
-    { label: t("transfer"), href: "/transport" },
-    { label: t("skiing"), href: "/entertainment" },
-    { label: t("snowmobiles"), href: "/entertainment" },
-    { label: t("restaurants"), href: "/food" },
-    { label: t("cleaning"), href: "/services" },
-    { label: t("handymen"), href: "/services" },
-    { label: t("employment"), href: "/employment" },
+    { label: tNav("apartments"), href: "/apartments" },
+    { label: tNav("transport"), href: "/transport" },
+    { label: tNav("employment"), href: "/employment" },
+    { label: tNav("services"), href: "/services" },
+    { label: tNav("food"), href: "/food" },
+    { label: tNav("entertainment"), href: "/entertainment" },
   ];
 
   const helpLinks = [

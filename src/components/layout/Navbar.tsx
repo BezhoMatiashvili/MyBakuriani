@@ -7,7 +7,6 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import {
   Home,
-  Building2,
   Bus,
   Briefcase,
   Wrench,
@@ -31,9 +30,15 @@ import { NotificationBell } from "@/components/layout/NotificationBell";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 
+// Apartments and hotels share one entry, "ბინები" (owner's PDF 2026-10-06):
+// /apartments lists hotels too. /hotels still exists and lights this entry up.
 const navItemKeys = [
-  { key: "apartments" as const, href: "/apartments", icon: Home },
-  { key: "hotels" as const, href: "/hotels", icon: Building2 },
+  {
+    key: "apartments" as const,
+    href: "/apartments",
+    icon: Home,
+    alsoActive: ["/hotels"],
+  },
   { key: "transport" as const, href: "/transport", icon: Bus },
   { key: "employment" as const, href: "/employment", icon: Briefcase },
   { key: "services" as const, href: "/services", icon: Wrench },
@@ -371,8 +376,9 @@ export function Navbar() {
           <div className="mx-auto flex h-[94px] max-w-[1160px] items-center justify-center gap-6 px-4 lg:gap-[60px] xl:gap-[104px]">
             {navItemKeys.map((item) => {
               const Icon = item.icon;
-              const isActive =
-                pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const isActive = [item.href, ...(item.alsoActive ?? [])].some(
+                (href) => pathname === href || pathname.startsWith(`${href}/`),
+              );
               return (
                 <Link
                   key={item.href}

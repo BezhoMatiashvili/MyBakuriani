@@ -294,7 +294,7 @@ export function ServiceOrdersView({
             title="შეკვეთის დეტალები"
             size="md"
           >
-            <div className="space-y-5">
+            <div data-jev-private className="space-y-5">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
                   <User className="h-5 w-5" />
@@ -339,6 +339,7 @@ export function ServiceOrdersView({
                 {!selectedMessage.is_read && (
                   <button
                     type="button"
+                    data-jev-label="მიღება"
                     onClick={() => {
                       markMessageRead(selectedMessage.id);
                       setSelectedMessage({
@@ -355,6 +356,7 @@ export function ServiceOrdersView({
                 <button
                   type="button"
                   onClick={() => setSelectedMessage(null)}
+                  data-jev-label="დახურვა"
                   className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#F8FAFC]"
                 >
                   <XIcon className="h-4 w-4" />
@@ -430,7 +432,7 @@ function MessagesList({
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody data-jev-private data-jev-section="შეკითხვები">
             {rows.map((msg, idx) => (
               <motion.tr
                 key={msg.id}
@@ -456,6 +458,7 @@ function MessagesList({
                   <button
                     type="button"
                     onClick={() => onSelect(msg)}
+                    data-jev-label="ნახვა"
                     className="text-sm font-medium text-brand-accent hover:underline"
                   >
                     ნახვა
@@ -466,7 +469,11 @@ function MessagesList({
           </tbody>
         </table>
       </div>
-      <div className="space-y-3 sm:hidden">
+      <div
+        data-jev-private
+        data-jev-section="შეკითხვები"
+        className="space-y-3 sm:hidden"
+      >
         {rows.map((msg, idx) => (
           <motion.button
             key={msg.id}
@@ -544,7 +551,7 @@ function ApplicationsList({
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody data-jev-private data-jev-section="ვაკანსიის განაცხადები">
             {rows.map((app, idx) => (
               <motion.tr
                 key={app.id}
@@ -589,6 +596,7 @@ function ApplicationsList({
                   <button
                     type="button"
                     onClick={() => onSelect(app)}
+                    data-jev-label="ნახვა"
                     className="text-sm font-medium text-brand-accent hover:underline"
                   >
                     ნახვა
@@ -599,7 +607,11 @@ function ApplicationsList({
           </tbody>
         </table>
       </div>
-      <div className="space-y-3 sm:hidden">
+      <div
+        data-jev-private
+        data-jev-section="ვაკანსიის განაცხადები"
+        className="space-y-3 sm:hidden"
+      >
         {rows.map((app, idx) => (
           <motion.button
             key={app.id}
@@ -646,7 +658,7 @@ function ApplicationDetail({
   onClose: () => void;
 }) {
   return (
-    <div className="space-y-5">
+    <div data-jev-private className="space-y-5">
       <div className="flex items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
           <User className="h-5 w-5" />
@@ -712,6 +724,7 @@ function ApplicationDetail({
           target="_blank"
           rel="noopener noreferrer"
           data-cv-download
+          data-jev-label="ნახე CV"
           className="inline-flex items-center gap-2 rounded-xl border border-[#DBEAFE] bg-[#F0F7FF] px-4 py-2.5 text-sm font-bold text-[#2563EB] transition-colors hover:bg-[#DBEAFE]"
         >
           <FileText className="h-4 w-4" />
@@ -730,6 +743,7 @@ function ApplicationDetail({
           <button
             type="button"
             onClick={onMarkProcessed}
+            data-jev-label="მიღება"
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-accent/90"
           >
             <Check className="h-4 w-4" />
@@ -739,6 +753,7 @@ function ApplicationDetail({
         <button
           type="button"
           onClick={onClose}
+          data-jev-label="დახურვა"
           className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#F8FAFC]"
         >
           <XIcon className="h-4 w-4" />

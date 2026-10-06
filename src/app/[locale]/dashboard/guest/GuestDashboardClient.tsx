@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
@@ -14,6 +15,7 @@ import { priceUnitPathFor } from "@/lib/constants/listing-options";
 import { propertyViewUrl, serviceViewUrl } from "@/lib/utils/listingUrls";
 import NewRequestModal, {
   type NewRequestPayload,
+  type NewRequestPrefill,
 } from "@/components/guest/NewRequestModal";
 import GuestOffersModal, {
   type GuestOffer,
@@ -21,7 +23,14 @@ import GuestOffersModal, {
 import type { Tables } from "@/lib/types/database";
 import { isStale } from "@/lib/smart-match/match";
 import { safeInternalPath } from "@/lib/security";
-import { SMART_MATCH_NEW_PARAM } from "@/lib/signup-links";
+import {
+  SMART_MATCH_NEW_PARAM,
+  SMART_MATCH_NEW_VALUE,
+} from "@/lib/signup-links";
+import {
+  SMART_MATCH_PREFILL,
+  parseSmartMatchPrefill,
+} from "@/lib/support/actions";
 import MyRequestCard from "@/components/guest/MyRequestCard";
 import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import {
@@ -37,12 +46,9 @@ const COLLAPSED_COUNT = 3;
 export default function GuestDashboardClient({
   userId,
   initial,
-  openNewRequest = false,
 }: {
   userId: string;
   initial: GuestData;
-  /** `?smartMatch=new` (an admin sign-up link's destination, C41). */
-  openNewRequest?: boolean;
 }) {
   const t = useTranslations("GuestDashboard");
   const tNewReq = useTranslations("GuestDashboard.newRequestModal");
@@ -85,16 +91,32 @@ export default function GuestDashboardClient({
   const requestIdsReadyRef = useRef(false);
 
   const [newRequestOpen, setNewRequestOpen] = useState(false);
+  const [newRequestPrefill, setNewRequestPrefill] =
+    useState<NewRequestPrefill>();
   const [offersOpen, setOffersOpen] = useState(false);
   const [recentExpanded, setRecentExpanded] = useState(false);
 
-  // Open the request form once, then drop the param so a reload or Back
-  // doesn't reopen it.
+  // `?smartMatch=new` (an admin sign-up link's destination, C41; the support
+  // assistant's Smart Match button, C43, which may add zone/dates/guests/
+  // budget). Read on the client so a second press on this same page opens
+  // the form again. It only opens the form: the guest sends it.
+  const searchParams = useSearchParams();
+  const openNewRequest =
+    searchParams.get(SMART_MATCH_NEW_PARAM) === SMART_MATCH_NEW_VALUE;
   useEffect(() => {
     if (!openNewRequest) return;
-    setNewRequestOpen(true);
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Tbilisi",
+    }).format(new Date());
     const url = new URL(window.location.href);
+    setNewRequestPrefill(
+      parseSmartMatchPrefill((name) => url.searchParams.get(name), today),
+    );
+    setNewRequestOpen(true);
+    // Drop the params so a reload or Back doesn't reopen it.
     url.searchParams.delete(SMART_MATCH_NEW_PARAM);
+    for (const name of Object.values(SMART_MATCH_PREFILL))
+      url.searchParams.delete(name);
     window.history.replaceState(null, "", url);
   }, [openNewRequest]);
 
@@ -440,6 +462,7 @@ export default function GuestDashboardClient({
         isOpen={newRequestOpen}
         onClose={() => setNewRequestOpen(false)}
         onSubmit={handleSubmitNewRequest}
+        initial={newRequestPrefill}
       />
       <GuestOffersModal
         isOpen={offersOpen}

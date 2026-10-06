@@ -1285,7 +1285,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (!existsSync(join(root, localeDir, "join/[code]/route.ts"))) problems.push(`${localeDir}/join/[code]/route.ts is missing`);
   if (!/\[SIGNUP_LINK_METADATA_KEY\]:\s*signupLink/.test(read(`${localeDir}/auth/login/page.tsx`))) problems.push("the login page's signUp must copy the cookie's code into user_metadata[SIGNUP_LINK_METADATA_KEY]");
   if (!/fetch\("\/api\/signup-links\/resolve"/.test(read(`${localeDir}/auth/register/page.tsx`))) problems.push("the registration wizard must ask /api/signup-links/resolve where to go");
-  if (!/params\[SMART_MATCH_NEW_PARAM\] === SMART_MATCH_NEW_VALUE/.test(read(`${localeDir}/dashboard/guest/page.tsx`))) problems.push("dashboard/guest/page.tsx must open the request form for ?SMART_MATCH_NEW_PARAM=SMART_MATCH_NEW_VALUE");
+  if (!/searchParams\.get\(SMART_MATCH_NEW_PARAM\) === SMART_MATCH_NEW_VALUE/.test(read(`${localeDir}/dashboard/guest/GuestDashboardClient.tsx`))) problems.push("dashboard/guest/GuestDashboardClient.tsx must open the request form for ?SMART_MATCH_NEW_PARAM=SMART_MATCH_NEW_VALUE");
   if (problems.length) problems.forEach((p) => fail(`C41: ${p}`));
   else ok(`C41: ${presetPaths.length} sign-up link destinations are real pages; code pattern, cookie and hand-offs agree`);
 }
@@ -1395,7 +1395,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // out; (e) the snapshot type carries no field value; (f) all three mounts are
 // gated on isSupportConfigured(); (g) every model id is a Gemini Flash model or
 // the Jev router, and the router's pool is cut to Gemini Flash (the owner's
-// choice: no GPT, DeepSeek or other models).
+// choice: no GPT, DeepSeek or other models); (h)-(j) below.
 // ---------------------------------------------------------------------------
 {
   const clientFile = "src/lib/support/openrouter.ts";
@@ -1426,8 +1426,140 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else if (/\bvalue\b/.test(elementType)) problems.push(`PageElement in ${planFile} must not carry a field's value`);
   const ungated = mounts.filter((f) => !/\{isSupportConfigured\(\) && <SupportAssistantLoader/.test(read(f)));
   if (ungated.length) problems.push(`the assistant must mount only when isSupportConfigured(): ${ungated.join(", ")}`);
+  // (h) answers go through the forced reply tool and parseReply; its schema
+  // has no link field, and every button link is built by the route from the
+  // checked id and params (actions.ts), never by the model or the browser.
+  if (!/tool_choice:\s*\{\s*type:\s*"function",\s*function:\s*\{\s*name:\s*REPLY_TOOL\s*\}\s*\}/.test(server) || !/parseReply\(/.test(server)) problems.push(`${serverFile} must force the reply tool and check the answer with parseReply`);
+  const replySchema = read(planFile).match(/export function buildReplyTool[\s\S]*?\n}\n/)?.[0] ?? "";
+  if (!replySchema) problems.push(`could not read buildReplyTool from ${planFile}`);
+  else if (/\b(?:href|url|link|path)\s*:/i.test(replySchema)) problems.push(`buildReplyTool in ${planFile} must not offer a link field: buttons are action ids with typed params`);
+  if (!/actionHref\(action, ctx\)/.test(route)) problems.push(`${routeFile} must build every button's link on the server (actionHref)`);
+  // (i) account facts are read with the user's own session (RLS), never the
+  // service role.
+  const account = read("src/lib/support/account.ts");
+  if (!/import \{ createClient \} from "@\/lib\/supabase\/server";/.test(account) || /createServiceClient|SUPABASE_SERVICE_ROLE_KEY|supabase\/service/.test(account)) problems.push("src/lib/support/account.ts must read with createClient() from @/lib/supabase/server only (the user's own session)");
+  // (j) every quoted Georgian label the assistant tells users to press exists
+  // verbatim in the site's own text (src/, messages/ka.json outside Support,
+  // or a migration's seed such as a price-list name), so a renamed button
+  // cannot silently make answers wrong. Also the pre-written chip answers.
+  {
+    const labelFiles = ["src/lib/support/knowledge.ts", serverFile, "src/lib/support/actions.ts"];
+    const georgian = /[\u10A0-\u10FF]/;
+    const quoted = /\\?"([^"\\\n]{2,80})\\?"|„([^“\n]{2,80})“|“([^”\n]{2,80})”/g;
+    const labels = new Map();
+    const collect = (text, from) => {
+      for (const m of text.matchAll(quoted)) {
+        const label = (m[1] ?? m[2] ?? m[3]).trim();
+        if (georgian.test(label) && !labels.has(label)) labels.set(label, from);
+      }
+    };
+    for (const f of labelFiles) collect(read(f), f);
+    const ka = JSON.parse(read("messages/ka.json"));
+    for (const [key, text] of Object.entries(ka.Support?.canned ?? {})) if (typeof text === "string") collect(text, `messages/ka.json Support.canned.${key}`);
+    // The widget's own strings count (its name, its buttons); its pre-written
+    // answers do not, or they would vouch for themselves.
+    const { canned: _canned, ...supportUi } = ka.Support ?? {};
+    const corpus = [
+      JSON.stringify({ ...ka, Support: supportUi }).replace(/\\"/g, '"'),
+      ...srcFiles.filter((f) => !f.startsWith(join("src/lib/support/"))).map((f) => srcText.get(f)),
+      ...[...walk("supabase/migrations", [".sql"])].map((f) => read(f)),
+    ].join("\n");
+    const unknown = [...labels].filter(([label]) => !corpus.includes(label));
+    if (unknown.length) problems.push(`quoted labels not found anywhere on the site (renamed?): ${unknown.map(([l, f]) => `"${l}" (${f})`).join(", ")}`);
+  }
   if (problems.length) problems.forEach((p) => fail(`C43: ${p}`));
-  else ok("C43: OpenRouter key server-only; steps forced through show_steps + parseJevPlan; no-retention on both calls; per-user/per-IP limits; Gemini Flash + Jev (Gemini Flash pool) only; snapshot carries no values");
+  else ok("C43: OpenRouter key server-only; steps forced through show_steps + parseJevPlan; answers through the forced reply tool + parseReply, buttons are ids whose links the route builds; account facts under the user's own session; every quoted label exists on the site; no-retention on both calls; per-user/per-IP limits; Gemini Flash + Jev (Gemini Flash pool) only; snapshot carries no values");
+}
+
+// ---------------------------------------------------------------------------
+// C44 — admin status management (memberships, VIP / discounts, company plans).
+// (a) user_subscriptions_status_check = MEMBERSHIP_STATUSES; (b) each change
+// RPC's c_actions = its TS action list (the route validates with the TS list,
+// the RPC with its own); (c) the three RPCs and three views are revoked from
+// PUBLIC, anon and authenticated where they are created and never granted back;
+// (d) only the statuses API and its server helper read the views or name the
+// RPCs; (e) the pure module has no "@/" import; (f) the *_admin_update
+// notification types stay out of the e-mail and SMS lists (bell only).
+// ---------------------------------------------------------------------------
+{
+  const pureFile = "src/lib/admin-statuses.ts";
+  const pure = read(pureFile);
+  const migrations = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .map((f) => [f, read(join("supabase/migrations", f)).replace(/--[^\n]*/g, "")]);
+  const newest = [...migrations].reverse();
+  const tsList = (name) =>
+    [...(pure.match(new RegExp(`export const ${name} = \\[([\\s\\S]*?)\\]`))?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  const quoted = (text) => new Set([...text.matchAll(/'([^']+)'/g)].map((m) => m[1]));
+  const problems = [];
+
+  const statusCheck = newest
+    .map(([, sql]) => sql.match(/ADD CONSTRAINT user_subscriptions_status_check\s+CHECK \(status IN \(([^)]*)\)\)/)?.[1])
+    .find(Boolean);
+  const statuses = new Set(tsList("MEMBERSHIP_STATUSES"));
+  if (!statusCheck || !statuses.size) problems.push("could not read user_subscriptions_status_check or MEMBERSHIP_STATUSES");
+  else if (!setEq(quoted(statusCheck), statuses)) problems.push(`user_subscriptions_status_check [${[...quoted(statusCheck)].join(", ")}] ≠ MEMBERSHIP_STATUSES [${[...statuses].join(", ")}]`);
+
+  const rpcs = [
+    ["admin_change_memberships", "MEMBERSHIP_ACTIONS"],
+    ["admin_change_listing_promotions", "LISTING_ACTIONS"],
+    ["admin_change_company_plans", "COMPANY_ACTIONS"],
+  ];
+  for (const [fn, constant] of rpcs) {
+    const created = newest.find(([, sql]) => new RegExp(`CREATE (?:OR REPLACE )?FUNCTION public\\.${fn}\\(`).test(sql));
+    const body = created ? created[1].slice(created[1].search(new RegExp(`CREATE (?:OR REPLACE )?FUNCTION public\\.${fn}\\(`))) : "";
+    const actions = body.match(/c_actions CONSTANT text\[\] := ARRAY\[([\s\S]*?)\]/)?.[1];
+    const ts = new Set(tsList(constant));
+    if (!actions || !ts.size) problems.push(`could not read c_actions of ${fn} or ${constant}`);
+    else if (!setEq(quoted(actions), ts)) problems.push(`${fn} c_actions [${[...quoted(actions)].join(", ")}] ≠ ${constant} [${[...ts].join(", ")}]`);
+  }
+
+  const views = ["admin_membership_overview_v", "admin_listing_promotions_v", "admin_company_plans_v"];
+  const objects = [...rpcs.map(([fn]) => fn), ...views];
+  for (const name of objects) {
+    const creator = migrations.find(([, sql]) => new RegExp(`CREATE (?:OR REPLACE )?(?:FUNCTION|VIEW) public\\.${name}\\b`).test(sql));
+    if (!creator) {
+      problems.push(`no migration creates public.${name}`);
+      continue;
+    }
+    if (!new RegExp(`REVOKE ALL ON (?:FUNCTION )?public\\.${name}\\b[^;]*FROM PUBLIC, anon, authenticated`).test(creator[1])) problems.push(`${creator[0]} must REVOKE ALL on public.${name} FROM PUBLIC, anon, authenticated`);
+    for (const [file, sql] of migrations) {
+      for (const grant of sql.match(new RegExp(`GRANT[^;]*\\bpublic\\.${name}\\b[^;]*;`, "g")) ?? []) {
+        if (/\bTO\b[^;]*\b(?:anon|authenticated|PUBLIC)\b/.test(grant)) problems.push(`${file} grants public.${name} to a client role`);
+      }
+    }
+  }
+
+  const apiDir = join("src/app/api/admin/statuses/");
+  const allowed = new Set([join("src/lib/admin-statuses-server.ts"), join("src/lib/types/database.ts"), join("src/lib/types/database.generated.ts")]);
+  const namePattern = new RegExp(`"(?:${objects.join("|")})"`);
+  const strangers = srcFiles.filter((f) => {
+    if (f.startsWith(apiDir) || allowed.has(f)) return false;
+    // A type lookup (Views["admin_…_v"]) reads nothing at runtime.
+    const text = srcText.get(f).replace(/\["admin_[a-z_]+_v"\]/g, "");
+    return namePattern.test(text);
+  });
+  if (strangers.length) problems.push(`the admin status views/RPCs are used outside src/app/api/admin/statuses: ${strangers.join(", ")}`);
+
+  if (/from "@\//.test(pure)) problems.push(`${pureFile} imports from "@/" (scripts/unit loads it bare)`);
+
+  const ownTypes = ["membership_admin_update", "promotion_admin_update", "company_plan_admin_update"];
+  for (const fn of ["email_notification_types", "sms_notification_types"]) {
+    const created = newest.find(([, sql]) => new RegExp(`FUNCTION public\\.${fn}\\(`, "i").test(sql));
+    const list = created?.[1].match(new RegExp(`function public\\.${fn}\\(\\)[\\s\\S]*?select array\\[([\\s\\S]*?)\\]::text\\[\\]`, "i"))?.[1];
+    if (!list) problems.push(`could not read ${fn}()`);
+    else {
+      const leaked = ownTypes.filter((type) => quoted(list).has(type));
+      if (leaked.length) problems.push(`${fn}() lists ${leaked.join(", ")}: admin status notices are bell only`);
+    }
+  }
+
+  const audited = newest.find(([, sql]) => /TRIGGER trg_audit_row ON public\.organization_subscriptions|CREATE TRIGGER trg_audit_row\s+AFTER[^;]*ON public\.organization_subscriptions/.test(sql));
+  if (!audited || !/CREATE TRIGGER trg_audit_row\s+AFTER INSERT OR UPDATE OR DELETE ON public\.organization_subscriptions/.test(audited[1])) problems.push("the newest migration touching trg_audit_row on organization_subscriptions must (re)create it: admin plan edits are audited");
+
+  if (problems.length) problems.forEach((p) => fail(`C44: ${p}`));
+  else ok(`C44: membership status CHECK = MEMBERSHIP_STATUSES; ${rpcs.length} change RPCs' actions = the TS lists; RPCs and views service_role only; used only by the statuses API; pure module bare; admin status notices bell only; company plans audited`);
 }
 
 if (failures) {

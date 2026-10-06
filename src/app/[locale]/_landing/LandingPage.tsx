@@ -25,6 +25,7 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import SaleLandingBody from "./SaleLandingBody";
+import type { SaleResearchContent } from "@/lib/sale-research";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 
 const BakurianiMap = dynamic(
@@ -80,6 +81,7 @@ interface LandingPageProps {
   blogPosts?: LandingBlogPost[];
   bannerCreatives?: BannerCreative[];
   pricePerSqmByZone?: Record<string, number | null>;
+  saleResearch?: SaleResearchContent;
 }
 
 const MONTH_KEYS = [
@@ -367,6 +369,7 @@ export default function LandingPage({
   blogPosts: serverBlogPosts,
   bannerCreatives = [],
   pricePerSqmByZone,
+  saleResearch,
 }: LandingPageProps) {
   const t = useTranslations("Landing");
   const [mode, setMode] = useState<"rent" | "sale">("rent");
@@ -545,6 +548,7 @@ export default function LandingPage({
         saleProperties={serverSaleProperties}
         superVipProperties={superVipSaleProperties}
         pricePerSqmByZone={pricePerSqmByZone}
+        saleResearch={saleResearch}
         zones={zones}
         bannerCreatives={bannerCreatives}
       />

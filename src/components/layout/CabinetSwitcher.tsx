@@ -79,6 +79,7 @@ export function CabinetSwitcher({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
+        data-jev-label={t("switcher.switchWorkspace")}
         className={cn(
           "flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-colors",
           open

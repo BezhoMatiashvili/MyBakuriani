@@ -76,6 +76,70 @@ export type JevPlan =
 
 export type SupportTurn = { role: "user" | "assistant"; text: string };
 
+/** Coarse subject of an answer, logged with 👍/👎 instead of any text. */
+export const REPLY_TOPICS = [
+  "listing",
+  "photos",
+  "membership",
+  "payments",
+  "promotion",
+  "sms",
+  "smart_match",
+  "bookings",
+  "cleaning",
+  "verification",
+  "account",
+  "search",
+  "pricing",
+  "contact",
+  "other",
+] as const;
+export type ReplyTopic = (typeof REPLY_TOPICS)[number];
+
+/** Parameters a button may carry; validated per action in actions.ts. */
+export const ACTION_PARAM_KEYS = [
+  "category",
+  "zone",
+  "check_in",
+  "check_out",
+  "guests",
+  "rooms",
+  "price_max",
+  "budget_min",
+  "budget_max",
+  "types",
+  "amount",
+  "tab",
+  "query",
+] as const;
+export type ActionParamKey = (typeof ACTION_PARAM_KEYS)[number];
+export type ActionParams = Partial<
+  Record<ActionParamKey, string | number | string[]>
+>;
+
+/** A button the assistant offers: an action id from actions.ts plus checked params. */
+export type SupportActionRef = { id: string; params?: ActionParams };
+
+/**
+ * A button as the browser gets it: the server builds `href` from the
+ * registry (actions.ts:actionHref), never from model text.
+ */
+export type SupportButton = SupportActionRef & { href: string };
+
+/** The answer model's reply, after parseReply. */
+export type SupportReply = {
+  text: string;
+  actions: SupportActionRef[];
+  /** A goal for an on-screen walkthrough, offered as "Show me" ("" = none). */
+  guide: string;
+  /** The user explicitly asked to be shown: start the walkthrough at once. */
+  guideNow: boolean;
+  suggestions: string[];
+  topic: ReplyTopic;
+  /** The answer depends on the user's own status, which was not given. */
+  needsAccount: boolean;
+};
+
 export type SupportAskRequest = {
   mode: "ask";
   locale: SupportLocale;
@@ -96,7 +160,15 @@ export type SupportPlanRequest = {
   elements: PageElement[];
 };
 
-export type SupportRequest = SupportAskRequest | SupportPlanRequest;
+/** 👍/👎 on an answer: only its ref and the rating travel, never text. */
+export type SupportFeedbackRequest = {
+  mode: "feedback";
+  ref: string;
+  rating: "up" | "down";
+};
+
+export type SupportRequest =
+  SupportAskRequest | SupportPlanRequest | SupportFeedbackRequest;
 
 export type SupportErrorCode =
   | "invalid"
@@ -107,13 +179,22 @@ export type SupportErrorCode =
   | "failed";
 
 export type SupportResponse =
-  | { type: "answer"; text: string }
-  // Gemini decided the user needs a walkthrough: the browser now snapshots the
-  // page and sends a "plan" request with this goal.
-  | { type: "guide"; goal: string }
+  | {
+      type: "answer";
+      text: string;
+      actions: SupportButton[];
+      /** Walkthrough goal offered as "Show me" ("" = none). */
+      guide: string;
+      guideNow: boolean;
+      suggestions: string[];
+      /** Matches the server's log line; 👍/👎 send it back. */
+      ref: string;
+    }
   | { type: "plan"; plan: JevPlan }
   // Nothing on this screen leads toward the goal.
   | { type: "noplan" }
+  // Feedback recorded.
+  | { type: "ok" }
   | { type: "error"; error: SupportErrorCode };
 
 export const SUPPORT_LIMITS = {
@@ -138,16 +219,57 @@ export const SUPPORT_LIMITS = {
   options: 4,
   option: 60,
   answer: 1200,
+  actions: 3,
+  suggestions: 3,
+  suggestion: 90,
+  actionText: 60,
 } as const;
 
 export const SHOW_STEPS_TOOL = "show_steps";
-export const START_GUIDE_TOOL = "start_guide";
+export const REPLY_TOOL = "reply";
+
+/**
+ * A question about the user's own situation (why / can't / not showing /
+ * didn't arrive / status / pending), in ka, en or ru. Only these load the
+ * user's own status for the answer; "my" alone does not (almost every
+ * question has it). The model's needs_account flag catches the rest.
+ */
+export const ACCOUNT_QUESTION =
+  /რატომ|ვერ(?:\s|ა)|არ\s(?:ჩანს|მოვიდა|ჩაირიცხ|გამოჩნდ|მიჩანს|აქვეყნებ|ქვეყნდება|დამიდასტურ|დადასტურდა|მუშაობს)|სტატუს|მოლოდინ|განხილვა|უარყოფ|\b(?:why|can'?t|cannot|unable|not\s(?:showing|visible|appearing|published|working|credited)|didn'?t\s(?:arrive|appear|show|go)|hasn'?t|isn'?t|status|pending|rejected|declined|stuck)\b|почему|не\s(?:могу|видно|отображ|пришл|поступ|появ|публику|работает)|статус|ожида|отклон/i;
+
+const UUID =
+  /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g;
+
+/** Replaces UUID path segments with ":id": a path can name another user. */
+export function maskIds(path: string): string {
+  return path.replace(UUID, ":id");
+}
+
+/**
+ * Pages where every element outside the sidebar is private by default (the
+ * scan sends a neutral label instead of its text): the admin area shows
+ * other people's names, contacts and listings everywhere.
+ */
+export function isPrivatePath(path: string): boolean {
+  return path === "/dashboard/admin" || path.startsWith("/dashboard/admin/");
+}
+
+/** The neutral label a private element is sent with (the 1st, 2nd... on screen). */
+export function privateItemLabel(n: number): string {
+  return `[item ${n}]`;
+}
 
 const ELEMENT_ID = /^[A-Za-z0-9:_-]{1,40}$/;
+// A server answer ref, or a pre-written chip answer's "canned:<key>".
+export const FEEDBACK_REF = /^(?:[a-z0-9]{10}|canned:[A-Za-z]{2,30})$/;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 // Six or more digits, optionally split by spaces, dots, dashes or brackets:
 // phone numbers, personal ids, card numbers.
 const LONG_NUMBER = /\+?\d(?:[\s.()-]*\d){5,}/g;
+// ...except an amount of money ("300000 GEL", "₾ 1 500 000"): a budget is
+// what the user wants the search filtered by, not a personal number.
+const MONEY_AFTER = /^\s*(?:₾|\$|€|ლარ|лари|(?:gel|lari|usd|eur)\b)/i;
+const MONEY_BEFORE = /(?:₾|\$|€|\b(?:gel|usd|eur))\s*$/i;
 // C0/C1 controls, zero-width and bidi characters, line/paragraph separators.
 const INVISIBLE =
   /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202E\u2060-\u206F\uFEFF]/g;
@@ -178,7 +300,14 @@ function clip(text: string, max: number): string {
 
 /** Replaces e-mail addresses and long digit runs before text reaches a model. */
 export function maskPersonalData(text: string): string {
-  return text.replace(EMAIL, "[email]").replace(LONG_NUMBER, "[number]");
+  return text
+    .replace(EMAIL, "[email]")
+    .replace(LONG_NUMBER, (match, offset: number, whole: string) =>
+      MONEY_AFTER.test(whole.slice(offset + match.length)) ||
+      MONEY_BEFORE.test(whole.slice(0, offset))
+        ? match
+        : "[number]",
+    );
 }
 
 /** One line of plain text: invisible characters and repeated whitespace collapsed. */
@@ -193,7 +322,10 @@ export function cleanPrivate(value: unknown, max: number): string {
   return cleanText(maskPersonalData(cleanText(value, 600)), max);
 }
 
-/** A same-site path without query or fragment, or "" for anything else. */
+/**
+ * A same-site path without query or fragment, its UUID segments as ":id",
+ * or "" for anything else.
+ */
 export function cleanPath(value: unknown, max: number): string {
   if (
     typeof value !== "string" ||
@@ -201,7 +333,7 @@ export function cleanPath(value: unknown, max: number): string {
     value.startsWith("//")
   )
     return "";
-  const path = value.split(/[?#]/, 1)[0];
+  const path = maskIds(value.split(/[?#]/, 1)[0]);
   if (!/^\/[A-Za-z0-9\-._~%/:@]*$/.test(path)) return "";
   return path.length > max ? "" : path;
 }
@@ -268,6 +400,15 @@ export function normalizeElements(raw: unknown): PageElement[] {
 /** Validates a request body. Returns null for anything that is not a usable request. */
 export function parseSupportRequest(body: unknown): SupportRequest | null {
   if (!isRecord(body)) return null;
+  if (body.mode === "feedback") {
+    const ref =
+      typeof body.ref === "string" && FEEDBACK_REF.test(body.ref)
+        ? body.ref
+        : null;
+    const rating =
+      body.rating === "up" || body.rating === "down" ? body.rating : null;
+    return ref && rating ? { mode: "feedback", ref, rating } : null;
+  }
   const locale = oneOf(SUPPORT_LOCALES, body.locale) ?? "ka";
   const cabinet = oneOf(SUPPORT_CABINETS, body.cabinet) ?? "guest";
   const path = cleanPath(body.path, SUPPORT_LIMITS.path) || "/dashboard";
@@ -372,28 +513,6 @@ export function buildShowStepsTool(elementIds: readonly string[]) {
   };
 }
 
-/** Gemini's hand-off to Jev. */
-export const startGuideTool = {
-  type: "function" as const,
-  function: {
-    name: START_GUIDE_TOOL,
-    description:
-      "Start an on-screen walkthrough that highlights what to press and where to type, step by step.",
-    parameters: {
-      type: "object",
-      additionalProperties: false,
-      required: ["goal"],
-      properties: {
-        goal: {
-          type: "string",
-          description:
-            "What the user wants to get done, as one short sentence in the user's language.",
-        },
-      },
-    },
-  },
-};
-
 function parseArguments(raw: unknown): Record<string, unknown> | null {
   if (isRecord(raw)) return raw;
   if (typeof raw !== "string") return null;
@@ -405,19 +524,159 @@ function parseArguments(raw: unknown): Record<string, unknown> | null {
   }
 }
 
-/** The goal of a start_guide call, or "" when the arguments are unusable. */
-export function parseGuideGoal(raw: unknown): string {
-  return cleanPrivate(parseArguments(raw)?.goal, SUPPORT_LIMITS.goal);
+/**
+ * The answer model's only tool. Buttons are action ids from a fixed list
+ * (actions.ts) with typed params: there is no field for a link, so text
+ * injected through a page or a question can at most pick another listed
+ * button, which the user still has to press.
+ */
+export function buildReplyTool(vocab: {
+  actions: readonly string[];
+  propertyTypes: readonly string[];
+  tabs: readonly string[];
+}) {
+  const text = (description: string) => ({ type: "string", description });
+  const whole = (description: string) => ({ type: "integer", description });
+  return {
+    type: "function" as const,
+    function: {
+      name: REPLY_TOOL,
+      description:
+        "Answer the user, with buttons that open the right page or form, an optional walkthrough goal and follow-up questions.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "text",
+          "actions",
+          "guide",
+          "guide_now",
+          "suggestions",
+          "topic",
+          "needs_account",
+        ],
+        properties: {
+          text: text(
+            "The answer: at most 4 short sentences of plain text in the user's language.",
+          ),
+          actions: {
+            type: "array",
+            maxItems: SUPPORT_LIMITS.actions,
+            description:
+              "0-3 buttons from 'Buttons available here' that take the user straight to what they need.",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["id"],
+              properties: {
+                id: { type: "string", enum: [...vocab.actions] },
+                params: {
+                  type: "object",
+                  additionalProperties: false,
+                  description:
+                    "Only what the user said; leave everything else out.",
+                  properties: {
+                    category: text("One of the categories the button lists."),
+                    zone: text("A zone name exactly as written under ZONES."),
+                    check_in: text("YYYY-MM-DD"),
+                    check_out: text("YYYY-MM-DD"),
+                    guests: whole("Number of guests."),
+                    rooms: whole("Minimum number of rooms."),
+                    price_max: whole(
+                      "Highest price in GEL (per night for rentals).",
+                    ),
+                    budget_min: whole(
+                      "Smart Match budget from, GEL per night.",
+                    ),
+                    budget_max: whole(
+                      "Smart Match budget up to, GEL per night.",
+                    ),
+                    types: {
+                      type: "array",
+                      items: { type: "string", enum: [...vocab.propertyTypes] },
+                    },
+                    amount: whole("Top-up amount in GEL."),
+                    tab: { type: "string", enum: [...vocab.tabs] },
+                    query: text("Text for the admin user search."),
+                  },
+                },
+              },
+            },
+          },
+          guide: text(
+            "A short goal for an on-screen walkthrough when the user asks how or where to do something on this site, or about the form or screen they are on; otherwise empty.",
+          ),
+          guide_now: {
+            type: "boolean",
+            description:
+              "true only when the user explicitly asked to be shown on screen.",
+          },
+          suggestions: {
+            type: "array",
+            maxItems: SUPPORT_LIMITS.suggestions,
+            items: { type: "string" },
+            description:
+              "2-3 short follow-up questions the user might ask next, written as the user would type them, in the user's language.",
+          },
+          topic: { type: "string", enum: [...REPLY_TOPICS] },
+          needs_account: {
+            type: "boolean",
+            description:
+              "true when the answer depends on this user's own status and YOUR ACCOUNT is not given.",
+          },
+        },
+      },
+    },
+  };
 }
 
 /**
- * A start_guide hand-off the model wrote out as text instead of calling the
- * tool ('Call the start_guide tool with the goal "..."', Flash Lite on
- * 2026-10-05): its goal ("" when none is quoted), or null for a real answer.
+ * Validates the reply tool's arguments. Each button goes through `normalize`
+ * (actions.ts: only ids available on this request, params checked), so an
+ * unknown id or bad param never reaches the browser. Null when nothing usable
+ * is left.
  */
-export function writtenGuideGoal(text: string): string | null {
-  if (!text.includes(START_GUIDE_TOOL)) return null;
-  return parseGuideGoal({ goal: text.match(/["“„]([^"“”„]{3,})["”“]/)?.[1] });
+export function parseReply(
+  raw: unknown,
+  normalize: (id: string, params: unknown) => SupportActionRef | null,
+  message = "",
+): SupportReply | null {
+  const value = parseArguments(raw);
+  if (!value) return null;
+  const text = cleanAnswer(value.text);
+  const actions: SupportActionRef[] = [];
+  for (const item of Array.isArray(value.actions) ? value.actions : []) {
+    if (actions.length === SUPPORT_LIMITS.actions) break;
+    if (!isRecord(item) || typeof item.id !== "string") continue;
+    if (actions.some((action) => action.id === item.id)) continue;
+    const action = normalize(item.id, item.params);
+    if (action) actions.push(action);
+  }
+  const guide = cleanPrivate(value.guide, SUPPORT_LIMITS.goal);
+  const asked = cleanText(message, SUPPORT_LIMITS.message).toLowerCase();
+  const suggestions: string[] = [];
+  for (const item of Array.isArray(value.suggestions)
+    ? value.suggestions
+    : []) {
+    if (suggestions.length === SUPPORT_LIMITS.suggestions) break;
+    const suggestion = cleanPrivate(item, SUPPORT_LIMITS.suggestion);
+    if (
+      suggestion &&
+      suggestion.toLowerCase() !== asked &&
+      !suggestions.includes(suggestion)
+    )
+      suggestions.push(suggestion);
+  }
+  if (!text && actions.length === 0 && !guide) return null;
+  return {
+    text,
+    actions,
+    guide,
+    guideNow: guide !== "" && value.guide_now === true,
+    suggestions,
+    topic: oneOf(REPLY_TOPICS, value.topic) ?? "other",
+    needsAccount: value.needs_account === true,
+  };
 }
 
 /**

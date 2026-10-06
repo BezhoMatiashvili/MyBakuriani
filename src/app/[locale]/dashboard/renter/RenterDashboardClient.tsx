@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
@@ -27,6 +28,7 @@ import {
   formatPrice,
 } from "@/lib/utils/format";
 import PaymentModal from "@/components/renter/PaymentModal";
+import { MEMBERSHIP_PARAM } from "@/lib/support/actions";
 import VipInfoModal, {
   type VipInfoTier,
 } from "@/components/renter/VipInfoModal";
@@ -146,6 +148,21 @@ export default function RenterDashboardClient({
   const [matchesCount, setMatchesCount] = useState(initialSmartMatchCount);
 
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+
+  // `?membership=1` (the support assistant's membership button, C43) opens
+  // the payment window when its own button would be enabled; the renter
+  // still chooses and pays there. The param is dropped so a reload doesn't
+  // reopen it.
+  const membershipParam = useSearchParams().get(MEMBERSHIP_PARAM);
+  useEffect(() => {
+    if (membershipParam === null) return;
+    if (!membershipPending && canBuyMembership) setPaymentModalOpen(true);
+    const url = new URL(window.location.href);
+    url.searchParams.delete(MEMBERSHIP_PARAM);
+    window.history.replaceState(null, "", url);
+    // Read once per link; the gate uses the values of that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [membershipParam]);
   const [vipModal, setVipModal] = useState<{
     open: boolean;
     tier: VipInfoTier;

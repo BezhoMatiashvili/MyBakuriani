@@ -1428,3 +1428,76 @@ test.describe("Renter cleaner profiles", () => {
     ).toBeVisible();
   });
 });
+
+// C45: the /create hotel tile opens the rental wizard as a hotel, which asks
+// for stars and rooms instead of one room count and area; the cheapest room
+// becomes the listing's price, and the detail page lists the rooms.
+test.describe("Hotel rooms", () => {
+  test("the hotel tile opens the wizard with stars and rooms", async ({
+    renterPage,
+  }) => {
+    await answerCookieBanner(renterPage);
+    await renterPage.goto("/create");
+    if (!(await assertDashboard(renterPage, "/create"))) return;
+
+    await renterPage.getByRole("link", { name: "სასტუმრო" }).click();
+    await expect(renterPage).toHaveURL(/\/create\/rental\?type=hotel$/);
+    await expect(renterPage.locator("select").first()).toHaveValue("hotel");
+
+    await renterPage
+      .locator('[data-field="location"] select')
+      .selectOption({ index: 1 });
+    await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
+    await renterPage
+      .locator('[data-field="title"] input')
+      .fill("E2E სასტუმრო ნომრებით");
+    await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
+
+    const editor = renterPage.getByTestId("hotel-rooms-editor");
+    await expect(editor).toBeVisible();
+    await expect(renterPage.locator('[data-field="area"]')).toHaveCount(0);
+
+    await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
+    await expect(
+      renterPage.getByText("ნომერი 1: შეავსეთ ველი „ნომრის ტიპი“").first(),
+    ).toBeVisible();
+
+    const rooms = renterPage.getByTestId("hotel-room");
+    await rooms.nth(0).locator('input[type="text"]').first().fill("ლუქსი");
+    await rooms.nth(0).getByPlaceholder("120").fill("150");
+    await editor.getByRole("button", { name: "ნომრის დამატება" }).click();
+    await expect(rooms).toHaveCount(2);
+    await rooms.nth(1).locator('input[type="text"]').first().fill("ეკონომი");
+    await rooms.nth(1).getByPlaceholder("120").fill("90");
+
+    await renterPage.getByRole("radio", { name: "4 ვარსკვლავი" }).click();
+    await expect(
+      renterPage.getByRole("radio", { name: "4 ვარსკვლავი" }),
+    ).toHaveAttribute("aria-checked", "true");
+    // Smoking and pets ("აკრძალულია" twice), then meals included.
+    const rules = renterPage.locator('[data-field="houseRules"]');
+    const forbidden = rules.getByRole("button", {
+      name: "აკრძალულია",
+      exact: true,
+    });
+    await forbidden.nth(0).click();
+    await forbidden.nth(1).click();
+    await rules.getByRole("button", { name: "შედის", exact: true }).click();
+    await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
+
+    await expect(renterPage.getByTestId("hotel-from-price")).toHaveText(
+      "90 ₾-დან",
+    );
+  });
+
+  test("the hotel page lists its rooms and stars", async ({ page }) => {
+    await answerCookieBanner(page);
+    await page.goto(`/hotels/${TEST_IDS.hotel}`);
+
+    await expect(page.getByRole("heading", { name: "ნომრები" })).toBeVisible();
+    const rooms = page.getByTestId("hotel-rooms");
+    await expect(rooms.getByText("სტანდარტული ორადგილიანი")).toBeVisible();
+    await expect(rooms.getByText("220 ₾ / ღამე")).toBeVisible();
+    await expect(page.getByRole("img", { name: "4 ვარსკვლავი" })).toBeVisible();
+  });
+});

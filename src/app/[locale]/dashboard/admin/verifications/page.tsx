@@ -373,7 +373,7 @@ export default function VerificationsPage() {
         ownershipCount={ownershipCount}
       />
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-jev-public className="flex flex-wrap items-center gap-2">
         {FILTERS.map(({ key, label }) => {
           const isActive = filter === key;
           const count = counts[key];
@@ -534,6 +534,7 @@ export default function VerificationsPage() {
                       }}
                       disabled={busyKey === key}
                       aria-label="დადასტურება"
+                      data-jev-label="დადასტურება"
                       className="inline-flex h-12 min-h-[44px] w-12 items-center justify-center rounded-xl bg-[#059669] text-white shadow-[0px_8px_20px_rgba(5,150,105,0.25)] transition-colors hover:bg-[#047857] disabled:opacity-50"
                     >
                       {busyKey === key ? (
@@ -550,6 +551,7 @@ export default function VerificationsPage() {
                       }}
                       disabled={busyKey === key}
                       aria-label="უარყოფა"
+                      data-jev-label="უარყოფა"
                       className="inline-flex h-12 min-h-[44px] w-12 items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] transition-colors hover:bg-[#FEE2E2] disabled:opacity-50"
                     >
                       <X className="h-5 w-5" />
@@ -647,7 +649,10 @@ function VerificationTabs({
   // Three tabs no longer fit a 375 px screen: the strip scrolls sideways
   // instead of squeezing the labels.
   return (
-    <div className="flex gap-2 overflow-x-auto border-b border-[#E2E8F0]">
+    <div
+      data-jev-public
+      className="flex gap-2 overflow-x-auto border-b border-[#E2E8F0]"
+    >
       <button
         type="button"
         onClick={() => onChange("listings")}
@@ -821,6 +826,7 @@ function ContentChangeRequestsPanel({
                   type="button"
                   disabled={busy === item.id}
                   onClick={() => moderate(item, "approve")}
+                  data-jev-label="დამტკიცება"
                   className="rounded-xl bg-[#059669] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
                 >
                   დამტკიცება
@@ -829,6 +835,7 @@ function ContentChangeRequestsPanel({
                   type="button"
                   disabled={busy === item.id}
                   onClick={() => moderate(item, "reject")}
+                  data-jev-label="უარყოფა"
                   className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-2 text-sm font-bold text-[#DC2626] disabled:opacity-50"
                 >
                   უარყოფა

@@ -1,12 +1,22 @@
 // Browser-only snapshot of the user's screen that Jev plans from (C43). It
 // sends labels and structure, never a field's value; the server masks
 // e-mails and long numbers again (plan.ts:normalizeElements).
+//
+// Other people's data stays out: inside a [data-jev-private] area (and on
+// admin pages everywhere outside the sidebar) an element keeps its kind,
+// place and link path but is sent as "[item N]", and titles there never
+// become sections. A control names itself with data-jev-label (UI copy only,
+// never data); a [data-jev-public] toolbar inside such an area is scanned as
+// usual. data-jev-label also overrides the computed label anywhere else.
 
 import {
   ELEMENT_KINDS,
   SUPPORT_LIMITS,
   cleanPrivate,
   cleanText,
+  isPrivatePath,
+  maskIds,
+  privateItemLabel,
   stripLocale,
   type ElementKind,
   type PageElement,
@@ -48,6 +58,22 @@ const ATOMIC =
   "a, button, label, summary, [data-jev], [role='button'], [role='link'], [role='tab'], [role='option'], [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox'], [role='checkbox'], [role='radio'], [role='switch']";
 
 const IGNORED = "[data-jev-ignore], [aria-hidden='true'], [inert]";
+
+const PRIVATE_AREA = "[data-jev-private]";
+const PUBLIC_AREA = "[data-jev-public]";
+// On admin pages only the sidebar and the phone tab bar are not private
+// (a nav inside the page itself, such as breadcrumbs, can name a client).
+const ADMIN_CHROME = "nav, aside";
+
+/** Whether the element's text may show another person's data. */
+function isPrivate(el: Element, adminPage: boolean): boolean {
+  const privateBox = el.closest(PRIVATE_AREA);
+  const publicBox = el.closest(PUBLIC_AREA);
+  if (publicBox && (!privateBox || privateBox.contains(publicBox)))
+    return false;
+  if (privateBox) return true;
+  return adminPage && !(el.closest(ADMIN_CHROME) && !el.closest("main"));
+}
 
 // Custom controls that hold a value the way an <input> or <select> does.
 const FIELD_ROLES = new Set(["combobox", "textbox", "spinbutton", "listbox"]);
@@ -173,13 +199,39 @@ function labelOf(target: HTMLElement, control: HTMLElement): string {
   );
 }
 
+/**
+ * A text field's caption from a separate <label for> or the caption laid out
+ * beside it, or its placeholder; "" for anything else (a label wrapped around
+ * a checkbox in a list can be the record itself).
+ */
+function formCaption(control: HTMLElement): string {
+  if (!isFormControl(control)) return "";
+  if (
+    control instanceof HTMLInputElement &&
+    !["text", "search", "email", "tel", "number", "url", "date"].includes(
+      control.type,
+    )
+  )
+    return "";
+  const caption =
+    Array.from(control.labels ?? [])
+      .filter((label) => !label.contains(control))
+      .map((label) => text(label))
+      .join(" ")
+      .trim() || text(captionOf(control)).trim();
+  const placeholder = control.getAttribute("placeholder")?.trim() ?? "";
+  if (caption && placeholder) return `${caption} (${placeholder})`;
+  return caption || placeholder;
+}
+
 /** Visible short titles of the scanned area, in document order. */
-function outlineOf(roots: HTMLElement[]): HTMLElement[] {
+function outlineOf(roots: HTMLElement[], adminPage: boolean): HTMLElement[] {
   const titles: HTMLElement[] = [];
   for (const root of roots) {
     for (const node of root.querySelectorAll<HTMLElement>(TITLES)) {
       if (node.closest(IGNORED) || node.closest(ATOMIC.replace("label, ", "")))
         continue;
+      if (isPrivate(node, adminPage)) continue;
       const length = text(node).trim().length;
       if (length < 2 || length > 90 || !isShown(node)) continue;
       if (node.querySelector("input, select, textarea, button, a")) continue;
@@ -189,7 +241,16 @@ function outlineOf(roots: HTMLElement[]): HTMLElement[] {
   return titles;
 }
 
-function namedArea(el: HTMLElement): string {
+/**
+ * The name of the area an element sits in. A private element takes only a
+ * data-jev-section (UI copy): an aria-label there can name a person
+ * ("Edit: {client}").
+ */
+function namedArea(el: HTMLElement, hidden: boolean): string {
+  if (hidden)
+    return (
+      el.closest<HTMLElement>("[data-jev-section]")?.dataset.jevSection ?? ""
+    );
   const box = el.closest<HTMLElement>(
     "[data-jev-section], nav[aria-label], aside[aria-label], header[aria-label], [role='dialog'][aria-label]",
   );
@@ -264,7 +325,7 @@ function hrefOf(control: HTMLElement): string | undefined {
   try {
     const url = new URL(control.href, window.location.href);
     return url.origin === window.location.origin
-      ? stripLocale(url.pathname)
+      ? maskIds(stripLocale(url.pathname))
       : undefined;
   } catch {
     return undefined;
@@ -288,11 +349,19 @@ function priority(el: HTMLElement, kind: ElementKind): number {
   return kind === "link" ? 4 : 2;
 }
 
+// A list of other people's records (an admin table, a guest list) could
+// otherwise fill the whole snapshot and push out the navigation: at most
+// this many of its elements are sent (the first on the page), and its
+// unnamed rows come after everything else.
+const MAX_PRIVATE_ELEMENTS = 30;
+const HIDDEN_RANK = 5;
+
 const precedes = (a: Node, b: Node) =>
   Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
 export function scanPage(): PageScan {
   const roots = scanRoots();
+  const adminPage = isPrivatePath(stripLocale(window.location.pathname));
   // control -> highlighted element (a hidden input's visible label).
   const picked = new Map<HTMLElement, HTMLElement>();
   const chosen = new Set<HTMLElement>();
@@ -312,7 +381,7 @@ export function scanPage(): PageScan {
     }
   }
 
-  const outline = outlineOf(roots);
+  const outline = outlineOf(roots, adminPage);
   let titleIndex = -1;
 
   type Candidate = {
@@ -321,9 +390,12 @@ export function scanPage(): PageScan {
     target: HTMLElement;
     element: Omit<PageElement, "id">;
     jev?: string;
+    /** Sent as "[item N]" (numbered once the kept elements are known). */
+    hidden: boolean;
   };
   const candidates: Candidate[] = [];
   let order = 0;
+  let privateCount = 0;
   for (const [control, target] of picked) {
     order += 1;
     // The last title above this element (both lists are in document order).
@@ -333,10 +405,16 @@ export function scanPage(): PageScan {
     )
       titleIndex += 1;
     // A control nested in another chosen control is part of it, except a
-    // form field inside its own <label>: then the field is the control and
-    // the label only its caption.
+    // form field inside its own <label> (the field is the control, the label
+    // its caption) and a real button, link or named control inside a
+    // clickable row (a guest row's own edit and block buttons).
     const outer = target.parentElement?.closest<HTMLElement>(ATOMIC);
-    if (outer && chosen.has(outer) && !isFormControl(target)) continue;
+    const ownControl =
+      target.matches("button, a[href]") ||
+      target.hasAttribute("data-jev-label") ||
+      control.hasAttribute("data-jev-label");
+    if (outer && chosen.has(outer) && !isFormControl(target) && !ownControl)
+      continue;
     if (
       target === control &&
       target.tagName === "LABEL" &&
@@ -346,15 +424,33 @@ export function scanPage(): PageScan {
     )
       continue;
     const kind = kindOf(target, control);
-    const label = cleanPrivate(labelOf(target, control), SUPPORT_LIMITS.label);
+    const named = cleanText(
+      target.dataset.jevLabel ?? control.dataset.jevLabel,
+      SUPPORT_LIMITS.label,
+    );
+    const inPrivate = isPrivate(target, adminPage);
+    const privateHere = !named && inPrivate;
+    // Admin forms stay usable: a text field's own caption is UI copy.
+    const caption =
+      privateHere && !target.closest(PRIVATE_AREA) ? formCaption(control) : "";
+    const hidden = privateHere && !caption;
+    const label = hidden
+      ? ""
+      : named ||
+        cleanPrivate(
+          privateHere ? caption : labelOf(target, control),
+          SUPPORT_LIMITS.label,
+        );
     const hint = cleanText(target.dataset.jevHint, SUPPORT_LIMITS.hint);
-    if (!label && !hint) continue;
+    if (!label && !hint && !hidden) continue;
     const element: Omit<PageElement, "id"> = { kind, label };
     const href = hrefOf(control);
     if (href) element.href = href;
-    const title = titleIndex >= 0 ? text(outline[titleIndex]) : "";
+    // Inside a private area only the area's own name is a section.
+    const title =
+      titleIndex >= 0 && !inPrivate ? text(outline[titleIndex]) : "";
     const section = cleanPrivate(
-      namedArea(target) || title,
+      namedArea(target, inPrivate) || title,
       SUPPORT_LIMITS.section,
     );
     if (section && !label.startsWith(section.replace(/\s*\*$/, "")))
@@ -375,12 +471,14 @@ export function scanPage(): PageScan {
       control.getAttribute("aria-disabled") === "true"
     )
       element.disabled = true;
+    if (inPrivate && ++privateCount > MAX_PRIVATE_ELEMENTS) continue;
     candidates.push({
       order,
-      rank: priority(target, kind),
+      rank: hidden ? HIDDEN_RANK : priority(target, kind),
       target,
       element,
       jev: target.dataset.jev,
+      hidden,
     });
   }
 
@@ -392,6 +490,7 @@ export function scanPage(): PageScan {
   const elements: PageElement[] = [];
   const targets = new Map<string, HTMLElement>();
   let lastSection = "";
+  let hiddenCount = 0;
   kept.forEach((candidate, index) => {
     const named = candidate.jev?.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 36);
     let id = named ? `jev:${named}` : `e${index + 1}`;
@@ -399,6 +498,10 @@ export function scanPage(): PageScan {
     targets.set(id, candidate.target);
     // A section is a heading over the elements that follow: say it once.
     const element: PageElement = { id, ...candidate.element };
+    if (candidate.hidden) {
+      hiddenCount += 1;
+      element.label = privateItemLabel(hiddenCount);
+    }
     if (element.section && element.section === lastSection) {
       delete element.section;
     } else if (element.section) {

@@ -874,7 +874,11 @@ export default function SalesBoard({
                   </span>
                 </div>
 
-                <div className="flex-1 space-y-3">
+                <div
+                  data-jev-private
+                  data-jev-section={t(`stages.${stage.value}`)}
+                  className="flex-1 space-y-3"
+                >
                   {loading ? (
                     <div className="h-24 animate-pulse rounded-xl bg-white" />
                   ) : stageLeads.length === 0 ? (

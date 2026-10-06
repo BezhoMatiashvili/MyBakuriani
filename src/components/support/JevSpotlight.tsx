@@ -12,6 +12,7 @@ import {
   ListChecks,
   MousePointerClick,
   Upload,
+  Wand2,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -38,6 +39,29 @@ const GLOW_STRONG =
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), Math.max(min, max));
+
+/**
+ * Whether "Do it for me" may press this element: only something that moves
+ * around the site (a same-site page link, a tab, a disclosure toggle), never
+ * a button that sends, pays, publishes or deletes, a download, a new tab, an
+ * API link or a sign-up link.
+ */
+export function canPressForUser(el: HTMLElement): boolean {
+  if (el.closest("[aria-disabled='true'], [disabled]")) return false;
+  if (el instanceof HTMLAnchorElement) {
+    if (el.hasAttribute("download") || (el.target && el.target !== "_self"))
+      return false;
+    try {
+      const url = new URL(el.href, window.location.href);
+      if (url.origin !== window.location.origin) return false;
+      const path = url.pathname.replace(/^\/(?:ka|en|ru)(?=\/|$)/, "");
+      return !/^\/(?:api|join|auth\/(?:signout|logout))(?:\/|$)/.test(path);
+    } catch {
+      return false;
+    }
+  }
+  return el.getAttribute("role") === "tab" || el.tagName === "SUMMARY";
+}
 
 type Box = { left: number; top: number; width: number; height: number };
 
@@ -74,6 +98,9 @@ export function JevSpotlight({
 }: Props) {
   const t = useTranslations("Support");
   const [box, setBox] = useState<Box | null>(null);
+  // The step's own click listeners (SupportAssistant) see this click and
+  // move on, as for the user's own press.
+  const canDoIt = step.action === "click" && canPressForUser(target);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [bubbleHeight, setBubbleHeight] = useState(150);
   const bubbleRef = useRef<HTMLDivElement>(null);
@@ -303,20 +330,32 @@ export function JevSpotlight({
           <Icon className="mt-0.5 size-4 shrink-0 text-[#2563EB]" aria-hidden />
           <span data-testid="jev-say">{step.say}</span>
         </p>
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={index === 0}
-            className="flex min-h-11 items-center gap-1 rounded-xl px-3 text-[13px] font-bold text-[#475569] transition-colors hover:bg-[#F1F5F9] disabled:invisible"
-          >
-            <ChevronLeft className="size-4" aria-hidden />
-            {t("back")}
-          </button>
+        <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+          {index > 0 && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="mr-auto flex min-h-11 items-center gap-1 whitespace-nowrap rounded-xl px-3 text-[13px] font-bold text-[#475569] transition-colors hover:bg-[#F1F5F9]"
+            >
+              <ChevronLeft className="size-4" aria-hidden />
+              {t("back")}
+            </button>
+          )}
+          {canDoIt && (
+            <button
+              type="button"
+              onClick={() => target.click()}
+              data-testid="jev-do-it"
+              className="flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-[13px] font-bold text-[#2563EB] ring-1 ring-[#BFDBFE] transition-colors hover:bg-[#EFF6FF]"
+            >
+              <Wand2 className="size-4" aria-hidden />
+              {t("doIt")}
+            </button>
+          )}
           <button
             type="button"
             onClick={onNext}
-            className="flex min-h-11 items-center gap-1 rounded-xl bg-[#2563EB] px-4 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+            className="flex min-h-11 items-center gap-1 whitespace-nowrap rounded-xl bg-[#2563EB] px-4 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
           >
             {t("next")}
             <ChevronRight className="size-4" aria-hidden />

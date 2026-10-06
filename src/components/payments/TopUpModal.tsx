@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, ShieldCheck } from "lucide-react";
 import Modal from "@/components/shared/Modal";
@@ -21,6 +21,8 @@ interface TopUpModalProps {
   onClose: () => void;
   onConfirm: (amount: number) => void;
   loading?: boolean;
+  /** Amount in GEL to open with. */
+  initialAmount?: number;
 }
 
 export default function TopUpModal({
@@ -28,10 +30,17 @@ export default function TopUpModal({
   onClose,
   onConfirm,
   loading,
+  initialAmount,
 }: TopUpModalProps) {
   const t = useTranslations("DashboardShared");
   const tPayments = useTranslations("Payments");
   const [amount, setAmount] = useState("100");
+
+  // A deep link's amount (the support assistant's top-up button, C43): only
+  // filled in; the payer still confirms and pays on Keepz.
+  useEffect(() => {
+    if (isOpen && initialAmount !== undefined) setAmount(String(initialAmount));
+  }, [isOpen, initialAmount]);
 
   const numeric = Number(amount);
   const valid =

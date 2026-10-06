@@ -1150,8 +1150,8 @@ test.describe("Footer mobile", () => {
     await expect(footer.locator("details")).toHaveCount(0);
     await expect(footer.locator("h3")).toHaveCount(3);
     const groupLinks = footer.locator("ul a");
-    // 14 + hotels, sales, the Bakuriani guide and the blog (C40: crawl paths).
-    await expect(groupLinks).toHaveCount(18);
+    // Platform 6 + Services 6 (the header's categories) + Help 5 (C40).
+    await expect(groupLinks).toHaveCount(17);
     for (const link of await groupLinks.all()) {
       await expect(link).toBeVisible();
       expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);

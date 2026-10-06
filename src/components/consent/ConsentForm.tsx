@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { AppLocale } from "@/i18n/routing";
 import { createClient } from "@/lib/supabase/client";
+import { clearSupportChat } from "@/lib/support/storage";
 import {
   ConsentChoices,
   NO_MARKETING,
@@ -62,6 +63,7 @@ export function ConsentForm({ labels, locale, source, onDone }: Props) {
   }
 
   async function signOut() {
+    clearSupportChat();
     try {
       await createClient().auth.signOut();
     } finally {

@@ -46,10 +46,12 @@ export default async function ApartmentsPage({
       // Only the columns the listing cards + map use (not all 57) — keeps the
       // prerendered RSC payload small. Keep in sync with ApartmentListing.
       .select(
-        "id, title, location, photos, price_per_night, sale_price, is_for_sale, location_lat, location_lng, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, capacity, rooms, amenities, distance_to_slope_m, ownership_verified",
+        "id, title, location, photos, price_per_night, sale_price, is_for_sale, location_lat, location_lng, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, capacity, rooms, amenities, distance_to_slope_m, ownership_verified, type, hotel_stars, numeric_rating, room_type, is_b2b_partner",
       )
       .eq("is_for_sale", false)
-      .in("type", ["apartment", "cottage", "villa", "studio"])
+      // Hotels too: "ბინები" is the one nav entry for both (owner's PDF
+      // 2026-10-06). Hotel cards still open their own /hotels/<id> page.
+      .in("type", ["apartment", "cottage", "villa", "studio", "hotel"])
       .order("is_super_vip", { ascending: false })
       .order("is_vip", { ascending: false })
       .order("created_at", { ascending: false })
@@ -68,7 +70,13 @@ export default async function ApartmentsPage({
         properties={(properties ?? []).map(firstPhotoOnly)}
         statusCards={statusCards}
       />
-      <CategoryIntro locale={locale} topic="apartments" listings={properties} />
+      {/* The index links /apartments/<id>; hotels are indexed from /hotels,
+          where their canonical /hotels/<id> links live (C40). */}
+      <CategoryIntro
+        locale={locale}
+        topic="apartments"
+        listings={properties?.filter((p) => p.type !== "hotel")}
+      />
     </>
   );
 }

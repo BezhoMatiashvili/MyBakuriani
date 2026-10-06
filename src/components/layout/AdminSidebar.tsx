@@ -32,6 +32,10 @@ const sections: { titleKey: string; items: NavItem[] }[] = [
         href: "/dashboard/admin/memberships",
       },
       {
+        labelKey: "statuses",
+        href: "/dashboard/admin/statuses",
+      },
+      {
         labelKey: "companies",
         href: "/dashboard/admin/companies",
       },
@@ -69,6 +73,7 @@ const sections: { titleKey: string; items: NavItem[] }[] = [
         href: "/dashboard/admin/status-cards",
       },
       { labelKey: "guide", href: "/dashboard/admin/guide" },
+      { labelKey: "saleResearch", href: "/dashboard/admin/sale-research" },
     ],
   },
   {

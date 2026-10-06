@@ -1,11 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { usePathname } from "@/i18n/navigation";
 import TopUpModal from "@/components/payments/TopUpModal";
 import { startCardCheckout } from "@/lib/payments/keepz/browser";
+import { TOPUP_PARAM, parseTopUpParam } from "@/lib/support/actions";
 
 /**
  * Wallet top-up by card, used by every balance dashboard (C32). Opens the
@@ -18,7 +20,23 @@ export default function CardTopUpLauncher() {
   const locale = useLocale();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [initialAmount, setInitialAmount] = useState<number>();
   const [creating, setCreating] = useState(false);
+
+  // `?topup=<GEL>` or `?topup=open` (the support assistant's top-up button,
+  // C43) opens the amount picker, at most prefilled; nothing is charged
+  // until the payer confirms. The param is dropped so a reload doesn't
+  // reopen it.
+  const topUpParam = useSearchParams().get(TOPUP_PARAM);
+  useEffect(() => {
+    const requested = parseTopUpParam(topUpParam);
+    if (requested === undefined) return;
+    setInitialAmount(requested ?? undefined);
+    setOpen(true);
+    const url = new URL(window.location.href);
+    url.searchParams.delete(TOPUP_PARAM);
+    window.history.replaceState(null, "", url);
+  }, [topUpParam]);
   // Same amount again → same idempotency key, so a retry after a lost
   // response reuses the order Keepz already created.
   const attempt = useRef<{ amount: number; requestId: string } | null>(null);
@@ -63,6 +81,7 @@ export default function CardTopUpLauncher() {
         onClose={() => setOpen(false)}
         onConfirm={startTopUp}
         loading={creating}
+        initialAmount={initialAmount}
       />
     </>
   );

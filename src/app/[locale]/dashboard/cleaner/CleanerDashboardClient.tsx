@@ -340,6 +340,8 @@ function PendingTaskCard({
   return (
     <motion.article
       data-testid={`cleaner-pending-task-${task.source}-${task.id}`}
+      data-jev-private
+      data-jev-section={t("newCalls")}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
@@ -449,6 +451,7 @@ function PendingTaskCard({
         <button
           type="button"
           data-testid="cleaner-task-decline"
+          data-jev-label={t("decline")}
           onClick={onDecline}
           disabled={disabled}
           className="rounded-xl bg-[#FEF2F2] px-4 py-3 text-[13px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEE2E2] disabled:cursor-not-allowed disabled:opacity-50"
@@ -458,6 +461,7 @@ function PendingTaskCard({
         <button
           type="button"
           data-testid="cleaner-task-confirm"
+          data-jev-label={t("confirm")}
           onClick={onAccept}
           disabled={disabled || !task.detailsLoaded}
           aria-describedby={task.detailsLoaded ? undefined : confirmNoteId}
@@ -493,6 +497,8 @@ function ScheduledTaskCard({
   return (
     <motion.article
       data-testid={`cleaner-scheduled-task-${task.source}-${task.id}`}
+      data-jev-private
+      data-jev-section={t("scheduledWork")}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
@@ -572,6 +578,7 @@ function ScheduledTaskCard({
               type="button"
               onClick={onKeepTask}
               disabled={disabled}
+              data-jev-label={t("keepTask")}
               className="min-h-11 rounded-xl border border-[#F59E0B] bg-white px-4 text-[12px] font-bold text-[#92400E] disabled:opacity-50"
             >
               {t("keepTask")}
@@ -580,6 +587,7 @@ function ScheduledTaskCard({
               type="button"
               onClick={onApproveCancellation}
               disabled={disabled}
+              data-jev-label={t("approveCancellation")}
               className="min-h-11 rounded-xl bg-[#DC2626] px-4 text-[12px] font-bold text-white disabled:opacity-50"
             >
               {t("approveCancellation")}
@@ -591,6 +599,7 @@ function ScheduledTaskCard({
           type="button"
           onClick={onAdvance}
           disabled={disabled}
+          data-jev-label={inProgress ? t("markCompleted") : t("start")}
           className={`mt-5 w-full rounded-xl px-4 py-3 text-[13px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
             inProgress
               ? "bg-[#16A34A] text-white hover:bg-[#15803D]"

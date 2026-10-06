@@ -1,5 +1,12 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "../helpers/fixtures";
+import {
+  ORGANIZATION_SUBSCRIPTION_EXPIRES_AT,
+  TEST_IDS,
+  seedRenterMembership,
+} from "../helpers/seed";
+import { supabaseAdmin } from "../helpers/supabase";
+import { configureIsolatedE2E } from "../helpers/env";
 
 /** If page redirected to login, skip assertion gracefully */
 async function assertDashboard(page: Page) {
@@ -211,5 +218,352 @@ test.describe("Admin verifications — expandable audit panel", () => {
       path: "playwright-report/admin-verifications-property.png",
       fullPage: true,
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// C44 — admin status management. Every case asserts the exact database values
+// after an apply (and that a preview wrote nothing), then restores the seed.
+// ---------------------------------------------------------------------------
+
+const DAY_US = 86_400_000_000n;
+const ADMIN_STATUS_TYPES = [
+  "membership_admin_update",
+  "promotion_admin_update",
+  "company_plan_admin_update",
+];
+
+/** A timestamptz string from PostgREST as microseconds since the epoch. */
+function micros(ts: string): bigint {
+  const m = ts.match(/^(.+?T\d\d:\d\d:\d\d)(?:\.(\d+))?(Z|[+-]\d\d:?\d\d)$/);
+  if (!m) throw new Error(`unexpected timestamp ${ts}`);
+  const seconds = BigInt(Date.parse(`${m[1]}${m[3]}`)) * 1000n;
+  return seconds + BigInt((m[2] ?? "").padEnd(6, "0").slice(0, 6));
+}
+
+async function membershipRow(id: string) {
+  const { data, error } = await supabaseAdmin
+    .from("user_subscriptions")
+    .select(
+      "status, starts_at, expires_at, amount_paid, package_id, reviewed_by",
+    )
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function clearAdminNotices(userIds: string[]) {
+  await supabaseAdmin
+    .from("notifications")
+    .delete()
+    .in("user_id", userIds)
+    .in("type", ADMIN_STATUS_TYPES);
+}
+
+async function previewAndApply(page: Page) {
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "წინასწარ ნახვა" }).click();
+  await expect(
+    dialog.locator("[data-testid=status-change-row][data-outcome=changed]"),
+  ).toHaveCount(1);
+  await dialog.getByRole("button", { name: "შესრულება" }).click();
+  await expect(dialog.getByRole("heading", { name: "შედეგი" })).toBeVisible();
+}
+
+// The cookie banner covers the bottom of the screen and would take the
+// clicks meant for the selection bar, so the admin has already answered it.
+async function answerCookieBanner(page: Page) {
+  await page.context().addCookies([
+    {
+      name: "mb_cookie_consent",
+      value: encodeURIComponent("v2|analytics=0|location=0"),
+      url: configureIsolatedE2E().baseUrl,
+    },
+  ]);
+}
+
+test.describe("Admin statuses (C44)", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test("membership: the preview writes nothing, apply adds exactly 5 days", async ({
+    adminPage,
+  }) => {
+    await answerCookieBanner(adminPage);
+    await seedRenterMembership();
+    await clearAdminNotices([TEST_IDS.renter]);
+    const before = await membershipRow(TEST_IDS.renterMembership);
+    try {
+      await adminPage.goto(`/dashboard/admin/statuses?q=${TEST_IDS.renter}`);
+      if (!(await assertDashboard(adminPage))) return;
+      const table = adminPage.getByTestId("membership-table");
+      await expect(table.locator("tbody tr")).toHaveCount(1);
+      await table.getByRole("button", { name: "მართვა" }).click();
+      const dialog = adminPage.getByRole("dialog");
+      await dialog.getByRole("radio", { name: "დღეების დამატება" }).check();
+      await dialog.locator("#status-days").fill("5");
+      await dialog.getByRole("button", { name: "წინასწარ ნახვა" }).click();
+      await expect(
+        dialog.locator("[data-testid=status-change-row][data-outcome=changed]"),
+      ).toHaveCount(1);
+      // The preview rolled back.
+      expect((await membershipRow(TEST_IDS.renterMembership)).expires_at).toBe(
+        before.expires_at,
+      );
+      await dialog.getByRole("button", { name: "შესრულება" }).click();
+      await expect(
+        dialog.getByRole("heading", { name: "შედეგი" }),
+      ).toBeVisible();
+
+      const after = await membershipRow(TEST_IDS.renterMembership);
+      expect(micros(after.expires_at) - micros(before.expires_at)).toBe(
+        5n * DAY_US,
+      );
+      expect(after.starts_at).toBe(before.starts_at);
+      expect(after.status).toBe("active");
+
+      const { data: notices } = await supabaseAdmin
+        .from("notifications")
+        .select("type, dashboard_scope")
+        .eq("user_id", TEST_IDS.renter)
+        .eq("type", "membership_admin_update");
+      expect(notices).toEqual([
+        { type: "membership_admin_update", dashboard_scope: "renter" },
+      ]);
+      const { data: audit } = await supabaseAdmin
+        .from("audit_logs")
+        .select("actor_id, actor_source")
+        .eq("table_name", "user_subscriptions")
+        .eq("record_id", TEST_IDS.renterMembership)
+        .order("occurred_at", { ascending: false })
+        .limit(1);
+      expect(audit?.[0]).toEqual({
+        actor_id: TEST_IDS.admin,
+        actor_source: "admin",
+      });
+    } finally {
+      await seedRenterMembership();
+      await clearAdminNotices([TEST_IDS.renter]);
+    }
+  });
+
+  test("membership: grant a package season, then revoke it from the drawer", async ({
+    adminPage,
+  }) => {
+    await answerCookieBanner(adminPage);
+    await supabaseAdmin
+      .from("user_subscriptions")
+      .delete()
+      .eq("user_id", TEST_IDS.seller);
+    const { data: pkg } = await supabaseAdmin
+      .from("pricing_packages")
+      .select("id")
+      .eq("code", "renter-winter-standard")
+      .single();
+    try {
+      await adminPage.goto(
+        `/dashboard/admin/statuses?scope=all&q=${TEST_IDS.seller}`,
+      );
+      if (!(await assertDashboard(adminPage))) return;
+      const table = adminPage.getByTestId("membership-table");
+      await expect(table.locator("tbody tr")).toHaveCount(1);
+      await table.getByRole("button", { name: "მართვა" }).click();
+      const dialog = adminPage.getByRole("dialog");
+      await dialog.getByRole("radio", { name: "საწევროს მინიჭება" }).check();
+      await dialog.locator("#status-package").selectOption(pkg!.id);
+      await previewAndApply(adminPage);
+
+      const { data: rows } = await supabaseAdmin
+        .from("user_subscriptions")
+        .select(
+          "id, status, starts_at, expires_at, amount_paid, package_id, reviewed_by",
+        )
+        .eq("user_id", TEST_IDS.seller);
+      expect(rows).toHaveLength(1);
+      const granted = rows![0];
+      expect(granted.status).toBe("active");
+      expect(Number(granted.amount_paid)).toBe(0);
+      expect(granted.package_id).toBe(pkg!.id);
+      expect(granted.reviewed_by).toBe(TEST_IDS.admin);
+      // A season ends at the last microsecond of its Tbilisi day.
+      expect(granted.expires_at).toMatch(/T19:59:59\.999999\+00:00$/);
+
+      // The footer button (the header X carries the same accessible name).
+      await dialog.getByText("დახურვა", { exact: true }).click();
+      await table
+        .locator("tbody tr")
+        .first()
+        .locator("td")
+        .nth(1)
+        .getByRole("button")
+        .click();
+      const drawer = adminPage.getByTestId("membership-drawer");
+      await expect(drawer.getByTestId("membership-period")).toHaveCount(1);
+      await drawer
+        .getByTestId("membership-period")
+        .getByRole("button", { name: "გაუქმება", exact: true })
+        .click();
+      await previewAndApply(adminPage);
+
+      const revoked = await membershipRow(granted.id);
+      expect(revoked.status).toBe("revoked");
+      expect(revoked.starts_at).toBe(granted.starts_at);
+      expect(revoked.expires_at).toBe(granted.expires_at);
+    } finally {
+      await supabaseAdmin
+        .from("user_subscriptions")
+        .delete()
+        .eq("user_id", TEST_IDS.seller);
+      await clearAdminNotices([TEST_IDS.seller]);
+    }
+  });
+
+  test("listing: SUPER VIP for 3 days from the bulk bar, then removed", async ({
+    adminPage,
+  }) => {
+    await answerCookieBanner(adminPage);
+    const columns =
+      "is_vip, is_super_vip, vip_expires_at, vip_expiry_notified_at, discount_percent, discount_expires_at";
+    const read = async () => {
+      const { data, error } = await supabaseAdmin
+        .from("services")
+        .select(columns)
+        .eq("id", TEST_IDS.transportService)
+        .single();
+      if (error) throw error;
+      return data;
+    };
+    const original = await read();
+    try {
+      await adminPage.goto(
+        `/dashboard/admin/statuses?tab=listings&q=${TEST_IDS.transportService}`,
+      );
+      if (!(await assertDashboard(adminPage))) return;
+      const table = adminPage.getByTestId("listing-table");
+      await expect(table.locator("tbody tr")).toHaveCount(1);
+      await table.locator("tbody tr input[type=checkbox]").check();
+      await adminPage
+        .getByTestId("status-selection-bar")
+        .getByRole("button", { name: "VIP-ის მინიჭება" })
+        .click();
+      const dialog = adminPage.getByRole("dialog");
+      await dialog.locator("#status-tier").selectOption("super");
+      await dialog.locator("#status-days").fill("3");
+      await dialog.getByRole("button", { name: "წინასწარ ნახვა" }).click();
+      await expect(
+        dialog.locator("[data-testid=status-change-row][data-outcome=changed]"),
+      ).toHaveCount(1);
+      expect(await read()).toEqual(original);
+      const t0 = BigInt(Date.now()) * 1000n;
+      await dialog.getByRole("button", { name: "შესრულება" }).click();
+      await expect(
+        dialog.getByRole("heading", { name: "შედეგი" }),
+      ).toBeVisible();
+      const t1 = BigInt(Date.now()) * 1000n;
+
+      const granted = await read();
+      expect(granted.is_super_vip).toBe(true);
+      expect(granted.is_vip).toBe(false);
+      expect(granted.vip_expiry_notified_at).toBeNull();
+      const expires = micros(granted.vip_expires_at!);
+      expect(expires >= t0 + 3n * DAY_US - 2_000_000n).toBe(true);
+      expect(expires <= t1 + 3n * DAY_US + 2_000_000n).toBe(true);
+      expect(granted.discount_percent ?? 0).toBe(
+        original.discount_percent ?? 0,
+      );
+
+      // The footer button (the header X carries the same accessible name).
+      await dialog.getByText("დახურვა", { exact: true }).click();
+      await table.getByRole("button", { name: "მართვა" }).click();
+      await dialog.getByRole("radio", { name: "VIP-ის მოხსნა" }).check();
+      await previewAndApply(adminPage);
+      const ended = await read();
+      expect(ended.is_super_vip).toBe(false);
+      expect(ended.is_vip).toBe(false);
+      expect(micros(ended.vip_expires_at!) <= BigInt(Date.now()) * 1000n).toBe(
+        true,
+      );
+    } finally {
+      await supabaseAdmin
+        .from("services")
+        .update(original)
+        .eq("id", TEST_IDS.transportService);
+      await clearAdminNotices([TEST_IDS.transport]);
+    }
+  });
+
+  test("company plan: the API preview writes nothing, apply adds exactly 2 days", async ({
+    adminPage,
+  }) => {
+    await answerCookieBanner(adminPage);
+    const read = async () => {
+      const { data, error } = await supabaseAdmin
+        .from("organization_subscriptions")
+        .select("status, expires_at, tier, listing_limit")
+        .eq("id", TEST_IDS.organizationSubscription)
+        .single();
+      if (error) throw error;
+      return data;
+    };
+    const before = await read();
+    try {
+      await adminPage.goto("/dashboard/admin/statuses?tab=companies");
+      if (!(await assertDashboard(adminPage))) return;
+      const post = (body: Record<string, unknown>) =>
+        adminPage.evaluate(async (payload) => {
+          const res = await fetch("/api/admin/statuses/companies", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          return { status: res.status, json: await res.json() };
+        }, body);
+      const body = {
+        action: "extend",
+        orgIds: [TEST_IDS.organization],
+        days: 2,
+        notify: false,
+      };
+      const preview = await post(body);
+      expect(preview.status).toBe(200);
+      expect(preview.json.applied).toBe(false);
+      expect(preview.json.changed).toBe(1);
+      expect(await read()).toEqual(before);
+
+      const applied = await post({ ...body, dryRun: false });
+      expect(applied.json.applied).toBe(true);
+      const after = await read();
+      expect(micros(after.expires_at) - micros(before.expires_at)).toBe(
+        2n * DAY_US,
+      );
+      // The preview showed exactly what the apply wrote.
+      expect(micros(preview.json.rows[0].after.expires_at)).toBe(
+        micros(after.expires_at),
+      );
+      expect(after.tier).toBe(before.tier);
+      expect(after.status).toBe("active");
+    } finally {
+      await supabaseAdmin
+        .from("organization_subscriptions")
+        .update({
+          expires_at: ORGANIZATION_SUBSCRIPTION_EXPIRES_AT,
+          status: "active",
+        })
+        .eq("id", TEST_IDS.organizationSubscription);
+    }
+  });
+
+  test("a non-admin cannot read or change statuses", async ({ renterPage }) => {
+    await renterPage.goto("/dashboard/renter");
+    const result = await renterPage.evaluate(async (userId) => {
+      const list = await fetch("/api/admin/statuses/memberships");
+      const change = await fetch("/api/admin/statuses/memberships", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "extend", userIds: [userId], days: 1 }),
+      });
+      return [list.status, change.status];
+    }, TEST_IDS.renter);
+    expect(result).toEqual([403, 403]);
   });
 });

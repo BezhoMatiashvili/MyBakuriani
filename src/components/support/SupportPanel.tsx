@@ -3,8 +3,28 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { MousePointerClick, RotateCcw, Send, X } from "lucide-react";
-import { SUPPORT_LIMITS } from "@/lib/support/plan";
+import {
+  ArrowUpRight,
+  Mail,
+  MousePointerClick,
+  Phone,
+  RotateCcw,
+  Send,
+  ThumbsDown,
+  ThumbsUp,
+  X,
+} from "lucide-react";
+import {
+  SUPPORT_LIMITS,
+  type SupportButton,
+  type SupportCabinet,
+} from "@/lib/support/plan";
+import { isExternalHref } from "@/lib/support/actions";
+import {
+  CONTACT_EMAIL,
+  CONTACT_PHONE_DISPLAY,
+  CONTACT_PHONE_E164,
+} from "@/lib/site-contact";
 import { JevAvatar } from "./JevAvatar";
 
 export type ChatEntry = {
@@ -12,8 +32,15 @@ export type ChatEntry = {
   role: "user" | "assistant";
   text: string;
   tone?: "info" | "error";
-  /** A question the assistant can also walk through on screen. */
-  showMe?: string;
+  /** Buttons that open a page or a form; links built by the server. */
+  actions?: SupportButton[];
+  /** A walkthrough goal offered as "Show me on screen". */
+  guide?: string;
+  /** Follow-up questions, shown under the latest answer. */
+  suggestions?: string[];
+  /** The answer's ref for 👍/👎 ("canned:<key>" for a pre-written one). */
+  ref?: string;
+  rating?: "up" | "down";
   /** The assistant's simple choices, refining `goal`. */
   options?: string[];
   goal?: string;
@@ -21,20 +48,88 @@ export type ChatEntry = {
   progress?: string[];
 };
 
+/** A quick question offered before the first message. */
+export type QuickChip = { key: string; text: string };
+
+type Translate = ReturnType<typeof useTranslations<"Support">>;
+
 type Props = {
   entries: ChatEntry[];
   busy: "answer" | "plan" | null;
   draft: string;
-  quickActions: string[];
+  quickChips: QuickChip[];
+  cabinet: SupportCabinet;
   reduceMotion: boolean;
   onDraft: (value: string) => void;
   onSend: () => void;
-  onShowMe: (question: string) => void;
+  onShowMe: (goal: string) => void;
   onOption: (goal: string, option: string, progress?: string[]) => void;
-  onQuick: (text: string) => void;
+  onQuick: (chip: QuickChip) => void;
+  onAction: (button: SupportButton, label: string) => void;
+  onSuggestion: (text: string) => void;
+  onRate: (entryId: string, rating: "up" | "down") => void;
   onReset: () => void;
   onClose: () => void;
 };
+
+// "25.12": short, and the same in every locale (browsers without Georgian
+// month names would print "Dec").
+function shortDate(day: string): string {
+  const [, month, date] = day.split("-");
+  return month && date ? `${date}.${month}` : day;
+}
+
+/**
+ * A button's label in the site's own words (Support.actions.*) and, below
+ * it, what it will fill in ("20 დეკ – 25 დეკ · 4 სტუმარი"), both built here
+ * from the checked params, never from model text.
+ */
+export function describeButton(
+  button: SupportButton,
+  t: Translate,
+  cabinet: SupportCabinet,
+): { label: string; detail: string } {
+  const p = button.params ?? {};
+  const parts: string[] = [];
+  const number = (value: unknown) =>
+    typeof value === "number" ? value : undefined;
+  let label: string;
+  if (button.id === "browse" && typeof p.category === "string") {
+    label = t(`browse.${p.category}` as never);
+  } else if (button.id === "orders" && cabinet === "employment") {
+    label = t("actions.cvs");
+  } else {
+    label = t(`actions.${button.id}` as never);
+  }
+  if (button.id === "add_listing" && typeof p.category === "string")
+    parts.push(t(`create.${p.category}` as never));
+  if (typeof p.zone === "string") parts.push(p.zone);
+  if (typeof p.check_in === "string" && typeof p.check_out === "string")
+    parts.push(`${shortDate(p.check_in)} – ${shortDate(p.check_out)}`);
+  else if (typeof p.check_in === "string")
+    parts.push(t("params.from", { date: shortDate(p.check_in) }));
+  const guests = number(p.guests);
+  if (guests) parts.push(t("params.guests", { count: guests }));
+  const rooms = number(p.rooms);
+  if (rooms) parts.push(t("params.rooms", { count: rooms }));
+  if (Array.isArray(p.types))
+    parts.push(p.types.map((type) => t(`types.${type}` as never)).join(", "));
+  const priceMax = number(p.price_max);
+  if (priceMax) parts.push(t("params.priceMax", { amount: priceMax }));
+  const budgetMin = number(p.budget_min);
+  const budgetMax = number(p.budget_max);
+  if (budgetMin !== undefined && budgetMax !== undefined)
+    parts.push(t("params.budget", { min: budgetMin, max: budgetMax }));
+  else if (budgetMax !== undefined)
+    parts.push(t("params.priceMax", { amount: budgetMax }));
+  else if (budgetMin !== undefined)
+    parts.push(t("params.budgetFrom", { amount: budgetMin }));
+  const amount = number(p.amount);
+  if (amount) parts.push(t("params.amount", { amount }));
+  if (typeof p.tab === "string") parts.push(t(`tabs.${p.tab}` as never));
+  if (typeof p.query === "string") parts.push(`„${p.query}“`);
+  return { label, detail: parts.join(" · ") };
+}
 
 /**
  * Phones: the on-screen keyboard covers fixed elements instead of shrinking
@@ -70,17 +165,88 @@ function useKeyboardFit(): React.CSSProperties | undefined {
   return fit;
 }
 
+const ACTION_CLASS =
+  "flex min-h-11 w-full items-center gap-2.5 rounded-xl bg-[#2563EB] px-3.5 py-2 text-left text-white shadow-sm transition-colors hover:bg-[#1D4ED8] disabled:opacity-50";
+
+function ActionButton({
+  button,
+  label,
+  detail,
+  disabled,
+  onPress,
+}: {
+  button: SupportButton;
+  label: string;
+  detail: string;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const body = (
+    <>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-bold leading-tight">
+          {label}
+        </span>
+        {detail && (
+          <span className="mt-0.5 line-clamp-2 block text-[12px] font-medium text-white/80">
+            {detail}
+          </span>
+        )}
+      </span>
+      {button.href.startsWith("tel:") ? (
+        <Phone className="size-4 shrink-0" aria-hidden />
+      ) : button.href.startsWith("mailto:") ? (
+        <Mail className="size-4 shrink-0" aria-hidden />
+      ) : (
+        <ArrowUpRight className="size-4 shrink-0" aria-hidden />
+      )}
+    </>
+  );
+  // Phone and mail open the device's own app: a plain link.
+  if (isExternalHref(button.href))
+    return (
+      <a
+        href={button.href}
+        className={ACTION_CLASS}
+        data-testid="jev-action"
+        data-action={button.id}
+        onClick={onPress}
+      >
+        {body}
+      </a>
+    );
+  return (
+    <button
+      type="button"
+      className={ACTION_CLASS}
+      data-testid="jev-action"
+      data-action={button.id}
+      disabled={disabled}
+      onClick={onPress}
+    >
+      {body}
+    </button>
+  );
+}
+
+const PILL_LINK =
+  "inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white px-3.5 text-[12px] font-bold text-[#2563EB] ring-1 ring-[#DBEAFE] transition-colors hover:bg-[#EFF6FF]";
+
 export function SupportPanel({
   entries,
   busy,
   draft,
-  quickActions,
+  quickChips,
+  cabinet,
   reduceMotion,
   onDraft,
   onSend,
   onShowMe,
   onOption,
   onQuick,
+  onAction,
+  onSuggestion,
+  onRate,
   onReset,
   onClose,
 }: Props) {
@@ -117,6 +283,7 @@ export function SupportPanel({
   }, [onClose]);
 
   const canSend = draft.trim() !== "" && busy === null;
+  const lastId = entries[entries.length - 1]?.id;
 
   return (
     <>
@@ -189,25 +356,26 @@ export function SupportPanel({
                   {t("greetingBody")}
                 </p>
               </div>
-              {quickActions.length > 0 && (
+              {quickChips.length > 0 && (
                 <>
                   <p className="mb-2 mt-4 text-[12px] font-bold uppercase tracking-wide text-[#94A3B8]">
                     {t("quickTitle")}
                   </p>
                   <div className="flex flex-col gap-2">
-                    {quickActions.map((text) => (
+                    {quickChips.map((chip) => (
                       <button
-                        key={text}
+                        key={chip.key}
                         type="button"
-                        onClick={() => onQuick(text)}
+                        onClick={() => onQuick(chip)}
                         disabled={busy !== null}
+                        data-testid="jev-quick"
                         className="flex min-h-11 items-center gap-2.5 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-left text-[13px] font-semibold text-[#1E293B] transition-colors hover:border-[#BFDBFE] hover:bg-[#F8FAFF] disabled:opacity-50"
                       >
                         <MousePointerClick
                           className="size-4 shrink-0 text-[#2563EB]"
                           aria-hidden
                         />
-                        {text}
+                        {chip.text}
                       </button>
                     ))}
                   </div>
@@ -226,46 +394,151 @@ export function SupportPanel({
             ) : (
               <div key={entry.id} className="flex items-end gap-2">
                 <JevAvatar size="sm" />
-                <div
-                  className={`max-w-[85%] rounded-2xl rounded-bl-md px-3.5 py-2.5 text-[14px] leading-snug ${
-                    entry.tone === "error"
-                      ? "bg-[#FEF2F2] text-[#991B1B]"
-                      : entry.tone === "info"
-                        ? "bg-[#EFF6FF] text-[#1E3A8A]"
-                        : "bg-[#F1F5F9] text-[#0F172A]"
-                  }`}
-                >
-                  <p className="whitespace-pre-line break-words">
-                    {entry.text}
-                  </p>
-                  {entry.showMe && (
-                    <button
-                      type="button"
-                      onClick={() => onShowMe(entry.showMe!)}
-                      disabled={busy !== null}
-                      className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white px-3.5 text-[12px] font-bold text-[#2563EB] shadow-sm ring-1 ring-[#DBEAFE] transition-colors hover:bg-[#EFF6FF] disabled:opacity-50"
-                    >
-                      <MousePointerClick className="size-3.5" aria-hidden />
-                      {t("showMe")}
-                    </button>
-                  )}
-                  {entry.goal && entry.options && entry.options.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {entry.options.map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() =>
-                            onOption(entry.goal!, option, entry.progress)
-                          }
-                          disabled={busy !== null}
-                          className="min-h-11 rounded-full bg-white px-3.5 text-[13px] font-semibold text-[#1E3A8A] ring-1 ring-[#BFDBFE] transition-colors hover:bg-[#EFF6FF] disabled:opacity-50"
-                        >
-                          {option}
-                        </button>
-                      ))}
+                <div className="min-w-0 max-w-[85%] flex-1">
+                  <div
+                    className={`rounded-2xl rounded-bl-md px-3.5 py-2.5 text-[14px] leading-snug ${
+                      entry.tone === "error"
+                        ? "bg-[#FEF2F2] text-[#991B1B]"
+                        : entry.tone === "info"
+                          ? "bg-[#EFF6FF] text-[#1E3A8A]"
+                          : "bg-[#F1F5F9] text-[#0F172A]"
+                    }`}
+                  >
+                    {entry.text && (
+                      <p className="whitespace-pre-line break-words">
+                        {entry.text}
+                      </p>
+                    )}
+                    {entry.actions && entry.actions.length > 0 && (
+                      <div className="mt-2.5 flex flex-col gap-2">
+                        {entry.actions.map((button) => {
+                          const { label, detail } = describeButton(
+                            button,
+                            t,
+                            cabinet,
+                          );
+                          return (
+                            <ActionButton
+                              key={`${button.id}-${button.href}`}
+                              button={button}
+                              label={label}
+                              detail={detail}
+                              disabled={busy !== null}
+                              onPress={() => onAction(button, label)}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                    {entry.guide && (
+                      <button
+                        type="button"
+                        onClick={() => onShowMe(entry.guide!)}
+                        disabled={busy !== null}
+                        data-testid="jev-show-me"
+                        className={`mt-2 shadow-sm disabled:opacity-50 ${PILL_LINK}`}
+                      >
+                        <MousePointerClick className="size-3.5" aria-hidden />
+                        {t("showMe")}
+                      </button>
+                    )}
+                    {entry.goal &&
+                      entry.options &&
+                      entry.options.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {entry.options.map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() =>
+                                onOption(entry.goal!, option, entry.progress)
+                              }
+                              disabled={busy !== null}
+                              className="min-h-11 rounded-full bg-white px-3.5 text-[13px] font-semibold text-[#1E3A8A] ring-1 ring-[#BFDBFE] transition-colors hover:bg-[#EFF6FF] disabled:opacity-50"
+                            >
+                              {option}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    {entry.rating === "down" && (
+                      <div className="mt-2.5 border-t border-[#E2E8F0] pt-2.5">
+                        <p className="text-[12px] font-semibold text-[#475569]">
+                          {t("feedback.sorry")}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <a
+                            href={`tel:${CONTACT_PHONE_E164}`}
+                            className={PILL_LINK}
+                          >
+                            <Phone className="size-3.5" aria-hidden />
+                            {CONTACT_PHONE_DISPLAY}
+                          </a>
+                          <a
+                            href={`mailto:${CONTACT_EMAIL}`}
+                            className={PILL_LINK}
+                          >
+                            <Mail className="size-3.5" aria-hidden />
+                            {t("actions.email_support")}
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {entry.ref && !entry.tone && (
+                    <div className="mt-0.5 flex items-center gap-0.5">
+                      {(["up", "down"] as const).map((rating) => {
+                        const Icon = rating === "up" ? ThumbsUp : ThumbsDown;
+                        const chosen = entry.rating === rating;
+                        return (
+                          <button
+                            key={rating}
+                            type="button"
+                            onClick={() => onRate(entry.id, rating)}
+                            disabled={Boolean(entry.rating)}
+                            aria-pressed={chosen}
+                            aria-label={t(`feedback.${rating}`)}
+                            title={t(`feedback.${rating}`)}
+                            data-testid={`jev-rate-${rating}`}
+                            className={`flex size-11 items-center justify-center rounded-full transition-colors disabled:cursor-default ${
+                              chosen
+                                ? "text-[#2563EB]"
+                                : "text-[#94A3B8] hover:bg-[#F1F5F9] hover:text-[#475569] disabled:opacity-40 disabled:hover:bg-transparent"
+                            }`}
+                          >
+                            <Icon
+                              className="size-4"
+                              fill={chosen ? "currentColor" : "none"}
+                              aria-hidden
+                            />
+                          </button>
+                        );
+                      })}
+                      {entry.rating === "up" && (
+                        <span className="text-[12px] font-medium text-[#64748B]">
+                          {t("feedback.thanks")}
+                        </span>
+                      )}
                     </div>
                   )}
+                  {entry.id === lastId &&
+                    entry.suggestions &&
+                    entry.suggestions.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {entry.suggestions.map((suggestion) => (
+                          <button
+                            key={suggestion}
+                            type="button"
+                            onClick={() => onSuggestion(suggestion)}
+                            disabled={busy !== null}
+                            data-testid="jev-suggestion"
+                            className="min-h-11 rounded-full border border-[#DBEAFE] bg-white px-3.5 py-2 text-left text-[13px] font-semibold leading-snug text-[#1E3A8A] transition-colors hover:bg-[#EFF6FF] disabled:opacity-50"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                 </div>
               </div>
             ),

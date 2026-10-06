@@ -78,6 +78,8 @@ export function NotificationCard({
 
   return (
     <li
+      data-jev-private
+      data-jev-section={tShared("notifTitle")}
       className={cn(
         "transition-colors",
         !n.is_read && "bg-[#F8FAFF]",
@@ -160,6 +162,7 @@ export function NotificationCard({
               {actionPath && (
                 <Link
                   href={actionPath as never}
+                  data-jev-label={tShared("viewNotification")}
                   className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-[12px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
                 >
                   {tShared("viewNotification")}

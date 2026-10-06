@@ -383,7 +383,6 @@ export default function RenterCalendarPage() {
     setPlatformBookings([]);
   }, [selectedPropertyId, year, month]);
 
-
   useEffect(() => {
     fetchBookings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -440,8 +439,7 @@ export default function RenterCalendarPage() {
         const shouldFetchBookings = calendarRefreshBookingsRef.current;
         calendarRefreshBookingsRef.current = false;
         const jobs: Promise<unknown>[] = [fetchBlocks(), fetchOccupancy()];
-        if (shouldFetchBookings)
-          jobs.push(fetchBookings(), fetchBookingList());
+        if (shouldFetchBookings) jobs.push(fetchBookings(), fetchBookingList());
         void Promise.all(jobs);
       }, 200);
     },
@@ -1104,6 +1102,7 @@ export default function RenterCalendarPage() {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
+        data-jev-private
         className="grid grid-cols-7 overflow-hidden rounded-[8px] border border-[#EEF1F4]"
       >
         {days.map((d, i) => (
@@ -1261,6 +1260,7 @@ function DayCell({
     <button
       type="button"
       data-booking-type={booking?.type}
+      data-jev-label={String(meta.day)}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       disabled={!meta.inMonth}
@@ -1320,7 +1320,10 @@ function DayCell({
       <Tooltip.Trigger render={button} delay={250} closeDelay={80} />
       <Tooltip.Portal>
         <Tooltip.Positioner side="top" sideOffset={8} className="z-[70]">
-          <Tooltip.Popup className="w-[min(320px,calc(100vw-24px))] rounded-xl border border-[#E2E8F0] bg-white p-4 text-left shadow-[0_18px_45px_-18px_rgba(15,23,42,0.45)] outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0">
+          <Tooltip.Popup
+            data-jev-private
+            className="w-[min(320px,calc(100vw-24px))] rounded-xl border border-[#E2E8F0] bg-white p-4 text-left shadow-[0_18px_45px_-18px_rgba(15,23,42,0.45)] outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0"
+          >
             <BookingTooltip booking={booking} />
           </Tooltip.Popup>
         </Tooltip.Positioner>

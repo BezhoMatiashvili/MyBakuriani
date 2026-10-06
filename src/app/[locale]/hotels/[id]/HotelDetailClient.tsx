@@ -53,6 +53,8 @@ import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
 import PropertyAmenities from "@/components/detail/PropertyAmenities";
 import HostLanguages from "@/components/detail/HostLanguages";
+import HotelRooms from "@/components/detail/HotelRooms";
+import { parseHotelRooms } from "@/lib/hotel-rooms";
 import {
   previewContactPhone,
   previewContactWhatsapp,
@@ -165,6 +167,11 @@ export default function HotelDetailClient({
     [calendarBlocks],
   );
   const calendarDates: CalendarDate[] = parsedCalendarDates;
+  const hotelRooms = useMemo(
+    () => parseHotelRooms(property.hotel_rooms),
+    [property.hotel_rooms],
+  );
+  const hotelStars = property.hotel_stars ?? 0;
   // Stable across re-renders (a date click, a lightbox open): the map rebuilds
   // every marker whenever this array's identity changes.
   const mapMarkers = useMemo(
@@ -223,6 +230,20 @@ export default function HotelDetailClient({
               <span className="rounded-md bg-brand-accent-light px-2 py-0.5 text-xs font-medium text-brand-accent">
                 {t("hotel")}
               </span>
+              {hotelStars > 0 && (
+                <span
+                  role="img"
+                  aria-label={t("starsAria", { count: hotelStars })}
+                  className="inline-flex items-center gap-0.5"
+                >
+                  {Array.from({ length: hotelStars }, (_, i) => (
+                    <Star
+                      key={i}
+                      className="h-3.5 w-3.5 fill-[#EAB308] text-[#EAB308]"
+                    />
+                  ))}
+                </span>
+              )}
               {property.is_super_vip && (
                 <span className="rounded bg-brand-vip-super px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white">
                   Super VIP
@@ -313,6 +334,20 @@ export default function HotelDetailClient({
               <p className="text-[15px] font-medium leading-[27px] text-[#475569] whitespace-pre-line">
                 {property.description}
               </p>
+            </div>
+          )}
+
+          {/* Rooms (C45) */}
+          {hotelRooms.length > 0 && (
+            <div style={enterUp(0.22)}>
+              <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
+                {t("roomsTitle")}
+              </h2>
+              <HotelRooms
+                rooms={hotelRooms}
+                discountPercent={property.discount_percent}
+                discountExpiresAt={property.discount_expires_at}
+              />
             </div>
           )}
 
@@ -471,7 +506,9 @@ export default function HotelDetailClient({
               rating={avgRating}
               calendarDates={parsedCalendarDates}
               maxGuests={property.capacity ?? 10}
-              perPersonPricing
+              // A room's price is per room and night (C45); hotels without
+              // rooms keep the per-person estimate they always had.
+              perPersonPricing={hotelRooms.length === 0}
               priceOverrides={priceOverrides}
               discountPercent={property.discount_percent}
               discountExpiresAt={property.discount_expires_at}

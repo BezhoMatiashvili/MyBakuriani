@@ -67,6 +67,10 @@ type PublicViews = {
   finance_refunds_v: GenPublic["Views"]["finance_refunds_v"];
   finance_ledger_v: GenPublic["Views"]["finance_ledger_v"];
   finance_invoices_v: GenPublic["Views"]["finance_invoices_v"];
+  // Admin status management (C44): admin-only, read with the service role.
+  admin_membership_overview_v: GenPublic["Views"]["admin_membership_overview_v"];
+  admin_listing_promotions_v: GenPublic["Views"]["admin_listing_promotions_v"];
+  admin_company_plans_v: GenPublic["Views"]["admin_company_plans_v"];
 };
 
 // Compile-time tripwire: every view the generator knows about must be

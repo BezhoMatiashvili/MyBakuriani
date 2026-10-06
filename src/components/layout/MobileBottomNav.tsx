@@ -8,6 +8,7 @@ import {
   Bell,
   BookOpen,
   Building,
+  CalendarClock,
   CalendarDays,
   ChevronRight,
   Ellipsis,
@@ -21,6 +22,7 @@ import {
   Link2,
   LogOut,
   MapPin,
+  PieChart,
   Settings,
   ShieldCheck,
   ShoppingBag,
@@ -104,6 +106,11 @@ function getNavigation(role: string): RoleNavigation {
             icon: IdCard,
           },
           {
+            labelKey: "statuses",
+            href: "/dashboard/admin/statuses",
+            icon: CalendarClock,
+          },
+          {
             labelKey: "companies",
             href: "/dashboard/admin/companies",
             icon: Building,
@@ -138,6 +145,11 @@ function getNavigation(role: string): RoleNavigation {
             labelKey: "guide",
             href: "/dashboard/admin/guide",
             icon: BookOpen,
+          },
+          {
+            labelKey: "saleResearch",
+            href: "/dashboard/admin/sale-research",
+            icon: PieChart,
           },
           {
             labelKey: "finances",

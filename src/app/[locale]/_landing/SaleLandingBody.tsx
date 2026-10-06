@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { ArrowRight, Flame, Plus } from "lucide-react";
 import { Link } from "@/i18n/navigation";
@@ -28,6 +28,11 @@ import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { ZoneIcon } from "@/lib/zones/icon";
 import { MobileRail } from "@/components/shared/MobileRail";
+import { SALE_ZONE_PRICES_HIDDEN } from "@/lib/features";
+import {
+  resolveSaleResearch,
+  type SaleResearchContent,
+} from "@/lib/sale-research";
 
 const BakurianiMap = dynamic(
   () =>
@@ -50,6 +55,8 @@ interface SaleLandingBodyProps {
   saleProperties?: LandingSaleProperty[];
   superVipProperties?: LandingSaleProperty[];
   pricePerSqmByZone?: Record<string, number | null>;
+  // The admin's edits of the research section (src/lib/sale-research.ts).
+  saleResearch?: SaleResearchContent;
   zones: Zone[];
   bannerCreatives?: BannerCreative[];
 }
@@ -126,10 +133,12 @@ export default function SaleLandingBody({
   saleProperties,
   superVipProperties,
   pricePerSqmByZone,
+  saleResearch,
   zones,
   bannerCreatives = [],
 }: SaleLandingBodyProps) {
   const t = useTranslations("Landing");
+  const locale = useLocale();
   const tZones = useTranslations("Zones");
   const router = useRouter();
   const { setListingMode } = useHomeListingMode();
@@ -138,6 +147,12 @@ export default function SaleLandingBody({
     if (avg == null || !Number.isFinite(avg)) return "—";
     return t("sale.pricePerSqm", { price: formatNumber(avg) });
   };
+
+  // Research section: the admin's text or figure where set, else the catalog
+  // text / built-in figure (src/lib/sale-research.ts).
+  const research = resolveSaleResearch(saleResearch, locale, (key) =>
+    t(`sale.${key}`),
+  );
 
   useEffect(() => {
     setListingMode(mode);
@@ -241,7 +256,11 @@ export default function SaleLandingBody({
         data-testid="homepage-hero"
         className={cn(
           "relative flex items-start justify-center px-4 pt-10 lg:pt-16",
-          showMap ? "pb-14 lg:pb-16" : "pb-0 sm:pb-14 lg:pb-0",
+          // Without the hanging zone cards the hero closes below the search
+          // box, as it does with the map open.
+          showMap || SALE_ZONE_PRICES_HIDDEN
+            ? "pb-14 lg:pb-16"
+            : "pb-0 sm:pb-14 lg:pb-0",
         )}
         style={{
           background:
@@ -286,32 +305,35 @@ export default function SaleLandingBody({
           {/* Phones: every zone in one scroll row that hangs 72px below the
               hero, like the rent status cards (pb-3 keeps the shadow from
               being clipped by the scroller). sm+: the first 4 overhang 42px
-              and extras render after this section. */}
-          <div
-            className={cn(
-              ZONE_CARD_ROW_CLASS,
-              "mt-5 pb-3 sm:mt-8 sm:pb-0",
-              !showMap && "-mb-[84px] sm:-mb-[42px]",
-            )}
-          >
-            {heroZones.map((zone) => renderZoneCard(zone))}
-            {extraZones.map((zone) => renderZoneCard(zone, "sm:hidden"))}
-          </div>
+              and extras render after this section. Hidden for now
+              (SALE_ZONE_PRICES_HIDDEN), with their spacers. */}
+          {!SALE_ZONE_PRICES_HIDDEN && (
+            <div
+              className={cn(
+                ZONE_CARD_ROW_CLASS,
+                "mt-5 pb-3 sm:mt-8 sm:pb-0",
+                !showMap && "-mb-[84px] sm:-mb-[42px]",
+              )}
+            >
+              {heroZones.map((zone) => renderZoneCard(zone))}
+              {extraZones.map((zone) => renderZoneCard(zone, "sm:hidden"))}
+            </div>
+          )}
         </div>
       </section>
 
       {/* Phones: reserve the 72px card overhang (+ gutter). */}
-      {!showMap && (
+      {!SALE_ZONE_PRICES_HIDDEN && !showMap && (
         <div aria-hidden className="h-[calc(72px+1.5rem)] sm:hidden" />
       )}
 
       {/* No extras row to absorb the hanging first row: reserve its 42px
           overhang (+ gutter) so banners below never sit underneath it. */}
-      {extraZones.length === 0 && !showMap && (
+      {!SALE_ZONE_PRICES_HIDDEN && extraZones.length === 0 && !showMap && (
         <div aria-hidden className="hidden sm:block sm:h-[calc(42px+1.5rem)]" />
       )}
 
-      {extraZones.length > 0 && (
+      {!SALE_ZONE_PRICES_HIDDEN && extraZones.length > 0 && (
         <div
           data-testid="homepage-sale-extra-zone-cards"
           className="hidden px-4 sm:block"
@@ -348,7 +370,11 @@ export default function SaleLandingBody({
         </div>
       )}
 
-      <BannerSlotView placement="home_top_strip" creatives={bannerCreatives} />
+      <BannerSlotView
+        placement="home_top_strip"
+        creatives={bannerCreatives}
+        className={SALE_ZONE_PRICES_HIDDEN ? "mt-6" : undefined}
+      />
 
       <BannerSlotView placement="home_hero" creatives={bannerCreatives} />
 
@@ -467,19 +493,25 @@ export default function SaleLandingBody({
             <div>
               <ScrollReveal>
                 <span className="mb-3 block text-[11px] font-black uppercase tracking-[1.2px] text-[#16A34A]">
-                  {t("sale.researchEyebrow")}
+                  {research.eyebrow}
                 </span>
                 <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B] md:text-[30px] md:leading-[36px]">
-                  {t("sale.whyInvest")}
+                  {research.title}
                 </h2>
                 <p className="mt-3 text-[14px] font-medium leading-[22px] text-[#64748B]">
-                  {t("sale.researchBody")}
+                  {research.body}
                 </p>
               </ScrollReveal>
 
               <div className="mt-6 grid grid-cols-2 gap-4">
-                <ResearchStat value="10-15%" label={t("sale.avgRoi")} />
-                <ResearchStat value="<$1,000" label={t("sale.minInitial")} />
+                <ResearchStat
+                  value={research.roiValue}
+                  label={research.roiLabel}
+                />
+                <ResearchStat
+                  value={research.entryValue}
+                  label={research.entryLabel}
+                />
               </div>
             </div>
 
@@ -487,27 +519,31 @@ export default function SaleLandingBody({
               <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-start lg:justify-end lg:gap-10">
                 <div className="flex flex-col items-center gap-4">
                   <span className="text-[12px] font-bold text-[#64748B]">
-                    {t("sale.supplyStructure")}
+                    {research.chartTitle}
                   </span>
                   <DonutChart
                     segments={[
                       {
-                        value: 72,
+                        value: research.smallShare,
                         color: "#16A34A",
                         label: t("sale.smallApartments"),
                       },
-                      { value: 28, color: "#D1FAE5", label: t("sale.other") },
+                      {
+                        value: 100 - research.smallShare,
+                        color: "#D1FAE5",
+                        label: t("sale.other"),
+                      },
                     ]}
                   />
                 </div>
                 <ul className="flex flex-col gap-3">
                   <li className="flex items-center gap-2 text-[13px] font-bold text-[#1E293B]">
                     <span className="size-3 rounded-sm bg-[#16A34A]" />
-                    {t("sale.smallApartmentsLegend")}
+                    {research.smallLegend}
                   </li>
                   <li className="flex items-center gap-2 text-[13px] font-bold text-[#64748B]">
                     <span className="size-3 rounded-sm bg-[#D1FAE5]" />
-                    {t("sale.otherFormatsLegend")}
+                    {research.otherLegend}
                   </li>
                 </ul>
               </div>

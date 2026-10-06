@@ -184,7 +184,10 @@ export default function CleanerCallModal({
                   <h2 className="text-[16px] font-black text-[#0F172A]">
                     {t("title")}
                   </h2>
-                  <p className="text-[12px] font-semibold text-[#64748B]">
+                  <p
+                    data-jev-private
+                    className="text-[12px] font-semibold text-[#64748B]"
+                  >
                     {cleaner.name}
                   </p>
                   <p className="text-[11px] font-medium text-[#94A3B8]">

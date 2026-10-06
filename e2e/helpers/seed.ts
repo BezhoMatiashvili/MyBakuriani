@@ -270,6 +270,18 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     house_rules: { hosting_langs: ["ru", "ar"] },
     photos: [],
     hotel_stars: 4,
+    // C45: one room matching the columns above (price, rooms, capacity).
+    hotel_rooms: [
+      {
+        name: "სტანდარტული ორადგილიანი",
+        guests: 2,
+        beds: 1,
+        area_sqm: 32,
+        price: 220,
+        quantity: 1,
+        photos: [],
+      },
+    ],
     status: "active",
     is_for_sale: false,
     created_at: pastTimestamp(5),

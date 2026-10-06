@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
+import { SALE_ZONE_PRICES_HIDDEN } from "../../src/lib/features";
 
 // Home page, sale mode (2026-09-27): the min/max boxes under the area and
 // price sliders are typeable, and on phones the zone price cards hang below
@@ -15,11 +16,14 @@ const PILL_MAX = "მაქს"; // SaleSearchBox.maxPlaceholder
 
 test.beforeEach(async ({ page, baseURL }) => {
   // The cookie banner otherwise covers the bottom of the phone viewport.
-  await page
-    .context()
-    .addCookies([
-      { name: "mb_cookie_consent", value: "v1|analytics=0", url: baseURL! },
-    ]);
+  await page.context().addCookies([
+    // v2: a v1 value never answers the location question, so the banner stays.
+    {
+      name: "mb_cookie_consent",
+      value: "v2|analytics=0|location=0",
+      url: baseURL!,
+    },
+  ]);
 });
 
 async function switchToSale(page: Page) {
@@ -50,6 +54,10 @@ for (const width of [320, 375, 428]) {
   test(`sale zone cards hang below the hero like the rent cards at ${width}px`, async ({
     page,
   }) => {
+    test.skip(
+      SALE_ZONE_PRICES_HIDDEN,
+      "zone price cards are hidden for now (src/lib/features.ts)",
+    );
     await page.setViewportSize({ width, height: 844 });
     await switchToSale(page);
 

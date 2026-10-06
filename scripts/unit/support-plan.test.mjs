@@ -1,19 +1,23 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  ACCOUNT_QUESTION,
   SUPPORT_LIMITS,
+  buildReplyTool,
   buildShowStepsTool,
   cabinetForPath,
   cleanAnswer,
   cleanPath,
   cleanText,
+  isPrivatePath,
+  maskIds,
   maskPersonalData,
   normalizeElements,
-  parseGuideGoal,
   parseJevPlan,
+  parseReply,
   parseSupportRequest,
+  privateItemLabel,
   stripLocale,
-  writtenGuideGoal,
 } from "../../src/lib/support/plan.ts";
 
 test("maskPersonalData hides e-mails and long digit runs, keeps short numbers", () => {
@@ -28,6 +32,14 @@ test("maskPersonalData hides e-mails and long digit runs, keeps short numbers", 
     maskPersonalData("10 MB, 2026, 5 ოთახი"),
     "10 MB, 2026, 5 ოთახი",
   );
+  // A budget next to its currency is kept: it is what the search filters by.
+  assert.equal(
+    maskPersonalData("budget up to 300000 GEL"),
+    "budget up to 300000 GEL",
+  );
+  assert.equal(maskPersonalData("1 500 000 ₾-მდე"), "1 500 000 ₾-მდე");
+  assert.equal(maskPersonalData("$ 250000"), "$ 250000");
+  assert.equal(maskPersonalData("599123456 GELA"), "[number] GELA");
 });
 
 test("cleanText flattens whitespace, strips bidi controls and clips", () => {
@@ -261,14 +273,121 @@ test("parseJevPlan accepts a simple question with up to four options", () => {
   assert.equal(parseJevPlan({ kind: "ask", question: " " }, new Set()), null);
 });
 
-test("parseGuideGoal reads Gemini's hand-off", () => {
-  assert.equal(
-    parseGuideGoal('{"goal":"ფოტოების ატვირთვა"}'),
-    "ფოტოების ატვირთვა",
+test("parseReply keeps only listed buttons and clean suggestions", () => {
+  const known = new Set(["faq", "search_rent"]);
+  const normalize = (id, params) =>
+    known.has(id) ? (params ? { id, params } : { id }) : null;
+  const reply = parseReply(
+    JSON.stringify({
+      text: "**ბინები** ნახეთ აქ.",
+      actions: [
+        { id: "search_rent", params: { guests: 4 } },
+        { id: "search_rent" },
+        { id: "steal_cookies" },
+        { id: "faq" },
+        { id: 7 },
+      ],
+      guide: "ფოტოების ატვირთვა 599123456",
+      guide_now: true,
+      suggestions: ["როგორ დავჯავშნო?", "როგორ დავჯავშნო?", "ბინა მინდა", "x"],
+      topic: "search",
+      needs_account: false,
+    }),
+    normalize,
+    "ბინა მინდა",
   );
-  assert.equal(parseGuideGoal({ goal: " x " }), "x");
-  assert.equal(parseGuideGoal("{}"), "");
-  assert.equal(parseGuideGoal("oops"), "");
+  assert.deepEqual(reply, {
+    text: "ბინები ნახეთ აქ.",
+    actions: [{ id: "search_rent", params: { guests: 4 } }, { id: "faq" }],
+    guide: "ფოტოების ატვირთვა [number]",
+    guideNow: true,
+    suggestions: ["როგორ დავჯავშნო?", "x"],
+    topic: "search",
+    needsAccount: false,
+  });
+  // guide_now means nothing without a guide; an unknown topic is "other".
+  const plain = parseReply(
+    { text: "კი.", guide: "", guide_now: true, topic: "weather" },
+    normalize,
+  );
+  assert.equal(plain.guideNow, false);
+  assert.equal(plain.topic, "other");
+  assert.deepEqual(plain.actions, []);
+  assert.equal(parseReply({ text: " ", actions: [] }, normalize), null);
+  assert.equal(parseReply("{oops", normalize), null);
+});
+
+test("buildReplyTool offers ids and typed params, never a link field", () => {
+  const tool = buildReplyTool({
+    actions: ["faq", "search_rent"],
+    propertyTypes: ["apartment"],
+    tabs: ["listings"],
+  });
+  const item = tool.function.parameters.properties.actions.items;
+  assert.deepEqual(item.properties.id.enum, ["faq", "search_rent"]);
+  const json = JSON.stringify(tool);
+  for (const key of ['"href"', '"url"', '"path"', '"link"'])
+    assert.equal(json.includes(key), false, key);
+});
+
+test("ACCOUNT_QUESTION spots why/can't/status questions, not every 'my'", () => {
+  for (const yes of [
+    "რატომ არ ჩანს ჩემი განცხადება?",
+    "ვერ ვამატებ ფოტოს",
+    "ბალანსი არ ჩაირიცხა",
+    "Why is my listing not showing?",
+    "my payment is pending",
+    "Почему не видно моё объявление?",
+  ])
+    assert.equal(ACCOUNT_QUESTION.test(yes), true, yes);
+  for (const no of [
+    "როგორ დავამატო ჩემი ბინა?",
+    "How do I add my apartment?",
+    "Как добавить квартиру?",
+  ])
+    assert.equal(ACCOUNT_QUESTION.test(no), false, no);
+});
+
+test("maskIds hides UUIDs in paths and element links", () => {
+  const id = "3f2b9c1e-8a4d-4f6b-9c2e-1a2b3c4d5e6f";
+  assert.equal(
+    maskIds(`/dashboard/admin/clients/${id}`),
+    "/dashboard/admin/clients/:id",
+  );
+  assert.equal(cleanPath(`/apartments/${id}?x=1`, 200), "/apartments/:id");
+  const [element] = normalizeElements([
+    {
+      id: "e1",
+      kind: "link",
+      label: "x",
+      href: `/dashboard/admin/clients/${id}`,
+    },
+  ]);
+  assert.equal(element.href, "/dashboard/admin/clients/:id");
+});
+
+test("parseSupportRequest accepts feedback with a ref and a rating only", () => {
+  assert.deepEqual(
+    parseSupportRequest({ mode: "feedback", ref: "ab12cd34ef", rating: "up" }),
+    { mode: "feedback", ref: "ab12cd34ef", rating: "up" },
+  );
+  assert.deepEqual(
+    parseSupportRequest({
+      mode: "feedback",
+      ref: "canned:topUp",
+      rating: "down",
+      text: "ignored",
+    }),
+    { mode: "feedback", ref: "canned:topUp", rating: "down" },
+  );
+  assert.equal(
+    parseSupportRequest({ mode: "feedback", ref: "x", rating: "up" }),
+    null,
+  );
+  assert.equal(
+    parseSupportRequest({ mode: "feedback", ref: "ab12cd34ef", rating: "meh" }),
+    null,
+  );
 });
 
 test("cleanAnswer removes markdown but keeps line breaks", () => {
@@ -337,16 +456,20 @@ test("stripLocale removes only a real locale prefix", () => {
   assert.equal(stripLocale("/english/x"), "/english/x");
 });
 
-test("writtenGuideGoal turns a hand-off written as text into a goal", () => {
-  assert.equal(
-    writtenGuideGoal(
-      'Call the start_guide tool with the goal "პროფილის ფოტოს შეცვლა".',
-    ),
-    "პროფილის ფოტოს შეცვლა",
-  );
-  assert.equal(writtenGuideGoal("start_guide"), "");
-  assert.equal(
-    writtenGuideGoal("„ბალანსი და VIP“ გვერდზე დააჭირეთ „ბალანსის შევსება“."),
-    null,
-  );
+test("admin pages are private by default; private items get neutral labels", () => {
+  assert.equal(isPrivatePath("/dashboard/admin"), true);
+  assert.equal(isPrivatePath("/dashboard/admin/clients/:id"), true);
+  assert.equal(isPrivatePath("/dashboard/administrator"), false);
+  assert.equal(isPrivatePath("/dashboard/renter/guests"), false);
+  assert.equal(privateItemLabel(3), "[item 3]");
+  // The server keeps the placeholder as it is.
+  const [element] = normalizeElements([
+    {
+      id: "e1",
+      kind: "button",
+      label: privateItemLabel(1),
+      section: "სტუმრები",
+    },
+  ]);
+  assert.equal(element.label, "[item 1]");
 });

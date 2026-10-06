@@ -143,7 +143,11 @@ export default function BookingListPanel({
             {query.trim() ? t("noMatches") : t(`empty.${filter}`)}
           </p>
         ) : (
-          <ul className="divide-y divide-[#F1F5F9]">
+          <ul
+            data-jev-private
+            data-jev-section={t("title")}
+            className="divide-y divide-[#F1F5F9]"
+          >
             {rows.slice(0, visible).map((b) => {
               const nights = Math.max(
                 datesInRange(b.check_in, b.check_out).length - 1,
@@ -201,6 +205,7 @@ export default function BookingListPanel({
                         type="button"
                         disabled={restoringId === b.id}
                         onClick={() => void restore(b)}
+                        data-jev-label={t("restore")}
                         className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-[#DCFCE7] px-3 text-[12px] font-black text-[#15803D] hover:bg-[#BBF7D0] disabled:opacity-60"
                       >
                         {restoringId === b.id ? (

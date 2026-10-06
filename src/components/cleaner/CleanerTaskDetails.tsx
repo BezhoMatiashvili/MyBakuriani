@@ -69,6 +69,7 @@ export function TaskContact({ task }: { task: CleanerTaskItem }) {
           <a
             href={`tel:${phoneE164}`}
             aria-label={`${t("call")} ${formatPhone(phone)}`}
+            data-jev-label={t("call")}
             data-testid="cleaner-task-call"
             className={`${CONTACT_BUTTON} bg-[#0369A1] hover:bg-[#075985]`}
           >
@@ -90,6 +91,7 @@ export function TaskContact({ task }: { task: CleanerTaskItem }) {
           target="_blank"
           rel="noopener noreferrer"
           data-testid="cleaner-task-whatsapp"
+          data-jev-label={t("whatsapp")}
           className={`${CONTACT_BUTTON} bg-[#15803D] hover:bg-[#166534]`}
         >
           <MessageCircle className="size-4 shrink-0" />
@@ -203,6 +205,7 @@ export function TaskDirections({ task }: { task: CleanerTaskItem }) {
       target="_blank"
       rel="noopener noreferrer"
       data-testid="cleaner-task-directions"
+      data-jev-label={t("directions")}
       className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#EFF6FF] px-4 text-[12px] font-bold text-[#2563EB] transition-colors hover:bg-[#DBEAFE]"
     >
       <Navigation className="size-4 shrink-0" />

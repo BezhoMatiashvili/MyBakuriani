@@ -16,6 +16,7 @@ import { useTranslations } from "next-intl";
 import type { Tables } from "@/lib/types/database";
 import PropertyCard from "@/components/cards/PropertyCard";
 import { isDiscountActive } from "@/lib/utils/pricing";
+import { propertyViewUrl } from "@/lib/utils/listingUrls";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import {
@@ -74,6 +75,12 @@ export type ApartmentListing = Pick<
   | "amenities"
   | "distance_to_slope_m"
   | "ownership_verified"
+  // Hotels are listed here too (one "ბინები" nav entry).
+  | "type"
+  | "hotel_stars"
+  | "numeric_rating"
+  | "room_type"
+  | "is_b2b_partner"
 >;
 
 interface Props {
@@ -109,6 +116,7 @@ function ApartmentsHero({
   onSearch,
   isPending,
   mapProperties,
+  listingHref,
   statusCards,
 }: {
   mode: "rent" | "sale";
@@ -116,6 +124,7 @@ function ApartmentsHero({
   onSearch: (sf: SearchFilters) => void;
   isPending: boolean;
   mapProperties: MapProperty[];
+  listingHref: (id: string) => string;
   statusCards: StatusCard[];
 }) {
   const tLanding = useTranslations("Landing");
@@ -193,7 +202,7 @@ function ApartmentsHero({
                 embedded
                 expandable
                 properties={mapProperties}
-                onPropertyClick={(id) => router.push(`/apartments/${id}`)}
+                onPropertyClick={(id) => router.push(listingHref(id))}
               />
             )}
           </div>
@@ -271,6 +280,15 @@ export default function ApartmentsPageClient({
     [properties],
   );
 
+  // A hotel's pin opens its own /hotels/<id> page (no 308 hop).
+  const listingHref = useCallback(
+    (id: string) => {
+      const row = properties.find((p) => p.id === id);
+      return row ? propertyViewUrl(row) : `/apartments/${id}`;
+    },
+    [properties],
+  );
+
   const filteredProperties = useMemo(
     () =>
       onlyAvailable
@@ -318,6 +336,7 @@ export default function ApartmentsPageClient({
         onSearch={handleSearch}
         isPending={isPending}
         mapProperties={mapProperties}
+        listingHref={listingHref}
         statusCards={statusCards}
       />
 
@@ -437,6 +456,11 @@ export default function ApartmentsPageClient({
                   discountPercent={p.discount_percent ?? 0}
                   discountExpiresAt={p.discount_expires_at}
                   isForSale={p.is_for_sale ?? false}
+                  isHotel={p.type === "hotel"}
+                  numericRating={p.numeric_rating ?? undefined}
+                  hotelStars={p.hotel_stars ?? undefined}
+                  roomType={p.room_type ?? undefined}
+                  isB2BPartner={p.is_b2b_partner ?? false}
                   amenityTags={
                     Array.isArray(p.amenities) ? (p.amenities as string[]) : []
                   }

@@ -46,6 +46,7 @@ export const REVIEWABLE_FIELDS = {
     "construction_stages",
     "construction_progress_percent",
     "construction_image_url",
+    "hotel_rooms",
   ],
   service: [
     "category",

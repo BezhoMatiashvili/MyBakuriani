@@ -13,6 +13,7 @@ import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { clearSupportChat } from "@/lib/support/storage";
 import {
   leadsClient,
   SELLER_LEADS_CHANGED_EVENT,
@@ -521,6 +522,7 @@ export function DashboardShell({
   }, [role, pathname]);
 
   async function handleSignOut() {
+    clearSupportChat();
     try {
       const supabase = createClient();
       await supabase.auth.signOut();

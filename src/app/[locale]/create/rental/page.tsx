@@ -5,13 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
-import { CigaretteOff, PawPrint, UtensilsCrossed } from "lucide-react";
+import { CigaretteOff, PawPrint, Star, UtensilsCrossed } from "lucide-react";
 import {
   WizardShell,
   WizardSection,
   WizardFooter,
 } from "@/components/forms/WizardShell";
 import PhotoUploader from "@/components/forms/PhotoUploader";
+import HotelRoomsEditor from "@/components/forms/HotelRoomsEditor";
 import PhoneInput from "@/components/forms/PhoneInput";
 import AvailabilityWizardStep from "@/components/forms/AvailabilityWizardStep";
 import NumberField from "@/components/shared/NumberField";
@@ -41,6 +42,15 @@ import {
 import { Link } from "@/i18n/navigation";
 import { formatDate } from "@/lib/utils/format";
 import { ownershipVerificationUrl } from "@/lib/utils/listingUrls";
+import {
+  checkHotelRoomDrafts,
+  draftFromRoom,
+  emptyRoomDraft,
+  hotelRoomsSummary,
+  parseHotelRooms,
+  type HotelRoomDraft,
+  type HotelRoomsCheck,
+} from "@/lib/hotel-rooms";
 import {
   deriveMembershipState,
   isRentalMembershipRequiredError,
@@ -133,9 +143,13 @@ function CreateRentalPageInner() {
   const postingBlocked =
     !isEditMode && posting !== null && posting.gate !== "allowed";
 
-  // Step 1: basics
-  const [propertyType, setPropertyType] =
-    useState<Enums<"property_type">>("apartment");
+  // Step 1: basics. /create's hotel card links here with ?type=hotel.
+  const [propertyType, setPropertyType] = useState<Enums<"property_type">>(
+    () =>
+      PROPERTY_TYPES.find((type) => type === searchParams.get("type")) ??
+      "apartment",
+  );
+  const isHotel = propertyType === "hotel";
   const [location, setLocation] = useState("");
   const [cadastralCode, setCadastralCode] = useState("");
   const cadastralTaken = useCadastralTaken(cadastralCode, editId);
@@ -159,6 +173,13 @@ function CreateRentalPageInner() {
   const [smokingAllowed, setSmokingAllowed] = useState<boolean | null>(null);
   const [petsAllowed, setPetsAllowed] = useState<boolean | null>(null);
   const [mealsIncluded, setMealsIncluded] = useState<boolean | null>(null);
+  // Hotels only (C45): stars and the room list replace rooms/guests/area.
+  const [hotelStars, setHotelStars] = useState<number | null>(null);
+  const [hotelRooms, setHotelRooms] = useState<HotelRoomDraft[]>(() => [
+    emptyRoomDraft("room-1"),
+  ]);
+  // Edit mode: the stored type, so leaving "hotel" clears stars and rooms.
+  const loadedTypeRef = useRef<Enums<"property_type"> | null>(null);
 
   // Step 4: availability (next 30 days)
   const [availability, setAvailability] = useState<
@@ -232,6 +253,14 @@ function CreateRentalPageInner() {
       }
 
       setPropertyType((data.type ?? "apartment") as Enums<"property_type">);
+      loadedTypeRef.current = data.type;
+      setHotelStars(data.hotel_stars ?? null);
+      const storedRooms = parseHotelRooms(data.hotel_rooms);
+      if (storedRooms.length > 0) {
+        setHotelRooms(
+          storedRooms.map((room) => draftFromRoom(room, crypto.randomUUID())),
+        );
+      }
       setLocation(data.location ?? "");
       setCadastralCode(data.cadastral_code ?? "");
       setDescription(data.description ?? "");
@@ -378,6 +407,20 @@ function CreateRentalPageInner() {
     );
   }
 
+  // Recomputed every render: cheap, and the red room clears as it is fixed.
+  const roomsCheck = isHotel ? checkHotelRoomDrafts(hotelRooms) : null;
+  const roomsSummary = roomsCheck?.ok
+    ? hotelRoomsSummary(roomsCheck.rooms)
+    : null;
+
+  function roomsMessage(check: HotelRoomsCheck & { ok: false }): string {
+    if (check.index === null) return t("hotel.roomsRequired");
+    return t("hotel.roomInvalid", {
+      n: check.index + 1,
+      field: t(`hotel.fields.${check.problem}`),
+    });
+  }
+
   // Ordered presence failures for the current step, mirroring the per-step
   // required conditions and handleSubmit's message keys.
   function validateStep(s: number): { key: string; message: string }[] {
@@ -396,9 +439,14 @@ function CreateRentalPageInner() {
       if (!title.trim())
         errs.push({ key: "title", message: t("invalidTitle") });
     } else if (s === 2) {
-      const areaNum = Number(areaSqm);
-      if (!areaSqm.trim() || !Number.isFinite(areaNum) || areaNum <= 0) {
-        errs.push({ key: "area", message: t("areaRequired") });
+      if (roomsCheck) {
+        if (!roomsCheck.ok)
+          errs.push({ key: "hotelRooms", message: roomsMessage(roomsCheck) });
+      } else {
+        const areaNum = Number(areaSqm);
+        if (!areaSqm.trim() || !Number.isFinite(areaNum) || areaNum <= 0) {
+          errs.push({ key: "area", message: t("areaRequired") });
+        }
       }
       if (smokingAllowed === null || petsAllowed === null) {
         errs.push({ key: "houseRules", message: t("selectHouseRules") });
@@ -406,9 +454,14 @@ function CreateRentalPageInner() {
         errs.push({ key: "houseRules", message: t("specifyMeals") });
       }
     } else if (s === 3) {
-      const priceNum = Number(pricePerNight);
+      const priceNum = isHotel
+        ? (roomsSummary?.minPrice ?? 0)
+        : Number(pricePerNight);
       if (!Number.isFinite(priceNum) || priceNum <= 0) {
-        errs.push({ key: "pricePerNight", message: t("invalidPrice") });
+        errs.push({
+          key: "pricePerNight",
+          message: isHotel ? t("hotel.fromPriceMissing") : t("invalidPrice"),
+        });
       }
     } else if (s === 4) {
       if (!isValidGePhone(phone))
@@ -433,7 +486,20 @@ function CreateRentalPageInner() {
       if (!titleTrimmed) throw new Error(t("invalidTitle"));
       if (!locationTrimmed) throw new Error(t("invalidLocation"));
 
-      const priceNum = Number(pricePerNight);
+      let hotel: {
+        rooms: Extract<HotelRoomsCheck, { ok: true }>["rooms"];
+        summary: NonNullable<ReturnType<typeof hotelRoomsSummary>>;
+      } | null = null;
+      if (roomsCheck) {
+        if (!roomsCheck.ok) throw new Error(roomsMessage(roomsCheck));
+        hotel = {
+          rooms: roomsCheck.rooms,
+          summary: hotelRoomsSummary(roomsCheck.rooms)!,
+        };
+      }
+
+      // A hotel's price is its cheapest room (the card's "from" price).
+      const priceNum = hotel ? hotel.summary.minPrice : Number(pricePerNight);
       if (!Number.isFinite(priceNum) || priceNum <= 0 || priceNum > 100000) {
         throw new Error(t("invalidPrice"));
       }
@@ -451,7 +517,10 @@ function CreateRentalPageInner() {
       }
 
       const areaNum = Number(areaSqm);
-      if (!areaSqm.trim() || !Number.isFinite(areaNum) || areaNum <= 0) {
+      const areaValid =
+        areaSqm.trim() !== "" && Number.isFinite(areaNum) && areaNum > 0;
+      // A hotel has per-room areas instead; a stored total is kept as is.
+      if (!hotel && !areaValid) {
         throw new Error(t("areaRequired"));
       }
 
@@ -479,10 +548,10 @@ function CreateRentalPageInner() {
         location_lat: exactLocation?.lat ?? null,
         location_lng: exactLocation?.lng ?? null,
         cadastral_code: cadastralCode.trim() || null,
-        area_sqm: areaNum,
-        rooms: roomsNum,
+        area_sqm: areaValid ? areaNum : null,
+        rooms: hotel ? hotel.summary.totalRooms : roomsNum,
         bathrooms: bathroomsNum,
-        capacity: capacityNum,
+        capacity: hotel ? hotel.summary.totalGuests : capacityNum,
         photos,
         amenities: selectedAmenities,
         house_rules: {
@@ -495,6 +564,12 @@ function CreateRentalPageInner() {
         min_booking_days: minBookingNum,
         phone: phone ? `+995${phone}` : null,
         whatsapp: whatsapp ? `+995${whatsapp}` : null,
+        ...(hotel && { hotel_stars: hotelStars, hotel_rooms: hotel.rooms }),
+        ...(!hotel &&
+          loadedTypeRef.current === "hotel" && {
+            hotel_stars: null,
+            hotel_rooms: [],
+          }),
       };
 
       let propertyId: string;
@@ -845,62 +920,85 @@ function CreateRentalPageInner() {
 
             {step === 2 && (
               <WizardSection title={t("steps.amenitiesDetails")}>
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                  <Field label={t("rooms")}>
-                    <NumberField
-                      value={rooms}
-                      onChange={setRooms}
-                      min={0}
-                      max={50}
-                      integer
-                      stepper
-                      accent="blue"
-                      placeholder={t("egValue", { value: 2 })}
+                {isHotel ? (
+                  <div className="space-y-5">
+                    <HotelStarsField
+                      value={hotelStars}
+                      onChange={setHotelStars}
                     />
-                  </Field>
-                  <Field label={t("capacity")}>
-                    <NumberField
-                      value={capacity}
-                      onChange={setCapacity}
-                      min={1}
-                      max={50}
-                      integer
-                      stepper
-                      accent="blue"
-                      placeholder={t("egValue", { value: 4 })}
+                    <HotelRoomsEditor
+                      rooms={hotelRooms}
+                      onChange={setHotelRooms}
+                      error={invalidFields.has("hotelRooms")}
+                      invalidIndex={
+                        invalidFields.has("hotelRooms") &&
+                        roomsCheck &&
+                        !roomsCheck.ok
+                          ? roomsCheck.index
+                          : null
+                      }
                     />
-                  </Field>
-                  <Field
-                    label={t("area")}
-                    required
-                    fieldKey="area"
-                    error={invalidFields.has("area")}
-                  >
-                    <NumberField
-                      value={areaSqm}
-                      onChange={setAreaSqm}
-                      min={0}
-                      max={10000}
-                      decimals={1}
-                      accent="blue"
-                      placeholder={t("egValue", { value: 55 })}
-                    />
-                  </Field>
-                </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+                    <Field label={t("rooms")}>
+                      <NumberField
+                        value={rooms}
+                        onChange={setRooms}
+                        min={0}
+                        max={50}
+                        integer
+                        stepper
+                        accent="blue"
+                        placeholder={t("egValue", { value: 2 })}
+                      />
+                    </Field>
+                    <Field label={t("capacity")}>
+                      <NumberField
+                        value={capacity}
+                        onChange={setCapacity}
+                        min={1}
+                        max={50}
+                        integer
+                        stepper
+                        accent="blue"
+                        placeholder={t("egValue", { value: 4 })}
+                      />
+                    </Field>
+                    <Field
+                      label={t("area")}
+                      required
+                      fieldKey="area"
+                      error={invalidFields.has("area")}
+                    >
+                      <NumberField
+                        value={areaSqm}
+                        onChange={setAreaSqm}
+                        min={0}
+                        max={10000}
+                        decimals={1}
+                        accent="blue"
+                        placeholder={t("egValue", { value: 55 })}
+                      />
+                    </Field>
+                  </div>
+                )}
 
                 <div className="space-y-4 pt-2">
-                  <Field label={t("bathroom")}>
-                    <NumberField
-                      value={bathrooms}
-                      onChange={setBathrooms}
-                      min={0}
-                      max={50}
-                      integer
-                      stepper
-                      accent="blue"
-                      placeholder={t("egValue", { value: 1 })}
-                    />
-                  </Field>
+                  {!isHotel && (
+                    <Field label={t("bathroom")}>
+                      <NumberField
+                        value={bathrooms}
+                        onChange={setBathrooms}
+                        min={0}
+                        max={50}
+                        integer
+                        stepper
+                        accent="blue"
+                        placeholder={t("egValue", { value: 1 })}
+                      />
+                    </Field>
+                  )}
 
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     {AMENITY_GROUPS.map((group) => (
@@ -964,7 +1062,7 @@ function CreateRentalPageInner() {
                       trueLabel={t("allowed")}
                       falseLabel={t("forbidden")}
                     />
-                    {propertyType === "hotel" && (
+                    {isHotel && (
                       <HouseRuleField
                         icon={
                           <UtensilsCrossed className="h-5 w-5 text-[#F59E0B]" />
@@ -984,23 +1082,43 @@ function CreateRentalPageInner() {
             {step === 3 && (
               <WizardSection>
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  <Field
-                    label={t("pricePerNight")}
-                    required
-                    fieldKey="pricePerNight"
-                    error={invalidFields.has("pricePerNight")}
-                  >
-                    <NumberField
-                      value={pricePerNight}
-                      onChange={setPricePerNight}
-                      min={1}
-                      max={100000}
-                      integer
-                      accent="blue"
-                      suffix="₾"
-                      placeholder="150"
-                    />
-                  </Field>
+                  {isHotel ? (
+                    <Field
+                      label={t("pricePerNight")}
+                      fieldKey="pricePerNight"
+                      error={invalidFields.has("pricePerNight")}
+                      helper={t("hotel.fromPriceHelper")}
+                    >
+                      <div
+                        data-testid="hotel-from-price"
+                        className="flex h-[48px] items-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-sm font-bold text-[#0F172A]"
+                      >
+                        {roomsSummary
+                          ? t("hotel.fromPrice", {
+                              price: roomsSummary.minPrice,
+                            })
+                          : t("hotel.fromPriceMissing")}
+                      </div>
+                    </Field>
+                  ) : (
+                    <Field
+                      label={t("pricePerNight")}
+                      required
+                      fieldKey="pricePerNight"
+                      error={invalidFields.has("pricePerNight")}
+                    >
+                      <NumberField
+                        value={pricePerNight}
+                        onChange={setPricePerNight}
+                        min={1}
+                        max={100000}
+                        integer
+                        accent="blue"
+                        suffix="₾"
+                        placeholder="150"
+                      />
+                    </Field>
+                  )}
 
                   <Field label={t("minBookingDays")}>
                     <select
@@ -1026,7 +1144,11 @@ function CreateRentalPageInner() {
                   value={availability}
                   onChange={setAvailability}
                   bookedDates={bookedDates}
-                  basePrice={Number(pricePerNight) || 0}
+                  basePrice={
+                    isHotel
+                      ? (roomsSummary?.minPrice ?? 0)
+                      : Number(pricePerNight) || 0
+                  }
                   priceOverrides={priceOverrides}
                   onPriceOverridesChange={setPriceOverrides}
                 />
@@ -1203,6 +1325,66 @@ function Field({
           {helper}
         </p>
       )}
+    </div>
+  );
+}
+
+function HotelStarsField({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  const t = useTranslations("CreateRental.hotel");
+  return (
+    <div className="space-y-2">
+      <span
+        id="hotel-stars-label"
+        className="block text-[13px] font-bold text-[#334155]"
+      >
+        {t("stars")}
+      </span>
+      <div
+        role="radiogroup"
+        aria-labelledby="hotel-stars-label"
+        className="flex flex-wrap items-center gap-2"
+      >
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            role="radio"
+            aria-checked={value === n}
+            aria-label={t("starsAria", { count: n })}
+            onClick={() => onChange(n)}
+            className="flex size-11 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white transition-colors hover:border-[#FACC15]"
+          >
+            <Star
+              className={cn(
+                "size-5",
+                value !== null && n <= value
+                  ? "fill-[#EAB308] text-[#EAB308]"
+                  : "text-[#CBD5E1]",
+              )}
+            />
+          </button>
+        ))}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={value === null}
+          onClick={() => onChange(null)}
+          className={cn(
+            "h-11 rounded-xl border px-3 text-sm font-semibold transition-colors",
+            value === null
+              ? "border-[#2563EB] bg-[#2563EB] text-white"
+              : "border-[#E2E8F0] bg-white text-[#334155] hover:border-[#CBD5E1]",
+          )}
+        >
+          {t("starsNone")}
+        </button>
+      </div>
     </div>
   );
 }

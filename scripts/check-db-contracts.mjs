@@ -315,7 +315,8 @@ if (posture) {
         [
           "amenities", "area_sqm", "bathrooms", "cadastral_code", "cadastral_code_public", "capacity",
           "completion_year", "construction_progress_percent", "construction_stages", "construction_status",
-          "description", "developer", "house_rules", "is_for_sale", "location", "location_lat", "location_lng",
+          "description", "developer", "hotel_rooms", "hotel_stars", "house_rules", "is_for_sale", "location",
+          "location_lat", "location_lng",
           "min_booking_days", "organization_id", "owner_id", "phone", "photos", "price_per_night",
           "renovation_status", "roi_percent", "roi_percent_max", "rooms", "sale_price", "status", "title",
           "type", "units_reserved", "units_sold", "units_total", "whatsapp"
@@ -545,6 +546,56 @@ if (posture) {
     if (broken.length) fail(`C42: triggers missing or disabled (ledger no longer append-only/audited): ${broken.join(", ")}`);
     else ok(`C42: ${required.length} forbid-delete, guard and audit triggers are enabled`);
   }
+}
+
+// C44 — admin status management (migration 20261006120000). The membership status CHECK
+// equals MEMBERSHIP_STATUSES; the three admin views answer for the service role; each change
+// RPC exists and refuses a non-admin actor before anything else (ADMIN_STATUS_FORBIDDEN);
+// the anon key can neither read the views nor call the RPCs (they are service_role only).
+{
+  const { MEMBERSHIP_STATUSES } = await import("../src/lib/admin-statuses.ts");
+  const db = checkList("user_subscriptions", "status");
+  if (!db) fail("C44: user_subscriptions.status CHECK not found (migration 20261006120000)");
+  else compareSets("C44 user_subscriptions.status", db, [...MEMBERSHIP_STATUSES], "CHECK constraint", "MEMBERSHIP_STATUSES");
+
+  const views = ["admin_membership_overview_v", "admin_listing_promotions_v", "admin_company_plans_v"];
+  const nobody = "00000000-0000-0000-0000-000000000000";
+  const calls = [
+    ["admin_change_memberships", { p_admin_id: nobody, p_action: "extend", p_user_ids: [nobody], p_days: 1 }],
+    ["admin_change_listing_promotions", { p_admin_id: nobody, p_action: "vip_end", p_targets: [{ kind: "property", id: nobody }] }],
+    ["admin_change_company_plans", { p_admin_id: nobody, p_action: "end", p_org_ids: [nobody] }],
+  ];
+  const call = async (apikey, path, body) => {
+    const res = await fetch(`${url}/rest/v1/${path}`, {
+      method: body ? "POST" : "GET",
+      headers: { apikey, Authorization: `Bearer ${apikey}`, "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { status: res.status, text: await res.text() };
+  };
+  const problems = [];
+  for (const view of views) {
+    const res = await call(key, `${view}?select=*&limit=1`);
+    if (res.status !== 200) problems.push(`${view} is not readable by the service role (HTTP ${res.status}: ${res.text.slice(0, 120)})`);
+  }
+  for (const [fn, body] of calls) {
+    const res = await call(key, `rpc/${fn}`, body);
+    if (!res.text.includes("ADMIN_STATUS_FORBIDDEN")) problems.push(`${fn} did not refuse a non-admin actor (HTTP ${res.status}: ${res.text.slice(0, 120)})`);
+  }
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anon) warn("C44: NEXT_PUBLIC_SUPABASE_ANON_KEY not set — skipped the anon checks");
+  else {
+    for (const view of views) {
+      const res = await call(anon, `${view}?select=*&limit=1`);
+      if (res.status === 200) problems.push(`anon can read ${view}`);
+    }
+    for (const [fn, body] of calls) {
+      const res = await call(anon, `rpc/${fn}`, body);
+      if (res.status === 200 || res.text.includes("ADMIN_STATUS_FORBIDDEN")) problems.push(`anon can execute ${fn}`);
+    }
+  }
+  if (problems.length) problems.forEach((p) => fail(`C44: ${p}`));
+  else ok(`C44: ${views.length} admin views and ${calls.length} change RPCs exist, refuse non-admins and are closed to anon`);
 }
 
 finish();

@@ -19,6 +19,7 @@ const REVIEW_ERROR_CODES = [
 
 export default function AdminMembershipsPage() {
   const t = useTranslations("AdminMemberships");
+  const tStatuses = useTranslations("AdminStatuses");
   const locale = useLocale();
   const [items, setItems] = useState<PendingMembership[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,6 +97,12 @@ export default function AdminMembershipsPage() {
             </p>
           </div>
         </div>
+        <Link
+          href="/dashboard/admin/statuses"
+          className="mt-3 inline-flex min-h-11 items-center text-sm font-bold text-[#2563EB] underline-offset-2 hover:underline"
+        >
+          {tStatuses("title")} →
+        </Link>
       </header>
 
       <div className="rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-sm font-semibold text-[#92400E]">

@@ -400,6 +400,8 @@ export default function CleanerSchedulePage() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.05 }}
+                data-jev-private
+                data-jev-section={t("title")}
                 className="flex gap-3 pb-6 sm:gap-4"
               >
                 <div className="w-12 shrink-0 pt-1 text-right">
@@ -574,6 +576,7 @@ export default function CleanerSchedulePage() {
                             onClick={() =>
                               void respondToCancellation(task, "accepted")
                             }
+                            data-jev-label={t("keepTask")}
                             className="min-h-11 rounded-xl border border-[#F59E0B] bg-white px-4 text-[12px] font-bold text-[#92400E]"
                           >
                             {t("keepTask")}
@@ -583,6 +586,7 @@ export default function CleanerSchedulePage() {
                             onClick={() =>
                               void respondToCancellation(task, "cancelled")
                             }
+                            data-jev-label={t("approveCancellation")}
                             className="min-h-11 rounded-xl bg-[#DC2626] px-4 text-[12px] font-bold text-white"
                           >
                             {t("approveCancellation")}
@@ -592,6 +596,7 @@ export default function CleanerSchedulePage() {
                         <button
                           type="button"
                           onClick={() => advance(task, "completed")}
+                          data-jev-label={t("markCompleted")}
                           className="inline-flex items-center gap-1.5 rounded-xl bg-[#16A34A] px-5 py-2.5 text-[12px] font-bold text-white transition-colors hover:bg-[#15803D]"
                         >
                           <Check className="h-4 w-4" />
@@ -601,6 +606,7 @@ export default function CleanerSchedulePage() {
                         <button
                           type="button"
                           onClick={() => advance(task, "in_progress")}
+                          data-jev-label={t("start")}
                           className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2.5 text-[12px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
                         >
                           <Play className="h-4 w-4" />
@@ -657,7 +663,11 @@ export default function CleanerSchedulePage() {
             {t("listEmpty")}
           </p>
         ) : (
-          <ul className="mt-4 divide-y divide-[#EEF1F4]">
+          <ul
+            data-jev-private
+            data-jev-section={t("allTasksTitle")}
+            className="mt-4 divide-y divide-[#EEF1F4]"
+          >
             {listedTasks.map((task) => {
               const scheduled = new Date(task.scheduledAt);
               // A stored 'infinity' or year-290000 date must not take the whole page down.

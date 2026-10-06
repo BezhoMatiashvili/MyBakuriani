@@ -9,6 +9,7 @@ import type {
   UserIdentity,
 } from "@supabase/supabase-js";
 import { withRetry, isRetryableAuthError } from "@/lib/with-timeout";
+import { clearSupportChat } from "@/lib/support/storage";
 
 export function useAuth() {
   const supabase = createClient();
@@ -89,6 +90,7 @@ export function useAuth() {
   }
 
   async function signOut() {
+    clearSupportChat();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   }

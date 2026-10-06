@@ -464,7 +464,11 @@ export default function OrganizationCabinetPage() {
           )}
         </div>
 
-        <div className="mt-5 space-y-3">
+        <div
+          data-jev-private
+          data-jev-section={t("agentsTitle")}
+          className="mt-5 space-y-3"
+        >
           {agents.length === 0 && (
             <p className="py-4 text-center text-sm font-medium text-[#94A3B8]">
               {t("noAgents")}
@@ -497,6 +501,7 @@ export default function OrganizationCabinetPage() {
                     type="button"
                     disabled={busyAgent === agent.id}
                     onClick={() => handleAgent(agent.id, "reject")}
+                    data-jev-label={t("reject")}
                     className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-[#FECACA] bg-white px-3 text-[13px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEF2F2] disabled:opacity-60 lg:h-[38px]"
                   >
                     <X className="h-4 w-4" />
@@ -506,6 +511,7 @@ export default function OrganizationCabinetPage() {
                     type="button"
                     disabled={busyAgent === agent.id}
                     onClick={() => handleAgent(agent.id, "approve")}
+                    data-jev-label={t("approve")}
                     className="inline-flex h-11 items-center gap-1.5 rounded-xl bg-[#2563EB] px-3 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-60 lg:h-[38px]"
                   >
                     {busyAgent === agent.id ? (

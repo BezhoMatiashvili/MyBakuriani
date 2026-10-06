@@ -35,12 +35,20 @@ export type ChatResult = {
   message: ChatMessage | null;
   model: string;
   cost: number | null;
+  /** Prompt tokens the provider served from its prefix cache. */
+  cachedTokens: number | null;
+  /** The upstream provider OpenRouter routed to. */
+  provider: string | null;
 };
 
 type ChatResponse = {
   model?: string;
+  provider?: string;
   error?: { message?: string; code?: number };
-  usage?: { cost?: number };
+  usage?: {
+    cost?: number;
+    prompt_tokens_details?: { cached_tokens?: number };
+  };
   choices?: { message?: ChatMessage; error?: { message?: string } }[];
 };
 
@@ -102,5 +110,10 @@ export async function openRouterChat(
     message: choice?.message ?? null,
     model: String(data.model ?? ""),
     cost: typeof data.usage?.cost === "number" ? data.usage.cost : null,
+    cachedTokens:
+      typeof data.usage?.prompt_tokens_details?.cached_tokens === "number"
+        ? data.usage.prompt_tokens_details.cached_tokens
+        : null,
+    provider: typeof data.provider === "string" ? data.provider : null,
   };
 }

@@ -29,6 +29,8 @@ import {
   type Zone,
 } from "@/lib/zones/server";
 import { getLiveStatusCards } from "@/lib/status-cards/live";
+import { emptySaleResearch } from "@/lib/sale-research";
+import { getSaleResearch } from "@/lib/sale-research-server";
 import { withTimeout } from "@/lib/with-timeout";
 import type { BannerCreative } from "@/lib/banner-creative";
 import type { Metadata } from "next";
@@ -399,26 +401,35 @@ async function LandingWithData() {
     LANDING_DEP_TIMEOUT_MS,
     FALLBACK_ZONES,
   );
-  const [zones, props, bannerCreatives, statusCards] = await Promise.all([
-    zonesPromise,
-    fetchLandingProps(zonesPromise),
-    // One fetch covers every home placement. The landing page renders these
-    // server-side (no flash, no layout shift above the fold); every other
-    // surface gets them client-side from /api/banner-slots.
-    withTimeout(
-      fetchSlotCreatives(),
-      LANDING_DEP_TIMEOUT_MS,
-      [] as BannerCreative[],
-    ),
-    // The admin cards with live weather / road / lift status laid over them,
-    // the same cards every other page shows (src/lib/status-cards/live.ts).
-    getLiveStatusCards(LANDING_DEP_TIMEOUT_MS),
-  ]);
+  const [zones, props, bannerCreatives, statusCards, saleResearch] =
+    await Promise.all([
+      zonesPromise,
+      fetchLandingProps(zonesPromise),
+      // One fetch covers every home placement. The landing page renders these
+      // server-side (no flash, no layout shift above the fold); every other
+      // surface gets them client-side from /api/banner-slots.
+      withTimeout(
+        fetchSlotCreatives(),
+        LANDING_DEP_TIMEOUT_MS,
+        [] as BannerCreative[],
+      ),
+      // The admin cards with live weather / road / lift status laid over them,
+      // the same cards every other page shows (src/lib/status-cards/live.ts).
+      getLiveStatusCards(LANDING_DEP_TIMEOUT_MS),
+      // The admin's edits of the sale-mode research section; the defaults
+      // show when there are none or the read is slow.
+      withTimeout(
+        getSaleResearch(),
+        LANDING_DEP_TIMEOUT_MS,
+        emptySaleResearch(),
+      ),
+    ]);
 
   return (
     <LandingPage
       zones={zones}
       statusCards={statusCards}
+      saleResearch={saleResearch}
       hotOffers={props.hotOffers}
       hotels={props.hotels}
       saleProperties={props.saleProperties}
