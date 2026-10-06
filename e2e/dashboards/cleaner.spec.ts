@@ -1,7 +1,7 @@
 import { type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { test, expect } from "../helpers/fixtures";
-import { PHONES } from "../helpers/seed";
+import { PHONES, TEST_IDS } from "../helpers/seed";
 import { cleaningTasks, services, supabaseAdmin } from "../helpers/supabase";
 
 /** If page redirected to login, skip assertion gracefully */
@@ -53,6 +53,19 @@ test.describe("Cleaner Dashboard", () => {
 
     await expect(cleanerPage.locator("main")).toBeVisible();
     await expect(cleanerPage).toHaveURL(/\/dashboard\/cleaner/);
+  });
+
+  // Owner's PDF "გასასწორებელი (6ოქტ)" p.3: one account ID in every cabinet.
+  test("the sidebar shows the same MB- account ID as the other cabinets", async ({
+    cleanerPage,
+  }) => {
+    await cleanerPage.goto("/dashboard/cleaner");
+    if (!(await assertDashboard(cleanerPage))) return;
+
+    const accountId = `ID: MB-${TEST_IDS.cleaner.replace(/-/g, "").slice(0, 5).toUpperCase()}`;
+    await expect(
+      cleanerPage.locator("aside").getByText(accountId, { exact: true }),
+    ).toBeVisible();
   });
 
   test("schedule page loads", async ({ cleanerPage }) => {

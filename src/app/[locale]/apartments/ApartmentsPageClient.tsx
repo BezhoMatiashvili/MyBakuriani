@@ -103,7 +103,7 @@ function ApartmentsHeading({
     <>
       {isFromHotOffers
         ? tLanding("hotOffers")
-        : tLanding("apartmentsAndCottages")}
+        : tLanding("accommodationObjects")}
     </>
   );
 }
@@ -340,6 +340,12 @@ export default function ApartmentsPageClient({
         statusCards={statusCards}
       />
 
+      {/* From lg the status cards hang 42px below the hero (sm:-mb-[42px]);
+          reserve that so the listings start a full section gap below them. */}
+      {statusCards.length > 0 && (
+        <div aria-hidden="true" className="hidden lg:block lg:h-[42px]" />
+      )}
+
       {/* ═══ Listings Section ═══ */}
       <section
         data-testid="listing-results"
@@ -351,7 +357,7 @@ export default function ApartmentsPageClient({
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B]">
-                <Suspense fallback={tLanding("apartmentsAndCottages")}>
+                <Suspense fallback={tLanding("accommodationObjects")}>
                   <ApartmentsHeading tLanding={tLanding} />
                 </Suspense>
               </h2>

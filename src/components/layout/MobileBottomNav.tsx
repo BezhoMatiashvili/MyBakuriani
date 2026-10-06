@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { toServiceSegment } from "@/lib/dashboard/serviceSegments";
 import { MobileServiceSwitcherGrid } from "@/components/layout/MobileServiceSwitcherGrid";
 import BottomSheet from "@/components/shared/BottomSheet";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
 
 interface MobileBottomNavProps {
@@ -47,6 +48,9 @@ interface MobileBottomNavProps {
   availableCabinets?: string[];
   balance?: number;
   companies?: { id: string; name: string; role: string; status: string }[];
+  /** The signed-in account, shown at the top of the More sheet the way the
+   *  desktop sidebar shows it (name + "ID: MB-XXXXX"). */
+  profile?: { name: string; avatarUrl?: string; userCode: string };
 }
 
 interface NavItem {
@@ -379,6 +383,7 @@ export function MobileBottomNav({
   availableCabinets = [],
   balance = 0,
   companies = [],
+  profile,
 }: MobileBottomNavProps) {
   const [moreOpen, setMoreOpen] = useState(false);
   const t = useTranslations("DashboardSidebar.nav");
@@ -568,6 +573,36 @@ export function MobileBottomNav({
           id="dashboard-more-sheet"
           className={isSeller ? "space-y-4" : "space-y-1"}
         >
+          {profile && (
+            <div
+              data-testid="mobile-account-row"
+              className={cn(
+                "flex items-center gap-3 rounded-[18px] border border-[#E2E8F0] bg-white p-3",
+                !isSeller && "mb-3",
+              )}
+            >
+              <Avatar className="h-11 w-11">
+                {profile.avatarUrl && (
+                  <AvatarImage src={profile.avatarUrl} alt={profile.name} />
+                )}
+                <AvatarFallback className="bg-[#2563EB] text-[14px] font-extrabold text-white">
+                  {profile.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+              <div data-jev-private className="min-w-0 flex-1">
+                <p className="truncate text-[15px] font-extrabold text-[#0F172A]">
+                  {profile.name}
+                </p>
+                <p className="mt-0.5 text-[11px] font-bold tracking-wide text-[#2563EB]">
+                  {tSidebar("userIdPrefix")} {profile.userCode}
+                </p>
+              </div>
+            </div>
+          )}
           {showCabinets && (
             <MobileServiceSwitcherGrid
               activeCabinetKey={activeCabinetKey}

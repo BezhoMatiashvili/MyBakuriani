@@ -1299,11 +1299,6 @@ function LocationDropdown({
                   ? tZones(`${zone.slug}.name`)
                   : zone.name_ka}
               </div>
-              <div className="mt-0.5 line-clamp-2 break-words text-[12px] leading-4 text-[#64748B]">
-                {TRANSLATED_ZONE_SLUGS.has(zone.slug)
-                  ? tZones(`${zone.slug}.description`)
-                  : zone.description_ka}
-              </div>
             </div>
             {isSelected && <Check className="size-5 text-[#2563EB]" />}
           </button>

@@ -322,6 +322,12 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
         statusCards={statusCards}
       />
 
+      {/* From lg the status cards hang 42px below the hero (sm:-mb-[42px]);
+          reserve that so the listings start a full section gap below them. */}
+      {statusCards.length > 0 && (
+        <div aria-hidden="true" className="hidden lg:block lg:h-[42px]" />
+      )}
+
       <section
         data-testid="listing-results"
         ref={listingsRef}

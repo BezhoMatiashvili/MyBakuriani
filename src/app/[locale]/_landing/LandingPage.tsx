@@ -566,14 +566,22 @@ export default function LandingPage({
         mapProperties={mapProperties}
       />
 
-      {/* Reserve the phone-only status-card overhang in document flow. */}
-      <div aria-hidden="true" className="h-[72px] sm:hidden" />
+      {/* Reserve the status cards' overhang below the hero in document flow
+          (HomeStatusCards: -72px on phones, -42px from sm), so the next
+          section's own padding is the gap under the cards. At md the hero's
+          pb-14 already holds them. */}
+      {statusCards.length > 0 && (
+        <div
+          aria-hidden="true"
+          className="h-[72px] sm:h-[42px] md:h-0 lg:h-[42px]"
+        />
+      )}
 
       {/* ═══ 2.5 Verified-listings info banner (admin-managed) ═══ */}
       <BannerSlotView
         placement="home_top_strip"
         creatives={bannerCreatives}
-        className="mt-[70px] sm:mt-[84px]"
+        className="mt-[70px] sm:mt-[42px] md:mt-[84px] lg:mt-[42px]"
       />
 
       <BannerSlotView placement="home_hero" creatives={bannerCreatives} />

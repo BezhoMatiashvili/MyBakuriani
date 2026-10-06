@@ -276,7 +276,8 @@
     "marketingPolicy": "მარკეტინგის პოლიტიკა",
     "copyright": "© {year} MYBAKURIANI.GE - ყველა უფლება დაცულია",
     "cookieSettings": "ქუქი-ფაილები",
-    "hotels": "სასტუმროები",
+    "buy": "ყიდვა",
+    "sell": "გაყიდვა",
     "forSale": "იყიდება",
     "blog": "ბლოგი",
     "guide": "ბაკურიანის გზამკვლევი"
@@ -430,7 +431,7 @@
     "selectDate": "შეარჩიეთ თარიღი",
     "locationZone": "ლოკაცია (ზონა)",
     "filters": "ფილტრები",
-    "priceCapacity": "ფასი, თევადობა...",
+    "priceCapacity": "ფასი, ტევადობა...",
     "keywordSearch": "სიტყვით ძიება",
     "keywordPlaceholder": "მაგ. ბუხარი, კოხტა, რესტორანი...",
     "keywordSearchShort": "სიტყვით ძიება...",
@@ -621,6 +622,7 @@
     "hotels": "სასტუმროები",
     "hotelsSubtitle": "სრული სერვისი: საუზმე, აუზი, სპა",
     "apartmentsAndCottages": "აპარტამენტები და კოტეჯები",
+    "accommodationObjects": "განთავსების ობიექტები",
     "apartmentsSubtitle": "საუკეთესო არჩევანი თქვენი დასვენებისთვის",
     "recommendedServices": "რეკომენდებული სერვისები",
     "transportAndTransfers": "ტრანსპორტი და ტრანსფერები",
@@ -736,7 +738,7 @@
     },
     "superVipTitle": "SUPER VIP",
     "superVipSubtitle": "ხილვადობის უმაღლესი პაკეტის განცხადებები — პრიორიტეტული პოზიციით.",
-    "apartmentsH1Lead": "ბინები და კოტეჯები დღიურად",
+    "apartmentsH1Lead": "იპოვე ადგილი დასასვენებლად",
     "hotelsH1Lead": "სასტუმროები",
     "h1InBakuriani": "ბაკურიანში"
   },
@@ -1771,7 +1773,6 @@
     "objectTypes": {
       "all": "ყველა",
       "restaurant": "რესტორანი",
-      "cafe": "კავი / საკონდიტრო",
       "bar": "ბარი / პაბი",
       "fastfood": "სწრაფი კვება",
       "other": "სხვა"

@@ -12,6 +12,7 @@ import {
   supabaseAdmin,
 } from "../helpers/supabase";
 import { createTestUser, type TestUser } from "../helpers/auth";
+import { configureIsolatedE2E } from "../helpers/env";
 import { formatDateTime } from "../../src/lib/utils/format";
 
 const SELLER_LEADS_PATH = "/dashboard/seller/leads";
@@ -191,6 +192,14 @@ test.describe("Seller Dashboard", () => {
   test("overview and More sheet match the compact mobile layout", async ({
     sellerPage,
   }) => {
+    // The cookie + location panel covers a phone's lower half, More tab included.
+    await sellerPage.context().addCookies([
+      {
+        name: "mb_cookie_consent",
+        value: encodeURIComponent("v2|analytics=0|location=0"),
+        url: configureIsolatedE2E().baseUrl,
+      },
+    ]);
     await sellerPage.setViewportSize({ width: 390, height: 844 });
     await sellerPage.goto("/dashboard/seller");
     if (!(await assertDashboard(sellerPage, "/dashboard/seller"))) return;
@@ -231,6 +240,10 @@ test.describe("Seller Dashboard", () => {
     const menu = sellerPage.getByTestId("seller-mobile-menu-list");
     await expect(switcher).toBeVisible();
     await expect(menu).toBeVisible();
+    // The account row (name + ID) heads the sheet, like the desktop sidebar chip.
+    await expect(sellerPage.getByTestId("mobile-account-row")).toContainText(
+      /ID: MB-[0-9A-F]{5}/,
+    );
     const sheet = sellerPage.getByRole("dialog");
     const sheetBox = await sheet.boundingBox();
     expect(sheetBox?.height).toBeGreaterThanOrEqual(800);

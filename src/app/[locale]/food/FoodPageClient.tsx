@@ -14,14 +14,7 @@ import BannerSlot from "@/components/banners/BannerSlot";
 import { ResponsiveFilterSheet } from "@/components/shared/ResponsiveFilterSheet";
 import { isDiscountActive } from "@/lib/utils/pricing";
 
-const OBJECT_TYPES = [
-  "all",
-  "restaurant",
-  "cafe",
-  "bar",
-  "fastfood",
-  "other",
-] as const;
+const OBJECT_TYPES = ["all", "restaurant", "bar", "fastfood", "other"] as const;
 
 // `value` is matched against DB `location` values and must stay Georgian.
 const LOCATION_FILTERS = [
@@ -68,21 +61,14 @@ function matchesObjectType(s: PublicService, value: string): boolean {
   switch (value) {
     case "restaurant":
       return cuisine === "georgian" || cuisine === "european";
-    case "cafe":
-      return cuisine === "cafe";
     case "bar":
       return cuisine === "bar";
     case "fastfood":
       return cuisine === "fastfood" || cuisine === "pizza";
     case "other":
-      return ![
-        "georgian",
-        "european",
-        "cafe",
-        "bar",
-        "fastfood",
-        "pizza",
-      ].includes(cuisine);
+      return !["georgian", "european", "bar", "fastfood", "pizza"].includes(
+        cuisine,
+      );
     default:
       return true;
   }

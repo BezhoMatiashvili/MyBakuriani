@@ -644,6 +644,27 @@ test.describe("Renter Dashboard", () => {
       ).toBeVisible();
     }
   });
+
+  // Owner's PDF "გასასწორებელი (6ოქტ)" p.3: phones never showed the account ID.
+  test("the phone More sheet shows the account ID the desktop sidebar shows", async ({
+    renterPage,
+  }) => {
+    await answerCookieBanner(renterPage);
+    await renterPage.goto("/dashboard/renter");
+    if (!(await assertDashboard(renterPage, "/dashboard/renter"))) return;
+
+    const accountId = `ID: MB-${TEST_IDS.renter.replace(/-/g, "").slice(0, 5).toUpperCase()}`;
+    await expect(
+      renterPage.locator("aside").getByText(accountId, { exact: true }),
+    ).toBeVisible();
+
+    await renterPage.setViewportSize({ width: 390, height: 844 });
+    await renterPage
+      .locator('button[aria-controls="dashboard-more-sheet"]')
+      .click();
+    const row = renterPage.getByRole("dialog").getByTestId("mobile-account-row");
+    await expect(row.getByText(accountId, { exact: true })).toBeVisible();
+  });
 });
 
 test.describe("Renter guest blacklist", () => {

@@ -593,6 +593,12 @@ export function DashboardShell({
   // "service"/"handyman" aliases); drives the ServiceSidebar/Topbar branch.
   const serviceSegment = toServiceSegment(activeRole);
   const shortUserId = `MB-${userId.replace(/-/g, "").slice(0, 5).toUpperCase()}`;
+  // The phone "More" sheet's account row: the desktop sidebar's name + ID chip.
+  const mobileProfile = {
+    name: displayName,
+    avatarUrl: avatarUrl ?? undefined,
+    userCode: shortUserId,
+  };
 
   // One notifications subscription for every cabinet: the provider wraps
   // whichever shell branch renders, so each topbar's bell shares it.
@@ -692,6 +698,7 @@ export function DashboardShell({
             onSignOut={handleSignOut}
             canUseSms={canUseSms}
             availableCabinets={availableCabinets}
+            profile={mobileProfile}
           />
           <BottomSheet
             isOpen={serviceSwitcherOpen}
@@ -752,6 +759,7 @@ export function DashboardShell({
               availableCabinets={availableCabinets}
               balance={balance}
               companies={companies}
+              profile={mobileProfile}
             />
           </div>
         </ActiveOrgScopeProvider>
@@ -782,6 +790,7 @@ export function DashboardShell({
             userRole={activeRole}
             onSignOut={handleSignOut}
             availableCabinets={availableCabinets}
+            profile={mobileProfile}
           />
         </div>
       );
@@ -792,7 +801,7 @@ export function DashboardShell({
         <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
           <CleanerSidebar
             userName={displayName}
-            userId={userId}
+            userId={shortUserId}
             avatarUrl={avatarUrl ?? undefined}
             currentPath={pathname}
             onSignOut={handleSignOut}
@@ -815,6 +824,7 @@ export function DashboardShell({
             userRole={activeRole}
             onSignOut={handleSignOut}
             availableCabinets={availableCabinets}
+            profile={mobileProfile}
           />
         </div>
       );
@@ -847,6 +857,7 @@ export function DashboardShell({
             userRole={activeRole}
             onSignOut={handleSignOut}
             availableCabinets={availableCabinets}
+            profile={mobileProfile}
           />
         </div>
       );
@@ -886,6 +897,7 @@ export function DashboardShell({
             userRole={activeRole}
             onSignOut={handleSignOut}
             availableCabinets={availableCabinets}
+            profile={mobileProfile}
           />
         </div>
       );
@@ -910,6 +922,7 @@ export function DashboardShell({
           userRole={activeRole}
           onSignOut={handleSignOut}
           availableCabinets={availableCabinets}
+          profile={mobileProfile}
         />
       </div>
     );

@@ -276,7 +276,8 @@
     "marketingPolicy": "Политика маркетинга",
     "copyright": "© {year} MYBAKURIANI.GE - Все права защищены",
     "cookieSettings": "Настройки cookie",
-    "hotels": "Отели",
+    "buy": "Купить",
+    "sell": "Продать",
     "forSale": "Продажа",
     "blog": "Блог",
     "guide": "Путеводитель по Бакуриани"
@@ -621,6 +622,7 @@
     "hotels": "Отели",
     "hotelsSubtitle": "Полный сервис: завтрак, бассейн, спа",
     "apartmentsAndCottages": "Апартаменты и коттеджи",
+    "accommodationObjects": "Объекты размещения",
     "apartmentsSubtitle": "Лучший выбор для вашего отдыха",
     "recommendedServices": "Рекомендуемые сервисы",
     "transportAndTransfers": "Транспорт и трансферы",
@@ -736,7 +738,7 @@
     },
     "superVipTitle": "SUPER VIP",
     "superVipSubtitle": "Объявления с пакетом максимальной видимости — на приоритетных позициях.",
-    "apartmentsH1Lead": "Квартиры и коттеджи посуточно",
+    "apartmentsH1Lead": "Найдите место для отдыха",
     "hotelsH1Lead": "Отели",
     "h1InBakuriani": "в Бакуриани"
   },
@@ -1771,7 +1773,6 @@
     "objectTypes": {
       "all": "Все",
       "restaurant": "Ресторан",
-      "cafe": "Кафе / кондитерская",
       "bar": "Бар / паб",
       "fastfood": "Фастфуд",
       "other": "Другое"

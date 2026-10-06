@@ -17,6 +17,7 @@ import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
 
 interface CleanerSidebarProps {
   userName: string;
+  /** Display ID ("MB-XXXXX"), the same one every cabinet shows. */
   userId?: string;
   avatarUrl?: string;
   currentPath: string;
@@ -83,7 +84,6 @@ export function CleanerSidebar({
     .map((n) => n[0])
     .join("")
     .slice(0, 2);
-  const shortId = userId ? userId.replace(/-/g, "").slice(0, 8) : null;
 
   return (
     <motion.aside className="hidden h-screen w-[272px] shrink-0 flex-col border-r border-[#E2E8F0] bg-white lg:flex">
@@ -109,9 +109,9 @@ export function CleanerSidebar({
           <p className="truncate text-[15px] font-extrabold text-[#0F172A]">
             {userName}
           </p>
-          {shortId && (
+          {userId && (
             <p className="mt-0.5 text-[11px] font-bold tracking-wide text-[#2563EB]">
-              {t("userIdPrefix")} {shortId}
+              {t("userIdPrefix")} {userId}
             </p>
           )}
         </div>

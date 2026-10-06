@@ -39,6 +39,37 @@ test.describe("Landing page", () => {
     await expect(interactable).toBeVisible();
   });
 
+  // Owner PDF "გასასწორებელი3" (2026-10-06): the zone list shows names only,
+  // and the filters field reads ტევადობა.
+  test("hero search lists zone names only and spells ტევადობა", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("search-desktop-filters")).toHaveText(
+      "ფასი, ტევადობა...",
+    );
+    const zoneButton = page
+      .getByRole("button", { name: "დიდველი / კრისტალი", exact: true })
+      .first();
+    // A click before React attaches its handlers is lost.
+    await expect
+      .poll(() =>
+        zoneButton.evaluate((node) =>
+          Object.keys(node).some((key) => key.startsWith("__reactProps$")),
+        ),
+      )
+      .toBe(true);
+    await zoneButton.click();
+    const options = page
+      .getByRole("listbox", { name: "ლოკაციის ვარიანტები" })
+      .getByRole("option");
+    await expect(options.first()).toBeVisible();
+    for (const text of await options.allInnerTexts()) {
+      expect(text.trim()).not.toContain("\n");
+    }
+    await expect(options.filter({ hasText: "ტრასასთან ახლოს" })).toHaveCount(0);
+  });
+
   test("can toggle sale landing discounts-only filter", async ({ page }) => {
     await page.goto("/en");
 
@@ -928,6 +959,36 @@ test.describe("Footer", () => {
     const footer = page.locator("footer");
     const text = await footer.textContent();
     expect(text).toContain("MyBakuriani");
+  });
+
+  // Owner PDF "გასასწორებელი3" (2026-10-06): სასტუმროები and იყიდება became
+  // ბინები, ყიდვა and გაყიდვა.
+  test("platform column lists ბინები, ყიდვა and გაყიდვა", async ({ page }) => {
+    await page.goto("/");
+    const links = page
+      .locator("footer h3", { hasText: "პლატფორმა" })
+      .locator("xpath=following-sibling::ul[1]")
+      .getByRole("link");
+    await expect(links).toHaveText([
+      "ყველა განცხადება",
+      "ბინები",
+      "ყიდვა",
+      "გაყიდვა",
+      "როგორ მუშაობს",
+      "ვერიფიკაცია",
+      "ფასები",
+    ]);
+    expect(
+      await links.evaluateAll((els) => els.map((a) => a.getAttribute("href"))),
+    ).toEqual([
+      "/apartments",
+      "/apartments",
+      "/sales",
+      "/create/sale",
+      "/faq",
+      "/faq",
+      "/pricing",
+    ]);
   });
 });
 

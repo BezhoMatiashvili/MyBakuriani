@@ -276,7 +276,8 @@
     "marketingPolicy": "Marketing Policy",
     "copyright": "© {year} MYBAKURIANI.GE - All rights reserved",
     "cookieSettings": "Cookie settings",
-    "hotels": "Hotels",
+    "buy": "Buy",
+    "sell": "Sell",
     "forSale": "For sale",
     "blog": "Blog",
     "guide": "Bakuriani guide"
@@ -621,6 +622,7 @@
     "hotels": "Hotels",
     "hotelsSubtitle": "Full service: breakfast, pool, spa",
     "apartmentsAndCottages": "Apartments & Cottages",
+    "accommodationObjects": "Accommodation",
     "apartmentsSubtitle": "The best choice for your vacation",
     "recommendedServices": "Recommended Services",
     "transportAndTransfers": "Transport & Transfers",
@@ -736,7 +738,7 @@
     },
     "superVipTitle": "SUPER VIP",
     "superVipSubtitle": "Listings with the highest visibility package — shown first.",
-    "apartmentsH1Lead": "Apartments & cottages for daily rent",
+    "apartmentsH1Lead": "Find a place to relax",
     "hotelsH1Lead": "Hotels",
     "h1InBakuriani": "in Bakuriani"
   },
@@ -1771,7 +1773,6 @@
     "objectTypes": {
       "all": "All",
       "restaurant": "Restaurant",
-      "cafe": "Café / Pastry shop",
       "bar": "Bar / Pub",
       "fastfood": "Fast food",
       "other": "Other"

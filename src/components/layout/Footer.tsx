@@ -18,8 +18,9 @@ export function Footer() {
 
   const platformLinks = [
     { label: t("allListings"), href: "/apartments" },
-    { label: t("hotels"), href: "/hotels" },
-    { label: t("forSale"), href: "/sales" },
+    { label: tNav("apartments"), href: "/apartments" },
+    { label: t("buy"), href: "/sales" },
+    { label: t("sell"), href: "/create/sale" },
     { label: t("howItWorks"), href: "/faq" },
     { label: t("verification"), href: "/faq" },
     { label: t("pricing"), href: "/pricing" },

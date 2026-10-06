@@ -704,6 +704,12 @@ export default function SearchPageClient({
         statusCards={statusCards}
       />
 
+      {/* From lg the status cards hang 42px below the hero (sm:-mb-[42px]);
+          reserve that so the results start a full section gap below them. */}
+      {statusCards.length > 0 && (
+        <div aria-hidden="true" className="hidden lg:block lg:h-[42px]" />
+      )}
+
       <section
         data-testid="listing-results"
         className="mx-auto w-full max-w-7xl px-4 py-12 lg:py-16"
