@@ -10,7 +10,10 @@ const DEFAULT_ORIGIN = "https://my-bakuriani.vercel.app";
 /** Exact, deployment-controlled origins only. No wildcard or suffix matching. */
 export function allowedOrigins(): string[] {
   const raw = process.env.ALLOWED_ORIGINS ?? process.env.APP_ORIGIN;
-  if (!raw) return process.env.NODE_ENV === "production" ? [] : [DEFAULT_ORIGIN, "http://localhost:3000"];
+  if (!raw)
+    return process.env.NODE_ENV === "production"
+      ? []
+      : [DEFAULT_ORIGIN, "http://localhost:3000"];
   return raw
     .split(",")
     .map((origin) => origin.trim().replace(/\/$/, ""))
@@ -49,7 +52,8 @@ export function safeInternalPath(value: unknown): string | null {
 }
 
 export function safeHttpsUrl(value: unknown): string | null {
-  if (typeof value !== "string" || CONTROL_OR_BACKSLASH.test(value)) return null;
+  if (typeof value !== "string" || CONTROL_OR_BACKSLASH.test(value))
+    return null;
   try {
     const url = new URL(value);
     return url.protocol === "https:" && !!url.hostname ? url.toString() : null;
@@ -87,9 +91,14 @@ export function normalizeE164Phone(value: unknown): string | null {
 export function safeCsvCell(value: unknown): string {
   // A real number stays a number cell (a negative amount is not a formula).
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
-  const text = String(value ?? "").replace(/\r\n?|\n/g, "\n");
-  const neutralized = /^[=+\-@]/.test(text) ? `'${text}` : text;
-  return `"${neutralized.replace(/"/g, '""')}"`;
+  const raw = String(value ?? "");
+  // Neutralise spreadsheet formula / DDE triggers on the RAW first character —
+  // including TAB and CR/LF, which some importers strip before evaluating what
+  // follows (OWASP CSV injection). Test before newline normalisation so a
+  // leading CR is still caught.
+  const neutralized = /^[=+\-@\t\r\n]/.test(raw) ? `'${raw}` : raw;
+  const text = neutralized.replace(/\r\n?|\n/g, "\n");
+  return `"${text.replace(/"/g, '""')}"`;
 }
 
 export function toCsv(rows: readonly (readonly unknown[])[]): string {
