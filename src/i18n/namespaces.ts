@@ -126,6 +126,7 @@ export const SMS_CONSENT_NAMESPACES = ["SmsConsent"] as const;
 // Re-provided by src/app/[locale]/dashboard/layout.tsx for /dashboard/**
 // (previously the full catalog).
 export const DASHBOARD_NAMESPACES = [
+  "AdminAdAnalytics",
   "AdminBanners",
   "AdminClientDetail",
   "AdminClients",

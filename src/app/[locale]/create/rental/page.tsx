@@ -58,12 +58,15 @@ import {
   type RentalPostingGate,
 } from "@/lib/membership/plans";
 
+// The owner's list (C13). Studio is no longer offered for new listings; an
+// existing studio opened for editing keeps it (propertyTypeOptions below).
 const PROPERTY_TYPES: Enums<"property_type">[] = [
+  "flat",
   "apartment",
-  "studio",
-  "cottage",
   "hotel",
+  "cottage",
   "villa",
+  "house",
 ];
 
 const STEP_TITLE_KEYS = [
@@ -81,7 +84,7 @@ function buildDefaultAvailability(): Map<string, AvailabilityStatus> {
   }, new Map<string, AvailabilityStatus>());
 }
 
-const TITLE_MAX = 35;
+const TITLE_MAX = 100;
 
 const ExactLocationPicker = dynamic(
   () => import("@/components/maps/ExactLocationPicker"),
@@ -143,13 +146,16 @@ function CreateRentalPageInner() {
   const postingBlocked =
     !isEditMode && posting !== null && posting.gate !== "allowed";
 
-  // Step 1: basics. /create's hotel card links here with ?type=hotel.
+  // Step 1: basics. A ?type= link (e.g. ?type=hotel) presets the type.
   const [propertyType, setPropertyType] = useState<Enums<"property_type">>(
     () =>
       PROPERTY_TYPES.find((type) => type === searchParams.get("type")) ??
       "apartment",
   );
   const isHotel = propertyType === "hotel";
+  const propertyTypeOptions = PROPERTY_TYPES.includes(propertyType)
+    ? PROPERTY_TYPES
+    : [...PROPERTY_TYPES, propertyType];
   const [location, setLocation] = useState("");
   const [cadastralCode, setCadastralCode] = useState("");
   const cadastralTaken = useCadastralTaken(cadastralCode, editId);
@@ -819,7 +825,7 @@ function CreateRentalPageInner() {
                     }
                     className={inputClass}
                   >
-                    {PROPERTY_TYPES.map((value) => (
+                    {propertyTypeOptions.map((value) => (
                       <option key={value} value={value}>
                         {tOpts(`propertyTypes.${value}`)}
                       </option>

@@ -35,6 +35,9 @@ interface CabinetSwitcherProps {
   /** Canonical cabinet keys the user may switch into. Omit to show all. */
   availableKeys?: string[];
   children: React.ReactNode;
+  /** Rendered beside the trigger, not inside it (a control placed in
+   *  `children` would be a button inside a button). Position it absolutely. */
+  accessory?: React.ReactNode;
   triggerClassName?: string;
   openClassName?: string;
 }
@@ -43,6 +46,7 @@ export function CabinetSwitcher({
   activeKey,
   availableKeys,
   children,
+  accessory,
   triggerClassName,
   openClassName,
 }: CabinetSwitcherProps) {
@@ -90,6 +94,7 @@ export function CabinetSwitcher({
       >
         {children}
       </button>
+      {accessory}
 
       <AnimatePresence>
         {open && (

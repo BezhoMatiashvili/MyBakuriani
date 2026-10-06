@@ -664,6 +664,16 @@ test.describe("Renter Dashboard", () => {
       .click();
     const row = renterPage.getByRole("dialog").getByTestId("mobile-account-row");
     await expect(row.getByText(accountId, { exact: true })).toBeVisible();
+
+    // The ID is copyable from the sheet (bare "MB-XXXXX", no "ID:" prefix).
+    await renterPage
+      .context()
+      .grantPermissions(["clipboard-read", "clipboard-write"]);
+    await renterPage.evaluate(() => navigator.clipboard.writeText(""));
+    await row.getByTestId("copy-user-id").click();
+    await expect
+      .poll(() => renterPage.evaluate(() => navigator.clipboard.readText()))
+      .toBe(accountId.replace("ID: ", ""));
   });
 });
 
@@ -1450,20 +1460,22 @@ test.describe("Renter cleaner profiles", () => {
   });
 });
 
-// C45: the /create hotel tile opens the rental wizard as a hotel, which asks
-// for stars and rooms instead of one room count and area; the cheapest room
-// becomes the listing's price, and the detail page lists the rooms.
+// C45: choosing "სასტუმრო" as the rental wizard's type asks for stars and
+// rooms instead of one room count and area; the cheapest room becomes the
+// listing's price, and the detail page lists the rooms. /create has no hotel
+// tile: a hotel is added through "გაქირავება".
 test.describe("Hotel rooms", () => {
-  test("the hotel tile opens the wizard with stars and rooms", async ({
-    renterPage,
-  }) => {
+  test("the hotel type asks for stars and rooms", async ({ renterPage }) => {
     await answerCookieBanner(renterPage);
     await renterPage.goto("/create");
     if (!(await assertDashboard(renterPage, "/create"))) return;
 
-    await renterPage.getByRole("link", { name: "სასტუმრო" }).click();
-    await expect(renterPage).toHaveURL(/\/create\/rental\?type=hotel$/);
-    await expect(renterPage.locator("select").first()).toHaveValue("hotel");
+    await expect(
+      renterPage.getByRole("link", { name: "სასტუმრო" }),
+    ).toHaveCount(0);
+    await renterPage.getByRole("link", { name: "გაქირავება" }).click();
+    await expect(renterPage).toHaveURL(/\/create\/rental$/);
+    await renterPage.locator("select").first().selectOption("hotel");
 
     await renterPage
       .locator('[data-field="location"] select')

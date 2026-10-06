@@ -9,10 +9,21 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Eye, EyeOff, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  BarChart3,
+  Eye,
+  EyeOff,
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatNumber } from "@/lib/utils/format";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import MediaUploader, {
   type MediaValue,
@@ -33,6 +44,11 @@ import {
   type BannerPlacement,
   type BannerSurface,
 } from "@/lib/banner-placements";
+import {
+  ctrPercent,
+  type BannerAnalytics,
+  type BannerCounts,
+} from "@/lib/banner-analytics";
 
 const SURFACE_ORDER: BannerSurface[] = [
   "site",
@@ -97,6 +113,11 @@ export default function AdminBannersPage() {
   const tDash = useTranslations("DashboardShared");
   const [loading, setLoading] = useState(true);
   const [banners, setBanners] = useState<LandingBanner[]>([]);
+  // Last-30-day counts per banner id (C46); null until loaded, and a banner
+  // missing from a loaded map had none.
+  const [metrics, setMetrics] = useState<Map<string, BannerCounts> | null>(
+    null,
+  );
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -119,6 +140,23 @@ export default function AdminBannersPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Decorative on this page: a failure just leaves the counts out.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/banner-analytics?source=banner", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload: { analytics?: BannerAnalytics } | null) => {
+        if (cancelled || !payload?.analytics) return;
+        setMetrics(
+          new Map(payload.analytics.creatives.map((c) => [c.id, c])),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -407,6 +445,11 @@ export default function AdminBannersPage() {
                     <BannerRow
                       key={b.id}
                       banner={b}
+                      metrics={
+                        metrics
+                          ? (metrics.get(b.id) ?? NO_COUNTS)
+                          : null
+                      }
                       onEdit={() => openEdit(b)}
                       onToggle={() => toggleActive(b)}
                       onDelete={() => remove(b)}
@@ -647,13 +690,17 @@ function Field({
   );
 }
 
+const NO_COUNTS: BannerCounts = { views: 0, opens: 0, clicks: 0 };
+
 function BannerRow({
   banner,
+  metrics,
   onEdit,
   onToggle,
   onDelete,
 }: {
   banner: LandingBanner;
+  metrics: BannerCounts | null;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
@@ -662,7 +709,9 @@ function BannerRow({
   const tShared = useTranslations("AdminShared");
   const tDash = useTranslations("DashboardShared");
   const tCreate = useTranslations("CreateShared");
+  const tAnalytics = useTranslations("AdminAdAnalytics");
   const tone = BANNER_TONE_STYLES[banner.tone];
+  const ctr = metrics ? ctrPercent(metrics.clicks, metrics.views) : null;
   return (
     <article
       className="overflow-hidden rounded-2xl border bg-white shadow-[0px_2px_8px_-2px_rgba(0,0,0,0.04)]"
@@ -764,6 +813,25 @@ function BannerRow({
             <Trash2 className="h-3.5 w-3.5" /> {tCreate("delete")}
           </button>
         </div>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#F1F5F9] px-5 py-2.5">
+        <p className="text-[12px] font-semibold text-[#64748B]">
+          {metrics
+            ? tAnalytics("cardSummary", {
+                views: formatNumber(metrics.views),
+                opens: formatNumber(metrics.opens),
+                clicks: formatNumber(metrics.clicks),
+                ctr: ctr === null ? "—" : `${ctr.toFixed(1)}%`,
+              })
+            : null}
+        </p>
+        <Link
+          href={`/dashboard/admin/ad-analytics?source=banner&creative=${banner.id}`}
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-[12px] font-bold text-[#2563EB] hover:underline lg:min-h-0"
+        >
+          <BarChart3 className="h-3.5 w-3.5" />
+          {tAnalytics("openAnalytics")}
+        </Link>
       </div>
     </article>
   );

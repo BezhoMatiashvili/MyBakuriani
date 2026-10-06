@@ -4,9 +4,11 @@
 // in messages `ListingFacts.*`, in ka/en/ru together.
 
 export const FACT_TYPES = [
+  "flat",
   "apartment",
   "cottage",
   "villa",
+  "house",
   "studio",
   "hotel",
   "land",

@@ -355,12 +355,16 @@
       "memberships": "Membership approvals",
       "statuses": "Memberships & VIP",
       "payments": "Card payments",
-      "signupLinks": "Sign-up links"
+      "signupLinks": "Sign-up links",
+      "adAnalytics": "Ad analytics"
     },
     "notifications": "{count} notifications",
     "logout": "Log out",
     "backToHome": "Back to Home",
     "userIdPrefix": "ID:",
+    "copyUserId": "Copy ID",
+    "userIdCopied": "Copied",
+    "copyUserIdFailed": "Could not copy",
     "expand": "Expand",
     "collapse": "Collapse",
     "serviceSwitcher": "Switch service",
@@ -470,6 +474,7 @@
     "removeGuest": "Remove a guest",
     "verifiedOnly": "Verified owners only",
     "trustedOwners": "Trusted owners",
+    "propertyType": "Property type",
     "basicComfort": "Basic Comfort",
     "amenities": {
       "wifi": "Wi-Fi",
@@ -493,10 +498,12 @@
     "type": "Type",
     "amenities": "Amenities",
     "types": {
+      "flat": "Flat",
       "apartment": "Apartment",
       "cottage": "Cottage",
       "hotel": "Hotel",
       "villa": "Villa",
+      "house": "House",
       "studio": "Studio",
       "land": "Land plot"
     }
@@ -1638,6 +1645,8 @@
     "typeStudio": "Studio",
     "typeVilla": "Villa",
     "typeLand": "Land plot",
+    "typeFlat": "Flat",
+    "typeHouse": "House",
     "typeFallback": "Property",
     "underConstruction": "Under construction",
     "completed": "Completed",
@@ -1715,6 +1724,8 @@
     "typeLand": "Land plot",
     "typeCottage": "Cottage",
     "typeHotel": "Hotel room",
+    "typeFlat": "Flat",
+    "typeHouse": "House",
     "sellerDeveloper": "Developer",
     "sellerIndividual": "Private individual",
     "roiAny": "Doesn't matter",
@@ -2292,7 +2303,6 @@
     "subtitle": "Choose a category",
     "categories": {
       "rental": "Rentals",
-      "hotel": "Hotel",
       "sale": "Buy / Sell",
       "employment": "Employment",
       "service": "Services",
@@ -2578,7 +2588,9 @@
       "cottage": "Cottage",
       "villa": "Villa",
       "hotel": "Hotel room",
-      "land": "Land plot"
+      "land": "Land plot",
+      "flat": "Flat",
+      "house": "House"
     },
     "constructionStatuses": {
       "under_construction": "Under construction",
@@ -2646,7 +2658,9 @@
       "cottage": "Cottage",
       "hotel": "Hotel room",
       "villa": "Villa",
-      "land": "Land plot"
+      "land": "Land plot",
+      "flat": "Flat",
+      "house": "House"
     },
     "serviceCategories": {
       "food": "Food",
@@ -5741,6 +5755,62 @@
       "sticky_news": "Sticky bottom news visible on all public pages."
     }
   },
+  "AdminAdAnalytics": {
+    "title": "Ad analytics",
+    "subtitle": "Views, opens and clicks of banners and B2B ads — by day, placement and creative.",
+    "definitions": "View — at least half of the banner was on screen for 1 second. Open — the visitor opened the banner's detail window. Click — the visitor followed the banner's link. Each is counted once per banner per browser session. CTR = clicks / views.",
+    "days": "{count} days",
+    "customRange": "Custom range",
+    "from": "Start date",
+    "to": "End date",
+    "source": "Type",
+    "allSources": "Banners and ads",
+    "sources": {
+      "ad": "Ad",
+      "banner": "Banner",
+      "adPlural": "B2B ads",
+      "bannerPlural": "Banners"
+    },
+    "allPlacements": "All placements",
+    "metrics": {
+      "views": "Views",
+      "opens": "Opens",
+      "clicks": "Clicks",
+      "ctr": "CTR",
+      "live": "Live now"
+    },
+    "chartTitle": "Daily trend",
+    "byPlacementTitle": "By placement",
+    "byCreativeTitle": "By banner and ad",
+    "columns": {
+      "title": "Title",
+      "status": "Status",
+      "creatives": "Count"
+    },
+    "status": {
+      "live": "Live",
+      "scheduled": "Scheduled",
+      "paused": "Paused",
+      "off": "Off",
+      "expired": "Expired",
+      "deleted": "Deleted"
+    },
+    "deletedTitle": "{source} (deleted)",
+    "allTime": "All time: views {views} · clicks {clicks}",
+    "allTimeLabel": "Views and clicks — all time",
+    "trackedSince": "Counting since {date}; earlier days are empty.",
+    "notTrackedYet": "No data yet — counting starts with the first view.",
+    "empty": "No data for this period",
+    "noCreatives": "No banners or ads match these filters.",
+    "sortBy": "Sort by:",
+    "report": "Report",
+    "creativeReport": "Report: {title}",
+    "showAll": "Show all",
+    "retry": "Retry",
+    "rangeInvalid": "Invalid range — at most 366 days.",
+    "cardSummary": "Last 30 days: views {views} · opens {opens} · clicks {clicks} · CTR {ctr}",
+    "openAnalytics": "Analytics"
+  },
   "AdminMemberships": {
     "title": "Membership approvals",
     "subtitle": "Review paid seasonal renter memberships before activation.",
@@ -7139,11 +7209,13 @@
       "employment": "Employment"
     },
     "types": {
+      "flat": "Flat",
       "apartment": "Apartment",
       "cottage": "Cottage",
       "hotel": "Hotel",
       "studio": "Studio",
       "villa": "Villa",
+      "house": "House",
       "land": "Land plot"
     },
     "tabs": {

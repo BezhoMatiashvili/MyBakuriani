@@ -18,7 +18,10 @@ import {
   rendersSingleCreative,
   type BannerRenderStyle,
 } from "@/lib/banner-placements";
-import { useBannerTracking } from "@/lib/banner-tracking";
+import {
+  reportBannerEvent,
+  useBannerViewTracking,
+} from "@/lib/banner-tracking";
 
 /**
  * The single public banner renderer. Pure and presentational — it NEVER fetches.
@@ -63,6 +66,13 @@ export default function BannerSlotView({
 }: BannerSlotViewProps) {
   const [expanded, setExpanded] = useState<BannerCreative | null>(null);
 
+  // Every way into the detail window (an editorial banner's body, a video's
+  // expand button) goes through here, so this is where an "open" is counted.
+  function expand(creative: BannerCreative) {
+    reportBannerEvent(creative, "open");
+    setExpanded(creative);
+  }
+
   const spec = getPlacementSpec(placement);
   // An unmapped placement renders nothing rather than throwing. Never replace
   // this with an index lookup.
@@ -84,7 +94,7 @@ export default function BannerSlotView({
           style={spec.renderStyle}
           compactHomePromo={spec.id === "home_promo"}
           interactive={interactive}
-          onExpand={setExpanded}
+          onExpand={expand}
         />
       ))}
     </>
@@ -306,8 +316,9 @@ function SponsoredBadge({ tone }: { tone: ReturnType<typeof getTonePalette> }) {
  * Wraps a creative in the right interactive shell:
  *  - sponsored  → a single anchor to the advertiser, opened in a new tab with
  *                 rel="sponsored", and a click beacon
- *  - editorial  → a button that opens the detail modal (existing behaviour)
+ *  - editorial  → a button that opens the detail modal (counted as an open)
  *  - preview    → an inert div
+ * Every interactive shell counts a view (C46).
  */
 function CreativeShell({
   creative,
@@ -324,7 +335,7 @@ function CreativeShell({
   style?: React.CSSProperties;
   children: ReactNode;
 }) {
-  const { ref, reportClick } = useBannerTracking(creative, interactive);
+  const ref = useBannerViewTracking(creative, interactive);
 
   if (!interactive) {
     return (
@@ -341,7 +352,7 @@ function CreativeShell({
         href={creative.href}
         target="_blank"
         rel="sponsored nofollow noopener noreferrer"
-        onClick={reportClick}
+        onClick={() => reportBannerEvent(creative, "click")}
         className={className}
         style={style}
       >
@@ -821,7 +832,10 @@ function CreativeCta({
             ? "sponsored nofollow noopener noreferrer"
             : "noopener noreferrer"
         }
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          reportBannerEvent(creative, "click");
+        }}
         className={cls}
         style={style}
       >
@@ -833,7 +847,10 @@ function CreativeCta({
   return (
     <Link
       href={creative.href}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        reportBannerEvent(creative, "click");
+      }}
       className={cls}
       style={style}
     >

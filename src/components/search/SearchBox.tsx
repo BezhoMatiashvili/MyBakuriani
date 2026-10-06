@@ -155,6 +155,18 @@ const AMENITIES = [
   { key: "washing_machine", labelKey: "washingMachine" },
   { key: "full_kitchen", labelKey: "fullKitchen" },
 ] as const;
+// Rentals only (a land plot is never rented). New listings can no longer pick
+// studio, but existing studios stay findable. Labels are the create form's
+// (ListingOptions.propertyTypes), so the filter and the form name types alike.
+const TYPE_OPTIONS = [
+  "flat",
+  "apartment",
+  "hotel",
+  "cottage",
+  "villa",
+  "house",
+  "studio",
+] as const;
 
 type FilterState = RentAdvancedFilters;
 const DEFAULT_FILTERS = DEFAULT_RENT_FILTERS;
@@ -1327,6 +1339,7 @@ function FiltersDropdown({
   sheet?: boolean;
 }) {
   const t = useTranslations("SearchBox");
+  const tOpts = useTranslations("ListingOptions");
   const minPriceId = useId();
   const maxPriceId = useId();
   const [priceMinInput, setPriceMinInput] = useState(String(filters.priceMin));
@@ -1353,6 +1366,13 @@ function FiltersDropdown({
       ? filters.amenities.filter((a) => a !== amenity)
       : [...filters.amenities, amenity];
     updateFilter("amenities", next);
+  };
+
+  const toggleType = (type: string) => {
+    const next = filters.types.includes(type)
+      ? filters.types.filter((item) => item !== type)
+      : [...filters.types, type];
+    updateFilter("types", next);
   };
 
   const updatePriceInput = (key: "priceMin" | "priceMax", raw: string) => {
@@ -1559,6 +1579,23 @@ function FiltersDropdown({
                         : opt,
                     )
                   }
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Property type */}
+          <div>
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.5px] text-[#64748B]">
+              {t("propertyType")}
+            </span>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {TYPE_OPTIONS.map((type) => (
+                <Chip
+                  key={type}
+                  label={tOpts(`propertyTypes.${type}`)}
+                  selected={filters.types.includes(type)}
+                  onClick={() => toggleType(type)}
                 />
               ))}
             </div>

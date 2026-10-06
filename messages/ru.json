@@ -355,12 +355,16 @@
       "memberships": "Одобрение членства",
       "statuses": "Членство и VIP",
       "payments": "Платежи картой",
-      "signupLinks": "Ссылки для регистрации"
+      "signupLinks": "Ссылки для регистрации",
+      "adAnalytics": "Аналитика рекламы"
     },
     "notifications": "{count} уведомлений",
     "logout": "Выход",
     "backToHome": "Вернуться на главную",
     "userIdPrefix": "ID:",
+    "copyUserId": "Копировать ID",
+    "userIdCopied": "Скопировано",
+    "copyUserIdFailed": "Не удалось скопировать",
     "expand": "Развернуть",
     "collapse": "Свернуть",
     "serviceSwitcher": "Переключить сервис",
@@ -470,6 +474,7 @@
     "removeGuest": "Убрать гостя",
     "verifiedOnly": "Только проверенные владельцы",
     "trustedOwners": "Надёжные владельцы",
+    "propertyType": "Тип объекта",
     "basicComfort": "Базовый комфорт",
     "amenities": {
       "wifi": "Wi-Fi",
@@ -493,10 +498,12 @@
     "type": "Тип",
     "amenities": "Удобства",
     "types": {
-      "apartment": "Квартира",
+      "flat": "Квартира",
+      "apartment": "Апартаменты",
       "cottage": "Коттедж",
       "hotel": "Отель",
       "villa": "Вилла",
+      "house": "Дом",
       "studio": "Студия",
       "land": "Земельный участок"
     }
@@ -1638,6 +1645,8 @@
     "typeStudio": "Студия",
     "typeVilla": "Вилла",
     "typeLand": "Земельный участок",
+    "typeFlat": "Квартира",
+    "typeHouse": "Дом",
     "typeFallback": "Недвижимость",
     "underConstruction": "Строится",
     "completed": "Завершено",
@@ -1715,6 +1724,8 @@
     "typeLand": "Земельный участок",
     "typeCottage": "Коттедж",
     "typeHotel": "Гостиничный номер",
+    "typeFlat": "Квартира",
+    "typeHouse": "Дом",
     "sellerDeveloper": "Застройщик",
     "sellerIndividual": "Физическое лицо",
     "roiAny": "Не имеет значения",
@@ -2292,7 +2303,6 @@
     "subtitle": "Выберите категорию",
     "categories": {
       "rental": "Аренда",
-      "hotel": "Отель",
       "sale": "Покупка / продажа",
       "employment": "Работа",
       "service": "Услуги",
@@ -2578,7 +2588,9 @@
       "cottage": "Коттедж",
       "villa": "Вилла",
       "hotel": "Гостиничный номер",
-      "land": "Земельный участок"
+      "land": "Земельный участок",
+      "flat": "Квартира",
+      "house": "Дом"
     },
     "constructionStatuses": {
       "under_construction": "Строится",
@@ -2646,7 +2658,9 @@
       "cottage": "Коттедж",
       "hotel": "Гостиничный номер",
       "villa": "Вилла",
-      "land": "Земельный участок"
+      "land": "Земельный участок",
+      "flat": "Квартира",
+      "house": "Дом"
     },
     "serviceCategories": {
       "food": "Питание",
@@ -5741,6 +5755,62 @@
       "sticky_news": "Липкая новость внизу на всех публичных страницах."
     }
   },
+  "AdminAdAnalytics": {
+    "title": "Аналитика рекламы",
+    "subtitle": "Просмотры, открытия и клики баннеров и B2B-рекламы — по дням, местам размещения и креативам.",
+    "definitions": "Просмотр — не менее половины баннера было на экране 1 секунду. Открытие — посетитель открыл окно с подробностями баннера. Клик — посетитель перешёл по ссылке баннера. Каждое событие считается один раз на баннер за сессию браузера. CTR = клики / просмотры.",
+    "days": "{count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
+    "customRange": "Свой период",
+    "from": "Начало",
+    "to": "Конец",
+    "source": "Тип",
+    "allSources": "Баннеры и реклама",
+    "sources": {
+      "ad": "Реклама",
+      "banner": "Баннер",
+      "adPlural": "B2B-реклама",
+      "bannerPlural": "Баннеры"
+    },
+    "allPlacements": "Все места размещения",
+    "metrics": {
+      "views": "Просмотры",
+      "opens": "Открытия",
+      "clicks": "Клики",
+      "ctr": "CTR",
+      "live": "Активны сейчас"
+    },
+    "chartTitle": "Динамика по дням",
+    "byPlacementTitle": "По местам размещения",
+    "byCreativeTitle": "По баннерам и рекламе",
+    "columns": {
+      "title": "Название",
+      "status": "Статус",
+      "creatives": "Количество"
+    },
+    "status": {
+      "live": "Активен",
+      "scheduled": "Запланирован",
+      "paused": "На паузе",
+      "off": "Выключен",
+      "expired": "Истёк",
+      "deleted": "Удалён"
+    },
+    "deletedTitle": "{source} (удалено)",
+    "allTime": "За всё время: просмотры {views} · клики {clicks}",
+    "allTimeLabel": "Просмотры и клики — за всё время",
+    "trackedSince": "Данные собираются с {date}; более ранние дни пусты.",
+    "notTrackedYet": "Данных пока нет — подсчёт начнётся с первого просмотра.",
+    "empty": "Нет данных за этот период",
+    "noCreatives": "Нет баннеров или рекламы по этим фильтрам.",
+    "sortBy": "Сортировка:",
+    "report": "Отчёт",
+    "creativeReport": "Отчёт: {title}",
+    "showAll": "Показать все",
+    "retry": "Повторить",
+    "rangeInvalid": "Неверный период — не более 366 дней.",
+    "cardSummary": "Последние 30 дней: просмотры {views} · открытия {opens} · клики {clicks} · CTR {ctr}",
+    "openAnalytics": "Аналитика"
+  },
   "AdminMemberships": {
     "title": "Одобрение членства",
     "subtitle": "Проверяйте оплаченные сезонные членства до активации.",
@@ -7139,11 +7209,13 @@
       "employment": "Работа"
     },
     "types": {
-      "apartment": "Квартира",
+      "flat": "Квартира",
+      "apartment": "Апартаменты",
       "cottage": "Коттедж",
       "hotel": "Отель",
       "studio": "Студия",
       "villa": "Вилла",
+      "house": "Дом",
       "land": "Земельный участок"
     },
     "tabs": {

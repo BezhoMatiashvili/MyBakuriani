@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import {
+  BarChart3,
   Flame,
   Loader2,
   Pause,
@@ -20,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { toast } from "sonner";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import BannerLivePreview from "@/components/admin/BannerLivePreview";
@@ -120,6 +122,7 @@ function AdBannerThumb({ url }: { url: string }) {
 export default function ModerationPage() {
   const t = useTranslations("AdminModeration");
   const tShared = useTranslations("AdminShared");
+  const tAnalytics = useTranslations("AdminAdAnalytics");
 
   const placementLabel = useCallback(
     (id: string) =>
@@ -435,6 +438,14 @@ export default function ModerationPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Link
+                      href={`/dashboard/admin/ad-analytics?source=ad&creative=${ad.id}`}
+                      aria-label={tAnalytics("openAnalytics")}
+                      title={tAnalytics("openAnalytics")}
+                      className="inline-flex h-11 min-h-[44px] w-11 items-center justify-center rounded-full text-[#64748B] transition-colors hover:bg-[#EFF6FF] hover:text-[#2563EB]"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                    </Link>
                     <span
                       className="inline-flex items-center rounded px-[10px] py-1 text-[10px] font-black uppercase tracking-[0.5px] text-white"
                       style={{ backgroundColor: accent }}
@@ -520,6 +531,9 @@ export default function ModerationPage() {
                   </p>
                 ) : null}
 
+                <p className="border-t border-[#E2E8F0] px-6 pt-3 text-[10px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+                  {tAnalytics("allTimeLabel")}
+                </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4">
                   {metrics.map((metric) => (
                     <div

@@ -9,6 +9,7 @@ import {
   sponsoredLabel,
   type BannerCreative,
 } from "@/lib/banner-creative";
+import { reportBannerEvent } from "@/lib/banner-tracking";
 
 interface BannerDetailModalProps {
   creative: BannerCreative | null;
@@ -102,6 +103,7 @@ export default function BannerDetailModal({
         {creative.ctaLabel && creative.href ? (
           <Link
             href={creative.href}
+            onClick={() => reportBannerEvent(creative, "click")}
             className="flex w-full items-center justify-center rounded-full border-2 bg-white px-6 py-3 text-[14px] font-bold transition-colors"
             style={{ borderColor: tone.ctaText, color: tone.ctaText }}
           >

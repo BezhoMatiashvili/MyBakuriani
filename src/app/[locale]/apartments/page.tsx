@@ -51,7 +51,15 @@ export default async function ApartmentsPage({
       .eq("is_for_sale", false)
       // Hotels too: "ბინები" is the one nav entry for both (owner's PDF
       // 2026-10-06). Hotel cards still open their own /hotels/<id> page.
-      .in("type", ["apartment", "cottage", "villa", "studio", "hotel"])
+      .in("type", [
+        "flat",
+        "apartment",
+        "cottage",
+        "villa",
+        "house",
+        "studio",
+        "hotel",
+      ])
       .order("is_super_vip", { ascending: false })
       .order("is_vip", { ascending: false })
       .order("created_at", { ascending: false })

@@ -68,11 +68,13 @@ const STATUS_OPTIONS: Enums<"listing_status">[] = [
 ];
 
 const PROPERTY_TYPE_OPTIONS: Enums<"property_type">[] = [
+  "flat",
   "apartment",
   "studio",
   "cottage",
   "hotel",
   "villa",
+  "house",
   "land",
 ];
 

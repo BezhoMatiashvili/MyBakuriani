@@ -43,11 +43,13 @@ const MAX_QUERY = 60;
 
 // The property types a search button may filter by (C13).
 export const SEARCH_PROPERTY_TYPES = [
+  "flat",
   "apartment",
   "cottage",
   "hotel",
   "studio",
   "villa",
+  "house",
   "land",
 ] as const;
 export const VERIFICATION_TABS = ["listings", "changes", "ownership"] as const;
@@ -200,7 +202,7 @@ const ACTIONS = {
       "types",
     ],
     prompt:
-      "search places to stay (no account needed), prefilled: zone, check_in, check_out, guests, rooms, price_max (the highest price per night in GEL), types (apartment, cottage, hotel, studio, villa)",
+      "search places to stay (no account needed), prefilled: zone, check_in, check_out, guests, rooms, price_max (the highest price per night in GEL), types (only a kind the user names: flat, apartment, hotel, cottage, villa, house, studio)",
     href: (p) => {
       const priceMax = num(p.price_max);
       return withQuery("/search", {
@@ -220,7 +222,7 @@ const ACTIONS = {
     where: PUBLIC,
     params: ["zone", "types", "price_max", "rooms"],
     prompt:
-      "search property for sale (no account needed), prefilled: zone, types (apartment, cottage, hotel, studio, villa, land), price_max (the highest total price in GEL), rooms (exact; 4 = four or more)",
+      "search property for sale (no account needed), prefilled: zone, types (only a kind the user names: flat, apartment, hotel, cottage, villa, house, studio, land), price_max (the highest total price in GEL), rooms (exact; 4 = four or more)",
     href: (p) =>
       withQuery("/sales/all", {
         types: Array.isArray(p.types) ? p.types.join(",") : undefined,

@@ -51,12 +51,15 @@ import {
   type PaymentOption,
 } from "@/lib/constants/sale-listing";
 
+// The owner's list (C13). Studio is no longer offered for new listings; an
+// existing studio opened for editing keeps it (typeOptions below).
 const PROPERTY_TYPES: { value: Enums<"property_type"> }[] = [
-  { value: "studio" },
+  { value: "flat" },
   { value: "apartment" },
+  { value: "hotel" },
   { value: "cottage" },
   { value: "villa" },
-  { value: "hotel" },
+  { value: "house" },
   { value: "land" },
 ];
 
@@ -109,7 +112,7 @@ const ExactLocationPicker = dynamic(
   },
 );
 
-const TITLE_MAX = 35;
+const TITLE_MAX = 100;
 const MIN_PHOTOS = 3;
 const MAX_PHOTOS = 15;
 
@@ -356,6 +359,15 @@ function CreateSalePageInner() {
   // Every one of those is hidden below AND written as null, because the display
   // surfaces rely on those columns being null rather than re-checking the type.
   const isLandPlot = propertyType === "land";
+  const typeOptions = propertyTypeOptions.some((o) => o.value === propertyType)
+    ? propertyTypeOptions
+    : [
+        ...propertyTypeOptions,
+        {
+          value: propertyType,
+          label: tOpts(`salePropertyTypes.${propertyType}`),
+        },
+      ];
   const isUnderConstruction =
     !isLandPlot && constructionStatus === "under_construction";
 
@@ -1141,7 +1153,7 @@ function CreateSalePageInner() {
                       <StyledSelect
                         value={propertyType}
                         onValueChange={setPropertyType}
-                        options={propertyTypeOptions}
+                        options={typeOptions}
                         accent="blue"
                       />
                     </Field>

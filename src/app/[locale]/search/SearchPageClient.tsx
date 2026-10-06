@@ -414,6 +414,7 @@ export default function SearchPageClient({
         bedrooms: filters.rooms,
         bathrooms: filters.bathrooms,
         capacity: searchState.guests === "" ? null : Number(searchState.guests),
+        types: filters.types,
         amenities: filters.amenities,
         verifiedOnly: filters.verifiedOnly,
       }),
@@ -567,7 +568,6 @@ export default function SearchPageClient({
     );
     if (filters.areaMin !== "") params.set("area_min", String(filters.areaMin));
     if (filters.areaMax !== "") params.set("area_max", String(filters.areaMax));
-    if (filters.types.length > 0) params.set("types", filters.types.join(","));
     lastWrittenQuery.current = params.toString();
     router.replace(`/search?${params.toString()}`, { scroll: false });
   }, [searchState, mode, filters, router, searchBoxAdvancedFilters]);
@@ -608,10 +608,7 @@ export default function SearchPageClient({
       bathrooms: advanced.bathrooms,
       areaMin: parseOptionalNumber("area_min"),
       areaMax: parseOptionalNumber("area_max"),
-      types: (observedParams.get("types") ?? "")
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean),
+      types: advanced.types,
       amenities: advanced.amenities,
       verifiedOnly: advanced.verifiedOnly,
     });
@@ -627,6 +624,7 @@ export default function SearchPageClient({
       priceMax: adv.priceMax === RENT_PRICE_MAX ? "" : adv.priceMax,
       rooms: adv.bedrooms,
       bathrooms: adv.bathrooms,
+      types: adv.types,
       amenities: adv.amenities,
       verifiedOnly: adv.verifiedOnly,
     }));

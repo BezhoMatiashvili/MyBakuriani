@@ -66,6 +66,18 @@ test.describe("Cleaner Dashboard", () => {
     await expect(
       cleanerPage.locator("aside").getByText(accountId, { exact: true }),
     ).toBeVisible();
+
+    // The copy button copies the bare ID and leaves the cabinet switcher shut.
+    await cleanerPage
+      .context()
+      .grantPermissions(["clipboard-read", "clipboard-write"]);
+    await cleanerPage.locator("aside").getByTestId("copy-user-id").click();
+    await expect
+      .poll(() => cleanerPage.evaluate(() => navigator.clipboard.readText()))
+      .toBe(accountId.replace("ID: ", ""));
+    await expect(
+      cleanerPage.locator("aside").getByText("სივრცის შეცვლა"),
+    ).toHaveCount(0);
   });
 
   test("schedule page loads", async ({ cleanerPage }) => {

@@ -10,13 +10,10 @@ import {
   Car,
   UtensilsCrossed,
   Map as MapIcon,
-  Hotel,
 } from "lucide-react";
 
 const CATEGORIES = [
   { href: "/create/rental", icon: Tag, key: "rental" },
-  // Same wizard with the type preset; stars and rooms appear for hotels (C45).
-  { href: "/create/rental?type=hotel", icon: Hotel, key: "hotel" },
   { href: "/create/sale", icon: Tag, key: "sale" },
   { href: "/create/employment", icon: Briefcase, key: "employment" },
   { href: "/create/service", icon: Wrench, key: "service" },

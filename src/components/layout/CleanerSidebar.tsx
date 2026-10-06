@@ -14,6 +14,7 @@ import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
+import { CopyUserIdButton } from "@/components/layout/CopyUserIdButton";
 
 interface CleanerSidebarProps {
   userName: string;
@@ -95,7 +96,20 @@ export function CleanerSidebar({
       </div>
 
       {/* User chip with role switcher */}
-      <CabinetSwitcher activeKey="cleaner" availableKeys={availableCabinets}>
+      <CabinetSwitcher
+        activeKey="cleaner"
+        availableKeys={availableCabinets}
+        accessory={
+          // Level with the "ID:" line inside the trigger; a 32px hit area so
+          // it stays clear of the name line above.
+          userId && (
+            <CopyUserIdButton
+              userId={userId}
+              className="absolute right-3 top-[35px] after:-inset-1"
+            />
+          )
+        }
+      >
         <div className="relative shrink-0">
           <Avatar className="h-11 w-11">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}

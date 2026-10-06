@@ -138,17 +138,21 @@ Invariants held by **string keys, generated code, or wire shapes**—couplings i
 
 **Breaks:** Added to registry but not CHECK (23514); added to CHECK but never mounted (admin can "publish" to void); hard-coded string at mount.
 
+**Analytics (C46, 2026-10-06):** every interactive creative of both systems is counted (view / open / click) into `banner_metrics_daily` with the placement taken from its row, so a new placement needs nothing extra there; the admin preview (`interactive=false`) never counts.
+
 ---
 
 ## C13 — `property_type` enum fan-out
 
-**Invariant:** 6-value enum (apartment, cottage, hotel, studio, villa, land). Adding touches **compile-time tripwires AND eight silent participants**.
+**Invariant:** 8-value enum (apartment, cottage, hotel, studio, villa, land, flat, house). Adding touches **compile-time tripwires AND eight silent participants**.
 
 **Compile checks:** `PROPERTY_TYPE_LABEL_KEYS`, `PROPERTY_TYPE_LABEL_KA`.
 
 **Silent:** `database.ts`, sale form `PROPERTY_TYPES`, rental form (land excluded), search filters, admin dropdown + route allow-list (must sync), support buttons `src/lib/support/actions.ts:SEARCH_PROPERTY_TYPES` (C43).
 
 **Breaks:** Add value, forget one list (invisible in filter); form/route allow-lists drift (400 on save); land null-set drifts.
+
+**ბინა + სახლი (2026-10-06, `20261006190000`, STAGING; ledger `20261006104453`):** the owner's list is ბინა (`flat`), აპარტამენტი (`apartment`, unchanged meaning), სასტუმრო ოთახი (`hotel`), კოტეჯი, ვილა, სახლი (`house`), + მიწის ნაკვეთი on the sale form. `studio` stays in the enum and in every filter, admin list and label map, but both create forms stop offering it; an existing studio opened for editing keeps its option (rental `propertyTypeOptions`, sale `typeOptions`), so a save never retypes it. The rent filter popover (`SearchBox` → `src/lib/search/rentSearchQuery.ts:RentAdvancedFilters.types`, `types=`) offers the rental types incl. studio with the create form's labels (`ListingOptions.propertyTypes`); `parseRentSearchParams` keeps only `SEARCH_TYPE_VALUES` (anything else would 22P02 in the search query). `FilterPanel.types.apartment` / `Support.types.apartment` now read აპარტამენტი (ru Апартаменты; `flat` took ბინა/Квартира), so the SEO facts sentence (C40) names existing apartments აპარტამენტი. Also listed: `/apartments/page.tsx` `.in("type")`, `search/page.tsx`, `FilterPanel`, `SaleSearchBox`, `listing-options.ts` (both maps), `listing-facts.ts:FACT_TYPES`. **Prod order:** apply `20261006190000` BEFORE the app (the `/apartments` query names `flat`/`house`: 22P02 on a database without them).
 
 ---
 
@@ -357,6 +361,8 @@ Invariants held by **string keys, generated code, or wire shapes**—couplings i
 **C42 (2026-10-05):** `check-contracts` pins the finance CHECK lists to `src/lib/finance/constants.ts` and the rest listed under C42; `check-db-contracts` reads `finance_contract_snapshot()` (a missing RPC is a failure naming `20261005120000`; the dependent checks are skipped); `scripts/unit/finance-*.test.mjs` cover the pure modules and every finance message key.
 
 **C44 (2026-10-06):** `check-contracts` pins the membership status CHECK and the three RPCs' action lists to `src/lib/admin-statuses.ts`, the service_role-only grants, the statuses API as the only user, the bell-only notice types and the company-plan audit trigger; `check-db-contracts` checks the live CHECK, that the views answer for the service role, that each RPC refuses a non-admin actor and that anon reaches none of them; `scripts/unit/admin-statuses.test.mjs` covers the parsers and dates.
+
+**C46 (2026-10-06):** `check-contracts` pins the banner analytics wiring (one beacon, one route per RPC, `requireAdmin` on the read route, no `increment_ad_metric` caller, view/open/click in the renderer); `scripts/unit/banner-analytics.test.mjs` compares `BANNER_EVENTS`/`BANNER_SOURCES` and the range limit with the RPCs and the CHECK.
 
 ---
 
@@ -640,9 +646,9 @@ Invariants held by **string keys, generated code, or wire shapes**—couplings i
 
 ## C45 — Hotel rooms (`properties.hotel_rooms`, staging)
 
-**Invariant:** a hotel (`properties.type = 'hotel'`) lists its room types in `properties.hotel_rooms` (jsonb, NOT NULL DEFAULT `[]`): `[{name, guests, beds, area_sqm, price, quantity, photos}]`. The shape lives in the database, because the approve path runs as the definer: CHECK `properties_hotel_rooms_valid` = `hotel_rooms_valid()` (`20261006100000`: at most 30 rooms, no other keys, name 1-60, guests 1-20, beds 1-20 or null, area (0, 1000] or null, price (0, 100000], quantity 1-500, at most 5 photos with the same checks as `photos_are_storage_urls`: no `data:`/`blob:`, at most 2048 characters, no host check, like the main `photos` column; next/image `remotePatterns` and CSP stop other hosts at render). The limits are `src/lib/hotel-rooms.ts`'s constants; `scripts/unit/hotel-rooms.test.mjs` compares them (and the key list) with the newest migration that defines the function. Availability stays per hotel (`calendar_blocks` is keyed on property and date): rooms have no calendar.
+**Invariant:** a hotel (`properties.type = 'hotel'`) lists its room types in `properties.hotel_rooms` (jsonb, NOT NULL DEFAULT `[]`): `[{name, guests, beds, area_sqm, price, quantity, photos}]`. The shape lives in the database, because the approve path runs as the definer: CHECK `properties_hotel_rooms_valid` = `hotel_rooms_valid()` (`20261006100000`: at most 30 rooms, no other keys, name 1-60, guests 1-20, beds 1-20 or null, area (0, 1000] or null, price (0, 100000], quantity 1-500, at most 5 photos with the same checks as `photos_are_storage_urls`: no `data:`/`blob:`, at most 2048 characters, no host check, like the main `photos` column; next/image `remotePatterns` and CSP stop other hosts at render). The limits are `src/lib/hotel-rooms.ts`'s constants; `scripts/unit/hotel-rooms.test.mjs` compares them (and the key list) with the newest migration that defines the function. Availability stays per hotel (`calendar_blocks` is keyed on property and date): rooms have no calendar. `/create` has no hotel tile (removed 2026-10-06, the owner's call): a hotel is added through "გაქირავება" by choosing type "სასტუმრო" on step 1.
 
-**Symbols:** `src/lib/hotel-rooms.ts` (pure: `parseHotelRooms`, `roomFromDraft`, `checkHotelRoomDrafts`, `hotelRoomsSummary`), `src/components/forms/HotelRoomsEditor.tsx`, `src/components/detail/HotelRooms.tsx`, `src/app/[locale]/create/rental/page.tsx` (`?type=hotel` preset, `HotelStarsField`), the `/create` tile `hotel`, messages `CreateHub.categories.hotel`, `CreateRental.hotel.*`, `HotelDetail.{roomsTitle,roomBeds,roomQuantity,starsAria,roomPhotoAlt}`.
+**Symbols:** `src/lib/hotel-rooms.ts` (pure: `parseHotelRooms`, `roomFromDraft`, `checkHotelRoomDrafts`, `hotelRoomsSummary`), `src/components/forms/HotelRoomsEditor.tsx`, `src/components/detail/HotelRooms.tsx`, `src/app/[locale]/create/rental/page.tsx` (`?type=hotel` preset, `HotelStarsField`), messages `CreateRental.hotel.*`, `HotelDetail.{roomsTitle,roomBeds,roomQuantity,starsAria,roomPhotoAlt}`.
 
 **Key:**
 - The wizard derives the listing columns from the rooms: `price_per_night` = the cheapest room (what cards, sorting and search show; the price step displays it read-only), `rooms` = the sum of quantities, `capacity` = guests × quantity summed. A hotel's area is optional; rooms/guests/area/bathroom inputs are hidden for it.
@@ -655,3 +661,21 @@ Invariants held by **string keys, generated code, or wire shapes**—couplings i
 **Breaks:** a room field or limit changed on one side only (the unit test fails; the database rejects the insert with 23514, or the approval as `apply_failed`); `hotel_rooms` missing from a gate array (`content_review_gate_column_drift` and `check-db-contracts` C14 fail; edits of active hotels 42501 or lose the rooms at approval); `public_properties` re-created without the column (detail pages lose the rooms) or with a column before it (CREATE OR REPLACE refuses); the app deployed before the migration (every hotel insert 42501); a writer role without EXECUTE on `hotel_rooms_valid` (its `properties` writes 42501).
 
 **Prod order:** after the C31 membership batch (the view carries its predicate): apply `20261006100000`, then deploy the app.
+
+---
+
+## C46 — Ad & banner analytics (`banner_metrics_daily`, staging)
+
+**Invariant:** every banner creative, paid `ads` and editorial `landing_banners` on all 11 placements (C12), is counted the same way, and every admin number comes from one SQL definition. The renderer (`BannerSlotView`, interactive only) sends `{source, id, event}` to `POST /api/banner-slots/track`, which calls `record_banner_event` (definer, service_role only). It counts only a creative that is live right now (ads: `status='active'` and inside the window; banners: `active` and the nullable window), takes the placement from the row and adds 1 to that Tbilisi day's row of `banner_metrics_daily` (PK day, source, creative_id, placement). For ads it also bumps the lifetime `views_count`/`clicks_count` (audit noise: no audit row). The admin page `/dashboard/admin/ad-analytics`, the 30-day line on each banner card and the ad cards' link all read `GET /api/admin/banner-analytics` → `admin_banner_analytics(from, to, source?, placement?, creative?)` (service role only, behind `requireAdmin`, at most 366 inclusive days).
+
+**Events (the user's choice, 2026-10-06):** view = at least half on screen for 1 s; open = the detail window opened (`BannerSlotView`'s `expand`: an editorial banner's body or a video's expand button); click = the link followed (an ad's anchor, an editorial CTA, the detail window's CTA). CTR = clicks / views for both sources. Each is deduped once per creative per tab session (sessionStorage `mybakuriani:banner_{views,opens,clicks}`, in-memory fallback), so a view means "a session that saw it", not every render. Dismissing a sticky bar counts nothing.
+
+**Key:** no IP, user, visitor or device id is stored, so there is no consent gate (unlike page views, C38) and no retention entry (C37); the 120/min/IP limiter (C16, fail-open) is the only brake on a scripted beacon. No FK to the creative tables: a deleted creative keeps its history (`status: "deleted"`, title null). The admin `creatives` list holds every creative with events in the range plus, when the range reaches today, every creative live now (so a live banner nobody sees shows zeros), plus the one a report asks for (`creative`) whatever its state, so an expired ad's report still shows its title and lifetime counters; `live_now` counts live creatives under the same filters whatever the range. `all_time_views`/`all_time_clicks` (ads only) are the lifetime counters, which predate the rollup (prod: 142 views / 2 clicks from July-September); they are shown apart ("ყველა დროში", and the ad cards' grid is captioned so) and never added to range numbers. A beacon without `source` counts as an ad (bundles cached from before C46). `increment_ad_metric` is superseded but kept until every deploy runs the new route; drop it in a later migration.
+
+**Symbols:** `supabase/migrations/20261006180000_banner_analytics.sql`, `src/lib/banner-analytics.ts` (pure: `BANNER_EVENTS`, `BANNER_SOURCES`, limits, `ctrPercent`, payload types), `src/lib/banner-tracking.ts` (`useBannerViewTracking`, `reportBannerEvent`), `src/components/banners/BannerSlotView.tsx`, `src/components/shared/BannerDetailModal.tsx`, `src/app/api/banner-slots/track/route.ts`, `src/app/api/admin/banner-analytics/route.ts`, `src/app/[locale]/dashboard/admin/ad-analytics/page.tsx`, namespace `AdminAdAnalytics` (`DASHBOARD_NAMESPACES`, C1), nav key `DashboardSidebar.nav.adAnalytics`.
+
+**Breaks:** an event or source added on one side only (the RPC raises 22023 and the beacon answers 500; the unit test fails); a new interactive element (a CTA, a link) that skips `reportBannerEvent` (clicks undercounted); counting in the admin preview; a client grant on the table or the RPCs (C34); a reader that adds `all_time_*` to range numbers; a second writer of `banner_metrics_daily`.
+
+**Guards:** `check-contracts.mjs` C46, `scripts/unit/banner-analytics.test.mjs`.
+
+**Prod order:** apply `20261006180000`, then deploy the app (until then the old route keeps calling `increment_ad_metric`, which still exists). An app deployed first answers 500 to every beacon (missing function) while banners still render.

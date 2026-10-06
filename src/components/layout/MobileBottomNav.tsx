@@ -35,6 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toServiceSegment } from "@/lib/dashboard/serviceSegments";
 import { MobileServiceSwitcherGrid } from "@/components/layout/MobileServiceSwitcherGrid";
+import { CopyUserIdButton } from "@/components/layout/CopyUserIdButton";
 import BottomSheet from "@/components/shared/BottomSheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
@@ -169,6 +170,11 @@ function getNavigation(role: string): RoleNavigation {
             labelKey: "ads",
             href: "/dashboard/admin/moderation",
             icon: ClipboardList,
+          },
+          {
+            labelKey: "adAnalytics",
+            href: "/dashboard/admin/ad-analytics",
+            icon: BarChart3,
           },
           {
             labelKey: "broadcast",
@@ -597,9 +603,15 @@ export function MobileBottomNav({
                 <p className="truncate text-[15px] font-extrabold text-[#0F172A]">
                   {profile.name}
                 </p>
-                <p className="mt-0.5 text-[11px] font-bold tracking-wide text-[#2563EB]">
-                  {tSidebar("userIdPrefix")} {profile.userCode}
-                </p>
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  <p className="text-[11px] font-bold tracking-wide text-[#2563EB]">
+                    {tSidebar("userIdPrefix")} {profile.userCode}
+                  </p>
+                  <CopyUserIdButton
+                    userId={profile.userCode}
+                    className="-my-1"
+                  />
+                </div>
               </div>
             </div>
           )}

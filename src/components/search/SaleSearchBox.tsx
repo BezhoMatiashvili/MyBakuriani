@@ -126,12 +126,14 @@ interface SaleSearchBoxProps {
 // translation keys at render time.
 
 const PROPERTY_TYPES = [
+  { value: "flat", labelKey: "typeFlat" },
   { value: "apartment", labelKey: "typeApartment" },
-  { value: "studio", labelKey: "typeStudio" },
-  { value: "villa", labelKey: "typeVilla" },
-  { value: "land", labelKey: "typeLand" },
-  { value: "cottage", labelKey: "typeCottage" },
   { value: "hotel", labelKey: "typeHotel" },
+  { value: "cottage", labelKey: "typeCottage" },
+  { value: "villa", labelKey: "typeVilla" },
+  { value: "house", labelKey: "typeHouse" },
+  { value: "studio", labelKey: "typeStudio" },
+  { value: "land", labelKey: "typeLand" },
 ];
 
 const ROOM_OPTIONS = [1, 2, 3, 4] as const;

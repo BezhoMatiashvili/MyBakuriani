@@ -41,9 +41,11 @@ test("unknown types are dropped, known ones kept", () => {
   assert.equal(buildPropertyFacts({ ...base, type: "castle" }).type, null);
   assert.equal(buildPropertyFacts({ ...base, type: null }).type, null);
   for (const type of [
+    "flat",
     "apartment",
     "cottage",
     "villa",
+    "house",
     "studio",
     "hotel",
     "land",

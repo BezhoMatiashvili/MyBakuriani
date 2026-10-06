@@ -118,11 +118,13 @@ const CONSTRUCTION_MILESTONES: Array<{
 type PropertyType = Database["public"]["Enums"]["property_type"];
 
 const PROPERTY_TYPE_LABEL_KEYS: Record<PropertyType, string> = {
+  flat: "typeFlat",
   apartment: "typeApartment",
   cottage: "typeCottage",
   hotel: "typeHotel",
   studio: "typeStudio",
   villa: "typeVilla",
+  house: "typeHouse",
   land: "typeLand",
 };
 

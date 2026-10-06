@@ -180,6 +180,36 @@ export type Database = {
           },
         ];
       };
+      banner_metrics_daily: {
+        Row: {
+          clicks: number;
+          creative_id: string;
+          day: string;
+          opens: number;
+          placement: string;
+          source: string;
+          views: number;
+        };
+        Insert: {
+          clicks?: number;
+          creative_id: string;
+          day: string;
+          opens?: number;
+          placement: string;
+          source: string;
+          views?: number;
+        };
+        Update: {
+          clicks?: number;
+          creative_id?: string;
+          day?: string;
+          opens?: number;
+          placement?: string;
+          source?: string;
+          views?: number;
+        };
+        Relationships: [];
+      };
       blog_posts: {
         Row: {
           author_id: string | null;
@@ -6728,6 +6758,16 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      admin_banner_analytics: {
+        Args: {
+          p_creative?: string;
+          p_from: string;
+          p_placement?: string;
+          p_source?: string;
+          p_to: string;
+        };
+        Returns: Json;
+      };
       admin_change_company_plans: {
         Args: {
           p_action: string;
@@ -7450,6 +7490,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      record_banner_event: {
+        Args: { p_event: string; p_id: string; p_source: string };
+        Returns: boolean;
+      };
       record_contact_event: {
         Args: {
           p_channel: string;
@@ -7993,7 +8037,14 @@ export type Database = {
       lead_stage: "new" | "contacted" | "shown" | "negotiating" | "closed";
       listing_status: "active" | "blocked" | "pending" | "draft";
       property_type:
-        "apartment" | "cottage" | "hotel" | "studio" | "villa" | "land";
+        | "apartment"
+        | "cottage"
+        | "hotel"
+        | "studio"
+        | "villa"
+        | "land"
+        | "flat"
+        | "house";
       service_category:
         | "transport"
         | "cleaning"
@@ -8195,6 +8246,8 @@ export const Constants = {
         "studio",
         "villa",
         "land",
+        "flat",
+        "house",
       ],
       service_category: [
         "transport",

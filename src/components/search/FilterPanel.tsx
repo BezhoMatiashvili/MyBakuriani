@@ -9,10 +9,12 @@ import NumberField from "@/components/shared/NumberField";
 import { AMENITY_GROUPS } from "@/lib/constants/listing-options";
 
 const PROPERTY_TYPE_KEYS = [
+  "flat",
   "apartment",
-  "cottage",
   "hotel",
+  "cottage",
   "villa",
+  "house",
   "studio",
   // Sale-only in practice: this panel is shared between rent and sale mode and
   // takes no mode prop, so the chip is a no-op in rent mode (same as "hotel").

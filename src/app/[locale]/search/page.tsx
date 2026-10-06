@@ -46,11 +46,13 @@ interface SearchPageProps {
 }
 
 const PROPERTY_TYPES = [
+  "flat",
   "apartment",
   "cottage",
   "hotel",
   "studio",
   "villa",
+  "house",
   "land",
 ] as const;
 type PropertyType = (typeof PROPERTY_TYPES)[number];

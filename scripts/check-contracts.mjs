@@ -1562,6 +1562,42 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C44: membership status CHECK = MEMBERSHIP_STATUSES; ${rpcs.length} change RPCs' actions = the TS lists; RPCs and views service_role only; used only by the statuses API; pure module bare; admin status notices bell only; company plans audited`);
 }
 
+// ---------------------------------------------------------------------------
+// C46 — ad & banner analytics. Every creative event goes beacon → one route →
+// one RPC, and every admin number comes from one read RPC behind requireAdmin:
+// (a) record_banner_event is called only by the track route and
+// admin_banner_analytics only by the admin route (which checks requireAdmin);
+// (b) only src/lib/banner-tracking.ts posts to the track route; (c) nothing
+// calls the superseded increment_ad_metric; (d) the renderer counts views on
+// the shell, opens where the detail window opens, and clicks on the detail
+// window's CTA; (e) src/lib/banner-analytics.ts stays free of "@/" imports
+// (scripts/unit loads it bare; the SQL lists are compared there).
+// ---------------------------------------------------------------------------
+{
+  const appFiles = srcFiles.filter((f) => !f.startsWith(join("src/lib/types")));
+  const callers = (pattern) => appFiles.filter((f) => pattern.test(srcText.get(f)));
+  const problems = [];
+  const expectOnly = (label, pattern, allowed) => {
+    const found = callers(pattern);
+    const extra = found.filter((f) => f !== join(allowed));
+    if (!found.includes(join(allowed))) problems.push(`${allowed} no longer calls ${label}`);
+    if (extra.length) problems.push(`${label} is called outside ${allowed}: ${extra.join(", ")}`);
+  };
+  expectOnly("record_banner_event", /rpc\(\s*"record_banner_event"/, "src/app/api/banner-slots/track/route.ts");
+  expectOnly("admin_banner_analytics", /rpc\(\s*"admin_banner_analytics"/, "src/app/api/admin/banner-analytics/route.ts");
+  expectOnly('the "/api/banner-slots/track" beacon', /["`]\/api\/banner-slots\/track["`]/, "src/lib/banner-tracking.ts");
+  if (!/await requireAdmin\(\)/.test(read("src/app/api/admin/banner-analytics/route.ts"))) problems.push("src/app/api/admin/banner-analytics/route.ts must check requireAdmin() before reading");
+  const legacy = callers(/increment_ad_metric/);
+  if (legacy.length) problems.push(`increment_ad_metric is superseded by record_banner_event: ${legacy.join(", ")}`);
+  const view = read("src/components/banners/BannerSlotView.tsx");
+  if (!/useBannerViewTracking\(creative, interactive\)/.test(view)) problems.push("BannerSlotView's CreativeShell must count views with useBannerViewTracking(creative, interactive)");
+  if (!/reportBannerEvent\(creative, "open"\);\s*setExpanded\(creative\)/.test(view)) problems.push("BannerSlotView must count an open where the detail window opens");
+  if (!/reportBannerEvent\(creative, "click"\)/.test(read("src/components/shared/BannerDetailModal.tsx"))) problems.push("BannerDetailModal's CTA must count a click");
+  if (/from "@\//.test(read("src/lib/banner-analytics.ts"))) problems.push('src/lib/banner-analytics.ts imports from "@/" (scripts/unit loads it bare)');
+  if (problems.length) problems.forEach((p) => fail(`C46: ${p}`));
+  else ok("C46: banner events go through one beacon, one route and one RPC; admin numbers through one read RPC behind requireAdmin; views, opens and clicks wired in the renderer");
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);
