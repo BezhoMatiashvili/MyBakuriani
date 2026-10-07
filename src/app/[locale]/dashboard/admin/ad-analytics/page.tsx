@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import DateField from "@/components/shared/DateField";
+import DownloadMenu from "@/components/admin/DownloadMenu";
 import { formatDateShort, formatNumber } from "@/lib/utils/format";
 import { BANNER_PLACEMENTS } from "@/lib/banner-placements";
 import { addDays, tbilisiToday } from "@/lib/admin-statuses";
@@ -22,18 +23,22 @@ import {
   BANNER_ANALYTICS_DEFAULT_DAYS,
   BANNER_ANALYTICS_PRESETS,
   actualSovPercent,
+  bannerCreativeName,
   ctrPercent,
   isBannerSource,
+  sortBannerCreatives,
   type BannerAnalytics,
   type BannerAnalyticsCreative,
+  type BannerExportBlock,
+  type BannerSortKey,
   type BannerSource,
 } from "@/lib/banner-analytics";
+import type { ExportFormat, ExportScope } from "@/lib/analytics/model";
 import { rotationModeFor } from "@/lib/ad-rotation";
 
 // The media plan's report (C47, §6): impressions, reach, clicks, CTR =
 // clicks / impressions, the campaign period and planned vs actual SOV.
 type Metric = "impressions" | "opens" | "clicks";
-type SortKey = "impressions" | "reach" | "clicks" | "ctr";
 
 const METRICS: Metric[] = ["impressions", "opens", "clicks"];
 const METRIC_COLOR: Record<Metric, string> = {
@@ -81,7 +86,7 @@ export default function AdminAdAnalyticsPage() {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [metric, setMetric] = useState<Metric>("impressions");
-  const [sortKey, setSortKey] = useState<SortKey>("impressions");
+  const [sortKey, setSortKey] = useState<BannerSortKey>("impressions");
 
   const [today] = useState(() => tbilisiToday());
   const [data, setData] = useState<BannerAnalytics | null>(null);
@@ -146,14 +151,11 @@ export default function AdminAdAnalyticsPage() {
     [tShared],
   );
 
-  const creatives = useMemo(() => {
-    const rows = [...(data?.creatives ?? [])];
-    const score = (c: BannerAnalyticsCreative) =>
-      sortKey === "ctr"
-        ? (ctrPercent(c.clicks, c.impressions) ?? -1)
-        : c[sortKey];
-    return rows.sort((a, b) => score(b) - score(a));
-  }, [data, sortKey]);
+  // Same order as the export's table (sortBannerCreatives).
+  const creatives = useMemo(
+    () => sortBannerCreatives(data?.creatives ?? [], sortKey),
+    [data, sortKey],
+  );
 
   const totals = data?.totals ?? {
     views: 0,
@@ -169,7 +171,33 @@ export default function AdminAdAnalyticsPage() {
       : null;
 
   function creativeName(c: BannerAnalyticsCreative): string {
-    return c.title ?? t("deletedTitle", { source: t(`sources.${c.source}`) });
+    return bannerCreativeName(c, (key, values) =>
+      t(key as never, values as never),
+    );
+  }
+
+  // Each card (and the whole page) exports exactly what it shows: the same
+  // query the page loaded, plus the creatives table's order (C46).
+  function exportMenu(block: BannerExportBlock, primary = false) {
+    return (
+      <DownloadMenu
+        hrefFor={(scope: ExportScope, format: ExportFormat) => {
+          const params = new URLSearchParams(query ?? "");
+          params.set("block", block);
+          params.set("scope", scope);
+          params.set("format", format);
+          params.set("sort", sortKey);
+          return `/api/admin/banner-analytics/export?${params.toString()}`;
+        }}
+        ariaLabel={t("export.menuLabel", {
+          block: t(`export.blocks.${block}`),
+        })}
+        testId={`ad-analytics-export-${block}`}
+        label={primary ? t("export.pageButton") : undefined}
+        primary={primary}
+        disabled={query === null}
+      />
+    );
   }
 
   function plannedSov(c: BannerAnalyticsCreative): string {
@@ -194,9 +222,12 @@ export default function AdminAdAnalyticsPage() {
     <div className="relative h-full w-full overflow-x-auto">
       <div className="flex min-h-full flex-col gap-6 pb-10">
         <div className="space-y-2 pb-2">
-          <h1 className="text-[32px] font-black leading-8 tracking-[-0.8px] text-[#0F172A]">
-            {t("title")}
-          </h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-[32px] font-black leading-8 tracking-[-0.8px] text-[#0F172A]">
+              {t("title")}
+            </h1>
+            {exportMenu("all", true)}
+          </div>
           <p className="text-[14px] font-medium leading-[21px] text-[#64748B]">
             {t("subtitle")}
           </p>
@@ -347,63 +378,71 @@ export default function AdminAdAnalyticsPage() {
             className={`flex flex-col gap-6 transition-opacity ${loading ? "opacity-60" : ""}`}
             aria-busy={loading}
           >
-            {/* KPI tiles */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Kpi
-                label={t("metrics.impressions")}
-                value={formatNumber(totals.impressions)}
-                color={METRIC_COLOR.impressions}
-              />
-              <Kpi
-                label={t("metrics.reach")}
-                value={formatNumber(totals.reach)}
-                color="#7C3AED"
-              />
-              <Kpi
-                label={t("metrics.clicks")}
-                value={formatNumber(totals.clicks)}
-                color={METRIC_COLOR.clicks}
-              />
-              <Kpi
-                label={t("metrics.ctr")}
-                value={formatCtr(totals.clicks, totals.impressions)}
-                color="#0F172A"
-              />
-              <Kpi
-                label={t("metrics.opens")}
-                value={formatNumber(totals.opens)}
-                color={METRIC_COLOR.opens}
-              />
-              <Kpi
-                label={t("metrics.live")}
-                value={formatNumber(data.live_now)}
-                color="#64748B"
-              />
-            </div>
-
-            {/* One campaign's report: its period and planned vs actual SOV. */}
-            {focused ? (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {/* KPI tiles (and one campaign's period and SOV) */}
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-[16px] font-black text-[#1E293B]">
+                  {t("export.blocks.kpis")}
+                </h2>
+                {exportMenu("kpis")}
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 <Kpi
-                  label={t("columns.period")}
-                  value={period(focused)}
-                  color="#1E293B"
-                  small
+                  label={t("metrics.impressions")}
+                  value={formatNumber(totals.impressions)}
+                  color={METRIC_COLOR.impressions}
                 />
                 <Kpi
-                  label={t("metrics.sovPlanned")}
-                  value={plannedSov(focused)}
-                  color="#1E293B"
-                  small
+                  label={t("metrics.reach")}
+                  value={formatNumber(totals.reach)}
+                  color="#7C3AED"
                 />
                 <Kpi
-                  label={t("metrics.sovActual")}
-                  value={formatActualSov(focused)}
-                  color="#1E293B"
-                  small
+                  label={t("metrics.clicks")}
+                  value={formatNumber(totals.clicks)}
+                  color={METRIC_COLOR.clicks}
+                />
+                <Kpi
+                  label={t("metrics.ctr")}
+                  value={formatCtr(totals.clicks, totals.impressions)}
+                  color="#0F172A"
+                />
+                <Kpi
+                  label={t("metrics.opens")}
+                  value={formatNumber(totals.opens)}
+                  color={METRIC_COLOR.opens}
+                />
+                <Kpi
+                  label={t("metrics.live")}
+                  value={formatNumber(data.live_now)}
+                  color="#64748B"
                 />
               </div>
-            ) : null}
+
+              {/* One campaign's report: its period and planned vs actual SOV. */}
+              {focused ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <Kpi
+                    label={t("columns.period")}
+                    value={period(focused)}
+                    color="#1E293B"
+                    small
+                  />
+                  <Kpi
+                    label={t("metrics.sovPlanned")}
+                    value={plannedSov(focused)}
+                    color="#1E293B"
+                    small
+                  />
+                  <Kpi
+                    label={t("metrics.sovActual")}
+                    value={formatActualSov(focused)}
+                    color="#1E293B"
+                    small
+                  />
+                </div>
+              ) : null}
+            </div>
 
             {/* Daily chart */}
             <section className="rounded-3xl border border-[#E2E8F0] bg-white p-5">
@@ -432,6 +471,7 @@ export default function AdminAdAnalyticsPage() {
                       {t(`metrics.${m}`)}
                     </button>
                   ))}
+                  {exportMenu("daily")}
                 </div>
               </div>
               <div className="relative mt-4 h-[220px] lg:h-[260px]">
@@ -513,9 +553,12 @@ export default function AdminAdAnalyticsPage() {
             {/* By placement — hidden for a single creative (one placement). */}
             {!creative ? (
               <section className="overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white">
-                <h2 className="px-5 pt-5 text-[16px] font-black text-[#1E293B]">
-                  {t("byPlacementTitle")}
-                </h2>
+                <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
+                  <h2 className="text-[16px] font-black text-[#1E293B]">
+                    {t("byPlacementTitle")}
+                  </h2>
+                  {exportMenu("placements")}
+                </div>
                 {data.by_placement.length === 0 ? (
                   <p className="px-5 py-8 text-sm font-medium text-[#94A3B8]">
                     {t("empty")}
@@ -583,21 +626,26 @@ export default function AdminAdAnalyticsPage() {
                 <h2 className="text-[16px] font-black text-[#1E293B]">
                   {t("byCreativeTitle")}
                 </h2>
-                <label className="flex items-center gap-2 text-[12px] font-bold text-[#64748B]">
-                  {t("sortBy")}
-                  <select
-                    value={sortKey}
-                    onChange={(e) => setSortKey(e.target.value as SortKey)}
-                    className={selectCls}
-                  >
-                    <option value="impressions">
-                      {t("metrics.impressions")}
-                    </option>
-                    <option value="reach">{t("metrics.reach")}</option>
-                    <option value="clicks">{t("metrics.clicks")}</option>
-                    <option value="ctr">{t("metrics.ctr")}</option>
-                  </select>
-                </label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2 text-[12px] font-bold text-[#64748B]">
+                    {t("sortBy")}
+                    <select
+                      value={sortKey}
+                      onChange={(e) =>
+                        setSortKey(e.target.value as BannerSortKey)
+                      }
+                      className={selectCls}
+                    >
+                      <option value="impressions">
+                        {t("metrics.impressions")}
+                      </option>
+                      <option value="reach">{t("metrics.reach")}</option>
+                      <option value="clicks">{t("metrics.clicks")}</option>
+                      <option value="ctr">{t("metrics.ctr")}</option>
+                    </select>
+                  </label>
+                  {exportMenu("creatives")}
+                </div>
               </div>
               {creatives.length === 0 ? (
                 <p className="px-5 py-8 text-sm font-medium text-[#94A3B8]">

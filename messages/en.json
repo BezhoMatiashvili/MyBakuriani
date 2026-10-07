@@ -6095,7 +6095,9 @@
         "week": "Week (from Monday)",
         "month": "Month"
       },
-      "page": "Page {page} / {pages}"
+      "page": "Page {page} / {pages}",
+      "failed": "The file could not be downloaded — please try again.",
+      "rateLimited": "Too many downloads — try again in a few minutes."
     }
   },
   "AdminAdAnalytics": {
@@ -6159,7 +6161,34 @@
     "retry": "Retry",
     "rangeInvalid": "Invalid range — at most 366 days.",
     "cardSummary": "Last 30 days: impressions {impressions} · opens {opens} · clicks {clicks} · CTR {ctr}",
-    "openAnalytics": "Analytics"
+    "openAnalytics": "Analytics",
+    "export": {
+      "pageButton": "Download statistics",
+      "menuLabel": "Export: {block}",
+      "title": "MyBakuriani — ad analytics",
+      "blocks": {
+        "kpis": "Key metrics",
+        "daily": "Daily trend",
+        "placements": "By placement",
+        "creatives": "By banner and ad",
+        "all": "Whole page"
+      },
+      "period": "Period: {from} — {to} (Tbilisi days, both inclusive)",
+      "periodShort": "Period: {from} — {to}",
+      "scopeFiltered": "Data: filtered by the current filters",
+      "scopeFull": "Data: full (without the type, placement and report filters)",
+      "filters": "Active filters: {list}",
+      "noFilters": "Active filters: none",
+      "generated": "Generated: {date} (Tbilisi time)",
+      "metric": "Metric",
+      "value": "Value",
+      "day": "Day",
+      "allTimeViews": "Views — all time",
+      "allTimeClicks": "Clicks — all time",
+      "allTimeNote": "“All time” — the ad's lifetime view and click counters, including what was counted before the daily rollup; never added to the period's numbers.",
+      "liveNote": "“Live now” — the state when the file was created; it does not depend on the selected period.",
+      "page": "Page {page} / {pages}"
+    }
   },
   "AdminMemberships": {
     "title": "Membership approvals",

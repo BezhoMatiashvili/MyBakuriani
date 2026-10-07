@@ -64,6 +64,54 @@ test.describe("Admin Dashboard", () => {
     expect(full.headers()["content-type"]).toContain("spreadsheetml");
   });
 
+  test("every ad analytics card exports (C46)", async ({ adminPage }) => {
+    await adminPage.goto("/dashboard/admin/ad-analytics");
+    if (!(await assertDashboard(adminPage))) return;
+
+    for (const block of ["all", "kpis", "daily", "placements", "creatives"]) {
+      await expect(
+        adminPage.getByTestId(`ad-analytics-export-${block}`),
+      ).toBeVisible();
+    }
+
+    // A pick in the menu saves the file under the server's name.
+    await adminPage.getByTestId("ad-analytics-export-daily").click();
+    const [download] = await Promise.all([
+      adminPage.waitForEvent("download"),
+      adminPage.getByTestId("ad-analytics-export-daily-filtered-csv").click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(
+      /^mybakuriani-ad-analytics-daily-\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.csv$/,
+    );
+
+    const base =
+      "/api/admin/banner-analytics/export?from=2026-09-08&to=2026-10-07";
+    const csv = await adminPage.request.get(
+      `${base}&source=ad&block=all&scope=filtered&format=csv&sort=clicks`,
+    );
+    expect(csv.status()).toBe(200);
+    const text = await csv.text();
+    expect(text).toContain("პერიოდი: 2026-09-08 — 2026-10-07");
+    expect(text).toContain("აქტიური ფილტრები: ტიპი: B2B რეკლამები");
+    expect(text).toContain("დალაგება: კლიკები");
+
+    const pdf = await adminPage.request.get(
+      `${base}&block=creatives&scope=full&format=pdf`,
+    );
+    expect(pdf.status()).toBe(200);
+    expect((await pdf.body()).subarray(0, 5).toString()).toBe("%PDF-");
+
+    const xlsx = await adminPage.request.get(
+      `${base}&block=kpis&scope=filtered&format=xlsx`,
+    );
+    expect(xlsx.headers()["content-type"]).toContain("spreadsheetml");
+
+    const invalid = await adminPage.request.get(
+      `${base}&block=chart&scope=filtered&format=csv`,
+    );
+    expect(invalid.status()).toBe(400);
+  });
+
   test("verifications page loads", async ({ adminPage }) => {
     await adminPage.goto("/dashboard/admin/verifications");
     if (!(await assertDashboard(adminPage))) return;

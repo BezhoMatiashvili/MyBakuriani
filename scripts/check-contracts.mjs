@@ -1719,9 +1719,11 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // C46 — ad & banner analytics. Every creative event goes beacon → one route →
 // one RPC, and every admin number comes from one read RPC behind requireAdmin:
 // (a) record_banner_events (C47's batched writer) is called only by the track
-// route and admin_banner_analytics only by the admin route (which checks
-// requireAdmin) and C49's src/lib/analytics/server.ts (imported only by the
-// requireAdmin analytics routes, pinned there); nothing calls the superseded record_banner_event or
+// route and admin_banner_analytics only by src/lib/banner-analytics-server.ts
+// (the loader of the admin page's route and its export route, both behind
+// requireAdmin, the only importers) and C49's src/lib/analytics/server.ts
+// (imported only by the requireAdmin analytics routes, pinned there); nothing
+// calls the superseded record_banner_event or
 // increment_ad_metric; (b) only src/lib/banner-tracking.ts posts to the track
 // route; (c) the renderer counts impressions on the shell, opens where the
 // detail window opens, and clicks on the detail window's CTA; (d)
@@ -1741,9 +1743,15 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   expectOnly("record_banner_events", /rpc\(\s*"record_banner_events"/, "src/app/api/banner-slots/track/route.ts");
   const single = callers(/rpc\(\s*"record_banner_event"/);
   if (single.length) problems.push(`record_banner_event is superseded by the batched record_banner_events: ${single.join(", ")}`);
-  expectOnly("admin_banner_analytics", /rpc\(\s*"admin_banner_analytics"/, "src/app/api/admin/banner-analytics/route.ts", ["src/lib/analytics/server.ts"]);
+  expectOnly("admin_banner_analytics", /rpc\(\s*"admin_banner_analytics"/, "src/lib/banner-analytics-server.ts", ["src/lib/analytics/server.ts"]);
+  const adRoutes = ["src/app/api/admin/banner-analytics/route.ts", "src/app/api/admin/banner-analytics/export/route.ts"];
+  const loaderUsers = callers(/from "@\/lib\/banner-analytics-server"/);
+  for (const route of adRoutes) if (!loaderUsers.includes(join(route))) problems.push(`${route} must read through src/lib/banner-analytics-server.ts`);
+  const strayLoaderUsers = loaderUsers.filter((f) => !adRoutes.some((r) => join(r) === f));
+  if (strayLoaderUsers.length) problems.push(`src/lib/banner-analytics-server.ts is imported outside the two requireAdmin routes: ${strayLoaderUsers.join(", ")}`);
+  if (!/^import "server-only";/m.test(read("src/lib/banner-analytics-server.ts"))) problems.push('src/lib/banner-analytics-server.ts must import "server-only"');
   expectOnly('the "/api/banner-slots/track" beacon', /["`]\/api\/banner-slots\/track["`]/, "src/lib/banner-tracking.ts");
-  if (!/await requireAdmin\(\)/.test(read("src/app/api/admin/banner-analytics/route.ts"))) problems.push("src/app/api/admin/banner-analytics/route.ts must check requireAdmin() before reading");
+  for (const route of adRoutes) if (!/await requireAdmin\(\)/.test(read(route))) problems.push(`${route} must check requireAdmin() before reading`);
   const legacy = callers(/increment_ad_metric/);
   if (legacy.length) problems.push(`increment_ad_metric is superseded by record_banner_event: ${legacy.join(", ")}`);
   const view = read("src/components/banners/BannerSlotView.tsx");
@@ -1752,7 +1760,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (!/reportBannerEvent\(creative, "click"\)/.test(read("src/components/shared/BannerDetailModal.tsx"))) problems.push("BannerDetailModal's CTA must count a click");
   if (/from "@\//.test(read("src/lib/banner-analytics.ts"))) problems.push('src/lib/banner-analytics.ts imports from "@/" (scripts/unit loads it bare)');
   if (problems.length) problems.forEach((p) => fail(`C46: ${p}`));
-  else ok("C46: banner events go through one beacon, one route and one RPC; admin numbers through one read RPC behind requireAdmin; impressions, opens and clicks wired in the renderer");
+  else ok("C46: banner events go through one beacon, one route and one RPC; admin numbers (page and exports) through one read RPC and one loader behind requireAdmin; impressions, opens and clicks wired in the renderer");
 }
 
 // ---------------------------------------------------------------------------

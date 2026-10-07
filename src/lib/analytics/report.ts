@@ -265,7 +265,12 @@ export function dimensionValueLabel(
 
 export type ReportCellKind = "text" | "number" | "money";
 export type ReportCell = string | number | null;
-export type ReportColumn = { header: string; kind: ReportCellKind };
+export type ReportColumn = {
+  header: string;
+  kind: ReportCellKind;
+  /** PDF width share (text 2, numbers 1 by default). */
+  weight?: number;
+};
 
 export type ReportSection = {
   title: string;
