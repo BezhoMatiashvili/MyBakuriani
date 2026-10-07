@@ -6,7 +6,10 @@ import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { usePathname } from "@/i18n/navigation";
 import TopUpModal from "@/components/payments/TopUpModal";
-import { startCardCheckout } from "@/lib/payments/keepz/browser";
+import {
+  openCheckoutTab,
+  startCardCheckout,
+} from "@/lib/payments/keepz/browser";
 import { TOPUP_PARAM, parseTopUpParam } from "@/lib/support/actions";
 
 /**
@@ -42,6 +45,8 @@ export default function CardTopUpLauncher() {
   const attempt = useRef<{ amount: number; requestId: string } | null>(null);
 
   const startTopUp = async (amount: number) => {
+    // Before any await, or the browser blocks the tab Keepz opens in.
+    const tab = openCheckoutTab();
     if (attempt.current?.amount !== amount) {
       attempt.current = { amount, requestId: crypto.randomUUID() };
     }
@@ -51,6 +56,7 @@ export default function CardTopUpLauncher() {
       amount,
       returnPath: pathname,
       locale,
+      tab,
     });
     if (failure) {
       // No usable order came of it: the next try needs a fresh key.

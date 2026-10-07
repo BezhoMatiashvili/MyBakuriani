@@ -37,6 +37,8 @@ type PublicViews = {
   public_properties: {
     Row: Row<"properties"> & {
       has_whatsapp: boolean;
+      profile_display_name: string | null;
+      profile_avatar_url: string | null;
       profile_is_verified: boolean | null;
       /** Approved ownership verification of the current owner (C39). */
       ownership_verified: boolean;

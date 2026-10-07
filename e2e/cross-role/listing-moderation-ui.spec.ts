@@ -1,5 +1,6 @@
 import { test, expect } from "../helpers/fixtures";
 import { properties, supabaseAdmin } from "../helpers/supabase";
+import { TEST_IDS } from "../helpers/seed";
 
 // ---------------------------------------------------------------------------
 // Renter -> Admin listing moderation flow (UI-driven)
@@ -12,14 +13,23 @@ import { properties, supabaseAdmin } from "../helpers/supabase";
 const PENDING_PROPERTY_ID = "aae2ff00-cf01-4000-a000-000000000001";
 const PENDING_SERVICE_ID = "aae2ff00-cf02-4000-a000-000000000002";
 
+// API writes need an Origin (middleware answers 403 invalid_origin without
+// one), and Playwright's request.post sends none.
+const jsonHeaders = (baseURL: string | undefined) => ({
+  "content-type": "application/json",
+  origin: new URL(baseURL ?? "http://localhost:3000").origin,
+});
+
 test.describe.configure({ mode: "serial" });
 
 test.describe("Listing moderation UI flow", () => {
   test.afterAll(async () => {
+    // Only this spec's owners: the run shares a project with real accounts.
     await supabaseAdmin
       .from("notifications")
       .delete()
-      .eq("type", "listing_moderation");
+      .eq("type", "listing_moderation")
+      .in("user_id", [TEST_IDS.renter, TEST_IDS.food]);
     await properties.delete(PENDING_PROPERTY_ID).catch(() => {});
     await supabaseAdmin.from("services").delete().eq("id", PENDING_SERVICE_ID);
   });
@@ -103,6 +113,7 @@ test.describe("Listing moderation UI flow", () => {
   test("admin clicks Approve and property becomes active", async ({
     adminPage,
     testIds,
+    baseURL,
   }) => {
     // Skip the UI navigation entirely if cookie helper hasn't authenticated us
     // — the API + DB fallback below still validates the approval contract.
@@ -120,7 +131,7 @@ test.describe("Listing moderation UI flow", () => {
         action: "approve",
         notes: "E2E auto-approve",
       },
-      headers: { "content-type": "application/json" },
+      headers: jsonHeaders(baseURL),
     });
     if (res.status() === 401) {
       // Cookie-injection helper limitation — apply approval directly with the
@@ -166,6 +177,38 @@ test.describe("Listing moderation UI flow", () => {
     expect(notifs![0].title).toContain("დამტკიცდა");
   });
 
+  test("approving an already active listing notifies nobody", async ({
+    adminPage,
+    testIds,
+    baseURL,
+  }) => {
+    // The audit panel's Approve saves edits and approves again on an active
+    // listing; that used to send the owner "დამტკიცდა" (and its SMS) again.
+    const countApprovals = async () => {
+      const { count, error } = await supabaseAdmin
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", testIds.renter)
+        .eq("type", "listing_moderation");
+      expect(error).toBeNull();
+      return count ?? 0;
+    };
+    const before = await countApprovals();
+
+    const res = await adminPage.request.post("/api/admin/listings/moderate", {
+      data: { kind: "property", id: PENDING_PROPERTY_ID, action: "approve" },
+      headers: jsonHeaders(baseURL),
+    });
+    test.skip(
+      res.status() === 401,
+      "cookie-injection auth helper does not authenticate /api/admin routes",
+    );
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: true, status: "active", changed: false });
+    expect(await countApprovals()).toBe(before);
+  });
+
   test("approved property appears in public listings", async ({ page }) => {
     await page.goto(`/apartments/${PENDING_PROPERTY_ID}`);
     await page.waitForLoadState("networkidle");
@@ -177,6 +220,7 @@ test.describe("Listing moderation UI flow", () => {
   test("renter creates a pending service and admin rejects it", async ({
     adminPage,
     testIds,
+    baseURL,
   }) => {
     // Create pending service
     const { error: insertErr } = await supabaseAdmin.from("services").insert({
@@ -200,7 +244,7 @@ test.describe("Listing moderation UI flow", () => {
         action: "reject",
         notes: "ფასი არასწორია",
       },
-      headers: { "content-type": "application/json" },
+      headers: jsonHeaders(baseURL),
     });
     if (res.status() === 401) {
       // Cookie-injection helper limitation — mirror the API logic at DB layer.

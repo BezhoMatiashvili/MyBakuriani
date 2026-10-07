@@ -75,18 +75,40 @@ export async function POST(req: NextRequest) {
     update.admin_notes = body.notes.trim();
   }
 
-  const { error: updateErr } = await db
+  // Only a real status change notifies the owner. The audit panel keeps
+  // Approve enabled on an active listing (it saves the edits first), so every
+  // edit saved that way used to send "თქვენი განცხადება დამტკიცდა" again, and
+  // its SMS mirror (C18) with it (staging 2026-10-06: one restaurant, two
+  // texts). The status test is part of the UPDATE, so two concurrent clicks
+  // change, and notify, once.
+  const { data: changedRows, error: updateErr } = await db
     .from(table)
     .update(update)
-    .eq("id", body.id);
+    .eq("id", body.id)
+    .or(`status.is.null,status.neq.${newStatus}`)
+    .select("id");
   if (updateErr) {
     return Response.json({ error: updateErr.message }, { status: 500 });
+  }
+  const changed = (changedRows?.length ?? 0) > 0;
+  if (!changed && "admin_notes" in update) {
+    const { error: notesErr } = await db
+      .from(table)
+      .update({ admin_notes: update.admin_notes })
+      .eq("id", body.id);
+    if (notesErr) {
+      return Response.json({ error: notesErr.message }, { status: 500 });
+    }
   }
 
   // Approve/reject flips public visibility — drop the cached public listing
   // (detail page) AND the ISR-cached category + landing list pages now.
   revalidateTag(listingTag(body.kind, body.id));
   revalidateListingLists(body.kind);
+
+  if (!changed) {
+    return Response.json({ ok: true, status: newStatus, changed: false });
+  }
 
   const listingName = existing.title?.trim() || "განცხადება";
   const typeLabel =

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/lib/types/database";
 import type { GuestOffer } from "@/components/guest/GuestOffersModal";
+import { propertyViewUrl } from "@/lib/utils/listingUrls";
 
 /** Max listings loaded for the "recently viewed" section: the viewer's own
  *  history, newest first. The dashboard shows a few collapsed; the rest are
@@ -107,9 +108,7 @@ export async function loadGuestData(
       loadRecentListings(supabase, userId),
       supabase
         .from("smart_match_offers")
-        .select(
-          "*, smart_match_requests!inner(id, guest_id), properties(id, title, photos, capacity, price_per_night, is_vip, numeric_rating, owner_id, profiles!owner_id(display_name, avatar_url, rating))",
-        )
+        .select("*, smart_match_requests!inner(id, guest_id)")
         .eq("smart_match_requests.guest_id", userId)
         // A renter can withdraw a sent offer (status -> 'cancelled'); it must not
         // remain visible/acceptable to the guest.
@@ -133,58 +132,59 @@ export async function loadGuestData(
         .limit(20),
     ]);
 
-  const offers: GuestOffer[] = (offersRes.data ?? [])
-    .map((row) => {
-      const property = (
-        row as unknown as {
-          properties: {
-            id: string;
-            title: string;
-            photos: string[] | null;
-            capacity: number | null;
-            price_per_night: number | null;
-            is_vip: boolean | null;
-            numeric_rating: number | null;
-            profiles: {
-              display_name: string | null;
-              avatar_url: string | null;
-              rating: number | null;
-            } | null;
-          } | null;
-        }
-      ).properties;
-      const request = (
-        row as unknown as {
-          smart_match_requests: { id: string };
-        }
-      ).smart_match_requests;
-      if (!property) return null;
-      return {
-        id: row.id,
-        requestId: request.id,
-        requestShortId: requestShortId(request.id),
-        createdAt: row.created_at,
-        offeredPrice: Number(row.offered_price),
-        status: row.status as GuestOffer["status"],
-        renter: {
-          // null = no display name; the render site translates the fallback.
-          displayName: property.profiles?.display_name ?? null,
-          avatarUrl: property.profiles?.avatar_url ?? null,
-          rating: property.profiles?.rating ?? null,
-          listingsCount: null,
-        },
-        property: {
-          id: property.id,
-          title: property.title,
-          photo: (property.photos ?? [])[0] ?? null,
-          rating: property.numeric_rating ?? null,
-          capacity: property.capacity,
-          pricePerNight: Number(property.price_per_night ?? 0),
-          isVip: Boolean(property.is_vip),
-        },
-      } as GuestOffer;
-    })
-    .filter((o): o is GuestOffer => o !== null);
+  // The offered listings come from the public view: base `properties` and
+  // `profiles` are RLS-hidden from everyone but the owner, so an embed came back
+  // null for every other owner's offer and the offer was dropped. A listing
+  // missing from the view is not public (C31): its offer stays, without a link.
+  const offerRows = offersRes.data ?? [];
+  const offeredIds = [...new Set(offerRows.map((o) => o.property_id))];
+  const { data: offeredListings } = offeredIds.length
+    ? await supabase
+        .from("public_properties")
+        .select(
+          "id, type, is_for_sale, title, photos, capacity, price_per_night, is_vip, numeric_rating, profile_display_name, profile_avatar_url",
+        )
+        .in("id", offeredIds)
+    : { data: [] };
+  const listingById = new Map(
+    (offeredListings ?? []).map((p) => [p.id, p] as const),
+  );
+
+  const offers: GuestOffer[] = offerRows.map((row) => {
+    const request = (
+      row as unknown as {
+        smart_match_requests: { id: string };
+      }
+    ).smart_match_requests;
+    const listing = listingById.get(row.property_id);
+    return {
+      id: row.id,
+      requestId: request.id,
+      requestShortId: requestShortId(request.id),
+      createdAt: row.created_at,
+      offeredPrice: Number(row.offered_price),
+      status: row.status as GuestOffer["status"],
+      renter: {
+        // null = no display name; the render site translates the fallback.
+        displayName: listing?.profile_display_name ?? null,
+        avatarUrl: listing?.profile_avatar_url ?? null,
+        rating: null,
+        listingsCount: null,
+      },
+      property: listing?.id
+        ? {
+            id: listing.id,
+            title: listing.title ?? "",
+            photo: (listing.photos ?? [])[0] ?? null,
+            rating: listing.numeric_rating ?? null,
+            capacity: listing.capacity,
+            pricePerNight: Number(listing.price_per_night ?? 0),
+            isVip: Boolean(listing.is_vip),
+            href: propertyViewUrl({ ...listing, id: listing.id }),
+          }
+        : null,
+    };
+  });
 
   // Offer count per request, derived from the offers already loaded above (each
   // GuestOffer carries its requestId), so no extra query is needed.

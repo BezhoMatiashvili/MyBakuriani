@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   AlertTriangle,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import {
+  CHECKOUT_TAB_PARAM,
   executePurchaseIntent,
   forgetPendingPayment,
   readPendingPayment,
@@ -36,9 +38,14 @@ type ResumeState =
   | { state: "failed"; kind: "interrupted" | "lost" };
 
 const POLL_MS = 2000;
-// ~90 s of polling; after that the page says Keepz is still confirming. The
-// callback and the sweeper settle the payment either way.
-const MAX_POLLS = 45;
+// ~90 s of polling every 2 s; after that the page says Keepz is still
+// confirming and checks every 10 s, and at once when the payer comes back to
+// this tab, for up to 30 minutes: with Keepz open in another tab the payer
+// can take minutes there. The callback and the sweeper settle the payment
+// either way, but only this page completes the purchase.
+const FAST_POLLS = 45;
+const SLOW_POLL_MS = 10_000;
+const MAX_WAIT_MS = 30 * 60_000;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -55,6 +62,9 @@ export default function PaymentResultPage() {
     "loading",
   );
   const [slow, setSlow] = useState(false);
+  // Keepz is open in another tab (startCardCheckout), so closing this page
+  // would leave the purchase undone.
+  const fromTab = useSearchParams().get(CHECKOUT_TAB_PARAM) === "1";
   const [resume, setResume] = useState<ResumeState>({ state: "idle" });
   const resumeStarted = useRef(false);
   const resumeRetried = useRef(false);
@@ -113,8 +123,11 @@ export default function PaymentResultPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let finished = false;
+    let inFlight = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let polls = 0;
+    const startedAt = Date.now();
     const pendingId = readPendingPayment();
     const url =
       pendingId && UUID_RE.test(pendingId)
@@ -122,12 +135,17 @@ export default function PaymentResultPage() {
         : "/api/payments/keepz/orders/latest";
 
     async function poll() {
+      if (cancelled || finished || inFlight) return;
+      if (timer) clearTimeout(timer);
+      inFlight = true;
       polls += 1;
       const response = await fetch(url, { cache: "no-store" }).catch(
         () => null,
       );
+      inFlight = false;
       if (cancelled) return;
       if (response?.status === 404) {
+        finished = true;
         forgetPendingPayment();
         setPhase("missing");
         return;
@@ -140,26 +158,34 @@ export default function PaymentResultPage() {
         setPayment(next);
         setPhase("ready");
         if (next.status === "succeeded") {
+          finished = true;
           forgetPendingPayment();
           if (next.canResume) void runResume(next.id);
           return;
         }
         if (next.status === "cancelled" || next.status === "expired") {
+          finished = true;
           forgetPendingPayment();
           return;
         }
       }
-      if (polls >= MAX_POLLS) {
-        setSlow(true);
-        return;
-      }
-      timer = setTimeout(poll, POLL_MS);
+      if (polls >= FAST_POLLS) setSlow(true);
+      if (Date.now() - startedAt >= MAX_WAIT_MS) return;
+      timer = setTimeout(poll, polls < FAST_POLLS ? POLL_MS : SLOW_POLL_MS);
     }
 
+    // The payer comes back here from the Keepz tab: check at once.
+    function onReturn() {
+      if (document.visibilityState === "visible") void poll();
+    }
+    document.addEventListener("visibilitychange", onReturn);
+    window.addEventListener("focus", onReturn);
     void poll();
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onReturn);
+      window.removeEventListener("focus", onReturn);
     };
   }, [runResume]);
 
@@ -199,7 +225,11 @@ export default function PaymentResultPage() {
           <Loader2 className="h-10 w-10 animate-spin text-[#2563EB]" />
         );
         title = t("pending");
-        body = slow ? t("slow") : t("pendingHint");
+        body = fromTab
+          ? t("pendingOtherTab")
+          : slow
+            ? t("slow")
+            : t("pendingHint");
     }
   }
 
@@ -254,6 +284,8 @@ export default function PaymentResultPage() {
         {payment?.status === "pending" && payment.checkoutUrl && (
           <a
             href={payment.checkoutUrl}
+            // A new tab, so this page keeps waiting to complete the purchase.
+            target="_blank"
             rel="noopener noreferrer"
             className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#2563EB] px-5 py-3 text-[13px] font-bold text-white hover:bg-[#1E40AF]"
           >

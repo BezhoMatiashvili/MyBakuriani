@@ -193,11 +193,24 @@ export default function RenterSmartMatchPage() {
       }
       setOwnerZones(zoneSet);
 
+      // An offer must point at a page the guest can open: a rental is public
+      // only while its owner holds an active membership (C31), and the
+      // database refuses offers from any other listing. A failed read leaves
+      // every listing selectable; the database still decides.
+      const { data: publicRows, error: publicError } = await supabase
+        .from("public_properties")
+        .select("id")
+        .in(
+          "id",
+          properties.map((p) => p.id),
+        );
+      const publicIds = new Set((publicRows ?? []).map((r) => r.id));
       setOwnerProperties(
         properties.map((p) => ({
           id: p.id,
           title: p.title,
           price: Number(p.price_per_night ?? 0),
+          hidden: !publicError && !publicIds.has(p.id),
         })),
       );
 
@@ -396,6 +409,15 @@ export default function RenterSmartMatchPage() {
       if (error.code === "23505") {
         setSubmittedRequestIds((prev) => new Set(prev).add(realRequestId));
         return true;
+      }
+      // The listing is not public (no active membership, C31): matched by its
+      // token, since 22023 is shared with the request rules.
+      if (error.message?.includes("smart_match_listing_not_public")) {
+        setOwnerProperties((prev) =>
+          prev.map((p) => (p.id === propertyId ? { ...p, hidden: true } : p)),
+        );
+        toast.error(tModal("listingHiddenError"));
+        return false;
       }
       console.error("Failed to submit offer", error);
       toast.error(tModal("offerError"));

@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import {
-  Star,
   MapPin,
   Megaphone,
   Sparkles,
@@ -18,23 +17,36 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils/format";
+import { propertyViewUrl } from "@/lib/utils/listingUrls";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import NewRequestModal, {
   type NewRequestPayload,
 } from "@/components/guest/NewRequestModal";
 import type { Tables } from "@/lib/types/database";
 
-type Property = Tables<"properties">;
-type Owner = Pick<
-  Tables<"profiles">,
-  "id" | "display_name" | "avatar_url" | "rating" | "phone"
+// Read from `public_properties`: base `properties` and `profiles` are
+// RLS-hidden from everyone but the owner. Null = the listing is not public
+// (e.g. its owner's membership lapsed, C31), so there is no page to open.
+type Property = Pick<
+  Tables<"public_properties">,
+  | "id"
+  | "type"
+  | "is_for_sale"
+  | "title"
+  | "photos"
+  | "location"
+  | "price_per_night"
+  | "is_vip"
+  | "profile_display_name"
 >;
+
+const OFFER_LISTING_COLUMNS =
+  "id, type, is_for_sale, title, photos, location, price_per_night, is_vip, profile_display_name";
 
 interface OfferView {
   offerId: string;
   requestId: string;
-  property: Property;
-  owner: Owner | null;
+  property: Property | null;
   checkIn: string | null;
   checkOut: string | null;
   offeredPrice: number;
@@ -89,70 +101,55 @@ export default function GuestBookingsPage() {
       const { data } = await supabase
         .from("smart_match_offers")
         .select(
-          "*, smart_match_requests!inner(id, guest_id, check_in, check_out), properties(*)",
+          "*, smart_match_requests!inner(id, guest_id, check_in, check_out)",
         )
         .eq("smart_match_requests.guest_id", user!.id)
+        // A withdrawn offer must not stay visible (same rule as loadGuestData).
+        .neq("status", "cancelled")
         .order("created_at", { ascending: false });
 
       if (!data || data.length === 0) {
-        if (active) setLoading(false);
+        if (active) {
+          if (data) setOffers([]);
+          setLoading(false);
+        }
         return;
       }
 
-      const ownerIds = Array.from(
-        new Set(
-          data
-            .map(
-              (r) =>
-                (r as unknown as { properties: { owner_id: string | null } })
-                  .properties?.owner_id,
-            )
-            .filter((id): id is string => !!id),
-        ),
+      const listingIds = [...new Set(data.map((r) => r.property_id))];
+      const { data: listings } = await supabase
+        .from("public_properties")
+        .select(OFFER_LISTING_COLUMNS)
+        .in("id", listingIds);
+      const listingById = new Map(
+        ((listings as Property[] | null) ?? []).map((p) => [p.id, p]),
       );
 
-      const { data: ownerData } =
-        ownerIds.length > 0
-          ? await supabase
-              .from("profiles")
-              .select("id, display_name, avatar_url, rating, phone")
-              .in("id", ownerIds)
-          : { data: [] as Owner[] };
-
-      const ownerMap = new Map(
-        ((ownerData as Owner[]) ?? []).map((o) => [o.id, o]),
-      );
-
-      const rows: OfferView[] = data
-        .map((r) => {
-          const row = r as unknown as {
+      const rows: OfferView[] = data.map((r) => {
+        const row = r as unknown as {
+          id: string;
+          property_id: string;
+          offered_price: number;
+          status: "pending" | "declined" | "accepted";
+          created_at: string | null;
+          smart_match_requests: {
             id: string;
-            offered_price: number;
-            status: "pending" | "declined" | "accepted";
-            created_at: string | null;
-            smart_match_requests: {
-              id: string;
-              check_in: string | null;
-              check_out: string | null;
-            };
-            properties: Property;
+            check_in: string | null;
+            check_out: string | null;
           };
-          const p = row.properties;
-          if (!p) return null;
-          return {
-            offerId: row.id,
-            requestId: row.smart_match_requests.id,
-            property: p,
-            owner: p.owner_id ? (ownerMap.get(p.owner_id) ?? null) : null,
-            checkIn: row.smart_match_requests.check_in,
-            checkOut: row.smart_match_requests.check_out,
-            offeredPrice: Number(row.offered_price),
-            status: row.status,
-            isNew: row.status === "pending",
-            createdAt: row.created_at,
-          } satisfies OfferView;
-        })
-        .filter((o): o is OfferView => o !== null);
+        };
+        return {
+          offerId: row.id,
+          requestId: row.smart_match_requests.id,
+          property: listingById.get(row.property_id) ?? null,
+          checkIn: row.smart_match_requests.check_in,
+          checkOut: row.smart_match_requests.check_out,
+          offeredPrice: Number(row.offered_price),
+          status: row.status,
+          isNew: row.status === "pending",
+          createdAt: row.created_at,
+        } satisfies OfferView;
+      });
 
       if (active) {
         setOffers(rows);
@@ -347,14 +344,14 @@ function OfferCard({
   onDecline: () => void;
 }) {
   const t = useTranslations("GuestBookings");
-  const ownerName = offer.owner?.display_name ?? t("defaultOwner");
+  const ownerName = offer.property?.profile_display_name ?? t("defaultOwner");
   const initials = ownerName
     .split(" ")
     .map((n) => n[0])
     .join("")
     .slice(0, 2);
-  const photo = (offer.property.photos ?? [])[0] ?? null;
-  const listingPrice = Number(offer.property.price_per_night ?? 0);
+  const photo = (offer.property?.photos ?? [])[0] ?? null;
+  const listingPrice = Number(offer.property?.price_per_night ?? 0);
   const isCheaper = offer.offeredPrice < listingPrice && listingPrice > 0;
 
   return (
@@ -371,18 +368,6 @@ function OfferCard({
           </p>
           <p className="flex items-center gap-1.5 text-[11px] font-medium text-[#64748B]">
             <span>{t("ownerRole")}</span>
-            {offer.owner?.rating != null && (
-              <>
-                <span className="text-[#CBD5E1]">·</span>
-                <span className="inline-flex items-center gap-0.5">
-                  <Star
-                    className="h-3 w-3 text-[#F59E0B]"
-                    fill="currentColor"
-                  />
-                  {Number(offer.owner.rating).toFixed(1)}
-                </span>
-              </>
-            )}
           </p>
         </div>
         {offer.isNew && (
@@ -402,23 +387,29 @@ function OfferCard({
           {photo && (
             <Image
               src={photo}
-              alt={offer.property.title}
+              alt={offer.property?.title ?? ""}
               fill
               sizes="140px"
               className="object-cover"
             />
           )}
-          {offer.property.is_vip && (
+          {offer.property?.is_vip && (
             <span className="absolute left-2 top-2 rounded-md bg-[#F97316] px-2 py-0.5 text-[9px] font-black uppercase text-white">
               VIP
             </span>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[15px] font-extrabold text-[#0F172A]">
-            {offer.property.title}
-          </h3>
-          {offer.property.location && (
+          {offer.property ? (
+            <h3 className="truncate text-[15px] font-extrabold text-[#0F172A]">
+              {offer.property.title}
+            </h3>
+          ) : (
+            <p className="text-[13px] font-medium text-[#64748B]">
+              {t("listingUnavailable")}
+            </p>
+          )}
+          {offer.property?.location && (
             <p className="mt-1 flex items-center gap-1 text-[12px] text-[#64748B]">
               <MapPin className="h-3.5 w-3.5" />
               {offer.property.location}
@@ -457,17 +448,18 @@ function OfferCard({
                   {t("decline")}
                 </button>
               )}
-              <Link
-                href={
-                  offer.property.is_for_sale
-                    ? `/sales/${offer.property.id}`
-                    : `/apartments/${offer.property.id}`
-                }
-                className="inline-flex h-10 items-center gap-1 rounded-xl bg-[#2563EB] px-4 text-[12px] font-bold text-white hover:bg-[#1D4ED8]"
-              >
-                {t("viewDetails")}
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+              {offer.property?.id && (
+                <Link
+                  href={propertyViewUrl({
+                    ...offer.property,
+                    id: offer.property.id,
+                  })}
+                  className="inline-flex h-10 items-center gap-1 rounded-xl bg-[#2563EB] px-4 text-[12px] font-bold text-white hover:bg-[#1D4ED8]"
+                >
+                  {t("viewDetails")}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              )}
             </div>
           </div>
         </div>

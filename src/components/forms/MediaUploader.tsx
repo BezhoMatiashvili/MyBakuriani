@@ -53,6 +53,9 @@ type Props = {
   helper?: string;
   poster?: string | null;
   onPosterChange?: (url: string | null) => void;
+  // Files a saved row still points at (an edit that may be cancelled): never
+  // deleted here; the save route removes them once the row stops using them.
+  keepUrls?: (string | null)[];
 };
 
 export default function MediaUploader({
@@ -63,6 +66,7 @@ export default function MediaUploader({
   helper,
   poster,
   onPosterChange,
+  keepUrls,
 }: Props) {
   const t = useTranslations("MediaUploader");
   const displayLabel = label ?? t("defaultLabel");
@@ -74,6 +78,10 @@ export default function MediaUploader({
   // External URLs may be blocked by CSP (next.config.ts img-src/media-src);
   // keyed on the current url so it self-resets when the value changes.
   const [errorUrl, setErrorUrl] = useState<string | null>(null);
+
+  function discard(url: string) {
+    if (!keepUrls?.includes(url)) deleteStorageObject(url);
+  }
 
   async function uploadFile(
     file: File,
@@ -149,7 +157,7 @@ export default function MediaUploader({
     if (next) {
       const previous = value;
       onChange(next);
-      if (previous) deleteStorageObject(previous.url);
+      if (previous) discard(previous.url);
     }
   }
 
@@ -163,7 +171,7 @@ export default function MediaUploader({
     if (next) {
       const previousPoster = poster;
       onPosterChange(next.url);
-      if (previousPoster) deleteStorageObject(previousPoster);
+      if (previousPoster) discard(previousPoster);
     }
   }
 
@@ -172,14 +180,14 @@ export default function MediaUploader({
     const previousPoster = poster;
     onChange(null);
     if (onPosterChange) onPosterChange(null);
-    if (previous) deleteStorageObject(previous.url);
-    if (previousPoster) deleteStorageObject(previousPoster);
+    if (previous) discard(previous.url);
+    if (previousPoster) discard(previousPoster);
   }
 
   function clearPoster() {
     const previousPoster = poster;
     if (onPosterChange) onPosterChange(null);
-    if (previousPoster) deleteStorageObject(previousPoster);
+    if (previousPoster) discard(previousPoster);
   }
 
   return (

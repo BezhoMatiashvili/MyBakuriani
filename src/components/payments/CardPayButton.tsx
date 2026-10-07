@@ -13,6 +13,7 @@ import {
 } from "@/lib/payments/keepz/amount";
 import type { PurchaseIntent } from "@/lib/payments/keepz/intent";
 import {
+  openCheckoutTab,
   startCardCheckout,
   type CheckoutError,
 } from "@/lib/payments/keepz/browser";
@@ -73,6 +74,8 @@ export default function CardPayButton({
 
   async function pay() {
     if (!user) return;
+    // Before any await, or the browser blocks the tab Keepz opens in.
+    const tab = openCheckoutTab();
     setBusy(true);
     setError(null);
     // The wallet may have changed since the dialog opened (another tab, a
@@ -83,12 +86,14 @@ export default function CardPayButton({
       .eq("user_id", user.id)
       .maybeSingle();
     if (balanceError) {
+      tab?.close();
       setError("network");
       setBusy(false);
       return;
     }
     const fresh = Number(data?.amount ?? 0);
     if (cardShortfallTetri(total, fresh) !== shortfall) {
+      tab?.close();
       onBalanceChange(fresh);
       setBusy(false);
       return;
@@ -103,6 +108,7 @@ export default function CardPayButton({
       returnPath: returnPath ?? pathname,
       locale,
       resume,
+      tab,
     });
     if (failure) {
       if (RETRY_WITH_NEW_KEY.has(failure)) attempt.current = null;

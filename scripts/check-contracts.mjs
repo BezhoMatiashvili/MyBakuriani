@@ -308,6 +308,39 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else fail("C31: src/app/api/listings/[kind]/[id]/contact/route.ts no longer checks public_properties (a hidden rental's number is revealed)");
 }
 
+// C31 — a Smart Match offer must point at a page the guest can open. The newest
+// migration naming the offer trigger must (re)create it BEFORE INSERT on
+// smart_match_offers, reading public_properties and raising the token the offer
+// form matches; the guest offer loaders read listings from public_properties,
+// never through a base `properties(...)` embed (RLS hides other owners' rows, so
+// the embed came back null and the offer vanished).
+{
+  const token = "smart_match_listing_not_public";
+  const trigFile = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .filter((f) => /trg_enforce_smart_match_offer_public_listing\b/.test(read(join("supabase/migrations", f))))
+    .at(-1);
+  const sql = trigFile ? read(join("supabase/migrations", trigFile)) : "";
+  const fn = sql.match(/FUNCTION public\.enforce_smart_match_offer_public_listing\(\)[\s\S]*?\$function\$;/)?.[0] ?? "";
+  if (
+    /CREATE TRIGGER trg_enforce_smart_match_offer_public_listing BEFORE INSERT ON public\.smart_match_offers\b/.test(sql) &&
+    /from public\.public_properties/i.test(fn) &&
+    fn.includes(`'${token}'`)
+  )
+    ok(`C31: ${trigFile} refuses Smart Match offers from listings outside public_properties (${token})`);
+  else fail(`C31: ${trigFile ?? "no migration"} does not create the offer trigger reading public_properties and raising '${token}'`);
+  const form = read("src/app/[locale]/dashboard/renter/smart-match/page.tsx");
+  if (form.includes(`"${token}"`)) ok("C31: the offer form matches the hidden-listing token");
+  else fail(`C31: dashboard/renter/smart-match/page.tsx no longer matches '${token}' (a refused offer shows the generic error)`);
+  for (const file of ["src/app/[locale]/dashboard/guest/loadData.ts", "src/app/[locale]/dashboard/guest/bookings/page.tsx"]) {
+    const text = read(file);
+    if (/(^|[\s,"'`(])properties\(/.test(text)) fail(`C31: ${file} embeds base properties(...) (null for other owners' listings: their offers vanish)`);
+    else if (/from\("public_properties"\)/.test(text)) ok(`C31: ${file} reads offered listings from public_properties`);
+    else fail(`C31: ${file} no longer reads offered listings from public_properties`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // C32 — Keepz payments. (a) The origin-less POST routes (callback, reconcile)
 // exist, and the middleware exempts exactly the shared list — not a copy that
@@ -458,6 +491,76 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     problems.push(`_enqueue_system_sms (${helper.file ?? "not found"}) no longer drops the same-transaction payment_success text`);
   if (problems.length) problems.forEach((p) => fail(`C18: ${p}`));
   else ok("C18: purchases write payment_success before their system SMS, and _enqueue_system_sms drops the duplicate");
+}
+
+// ---------------------------------------------------------------------------
+// C18 — owner SMS credits are taken when uBill accepts the message
+// (20261007150000). The newest sms_mark_claim_submitted debits the same kinds
+// the delivery charge does; the newest sms_mark_provider_undelivered refunds
+// only for uBill's report status 2/4, which both callers pass as report_status.
+// ---------------------------------------------------------------------------
+{
+  const latestBody = (fn) => {
+    const re = new RegExp(
+      `create\\s+(or\\s+replace\\s+)?function\\s+public\\.${fn}\\(`,
+      "i",
+    );
+    const file = readdirSync(join(root, "supabase/migrations"))
+      .filter((f) => f.endsWith(".sql"))
+      .sort()
+      .filter((f) => re.test(read(join("supabase/migrations", f))))
+      .at(-1);
+    if (!file) return { file: null, body: "" };
+    const text = read(join("supabase/migrations", file));
+    const from = text.search(re);
+    const tag = /\$[a-z_]*\$/i.exec(text.slice(from))?.[0];
+    const start = tag ? text.indexOf(tag, from) + tag.length : -1;
+    const end = tag ? text.indexOf(tag, start) : -1;
+    return {
+      file,
+      body: start > 0 && end > start ? text.slice(start, end).replace(/--[^\n]*/g, "") : "",
+    };
+  };
+  const kinds = (body) =>
+    new Set(
+      [
+        ...(body.match(/automation_kind\s+in\s*\(([^)]*)\)/i)?.[1] ?? "").matchAll(
+          /'([a-z_]+)'/g,
+        ),
+      ].map((m) => m[1]),
+    );
+  const submitted = latestBody("sms_mark_claim_submitted");
+  const delivered = latestBody("sms_mark_provider_delivered");
+  const undelivered = latestBody("sms_mark_provider_undelivered");
+  const problems = [];
+  const subKinds = kinds(submitted.body);
+  const delKinds = kinds(delivered.body);
+  if (!subKinds.size || !/sms_remaining\s*=\s*v_remaining\s*-\s*1/.test(submitted.body))
+    problems.push(
+      `sms_mark_claim_submitted (${submitted.file ?? "not found"}) no longer debits a credit when uBill accepts the message`,
+    );
+  else if (!setEq(subKinds, delKinds))
+    problems.push(
+      `charged kinds differ: sms_mark_claim_submitted (${submitted.file}) [${[...subKinds]}] vs sms_mark_provider_delivered (${delivered.file}) [${[...delKinds]}]`,
+    );
+  if (!/report_status'\s*,\s*''\)\s*in\s*\(\s*'2'\s*,\s*'4'\s*\)/.test(undelivered.body))
+    problems.push(
+      `sms_mark_provider_undelivered (${undelivered.file ?? "not found"}) must refund only for report_status 2/4`,
+    );
+  for (const caller of [
+    "supabase/functions/sms-dispatch/index.ts",
+    "supabase/functions/sms-delivery-report/index.ts",
+  ])
+    if (
+      !/sms_mark_provider_undelivered/.test(read(caller)) ||
+      !/report_status:\s*status\b/.test(read(caller))
+    )
+      problems.push(`${caller} must pass report_status to sms_mark_provider_undelivered`);
+  if (problems.length) problems.forEach((p) => fail(`C18: ${p}`));
+  else
+    ok(
+      `C18: owner SMS credits are charged at submit (${subKinds.size} kinds, same as the delivery charge) and refunded only on uBill status 2/4`,
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1040,6 +1143,38 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
       ok(
         `C24: ${trigFile} formats the bell time in Asia/Tbilisi and flattens the owner-typed title and address`,
       );
+
+    // (8) the cleaner's SMS (C18 + C24, 2026-10-07): the mirror queues "MyBakuriani: <title>" only; this
+    // trigger rewords that row with the apartment, the time and the link. It finds the row by the
+    // notification it just inserted (RETURNING id), only while the mirror's free kind is still 'approved',
+    // and in its own BEGIN … EXCEPTION block (a failure there must keep the bell, not roll it back).
+    const insAt = trigBody.search(/INSERT\s+INTO\s+public\.notifications/i);
+    const updAt = trigBody.search(/UPDATE\s+public\.sms_outbound/i);
+    const notifVar = /RETURNING\s+id\s+INTO\s+(\w+)/i.exec(trigBody)?.[1];
+    const updStmt = updAt === -1 ? "" : trigBody.slice(updAt, trigBody.indexOf(";", updAt));
+    const handlersAfter = [...trigBody.matchAll(/EXCEPTION\s+WHEN\s+OTHERS/gi)].filter((m) => m.index > updAt).length;
+    if (updAt === -1)
+      fail(
+        `C24: ${trigFile} no longer rewords the cleaner's SMS (UPDATE public.sms_outbound): a new call-out is texted as "MyBakuriani: ახალი გამოძახება" again, without the apartment, time or link`,
+      );
+    else if (
+      !(updAt > insAt && insAt !== -1) ||
+      !notifVar ||
+      !new RegExp(`source_notification_id\\s*=\\s*${notifVar}\\b`, "i").test(updStmt) ||
+      !/automation_kind\s*=\s*'notification'/i.test(updStmt) ||
+      !/status\s*=\s*'approved'/i.test(updStmt)
+    )
+      fail(
+        `C24: ${trigFile} must reword only the row the mirror queued for the notification it just inserted: UPDATE public.sms_outbound … WHERE source_notification_id = <the INSERT's RETURNING id> AND automation_kind = 'notification' AND status = 'approved'`,
+      );
+    else if (!/\bBEGIN\b/i.test(trigBody.slice(insAt, updAt)) || handlersAfter < 2)
+      fail(
+        `C24: ${trigFile} must reword the SMS inside its own BEGIN … EXCEPTION WHEN OTHERS block (otherwise a failure there rolls back the cleaner's bell notice too)`,
+      );
+    else if (!/'app\.site_url'/.test(trigBody) || !/!~\s*'\^https:\/\//.test(trigBody))
+      fail(`C24: ${trigFile} must take the SMS link host from Vault 'app.site_url' and drop it unless it is a bare https:// origin`);
+    else
+      ok(`C24: ${trigFile} rewords the mirror's SMS of a new call-out (apartment, time, link) in its own exception block`);
   }
 }
 

@@ -283,7 +283,7 @@ function tbilisiToday(): string {
   }).format(new Date());
 }
 
-type Lift = { px: number; bar: boolean };
+type Lift = { px: number; bar: boolean; height: number };
 
 /**
  * How far above the bottom edge the launcher sits: clear of any fixed bar
@@ -291,8 +291,12 @@ type Lift = { px: number; bar: boolean };
  * listing's call bar, a floating banner or notice, the cookie notice),
  * re-checked as such bars come and go.
  */
-function useCornerLift(): Lift {
-  const [lift, setLift] = useState<Lift>({ px: 16, bar: false });
+function useCornerLift(side: Spot["side"]): Lift {
+  const [lift, setLift] = useState<Lift>(() => ({
+    px: 16,
+    bar: false,
+    height: window.innerHeight,
+  }));
   useLayoutEffect(() => {
     const measure = () => {
       if (document.hidden) return;
@@ -303,7 +307,8 @@ function useCornerLift(): Lift {
       let top = height;
       for (let round = 0; round < 3; round += 1) {
         const floor = top;
-        for (const x of [width - 24, width - 64]) {
+        const xs = side === "left" ? [24, 64] : [width - 24, width - 64];
+        for (const x of xs) {
           for (const y of [floor - 20, floor - 48]) {
             let node: Element | null | undefined = document
               .elementsFromPoint(x, y)
@@ -324,10 +329,14 @@ function useCornerLift(): Lift {
       }
       const next =
         top < height
-          ? { px: Math.round(height - top) + 12, bar: true }
-          : { px: width >= 1024 ? 24 : 16, bar: false };
+          ? { px: Math.round(height - top) + 12, bar: true, height }
+          : { px: width >= 1024 ? 24 : 16, bar: false, height };
       setLift((prev) =>
-        prev.px === next.px && prev.bar === next.bar ? prev : next,
+        prev.px === next.px &&
+        prev.bar === next.bar &&
+        prev.height === next.height
+          ? prev
+          : next,
       );
     };
     measure();
@@ -337,18 +346,203 @@ function useCornerLift(): Lift {
       window.clearInterval(timer);
       window.removeEventListener("resize", measure);
     };
-  }, []);
+  }, [side]);
   return lift;
 }
 
 // A bar already reaches the screen's edge (safe area included); otherwise the
-// launcher keeps clear of the home indicator.
-function liftStyle(lift: Lift, extra = 0): React.CSSProperties {
+// launcher keeps clear of the home indicator. `raised` is a height the user
+// dragged the launcher to; it never goes below either.
+function liftStyle(
+  lift: Lift,
+  extra = 0,
+  raised: number | null = null,
+): React.CSSProperties {
+  if (lift.bar) return { bottom: Math.max(lift.px, raised ?? 0) + extra };
+  const edge = `calc(env(safe-area-inset-bottom) + ${lift.px + extra}px)`;
   return {
-    bottom: lift.bar
-      ? lift.px + extra
-      : `calc(env(safe-area-inset-bottom) + ${lift.px + extra}px)`,
+    bottom: raised === null ? edge : `max(${edge}, ${raised + extra}px)`,
   };
+}
+
+/** Where the user dragged the launcher to; null = the default corner. */
+type Spot = { side: "left" | "right"; bottom: number };
+
+// Per device, like a remembered tab: not personal data, kept across sign-outs.
+const SPOT_KEY = "mb.support.spot.v1";
+// Movement that turns a press into a drag; anything less is a tap.
+const DRAG_SLOP = 6;
+// Room kept above a dragged launcher for the navbar and for the hint and
+// "done" bubbles that open above it.
+const TOP_ROOM = 140;
+
+function readSpot(): Spot | null {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(SPOT_KEY) ?? "null");
+    if (
+      (saved?.side === "left" || saved?.side === "right") &&
+      Number.isFinite(saved.bottom)
+    )
+      return { side: saved.side, bottom: saved.bottom };
+  } catch {
+    // Blocked or malformed storage: the default corner.
+  }
+  return null;
+}
+
+function writeSpot(spot: Spot) {
+  try {
+    window.localStorage.setItem(SPOT_KEY, JSON.stringify(spot));
+  } catch {
+    // Not remembered; this page view still uses it.
+  }
+}
+
+type Press = { id: number; x: number; y: number; dx: number; dy: number };
+
+/**
+ * The round chat button. A tap opens the chat; press and move drags it, and
+ * on release it settles against the nearer side edge at the height it was
+ * dropped (`onMove`), so a user can move it off whatever it covers.
+ */
+function SupportLauncher({
+  buttonRef,
+  corner,
+  style,
+  label,
+  name,
+  reduceMotion,
+  onOpen,
+  onMove,
+}: {
+  buttonRef: React.RefObject<HTMLButtonElement | null>;
+  corner: string;
+  style: React.CSSProperties;
+  label: string;
+  name: string;
+  reduceMotion: boolean;
+  onOpen: () => void;
+  onMove: (spot: Spot) => void;
+}) {
+  const [drag, setDrag] = useState<{ left: number; top: number } | null>(null);
+  const pressRef = useRef<Press | null>(null);
+  const dragRef = useRef<{ left: number; top: number } | null>(null);
+  const draggedRef = useRef(false);
+  const snapRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Glide from where it was dropped to the edge it settles on.
+  useLayoutEffect(() => {
+    const from = snapRef.current;
+    const el = buttonRef.current;
+    if (drag || !from || !el) return;
+    snapRef.current = null;
+    const rect = el.getBoundingClientRect();
+    const dx = from.x - (rect.left + rect.width / 2);
+    const dy = from.y - (rect.top + rect.height / 2);
+    if (reduceMotion || (!dx && !dy)) return;
+    el.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], {
+      duration: 280,
+      easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+    });
+  }, [drag, style, reduceMotion, buttonRef]);
+
+  const end = () => {
+    pressRef.current = null;
+    dragRef.current = null;
+    setDrag(null);
+  };
+
+  return (
+    <motion.button
+      ref={buttonRef}
+      type="button"
+      onPointerDown={(e) => {
+        if (!e.isPrimary || e.button !== 0) return;
+        draggedRef.current = false;
+        const rect = e.currentTarget.getBoundingClientRect();
+        pressRef.current = {
+          id: e.pointerId,
+          x: e.clientX,
+          y: e.clientY,
+          dx: e.clientX - (rect.left + rect.width / 2),
+          dy: e.clientY - (rect.top + rect.height / 2),
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        const press = pressRef.current;
+        if (!press || press.id !== e.pointerId) return;
+        if (
+          !dragRef.current &&
+          Math.hypot(e.clientX - press.x, e.clientY - press.y) < DRAG_SLOP
+        )
+          return;
+        const { offsetWidth: w, offsetHeight: h } = e.currentTarget;
+        const next = {
+          left: Math.min(
+            Math.max(e.clientX - press.dx - w / 2, 8),
+            window.innerWidth - w - 8,
+          ),
+          top: Math.min(
+            Math.max(e.clientY - press.dy - h / 2, 8),
+            window.innerHeight - h - 8,
+          ),
+        };
+        dragRef.current = next;
+        setDrag(next);
+      }}
+      onPointerUp={(e) => {
+        const dropped = dragRef.current;
+        if (!dropped) {
+          pressRef.current = null;
+          return;
+        }
+        // The browser still sends a click after a drag; it must not open
+        // the chat.
+        draggedRef.current = true;
+        const { offsetWidth: w, offsetHeight: h } = e.currentTarget;
+        const x = dropped.left + w / 2;
+        snapRef.current = { x, y: dropped.top + h / 2 };
+        onMove({
+          side: x < window.innerWidth / 2 ? "left" : "right",
+          bottom: Math.round(window.innerHeight - dropped.top - h),
+        });
+        end();
+      }}
+      onPointerCancel={end}
+      onClick={() => {
+        if (draggedRef.current) {
+          draggedRef.current = false;
+          return;
+        }
+        onOpen();
+      }}
+      aria-label={label}
+      aria-controls="jev-panel"
+      data-testid="jev-launcher"
+      style={{
+        ...(drag
+          ? {
+              left: drag.left,
+              top: drag.top,
+              right: "auto",
+              bottom: "auto",
+              cursor: "grabbing",
+            }
+          : style),
+        WebkitTouchCallout: "none",
+      }}
+      className={`${corner} z-[80] flex h-14 min-w-14 touch-none select-none items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[#2563EB] to-[#4F46E5] text-white shadow-[0_12px_32px_-8px_rgba(37,99,235,0.65)] ring-4 ring-white/80 sm:pl-4 sm:pr-5`}
+      initial={reduceMotion ? false : { opacity: 0, scale: 0.6 }}
+      animate={{ opacity: 1, scale: drag && !reduceMotion ? 1.08 : 1 }}
+      exit={{ opacity: 0, scale: 0.6 }}
+      whileHover={reduceMotion || drag ? undefined : { scale: 1.06 }}
+      whileTap={reduceMotion || drag ? undefined : { scale: 0.94 }}
+    >
+      <MessageCircle className="size-6" strokeWidth={2.25} aria-hidden />
+      <span className="hidden text-[15px] font-bold sm:inline">{name}</span>
+    </motion.button>
+  );
 }
 
 /** Steps planned ahead for a first "how do I" question (see HOW_TO). */
@@ -507,7 +701,12 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   const [restored, setRestored] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [nudge, setNudge] = useState<Trouble | null>(null);
-  const lift = useCornerLift();
+  const [spot, setSpot] = useState<Spot | null>(readSpot);
+  const side = spot?.side ?? "right";
+  const lift = useCornerLift(side);
+  const raised = spot
+    ? Math.max(0, Math.min(spot.bottom, lift.height - TOP_ROOM))
+    : null;
 
   // Async plan runs and DOM listeners read the latest values from refs.
   const guideRef = useRef<Guide | null>(null);
@@ -966,6 +1165,10 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   }, [cancelPlan, commitGuide]);
 
   const close = useCallback(() => setOpen(false), []);
+  const moveLauncher = useCallback((next: Spot) => {
+    setSpot(next);
+    writeSpot(next);
+  }, []);
 
   // Restore the conversation and an unfinished walkthrough after a page change
   // that swapped layouts (dashboard <-> /create) or a reload, unless it
@@ -1251,7 +1454,8 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
     key,
     text: t(`quick.${key}` as never),
   }));
-  const corner = "fixed right-4 lg:right-6";
+  const corner =
+    side === "left" ? "fixed left-4 lg:left-6" : "fixed right-4 lg:right-6";
 
   return (
     <div data-jev-ignore>
@@ -1261,7 +1465,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
             key="nudge"
             role="status"
             data-testid="jev-nudge"
-            style={liftStyle(lift, 68)}
+            style={liftStyle(lift, 68, raised)}
             className={`${corner} z-[81] flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-2xl bg-white py-2 pl-3 pr-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.35)] ring-1 ring-[#DBEAFE] sm:max-w-[340px]`}
             initial={reduceMotion ? false : { opacity: 0, y: 10, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1293,31 +1497,21 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
 
       <AnimatePresence>
         {!open && !guide && (
-          <motion.button
+          <SupportLauncher
             key="launcher"
-            ref={launcherRef}
-            type="button"
-            onClick={() => {
+            buttonRef={launcherRef}
+            corner={corner}
+            style={liftStyle(lift, 0, raised)}
+            label={t("launcher")}
+            name={t("name")}
+            reduceMotion={reduceMotion}
+            onOpen={() => {
               setSignedIn(looksSignedIn());
               setNudge(null);
               setOpen(true);
             }}
-            aria-label={t("launcher")}
-            aria-controls="jev-panel"
-            data-testid="jev-launcher"
-            style={liftStyle(lift)}
-            className={`${corner} z-[80] flex h-14 min-w-14 items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[#2563EB] to-[#4F46E5] text-white shadow-[0_12px_32px_-8px_rgba(37,99,235,0.65)] ring-4 ring-white/80 sm:pl-4 sm:pr-5`}
-            initial={reduceMotion ? false : { opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.6 }}
-            whileHover={reduceMotion ? undefined : { scale: 1.06 }}
-            whileTap={reduceMotion ? undefined : { scale: 0.94 }}
-          >
-            <MessageCircle className="size-6" strokeWidth={2.25} aria-hidden />
-            <span className="hidden text-[15px] font-bold sm:inline">
-              {t("name")}
-            </span>
-          </motion.button>
+            onMove={moveLauncher}
+          />
         )}
       </AnimatePresence>
 
@@ -1325,7 +1519,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
         <div
           role="status"
           data-testid="jev-planning"
-          style={liftStyle(lift)}
+          style={liftStyle(lift, 0, raised)}
           className={`${corner} z-[80] flex min-h-14 items-center gap-2.5 rounded-full bg-white py-1.5 pl-2 pr-1 text-[13px] font-semibold text-[#1E293B] shadow-[0_12px_32px_-8px_rgba(15,23,42,0.35)] ring-1 ring-[#DBEAFE]`}
         >
           <JevAvatar size="md" />
@@ -1350,7 +1544,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
           <motion.div
             key="done"
             role="status"
-            style={liftStyle(lift, 72)}
+            style={liftStyle(lift, 72, raised)}
             className={`${corner} z-[81] flex items-center gap-2 rounded-full bg-[#16A34A] px-4 py-2.5 text-[14px] font-bold text-white shadow-lg`}
             initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

@@ -1084,7 +1084,11 @@
     "pickProperty": "Select a property to offer:",
     "noPropertyOption": "— No property yet —",
     "sendOffer": "Send offer",
-    "sending": "Sending..."
+    "sending": "Sending...",
+    "hiddenPropertyOption": "{title} — membership needed",
+    "hiddenPropertyHint": "Listings marked “membership needed” aren't shown on the site, so you can't send offers with them.",
+    "hiddenPropertyLink": "Activate membership",
+    "listingHiddenError": "This listing isn't shown on the site (no active membership), so the offer wasn't sent."
   },
   "ListingForm": {
     "back": "Back",
@@ -3090,7 +3094,8 @@
     "perNight": "/night",
     "cheaper": "Cheaper (listing: {price}₾)",
     "decline": "Decline",
-    "viewDetails": "View details"
+    "viewDetails": "View details",
+    "listingUnavailable": "This listing isn't shown on the site right now."
   },
   "GuestProfile": {
     "title": "Profile settings",
@@ -7071,6 +7076,7 @@
       "checking": "Checking your payment…",
       "pending": "Waiting for payment confirmation",
       "pendingHint": "This can take a few seconds. Please keep this page open.",
+      "pendingOtherTab": "Finish the payment in the Keepz tab. As soon as it's confirmed, this page updates by itself and completes your purchase — please keep it open.",
       "slow": "Keepz is still confirming the payment. The amount is added to your balance automatically as soon as it's confirmed — you can close this page.",
       "succeeded": "Payment successful",
       "credited": "{amount} has been added to your balance.",

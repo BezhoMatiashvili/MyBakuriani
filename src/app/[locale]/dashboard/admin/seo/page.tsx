@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Loader2, PencilLine, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, PencilLine, Sparkles, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import MediaUploader, {
@@ -31,6 +31,10 @@ export default function SeoPage() {
   const [videoPosterUrl, setVideoPosterUrl] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  // The post loaded into the form; null = writing a new one.
+  const [editing, setEditing] = useState<BlogPost | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const formRef = useRef<HTMLElement>(null);
 
   const mediaValue: MediaValue = videoUrl
     ? { url: videoUrl, type: "video" }
@@ -112,6 +116,51 @@ export default function SeoPage() {
     }
   }
 
+  function resetForm() {
+    setEditing(null);
+    setTitle("");
+    setExcerpt("");
+    setContent("");
+    setImageUrl("");
+    setVideoUrl("");
+    setVideoPosterUrl("");
+  }
+
+  function startEdit(post: BlogPost) {
+    setEditing(post);
+    setTitle(post.title);
+    setExcerpt(post.excerpt ?? "");
+    setContent(post.content);
+    setImageUrl(post.image_url ?? "");
+    setVideoUrl(post.video_url ?? "");
+    setVideoPosterUrl(post.video_poster_url ?? "");
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function deletePost(post: BlogPost) {
+    if (
+      !window.confirm(
+        `წავშალოთ სტატია „${post.title}“? წაშლილი სტატიის აღდგენა შეუძლებელია.`,
+      )
+    )
+      return;
+    setDeletingId(post.id);
+    try {
+      const res = await fetch(`/api/admin/blog/${post.id}`, {
+        method: "DELETE",
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error ?? "წაშლა ვერ მოხერხდა");
+      toast.success("სტატია წაიშალა");
+      if (editing?.id === post.id) resetForm();
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "შეცდომა");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   async function publish(options: { publish: boolean }) {
     if (!title.trim() || !content.trim()) {
       toast.error("სათაური და ტექსტი სავალდებულოა");
@@ -119,29 +168,36 @@ export default function SeoPage() {
     }
     setPublishing(true);
     try {
-      const res = await fetch("/api/admin/blog", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          title,
-          content,
-          excerpt: excerpt || undefined,
-          image_url: imageUrl || undefined,
-          video_url: videoUrl || undefined,
-          video_poster_url: videoPosterUrl || undefined,
-          publish: options.publish,
-        }),
-      });
+      const res = await fetch(
+        editing ? `/api/admin/blog/${editing.id}` : "/api/admin/blog",
+        {
+          method: editing ? "PATCH" : "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            title,
+            content,
+            excerpt: excerpt || undefined,
+            image_url: imageUrl || undefined,
+            video_url: videoUrl || undefined,
+            video_poster_url: videoPosterUrl || undefined,
+            publish: options.publish,
+          }),
+        },
+      );
       const payload = await res.json();
       if (!res.ok)
-        throw new Error(payload.error ?? "გამოქვეყნება ვერ მოხერხდა");
-      toast.success(options.publish ? "გამოქვეყნდა" : "შენახულია draft-ად");
-      setTitle("");
-      setExcerpt("");
-      setContent("");
-      setImageUrl("");
-      setVideoUrl("");
-      setVideoPosterUrl("");
+        throw new Error(
+          payload.error ??
+            (editing ? "შენახვა ვერ მოხერხდა" : "გამოქვეყნება ვერ მოხერხდა"),
+        );
+      toast.success(
+        editing
+          ? "ცვლილებები შენახულია"
+          : options.publish
+            ? "გამოქვეყნდა"
+            : "შენახულია draft-ად",
+      );
+      resetForm();
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "შეცდომა");
@@ -162,19 +218,47 @@ export default function SeoPage() {
       </header>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="rounded-[24px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]">
-          <h2 className="mb-6 inline-flex items-center gap-2 text-[18px] font-black leading-7 text-[#1E293B]">
-            <PencilLine className="h-5 w-5 text-[#2563EB]" />
-            სტატიის დაწერა
-          </h2>
+        <section
+          ref={formRef}
+          className="scroll-mt-6 rounded-[24px] border border-[#E2E8F0] bg-white p-8 shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)]"
+        >
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <h2 className="inline-flex items-center gap-2 text-[18px] font-black leading-7 text-[#1E293B]">
+              <PencilLine className="h-5 w-5 text-[#2563EB]" />
+              {editing ? "სტატიის რედაქტირება" : "სტატიის დაწერა"}
+            </h2>
+            {editing ? (
+              <button
+                type="button"
+                onClick={resetForm}
+                disabled={publishing}
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[13px] font-bold text-[#64748B] hover:bg-[#F1F5F9] disabled:opacity-50"
+              >
+                <X className="h-4 w-4" />
+                გაუქმება
+              </button>
+            ) : null}
+          </div>
           <div className="space-y-4">
             <MediaUploader
+              // A fresh uploader per post, so its preview state never carries
+              // over from the previous one.
+              key={editing?.id ?? "new"}
               value={mediaValue}
               onChange={handleMediaChange}
               kind="blog"
               label="ჰერო მედია (სურათი ან ვიდეო)"
               poster={videoPosterUrl || null}
               onPosterChange={(url) => setVideoPosterUrl(url ?? "")}
+              keepUrls={
+                editing
+                  ? [
+                      editing.image_url,
+                      editing.video_url,
+                      editing.video_poster_url,
+                    ]
+                  : undefined
+              }
             />
             <input
               placeholder="სტატიის სათაური..."
@@ -211,7 +295,7 @@ export default function SeoPage() {
                 disabled={publishing}
                 className="h-[53px] min-h-[44px] rounded-xl bg-[#2563EB] text-[14px] font-bold text-white shadow-[0px_8px_20px_rgba(37,99,235,0.25)] disabled:opacity-50"
               >
-                გამოქვეყნება
+                {editing ? "შენახვა და გამოქვეყნება" : "გამოქვეყნება"}
               </button>
             </div>
           </div>
@@ -282,7 +366,11 @@ export default function SeoPage() {
             posts.map((post) => (
               <div
                 key={post.id}
-                className="flex items-center justify-between rounded-xl border border-[#F1F5F9] bg-[#F8FAFC] px-4 py-4"
+                className={`flex flex-col gap-2 rounded-xl border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${
+                  editing?.id === post.id
+                    ? "border-[#BFDBFE] bg-[#EFF6FF]"
+                    : "border-[#F1F5F9] bg-[#F8FAFC]"
+                }`}
               >
                 <div className="flex min-w-0 items-center gap-3 pr-3">
                   {post.video_url ? (
@@ -314,15 +402,41 @@ export default function SeoPage() {
                     </p>
                   </div>
                 </div>
-                <span
-                  className={`rounded-md border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.5px] ${
-                    post.published
-                      ? "border-[#D1FAE5] bg-[#ECFDF5] text-[#10B981]"
-                      : "border-[#E2E8F0] bg-white text-[#64748B]"
-                  }`}
-                >
-                  {post.published ? "აქტიური" : "Draft"}
-                </span>
+                <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
+                  <span
+                    className={`mr-1 rounded-md border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.5px] ${
+                      post.published
+                        ? "border-[#D1FAE5] bg-[#ECFDF5] text-[#10B981]"
+                        : "border-[#E2E8F0] bg-white text-[#64748B]"
+                    }`}
+                  >
+                    {post.published ? "აქტიური" : "Draft"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => startEdit(post)}
+                    disabled={publishing || deletingId === post.id}
+                    aria-label={`რედაქტირება: ${post.title}`}
+                    title="რედაქტირება"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-[#2563EB] hover:bg-[#EFF6FF] disabled:opacity-50"
+                  >
+                    <PencilLine className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deletePost(post)}
+                    disabled={publishing || deletingId === post.id}
+                    aria-label={`წაშლა: ${post.title}`}
+                    title="წაშლა"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-[#B91C1C] hover:bg-[#FEF2F2] disabled:opacity-50"
+                  >
+                    {deletingId === post.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
             ))
           )}
