@@ -375,8 +375,14 @@ export default function LandingPage({
   const [mode, setMode] = useState<"rent" | "sale">("rent");
   const [hotOffersDiscountOnly, setHotOffersDiscountOnly] = useState(false);
   const { setListingMode } = useHomeListingMode();
+  // The "recommended services" heading belongs to the editorial cards. A paid
+  // home-promo ad alone is drawn on only its share of page views (C47), so it
+  // gets no heading that would sit empty the rest of the time.
   const hasHomePromo = bannerCreatives.some(
-    (creative) => creative.placement === "home_promo",
+    (creative) => creative.placement === "home_promo" && !creative.sponsored,
+  );
+  const hasHomePromoAd = bannerCreatives.some(
+    (creative) => creative.placement === "home_promo" && creative.sponsored,
   );
 
   useEffect(() => {
@@ -771,6 +777,9 @@ export default function LandingPage({
             className="space-y-3"
           />
         </section>
+      )}
+      {!hasHomePromo && hasHomePromoAd && (
+        <BannerSlotView placement="home_promo" creatives={bannerCreatives} />
       )}
 
       {/* ═══ 6. Transport Section ═══ */}

@@ -1,5 +1,6 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { recordAnalyticsEvent } from "@/lib/analytics/events";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { isUuid } from "@/lib/utils/uuid";
@@ -186,5 +187,14 @@ export async function POST(req: NextRequest) {
     }
     return Response.json({ error: "submission_unavailable" }, { status: 503 });
   }
+  // A lead for the admin analytics (C49; consenting visitors only).
+  after(() =>
+    recordAnalyticsEvent(req, {
+      name: "job_application",
+      entityType: "service",
+      entityId: serviceId,
+      userId: user?.id ?? null,
+    }),
+  );
   return Response.json({ submitted: true }, { status: 201 });
 }

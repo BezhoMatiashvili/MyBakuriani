@@ -1,5 +1,21 @@
 import { test, expect, type Page } from "@playwright/test";
 
+// With phone sign-in on (C48) /auth/login opens on the phone tab; these tests
+// exercise the e-mail form. Retried so a click before hydration is not lost.
+async function openEmailTab(page: Page) {
+  // The page streams behind loading.tsx: when goto() resolves it can still sit
+  // in a hidden boundary, where a role query finds no tab.
+  await expect(page.locator("#auth-phone, #auth-email").first()).toBeVisible();
+  // Already open (no phone tab, or ?error=invalid_link): a click would clear
+  // the page's error notice.
+  if (await page.locator("#auth-email").isVisible()) return;
+  const tab = page.getByRole("button", { name: "ელ. ფოსტა", exact: true });
+  await expect(async () => {
+    await tab.click();
+    await expect(page.locator("#auth-email")).toBeVisible({ timeout: 1_000 });
+  }).toPass();
+}
+
 // Sign-up with "Confirm email" ON: no session until the emailed link is opened
 // on /auth/confirm and its button is clicked. GoTrue and PostgREST are mocked
 // at the browser boundary, the pages a confirmed user is sent to are stubbed
@@ -50,6 +66,7 @@ function signupUser(identities: unknown[]) {
 
 async function submitRegister(page: Page) {
   await page.goto("/auth/login");
+  await openEmailTab(page);
   await page.getByRole("button", { name: "რეგისტრაცია" }).first().click();
   await page.locator("#auth-email").fill("new-person@example.com");
   await page.locator("#auth-password").fill("a-long-enough-password");
@@ -168,6 +185,7 @@ test.describe("Email link routes", () => {
 
   test("login explains an expired link", async ({ page }) => {
     await page.goto("/auth/login?error=invalid_link");
+    await openEmailTab(page);
     await expect(page.getByText(LINK_EXPIRED)).toBeVisible();
   });
 });
@@ -355,6 +373,7 @@ test.describe("Sign-in before confirming", () => {
       }),
     );
     await page.goto("/auth/login");
+    await openEmailTab(page);
     await page.locator("#auth-email").fill("pending@example.com");
     await page.locator("#auth-password").fill("the-right-password");
     await page.locator("form button[type='submit']").click();

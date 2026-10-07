@@ -8,6 +8,8 @@ import {
   isBannerPlacement,
   legacyPositionForPlacement,
 } from "@/lib/banner-placements";
+import { parseCampaignFields, SLOT_FULL_SQLSTATE } from "@/lib/ad-rotation";
+import { ADVERTISER_MAX_LENGTH, parseAdvertiser } from "@/lib/analytics/model";
 
 export const runtime = "nodejs";
 
@@ -33,6 +35,10 @@ export async function POST(req: NextRequest) {
     banner_url?: string;
     start_at?: string;
     end_at?: string;
+    sov_percent?: unknown;
+    priority?: unknown;
+    frequency_cap_per_day?: unknown;
+    advertiser?: unknown;
   } | null;
 
   if (
@@ -75,6 +81,21 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+  // C47: share of voice, priority and frequency cap (the media plan's §7).
+  const campaign = parseCampaignFields(body, { partial: false });
+  if (!campaign.ok) {
+    return Response.json({ error: campaign.error }, { status: 400 });
+  }
+  // C49: who the ad is sold to ("active advertisers" in admin analytics).
+  const advertiser = parseAdvertiser(body.advertiser);
+  if (advertiser === undefined) {
+    return Response.json(
+      {
+        error: `advertiser must be at most ${ADVERTISER_MAX_LENGTH} characters`,
+      },
+      { status: 400 },
+    );
+  }
 
   const db = createServiceClient(guard.admin.userId);
   const { data, error } = await db
@@ -89,10 +110,19 @@ export async function POST(req: NextRequest) {
       banner_url: safeHttpsUrl(body.banner_url),
       start_at: body.start_at,
       end_at: body.end_at,
+      ...campaign.fields,
+      advertiser,
       created_by: guard.admin.userId,
     })
     .select()
     .single();
+  if (error?.code === SLOT_FULL_SQLSTATE) {
+    // ads_enforce_slot_capacity: the slot's booked SOV would pass 100 %.
+    return Response.json(
+      { error: "slot_full", remaining: Number(error.details) || 0 },
+      { status: 409 },
+    );
+  }
   if (error) return Response.json({ error: error.message }, { status: 500 });
   // The landing page bakes home placements into ISR HTML (revalidate = 120).
   revalidatePath("/", "layout");

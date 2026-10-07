@@ -124,9 +124,9 @@ async function compose(
     const wmW = Math.max(60, Math.round(targetW * opts.widthRatio));
     const ratio = wm.naturalHeight / wm.naturalWidth || 0.2;
     const wmH = Math.round(wmW * ratio);
-    const pad = Math.max(12, Math.round(targetW * 0.025));
-    const x = targetW - wmW - pad;
-    const y = targetH - wmH - pad;
+    // Centred, not in a corner: a corner logo is removed by a simple crop.
+    const x = Math.round((targetW - wmW) / 2);
+    const y = Math.round((targetH - wmH) / 2);
     ctx.globalAlpha = opts.opacity;
     ctx.drawImage(wm, x, y, wmW, wmH);
     ctx.globalAlpha = 1;

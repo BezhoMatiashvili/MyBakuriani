@@ -7,8 +7,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { isAuthApiError } from "@supabase/supabase-js";
+import PhoneOtpForm from "@/components/auth/PhoneOtpForm";
 import { Button } from "@/components/ui/button";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
+import { isPhoneAuthEnabled } from "@/lib/auth/phone";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { safeInternalPath } from "@/lib/security";
 import {
@@ -54,12 +56,23 @@ const ROLE_DASHBOARD: Record<string, string> = {
 };
 
 type AuthMode = "login" | "register";
+// Phone (SMS code, C48) is one flow for sign-in and sign-up; email keeps its
+// own sign-in / register toggle.
+type AuthMethod = "phone" | "email";
 
 export default function LoginPage() {
   const t = useTranslations("AuthLogin");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signInWithPassword } = useAuth();
+  const { signInWithPassword, signInWithPhone, verifyPhoneOtp } = useAuth();
+  const phoneEnabled = isPhoneAuthEnabled();
+  // An expired e-mail link lands here with ?error=invalid_link: that notice
+  // belongs to the e-mail form, so open on it.
+  const [method, setMethod] = useState<AuthMethod>(() =>
+    phoneEnabled && searchParams.get("error") !== "invalid_link"
+      ? "phone"
+      : "email",
+  );
 
   // ?mode=register opens the sign-up form (admin sign-up links, C41). The auth
   // layout is force-dynamic, so the server render sees the same params.
@@ -121,6 +134,21 @@ export default function LoginPage() {
     // bounce back to login that would force a second click).
     router.refresh();
     router.push(target);
+  }
+
+  // A new number becomes a new account; an admin sign-up link's code rides
+  // along in user_metadata exactly as on the email sign-up (C41).
+  async function sendPhoneCode(phone: string) {
+    const signupLink = readSignupLinkCookie(document.cookie);
+    await signInWithPhone(
+      phone,
+      signupLink ? { [SIGNUP_LINK_METADATA_KEY]: signupLink } : undefined,
+    );
+  }
+
+  async function verifyPhoneCode(phone: string, code: string) {
+    const data = await verifyPhoneOtp(phone, code);
+    if (data?.user) await redirectAfterAuth(data.user.id);
   }
 
   async function signInWithGoogle() {
@@ -342,154 +370,192 @@ export default function LoginPage() {
         </div>
 
         <div className="rounded-[24px] border bg-white p-10 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.08)]">
+          {phoneEnabled && (
+            <div className="mb-6 flex border-b border-[#E2E8F0]">
+              {(["phone", "email"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={method === m}
+                  onClick={() => {
+                    setMethod(m);
+                    setError(null);
+                  }}
+                  className={`-mb-px min-h-11 flex-1 border-b-2 pb-2 text-sm font-semibold transition-colors lg:min-h-0 ${method === m ? "border-brand-accent text-[#1E293B]" : "border-transparent text-[#94A3B8]"}`}
+                >
+                  {m === "phone" ? t("phoneTab") : t("emailTab")}
+                </button>
+              ))}
+            </div>
+          )}
           <AnimatePresence mode="wait">
-            <motion.div
-              key={`email-${authMode}`}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="space-y-5"
-            >
-              <div className="flex rounded-xl bg-[#F8FAFC] p-1">
-                <button
-                  type="button"
-                  onClick={() => switchMode("login")}
-                  className={`min-h-11 flex-1 rounded-lg py-2 text-sm font-medium transition-all lg:min-h-0 ${authMode === "login" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
-                >
-                  {t("signIn")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => switchMode("register")}
-                  className={`min-h-11 flex-1 rounded-lg py-2 text-sm font-medium transition-all lg:min-h-0 ${authMode === "register" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
-                >
-                  {t("register")}
-                </button>
-              </div>
-              {successMessage ? (
-                <div className="space-y-3">
-                  <div className="rounded-lg bg-green-50 p-4 text-center text-sm text-green-700">
-                    {successMessage}
-                  </div>
-                  {resendControl}
-                </div>
-              ) : (
-                <>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (authMode === "login") {
-                        void handleEmailLogin(e.currentTarget);
-                      } else {
-                        void handleEmailRegister(e.currentTarget);
-                      }
-                    }}
-                    noValidate
-                    className="space-y-5"
+            {method === "phone" ? (
+              <motion.div
+                key="phone"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+              >
+                <PhoneOtpForm
+                  idPrefix="auth"
+                  onSend={sendPhoneCode}
+                  onVerify={verifyPhoneCode}
+                  hint={t("phoneHint")}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key={`email-${authMode}`}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="space-y-5"
+              >
+                <div className="flex rounded-xl bg-[#F8FAFC] p-1">
+                  <button
+                    type="button"
+                    onClick={() => switchMode("login")}
+                    className={`min-h-11 flex-1 rounded-lg py-2 text-sm font-medium transition-all lg:min-h-0 ${authMode === "login" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
                   >
-                    <div className="space-y-2">
-                      <label
-                        htmlFor="auth-email"
-                        className="text-sm font-medium"
-                      >
-                        {t("emailLabel")}
-                      </label>
-                      <input
-                        id="auth-email"
-                        name="email"
-                        type="email"
-                        autoComplete="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="example@mail.com"
-                        className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
-                      />
+                    {t("signIn")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => switchMode("register")}
+                    className={`min-h-11 flex-1 rounded-lg py-2 text-sm font-medium transition-all lg:min-h-0 ${authMode === "register" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
+                  >
+                    {t("register")}
+                  </button>
+                </div>
+                {successMessage ? (
+                  <div className="space-y-3">
+                    <div className="rounded-lg bg-green-50 p-4 text-center text-sm text-green-700">
+                      {successMessage}
                     </div>
-                    <div className="space-y-2">
-                      <label
-                        htmlFor="auth-password"
-                        className="text-sm font-medium"
-                      >
-                        {t("passwordLabel")}
-                      </label>
-                      <div className="relative">
-                        <input
-                          id="auth-password"
-                          name="password"
-                          type={showPassword ? "text" : "password"}
-                          autoComplete={
-                            authMode === "login"
-                              ? "current-password"
-                              : "new-password"
-                          }
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="••••••"
-                          className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 pr-12 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50 lg:pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          aria-label={
-                            showPassword ? t("hidePassword") : t("showPassword")
-                          }
-                          className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-[#94A3B8] lg:right-3 lg:size-auto"
-                        >
-                          {showPassword ? (
-                            <EyeOff className="size-4" />
-                          ) : (
-                            <Eye className="size-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                    {authMode === "login" && (
-                      <div className="text-right">
-                        <Link
-                          href="/auth/forgot-password"
-                          className="text-xs font-medium text-brand-accent hover:underline"
-                        >
-                          {t("forgotPassword")}
-                        </Link>
-                      </div>
-                    )}
-                    {authMode === "register" && (
+                    {resendControl}
+                  </div>
+                ) : (
+                  <>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (authMode === "login") {
+                          void handleEmailLogin(e.currentTarget);
+                        } else {
+                          void handleEmailRegister(e.currentTarget);
+                        }
+                      }}
+                      noValidate
+                      className="space-y-5"
+                    >
                       <div className="space-y-2">
                         <label
-                          htmlFor="auth-confirm-password"
+                          htmlFor="auth-email"
                           className="text-sm font-medium"
                         >
-                          {t("confirmPasswordLabel")}
+                          {t("emailLabel")}
                         </label>
                         <input
-                          id="auth-confirm-password"
-                          name="confirmPassword"
-                          type={showPassword ? "text" : "password"}
-                          autoComplete="new-password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="••••••"
+                          id="auth-email"
+                          name="email"
+                          type="email"
+                          autoComplete="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="example@mail.com"
                           className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
                         />
                       </div>
-                    )}
-                    {error && <p className="text-xs text-[#EF4444]">{error}</p>}
-                    {resendControl}
-                    <Button
-                      type="submit"
-                      disabled={loading}
-                      className="min-h-11 w-full lg:min-h-0"
-                      size="lg"
-                    >
-                      {loading && (
-                        <Loader2 className="mr-2 size-4 animate-spin" />
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="auth-password"
+                          className="text-sm font-medium"
+                        >
+                          {t("passwordLabel")}
+                        </label>
+                        <div className="relative">
+                          <input
+                            id="auth-password"
+                            name="password"
+                            type={showPassword ? "text" : "password"}
+                            autoComplete={
+                              authMode === "login"
+                                ? "current-password"
+                                : "new-password"
+                            }
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="••••••"
+                            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 pr-12 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50 lg:pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            aria-label={
+                              showPassword
+                                ? t("hidePassword")
+                                : t("showPassword")
+                            }
+                            className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-[#94A3B8] lg:right-3 lg:size-auto"
+                          >
+                            {showPassword ? (
+                              <EyeOff className="size-4" />
+                            ) : (
+                              <Eye className="size-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      {authMode === "login" && (
+                        <div className="text-right">
+                          <Link
+                            href="/auth/forgot-password"
+                            className="text-xs font-medium text-brand-accent hover:underline"
+                          >
+                            {t("forgotPassword")}
+                          </Link>
+                        </div>
                       )}
-                      {authMode === "login" ? t("signIn") : t("register")}
-                    </Button>
-                  </form>
-                </>
-              )}
-            </motion.div>
+                      {authMode === "register" && (
+                        <div className="space-y-2">
+                          <label
+                            htmlFor="auth-confirm-password"
+                            className="text-sm font-medium"
+                          >
+                            {t("confirmPasswordLabel")}
+                          </label>
+                          <input
+                            id="auth-confirm-password"
+                            name="confirmPassword"
+                            type={showPassword ? "text" : "password"}
+                            autoComplete="new-password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="••••••"
+                            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
+                          />
+                        </div>
+                      )}
+                      {error && (
+                        <p className="text-xs text-[#EF4444]">{error}</p>
+                      )}
+                      {resendControl}
+                      <Button
+                        type="submit"
+                        disabled={loading}
+                        className="min-h-11 w-full lg:min-h-0"
+                        size="lg"
+                      >
+                        {loading && (
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                        )}
+                        {authMode === "login" ? t("signIn") : t("register")}
+                      </Button>
+                    </form>
+                  </>
+                )}
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
 

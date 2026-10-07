@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter } from "@/i18n/navigation";
 import Image from "next/image";
 import {
@@ -24,6 +25,8 @@ import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
+import ServiceLocationMap from "@/components/detail/ServiceLocationMap";
+import { parseServiceCoords } from "@/lib/maps/serviceCoords";
 import {
   optionKeyFor,
   priceUnitPathFor,
@@ -66,6 +69,10 @@ export default function EntertainmentDetailClient({
     return key ? tOpts(`${group}.${key}`) : value;
   };
   const priceUnitPath = priceUnitPathFor(service.price_unit);
+  const pin = useMemo(
+    () => parseServiceCoords(service.coords),
+    [service.coords],
+  );
   const discountActive = isDiscountActive(
     service.discount_percent,
     service.discount_expires_at,
@@ -246,6 +253,17 @@ export default function EntertainmentDetailClient({
               {service.safety_notes}
             </p>
           </div>
+        </div>
+      )}
+
+      {pin && (
+        <div style={enterUp(0.33)} className="mt-8">
+          <ServiceLocationMap
+            id={service.id}
+            title={service.title}
+            coords={pin}
+            photo={service.photos?.[0]}
+          />
         </div>
       )}
 

@@ -1,8 +1,11 @@
 const SUPPORTED_LOCALE_PREFIX = /^\/(ka|en|ru)(?=\/|$)/;
 
+// Public pages only, none of which carries a token or an id of a person in its
+// path. The admin analytics page types (C49, analytics_page_type) cover them.
 const PUBLIC_ROUTE_ROOTS = new Set([
   "/apartments",
   "/appartments",
+  "/bakuriani",
   "/blog",
   "/contact",
   "/employment",
@@ -10,6 +13,8 @@ const PUBLIC_ROUTE_ROOTS = new Set([
   "/faq",
   "/food",
   "/hotels",
+  "/marketing-policy",
+  "/pricing",
   "/privacy",
   "/sales",
   "/search",

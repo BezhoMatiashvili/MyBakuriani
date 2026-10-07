@@ -136,13 +136,19 @@ export async function POST(
     const outHeight = resizedMeta.height ?? metadata.height;
     const overlay = await watermarkOverlay(outWidth);
     const overlayMeta = await sharp(overlay).metadata();
-    const pad = Math.max(12, Math.round(outWidth * 0.022));
+    // Centred, not in a corner: a corner logo is removed by a simple crop.
     const output = await sharp(resized)
       .composite([
         {
           input: overlay,
-          top: Math.max(0, outHeight - (overlayMeta.height ?? 0) - pad),
-          left: Math.max(0, outWidth - (overlayMeta.width ?? 0) - pad),
+          top: Math.max(
+            0,
+            Math.round((outHeight - (overlayMeta.height ?? 0)) / 2),
+          ),
+          left: Math.max(
+            0,
+            Math.round((outWidth - (overlayMeta.width ?? 0)) / 2),
+          ),
         },
       ])
       .webp({ quality: 86 })

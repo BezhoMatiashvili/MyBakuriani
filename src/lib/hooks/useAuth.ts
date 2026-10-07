@@ -89,6 +89,43 @@ export function useAuth() {
     return data;
   }
 
+  // Phone sign-in (C48). One call covers sign-up and sign-in: Supabase creates
+  // the account for a new number. `data` lands in user_metadata only on
+  // sign-up (the C41 signup-link hand-off). The code goes out through the
+  // auth-send-sms hook. Not retried: a retry would send a second SMS.
+  async function signInWithPhone(phone: string, data?: Record<string, string>) {
+    const { error } = await supabase.auth.signInWithOtp({
+      phone,
+      options: data ? { data } : undefined,
+    });
+    if (error) throw error;
+  }
+
+  async function verifyPhoneOtp(phone: string, token: string) {
+    const { data, error } = await withRetry(
+      () => supabase.auth.verifyOtp({ phone, token, type: "sms" }),
+      isRetryableAuthError,
+    );
+    if (error) throw error;
+    return data;
+  }
+
+  // Attaches (or replaces) the signed-in user's phone: the code goes to the
+  // NEW number, and the number becomes a sign-in method once verified.
+  async function startPhoneChange(phone: string) {
+    const { error } = await supabase.auth.updateUser({ phone });
+    if (error) throw error;
+  }
+
+  async function verifyPhoneChange(phone: string, token: string) {
+    const { data, error } = await withRetry(
+      () => supabase.auth.verifyOtp({ phone, token, type: "phone_change" }),
+      isRetryableAuthError,
+    );
+    if (error) throw error;
+    return data;
+  }
+
   async function signOut() {
     clearSupportChat();
     const { error } = await supabase.auth.signOut();
@@ -131,6 +168,10 @@ export function useAuth() {
     signInWithPassword,
     resetPasswordForEmail,
     updatePassword,
+    signInWithPhone,
+    verifyPhoneOtp,
+    startPhoneChange,
+    verifyPhoneChange,
     signOut,
     linkIdentity,
     unlinkIdentity,

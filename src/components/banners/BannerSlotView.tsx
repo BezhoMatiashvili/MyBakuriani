@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,7 +28,9 @@ import {
 import {
   reportBannerEvent,
   useBannerViewTracking,
+  useEmptySlotTracking,
 } from "@/lib/banner-tracking";
+import { useSlotRotation } from "@/lib/banner-slots-client";
 
 /**
  * The single public banner renderer. Pure and presentational — it NEVER fetches.
@@ -55,7 +64,19 @@ export type BannerSlotViewProps = {
    * cell of an existing listing grid.
    */
   bare?: boolean;
+  /** Sponsored grid card index on the page (0, 1) — see interleaveSponsored. */
+  position?: number;
 };
+
+/**
+ * The current display of the slot (C47), read by every creative shell: the
+ * key re-arms its impression on a new page view or re-draw, and the creative
+ * holding the placement's ad position is counted toward actual SOV.
+ */
+const SlotDisplayContext = createContext<{
+  displayKey: string;
+  slotCreativeId: string | null;
+}>({ displayKey: "", slotCreativeId: null });
 
 export default function BannerSlotView({
   placement,
@@ -63,8 +84,19 @@ export default function BannerSlotView({
   className,
   interactive = true,
   bare = false,
+  position = 0,
 }: BannerSlotViewProps) {
   const [expanded, setExpanded] = useState<BannerCreative | null>(null);
+  // Creatives whose image or video failed to load. They leave the slot, so a
+  // single-creative placement falls back to the next one (or renders nothing)
+  // instead of keeping an empty frame — in a listing grid that was a blank
+  // card-sized hole.
+  const [failedIds, setFailedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const dropCreative = useCallback((id: string) => {
+    setFailedIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }, []);
 
   // Every way into the detail window (an editorial banner's body, a video's
   // expand button) goes through here, so this is where an "open" is counted.
@@ -74,19 +106,60 @@ export default function BannerSlotView({
   }
 
   const spec = getPlacementSpec(placement);
+  const mine = spec
+    ? creatives.filter((c) => c.placement === spec.id && !failedIds.has(c.id))
+    : [];
+
+  // C47: which of them this page view shows — the media plan's share-of-voice
+  // draw (after mount), house fill, grid positions, phone limits and the
+  // sidebar's 45 s refresh (src/lib/banner-slots-client.ts).
+  const display = useSlotRotation(spec?.id ?? "", mine, {
+    single: spec ? rendersSingleCreative(spec.renderStyle) : true,
+    interactive,
+    position,
+    refresh: spec?.renderStyle === "sidebar",
+  });
+  // An ad position seen with nothing drawn into it still counts toward the
+  // slot's displays (actual SOV). Not for grid cards: their marker could not
+  // sit where the card would have been.
+  const markEmpty =
+    interactive &&
+    display.emptyAdPosition &&
+    spec != null &&
+    spec.renderStyle !== "in-grid";
+  const emptyRef = useEmptySlotTracking(
+    spec?.id ?? "",
+    markEmpty,
+    display.displayKey,
+  );
+
   // An unmapped placement renders nothing rather than throwing. Never replace
   // this with an index lookup.
   if (!spec) return null;
-
-  const mine = creatives.filter((c) => c.placement === spec.id);
   if (mine.length === 0) return null;
 
-  const shown = rendersSingleCreative(spec.renderStyle)
-    ? mine.slice(0, 1)
-    : mine;
+  const shown = display.shown;
+  // Absolutely positioned and 1 px: no grid cell, no layout shift.
+  const marker = markEmpty ? (
+    <span
+      ref={emptyRef}
+      aria-hidden
+      data-ad-position="empty"
+      className={`pointer-events-none h-px w-px opacity-0 ${
+        spec.renderStyle === "sticky" ? "fixed bottom-2 left-2" : "absolute"
+      }`}
+    />
+  ) : null;
+  if (shown.length === 0) return marker;
 
   const body = (
-    <>
+    <SlotDisplayContext.Provider
+      value={{
+        displayKey: display.displayKey,
+        slotCreativeId: display.slotCreativeId,
+      }}
+    >
+      {marker}
       {shown.map((creative) => (
         <Creative
           key={creative.id}
@@ -95,9 +168,10 @@ export default function BannerSlotView({
           compactHomePromo={spec.id === "home_promo"}
           interactive={interactive}
           onExpand={expand}
+          onMediaError={dropCreative}
         />
       ))}
-    </>
+    </SlotDisplayContext.Provider>
   );
 
   return (
@@ -175,6 +249,14 @@ function SlotFrame({
         <div className={`@container isolate w-full ${className ?? ""}`}>{children}</div>
       );
 
+    case "mobile-strip":
+      // Phones only: useSlotRotation draws nothing on a wider screen.
+      return (
+        <div className={`@container isolate w-full px-4 pt-3 ${className ?? ""}`}>
+          {children}
+        </div>
+      );
+
     case "in-grid":
       // Occupies exactly one cell of the caller's existing grid.
       return (
@@ -227,12 +309,15 @@ function Creative({
   compactHomePromo,
   interactive,
   onExpand,
+  onMediaError,
 }: {
   creative: BannerCreative;
   style: BannerRenderStyle;
   compactHomePromo: boolean;
   interactive: boolean;
   onExpand: (creative: BannerCreative) => void;
+  /** Media-first styles only: the creative is nothing without its media. */
+  onMediaError: (creativeId: string) => void;
 }) {
   switch (style) {
     case "strip":
@@ -258,6 +343,7 @@ function Creative({
           creative={creative}
           interactive={interactive}
           onExpand={onExpand}
+          onMediaError={onMediaError}
           aspectClass="aspect-[1160/180] min-h-[110px]"
         />
       );
@@ -267,6 +353,7 @@ function Creative({
           creative={creative}
           interactive={interactive}
           onExpand={onExpand}
+          onMediaError={onMediaError}
           aspectClass="aspect-[4/5]"
         />
       );
@@ -276,7 +363,19 @@ function Creative({
           creative={creative}
           interactive={interactive}
           onExpand={onExpand}
+          onMediaError={onMediaError}
           aspectClass="aspect-square"
+        />
+      );
+    case "mobile-strip":
+      // The rate card's "Responsive" strip, drawn at 320×100.
+      return (
+        <MediaCreative
+          creative={creative}
+          interactive={interactive}
+          onExpand={onExpand}
+          onMediaError={onMediaError}
+          aspectClass="aspect-[32/10]"
         />
       );
     case "sticky":
@@ -318,7 +417,7 @@ function SponsoredBadge({ tone }: { tone: ReturnType<typeof getTonePalette> }) {
  *                 rel="sponsored", and a click beacon
  *  - editorial  → a button that opens the detail modal (counted as an open)
  *  - preview    → an inert div
- * Every interactive shell counts a view (C46).
+ * Every interactive shell counts an impression (C46, C47).
  */
 function CreativeShell({
   creative,
@@ -335,7 +434,11 @@ function CreativeShell({
   style?: React.CSSProperties;
   children: ReactNode;
 }) {
-  const ref = useBannerViewTracking(creative, interactive);
+  const { displayKey, slotCreativeId } = useContext(SlotDisplayContext);
+  const ref = useBannerViewTracking(creative, interactive, {
+    displayKey,
+    slot: slotCreativeId === creative.id,
+  });
 
   if (!interactive) {
     return (
@@ -383,18 +486,17 @@ function MediaCreative({
   creative,
   interactive,
   onExpand,
+  onMediaError,
   aspectClass,
 }: {
   creative: BannerCreative;
   interactive: boolean;
   onExpand: (creative: BannerCreative) => void;
+  onMediaError: (creativeId: string) => void;
   aspectClass: string;
 }) {
   const t = useTranslations("Shared");
   const tone = getTonePalette(creative.tone);
-  const [failed, setFailed] = useState(false);
-
-  if (failed) return null;
 
   const shell = (
     <CreativeShell
@@ -415,7 +517,7 @@ function MediaCreative({
           loop
           muted
           playsInline
-          onError={() => setFailed(true)}
+          onError={() => onMediaError(creative.id)}
           className="h-full w-full object-cover"
         />
       ) : creative.imageUrl ? (
@@ -424,7 +526,7 @@ function MediaCreative({
           alt={creative.title}
           fill
           sizes="(max-width: 768px) 100vw, 1160px"
-          onError={() => setFailed(true)}
+          onError={() => onMediaError(creative.id)}
           className="object-cover"
         />
       ) : null}
@@ -486,6 +588,8 @@ function StripCreative({
   onExpand: (creative: BannerCreative) => void;
 }) {
   const tone = getTonePalette(creative.tone);
+  // Text-led: a broken thumbnail falls back to the icon, the strip stays.
+  const [imageFailed, setImageFailed] = useState(false);
 
   return (
     <CreativeShell
@@ -496,13 +600,14 @@ function StripCreative({
       style={{ backgroundColor: tone.bg, borderColor: tone.border }}
     >
       <div className="flex items-start gap-3">
-        {creative.imageUrl ? (
+        {creative.imageUrl && !imageFailed ? (
           <div className="relative size-10 shrink-0 overflow-hidden rounded-lg">
             <Image
               src={creative.imageUrl}
               alt=""
               fill
               sizes="40px"
+              onError={() => setImageFailed(true)}
               className="object-cover"
             />
           </div>
@@ -550,6 +655,8 @@ function PromoCardCreative({
   onExpand: (creative: BannerCreative) => void;
 }) {
   const tone = getTonePalette(creative.tone);
+  // Text-led: a broken image or video drops the media column, the card stays.
+  const [mediaFailed, setMediaFailed] = useState(false);
 
   const card = (
     <CreativeShell
@@ -563,7 +670,7 @@ function PromoCardCreative({
       }
       style={{ backgroundColor: tone.bg, borderColor: tone.border }}
     >
-      {creative.videoUrl ? (
+      {mediaFailed ? null : creative.videoUrl ? (
         <div
           className={
             compactHomePromo
@@ -579,6 +686,7 @@ function PromoCardCreative({
             loop
             muted
             playsInline
+            onError={() => setMediaFailed(true)}
             className="h-full w-full object-cover"
           />
           <PromoTag
@@ -604,6 +712,7 @@ function PromoCardCreative({
                 ? "(max-width: 767px) 128px, 320px"
                 : "(max-width: 768px) 100vw, 320px"
             }
+            onError={() => setMediaFailed(true)}
             className="object-cover"
           />
           <PromoTag

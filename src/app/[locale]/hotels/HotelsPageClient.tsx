@@ -38,6 +38,7 @@ import StatusCards from "@/components/landing/StatusCards";
 import type { StatusCard } from "@/lib/status-cards/types";
 import { isDiscountActive } from "@/lib/utils/pricing";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { interleaveSponsored } from "@/lib/ad-rotation";
 
 const BakurianiMap = dynamic(
   () =>
@@ -414,40 +415,50 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
               bare
               className="col-span-full"
             />
-            <BannerSlot placement="listing_grid" bare />
-
-            {paginatedProperties.map((p, i) => (
-              <ScrollReveal key={p.id} delay={i * 0.05}>
-                <PropertyCard
-                  id={p.id}
-                  createdAt={p.created_at}
-                  title={p.title}
-                  location={p.location}
-                  photos={p.photos ?? []}
-                  pricePerNight={
-                    p.price_per_night ? Number(p.price_per_night) : null
-                  }
-                  salePrice={p.sale_price ? Number(p.sale_price) : null}
-                  rating={null}
-                  capacity={p.capacity}
-                  rooms={p.rooms}
-                  isVip={p.is_vip ?? false}
-                  isSuperVip={p.is_super_vip ?? false}
-                  isOwnershipVerified={p.ownership_verified ?? false}
-                  discountPercent={p.discount_percent ?? 0}
-                  discountExpiresAt={p.discount_expires_at}
-                  isForSale={p.is_for_sale ?? false}
-                  isHotel
-                  numericRating={p.numeric_rating ?? undefined}
-                  hotelStars={p.hotel_stars ?? undefined}
-                  roomType={p.room_type ?? undefined}
-                  isB2BPartner={p.is_b2b_partner ?? false}
-                  amenityTags={
-                    Array.isArray(p.amenities) ? (p.amenities as string[]) : []
-                  }
+            {interleaveSponsored(
+              paginatedProperties.map((p, i) => (
+                <ScrollReveal key={p.id} delay={i * 0.05}>
+                  <PropertyCard
+                    id={p.id}
+                    createdAt={p.created_at}
+                    title={p.title}
+                    location={p.location}
+                    photos={p.photos ?? []}
+                    pricePerNight={
+                      p.price_per_night ? Number(p.price_per_night) : null
+                    }
+                    salePrice={p.sale_price ? Number(p.sale_price) : null}
+                    rating={null}
+                    capacity={p.capacity}
+                    rooms={p.rooms}
+                    isVip={p.is_vip ?? false}
+                    isSuperVip={p.is_super_vip ?? false}
+                    isOwnershipVerified={p.ownership_verified ?? false}
+                    discountPercent={p.discount_percent ?? 0}
+                    discountExpiresAt={p.discount_expires_at}
+                    isForSale={p.is_for_sale ?? false}
+                    isHotel
+                    numericRating={p.numeric_rating ?? undefined}
+                    hotelStars={p.hotel_stars ?? undefined}
+                    roomType={p.room_type ?? undefined}
+                    isB2BPartner={p.is_b2b_partner ?? false}
+                    amenityTags={
+                      Array.isArray(p.amenities)
+                        ? (p.amenities as string[])
+                        : []
+                    }
+                  />
+                </ScrollReveal>
+              )),
+              (slot) => (
+                <BannerSlot
+                  key={`sponsored-${slot}`}
+                  placement="listing_grid"
+                  bare
+                  position={slot}
                 />
-              </ScrollReveal>
-            ))}
+              ),
+            )}
           </div>
         )}
 

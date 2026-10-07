@@ -6,6 +6,7 @@ import type { Tables } from "@/lib/types/database";
 import ServiceCard from "@/components/cards/ServiceCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { interleaveSponsored } from "@/lib/ad-rotation";
 import { ResponsiveFilterSheet } from "@/components/shared/ResponsiveFilterSheet";
 
 const ENTERTAINMENT_TYPES = [
@@ -289,29 +290,37 @@ export default function EntertainmentPageClient({ services }: Props) {
                 bare
                 className="col-span-full"
               />
-              <BannerSlot placement="listing_grid" bare />
-
-              {paginated.map((s, i) => (
-                <ScrollReveal key={s.id} delay={i * 0.05}>
-                  <ServiceCard
-                    id={s.id}
-                    createdAt={s.created_at}
-                    title={s.title}
-                    category={s.category}
-                    location={s.location}
-                    photos={s.photos ?? []}
-                    price={s.price}
-                    priceUnit={s.price_unit}
-                    discountPercent={s.discount_percent ?? 0}
-                    discountExpiresAt={s.discount_expires_at}
-                    isVip={s.is_vip ?? false}
-                    isSuperVip={s.is_super_vip ?? false}
-                    isOwnershipVerified={s.ownership_verified ?? false}
-                    phone={null}
-                    hasWhatsapp={s.has_whatsapp ?? false}
+              {interleaveSponsored(
+                paginated.map((s, i) => (
+                  <ScrollReveal key={s.id} delay={i * 0.05}>
+                    <ServiceCard
+                      id={s.id}
+                      createdAt={s.created_at}
+                      title={s.title}
+                      category={s.category}
+                      location={s.location}
+                      photos={s.photos ?? []}
+                      price={s.price}
+                      priceUnit={s.price_unit}
+                      discountPercent={s.discount_percent ?? 0}
+                      discountExpiresAt={s.discount_expires_at}
+                      isVip={s.is_vip ?? false}
+                      isSuperVip={s.is_super_vip ?? false}
+                      isOwnershipVerified={s.ownership_verified ?? false}
+                      phone={null}
+                      hasWhatsapp={s.has_whatsapp ?? false}
+                    />
+                  </ScrollReveal>
+                )),
+                (slot) => (
+                  <BannerSlot
+                    key={`sponsored-${slot}`}
+                    placement="listing_grid"
+                    bare
+                    position={slot}
                   />
-                </ScrollReveal>
-              ))}
+                ),
+              )}
             </div>
             {totalPages > 1 && (
               <div className="mt-12 flex flex-wrap items-center justify-center gap-2">

@@ -19,6 +19,8 @@ export const TEMPLATES = {
   // marketing consent (the owner never sees the link). No owner-typed text.
   consent_request:
     "MyBakuriani.ge: გსურთ მარკეტინგული SMS-ების მიღება? დაადასტურეთ ან უარი თქვით: [Consent_Link]",
+  // Phone sign-in / phone-change code (C48), sent by the auth-send-sms hook.
+  auth_code: "MyBakuriani კოდი: [Code]. არავის გაუზიაროთ.",
 } as const;
 
 const GUEST_NAME_FALLBACK = "ძვირფასო სტუმარო";
@@ -174,4 +176,14 @@ export function buildWinBack(
 /** The consent-request SMS; `consentLink` is the guest's /sms-consent/<token> URL. */
 export function buildConsentRequest(consentLink: string): string {
   return TEMPLATES.consent_request.replace("[Consent_Link]", consentLink);
+}
+
+/**
+ * The sign-in code SMS. With the site's host it ends in the origin-bound line
+ * `@host #code` that Android's WebOTP and iOS code autofill read (the code is
+ * then offered only on that site). 67 UTF-16 units for mybakuriani.ge: one SMS.
+ */
+export function buildAuthCode(code: string, host: string | null): string {
+  const text = TEMPLATES.auth_code.replace("[Code]", code);
+  return host ? `${text}\n@${host} #${code}` : text;
 }

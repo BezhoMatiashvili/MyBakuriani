@@ -6,6 +6,7 @@ import type { Tables } from "@/lib/types/database";
 import ServiceCard from "@/components/cards/ServiceCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { interleaveSponsored } from "@/lib/ad-rotation";
 import { ResponsiveFilterSheet } from "@/components/shared/ResponsiveFilterSheet";
 
 // The subset of public_services columns this page actually renders (cards +
@@ -212,40 +213,48 @@ export default function ServicesPageClient({ services }: Props) {
                 bare
                 className="col-span-full"
               />
-              <BannerSlot placement="listing_grid" bare />
-
-              {paginated.map((s, i) => (
-                <ScrollReveal key={s.id} delay={i * 0.05}>
-                  <ServiceCard
-                    id={s.id}
-                    createdAt={s.created_at}
-                    title={s.title}
-                    category={s.category}
-                    location={s.location}
-                    photos={s.photos ?? []}
-                    price={s.price}
-                    priceUnit={s.price_unit}
-                    discountPercent={s.discount_percent ?? 0}
-                    discountExpiresAt={s.discount_expires_at}
-                    isVip={s.is_vip ?? false}
-                    isSuperVip={s.is_super_vip ?? false}
-                    isOwnershipVerified={s.ownership_verified ?? false}
-                    variant="avatar"
-                    schedule={s.schedule}
-                    operatingHours={s.operating_hours}
-                    phone={null}
-                    hasWhatsapp={s.has_whatsapp ?? false}
-                    providerName={s.position}
-                    // `availabilityStatus` used to be derived from
-                    // `discount_percent > 0`, which is an unrelated column: the
-                    // avatar variant turns "busy" into `phone={null}` on the
-                    // WhatsApp button, so buying a discount removed the only way
-                    // to contact the provider. Nothing tracks real availability
-                    // for services yet, so leave it unset (= active).
-                    availabilityStatus="active"
+              {interleaveSponsored(
+                paginated.map((s, i) => (
+                  <ScrollReveal key={s.id} delay={i * 0.05}>
+                    <ServiceCard
+                      id={s.id}
+                      createdAt={s.created_at}
+                      title={s.title}
+                      category={s.category}
+                      location={s.location}
+                      photos={s.photos ?? []}
+                      price={s.price}
+                      priceUnit={s.price_unit}
+                      discountPercent={s.discount_percent ?? 0}
+                      discountExpiresAt={s.discount_expires_at}
+                      isVip={s.is_vip ?? false}
+                      isSuperVip={s.is_super_vip ?? false}
+                      isOwnershipVerified={s.ownership_verified ?? false}
+                      variant="avatar"
+                      schedule={s.schedule}
+                      operatingHours={s.operating_hours}
+                      phone={null}
+                      hasWhatsapp={s.has_whatsapp ?? false}
+                      providerName={s.position}
+                      // `availabilityStatus` used to be derived from
+                      // `discount_percent > 0`, which is an unrelated column: the
+                      // avatar variant turns "busy" into `phone={null}` on the
+                      // WhatsApp button, so buying a discount removed the only way
+                      // to contact the provider. Nothing tracks real availability
+                      // for services yet, so leave it unset (= active).
+                      availabilityStatus="active"
+                    />
+                  </ScrollReveal>
+                )),
+                (slot) => (
+                  <BannerSlot
+                    key={`sponsored-${slot}`}
+                    placement="listing_grid"
+                    bare
+                    position={slot}
                   />
-                </ScrollReveal>
-              ))}
+                ),
+              )}
             </div>
             {totalPages > 1 && (
               <div className="mt-12 flex flex-wrap items-center justify-center gap-2">

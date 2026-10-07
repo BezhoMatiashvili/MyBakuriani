@@ -11,6 +11,7 @@ import { SalePagination } from "@/components/search/SalePagination";
 import { cn } from "@/lib/utils";
 import { isDiscountActive } from "@/lib/utils/pricing";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { interleaveSponsored } from "@/lib/ad-rotation";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -305,40 +306,50 @@ export default function SalesGridClient({
               bare
               className="col-span-full"
             />
-            <BannerSlot placement="listing_grid" bare />
-
-            {paginatedProperties.map((p, i) => (
-              <ScrollReveal key={p.id} delay={i * 0.05} className="h-full">
-                <PropertyCard
-                  id={p.id}
-                  createdAt={p.created_at}
-                  title={p.title}
-                  location={p.location}
-                  photos={p.photos ?? []}
-                  pricePerNight={
-                    p.price_per_night ? Number(p.price_per_night) : null
-                  }
-                  salePrice={p.sale_price ? Number(p.sale_price) : null}
-                  rating={null}
-                  capacity={p.capacity}
-                  rooms={p.rooms}
-                  isVip={p.is_vip ?? false}
-                  isSuperVip={p.is_super_vip ?? false}
-                  isOwnershipVerified={p.ownership_verified ?? false}
-                  discountPercent={p.discount_percent ?? 0}
-                  discountExpiresAt={p.discount_expires_at}
-                  isForSale
-                  amenityTags={
-                    Array.isArray(p.amenities) ? (p.amenities as string[]) : []
-                  }
-                  constructionStatus={p.construction_status ?? null}
-                  constructionProgressPercent={
-                    p.construction_progress_percent ?? null
-                  }
-                  paymentOptions={readPaymentOptions(p.house_rules)}
+            {interleaveSponsored(
+              paginatedProperties.map((p, i) => (
+                <ScrollReveal key={p.id} delay={i * 0.05} className="h-full">
+                  <PropertyCard
+                    id={p.id}
+                    createdAt={p.created_at}
+                    title={p.title}
+                    location={p.location}
+                    photos={p.photos ?? []}
+                    pricePerNight={
+                      p.price_per_night ? Number(p.price_per_night) : null
+                    }
+                    salePrice={p.sale_price ? Number(p.sale_price) : null}
+                    rating={null}
+                    capacity={p.capacity}
+                    rooms={p.rooms}
+                    isVip={p.is_vip ?? false}
+                    isSuperVip={p.is_super_vip ?? false}
+                    isOwnershipVerified={p.ownership_verified ?? false}
+                    discountPercent={p.discount_percent ?? 0}
+                    discountExpiresAt={p.discount_expires_at}
+                    isForSale
+                    amenityTags={
+                      Array.isArray(p.amenities)
+                        ? (p.amenities as string[])
+                        : []
+                    }
+                    constructionStatus={p.construction_status ?? null}
+                    constructionProgressPercent={
+                      p.construction_progress_percent ?? null
+                    }
+                    paymentOptions={readPaymentOptions(p.house_rules)}
+                  />
+                </ScrollReveal>
+              )),
+              (slot) => (
+                <BannerSlot
+                  key={`sponsored-${slot}`}
+                  placement="listing_grid"
+                  bare
+                  position={slot}
                 />
-              </ScrollReveal>
-            ))}
+              ),
+            )}
           </div>
         )}
 

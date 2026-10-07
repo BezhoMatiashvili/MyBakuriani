@@ -19,7 +19,8 @@ import {
 /**
  * Essential + Analytics + Location choice. There is no Marketing category
  * because this codebase loads no third-party ad or analytics script at all -
- * the only non-essential cookie is mb_vid, issued by /api/track/view.
+ * the only non-essential cookies are mb_vid and the 30-minute session cookie
+ * mb_sid (C49), both issued by /api/track/view.
  * Location has no cookie of its own; see src/lib/consent/cookies.ts.
  *
  * The choice is written with document.cookie from the CLIENT on purpose.

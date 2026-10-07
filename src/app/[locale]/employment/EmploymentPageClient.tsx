@@ -8,6 +8,7 @@ import type { Tables } from "@/lib/types/database";
 import EmploymentCard from "@/components/cards/EmploymentCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { interleaveSponsored } from "@/lib/ad-rotation";
 import { ResponsiveFilterSheet } from "@/components/shared/ResponsiveFilterSheet";
 
 // `value` is matched against DB `position` values and must stay Georgian.
@@ -243,26 +244,34 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
                 bare
                 className="col-span-full"
               />
-              <BannerSlot placement="listing_grid" bare />
-
-              {paginated.map((s, i) => (
-                <ScrollReveal key={s.id} delay={i * 0.05}>
-                  <EmploymentCard
-                    id={s.id}
-                    createdAt={s.created_at}
-                    title={s.position ?? s.title}
-                    employer={s.title}
-                    location={s.location}
-                    salary={describeSalary(s)}
-                    scheduleLabel={scheduleLabel(s)}
-                    description={s.description}
-                    badge={deriveBadge(s)}
-                    applicationsCount={cvCounts[s.id] ?? 0}
-                    highlighted={Boolean(s.is_super_vip || s.is_vip)}
-                    isOwnershipVerified={s.ownership_verified ?? false}
+              {interleaveSponsored(
+                paginated.map((s, i) => (
+                  <ScrollReveal key={s.id} delay={i * 0.05}>
+                    <EmploymentCard
+                      id={s.id}
+                      createdAt={s.created_at}
+                      title={s.position ?? s.title}
+                      employer={s.title}
+                      location={s.location}
+                      salary={describeSalary(s)}
+                      scheduleLabel={scheduleLabel(s)}
+                      description={s.description}
+                      badge={deriveBadge(s)}
+                      applicationsCount={cvCounts[s.id] ?? 0}
+                      highlighted={Boolean(s.is_super_vip || s.is_vip)}
+                      isOwnershipVerified={s.ownership_verified ?? false}
+                    />
+                  </ScrollReveal>
+                )),
+                (slot) => (
+                  <BannerSlot
+                    key={`sponsored-${slot}`}
+                    placement="listing_grid"
+                    bare
+                    position={slot}
                   />
-                </ScrollReveal>
-              ))}
+                ),
+              )}
             </div>
             {totalPages > 1 && (
               <div className="mt-12 flex flex-wrap items-center justify-center gap-2">

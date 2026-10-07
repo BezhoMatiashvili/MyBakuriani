@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, ChevronDown, Eye, Plus, Star } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { trackAnalyticsEvent } from "@/lib/analytics/track-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber, formatPrice } from "@/lib/utils/format";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
@@ -223,7 +224,11 @@ export default function GuestDashboardClient({
     if (error) throw error;
     // Cache the new request id right away so an offer landing on it isn't
     // ignored by the realtime handler above while the reload below is in flight.
-    if (data) requestIdsRef.current.add(data.id);
+    if (data) {
+      requestIdsRef.current.add(data.id);
+      // Admin analytics "Smart Match requests" (C49).
+      trackAnalyticsEvent("smart_match_request", data.id);
+    }
     // Surface the new request immediately in "My Requests". The realtime channel
     // only listens on smart_match_offers, so a fresh request wouldn't otherwise
     // appear until an offer lands.

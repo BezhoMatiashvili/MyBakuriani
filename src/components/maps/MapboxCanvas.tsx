@@ -37,6 +37,31 @@ function pillStateClasses(isSelected: boolean, isVip?: boolean): string {
       : "border border-[#E2E8F0] bg-white text-[#1E293B]";
 }
 
+// ── Pin glyph (lucide MapPin) for a marker with no price. ──
+function pinGlyph(): SVGSVGElement {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "16");
+  svg.setAttribute("height", "16");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2.5");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute(
+    "d",
+    "M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0",
+  );
+  const dot = document.createElementNS(ns, "circle");
+  dot.setAttribute("cx", "12");
+  dot.setAttribute("cy", "10");
+  dot.setAttribute("r", "3");
+  svg.append(path, dot);
+  return svg;
+}
+
 // ── Hover preview card (non-interactive; click the pill to navigate).
 // Built with the DOM API (not innerHTML) so property.title is never
 // interpreted as markup. ──
@@ -68,12 +93,13 @@ function buildCardElement(
     "line-clamp-2 text-[11px] font-bold leading-tight text-[#1E293B]";
   title.textContent = property.title;
 
-  const price = document.createElement("p");
-  price.className = "mt-0.5 text-[12px] font-black text-[#2563EB]";
-  price.textContent = formatPrice(property.price, isForSale);
-
   body.appendChild(title);
-  body.appendChild(price);
+  if (property.price != null) {
+    const price = document.createElement("p");
+    price.className = "mt-0.5 text-[12px] font-black text-[#2563EB]";
+    price.textContent = formatPrice(property.price, isForSale);
+    body.appendChild(price);
+  }
   inner.appendChild(body);
   card.appendChild(inner);
   return card;
@@ -220,11 +246,15 @@ export default function MapboxMapView({
         const pill = document.createElement("div");
         pill.className = `${pillBaseClasses()} ${pillStateClasses(isSelected, isVip)}`;
         pill.style.minHeight = "32px";
-        pill.style.minWidth = "48px";
+        pill.style.minWidth = property.price != null ? "48px" : "32px";
         pill.style.display = "flex";
         pill.style.alignItems = "center";
         pill.style.justifyContent = "center";
-        pill.textContent = formatPrice(property.price, isForSale);
+        if (property.price != null) {
+          pill.textContent = formatPrice(property.price, isForSale);
+        } else {
+          pill.appendChild(pinGlyph());
+        }
         wrapper.appendChild(pill);
 
         const card = buildCardElement(property, isForSale);

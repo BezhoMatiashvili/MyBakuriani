@@ -21,19 +21,23 @@ import { addDays, tbilisiToday } from "@/lib/admin-statuses";
 import {
   BANNER_ANALYTICS_DEFAULT_DAYS,
   BANNER_ANALYTICS_PRESETS,
+  actualSovPercent,
   ctrPercent,
   isBannerSource,
   type BannerAnalytics,
   type BannerAnalyticsCreative,
   type BannerSource,
 } from "@/lib/banner-analytics";
+import { rotationModeFor } from "@/lib/ad-rotation";
 
-type Metric = "views" | "opens" | "clicks";
-type SortKey = "views" | "clicks" | "ctr";
+// The media plan's report (C47, §6): impressions, reach, clicks, CTR =
+// clicks / impressions, the campaign period and planned vs actual SOV.
+type Metric = "impressions" | "opens" | "clicks";
+type SortKey = "impressions" | "reach" | "clicks" | "ctr";
 
-const METRICS: Metric[] = ["views", "opens", "clicks"];
+const METRICS: Metric[] = ["impressions", "opens", "clicks"];
 const METRIC_COLOR: Record<Metric, string> = {
-  views: "#2563EB",
+  impressions: "#2563EB",
   opens: "#F59E0B",
   clicks: "#10B981",
 };
@@ -46,9 +50,14 @@ const STATUS_COLOR: Record<string, string> = {
   deleted: "#EF4444",
 };
 
-function formatCtr(clicks: number, views: number): string {
-  const ctr = ctrPercent(clicks, views);
+function formatCtr(clicks: number, impressions: number): string {
+  const ctr = ctrPercent(clicks, impressions);
   return ctr === null ? "—" : `${ctr.toFixed(1)}%`;
+}
+
+function formatActualSov(c: BannerAnalyticsCreative): string {
+  const actual = actualSovPercent(c.impressions, c.slot_impressions);
+  return actual === null ? "—" : `${actual.toFixed(1)}%`;
 }
 
 export default function AdminAdAnalyticsPage() {
@@ -71,8 +80,8 @@ export default function AdminAdAnalyticsPage() {
   );
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const [metric, setMetric] = useState<Metric>("views");
-  const [sortKey, setSortKey] = useState<SortKey>("views");
+  const [metric, setMetric] = useState<Metric>("impressions");
+  const [sortKey, setSortKey] = useState<SortKey>("impressions");
 
   const [today] = useState(() => tbilisiToday());
   const [data, setData] = useState<BannerAnalytics | null>(null);
@@ -140,11 +149,19 @@ export default function AdminAdAnalyticsPage() {
   const creatives = useMemo(() => {
     const rows = [...(data?.creatives ?? [])];
     const score = (c: BannerAnalyticsCreative) =>
-      sortKey === "ctr" ? (ctrPercent(c.clicks, c.views) ?? -1) : c[sortKey];
+      sortKey === "ctr"
+        ? (ctrPercent(c.clicks, c.impressions) ?? -1)
+        : c[sortKey];
     return rows.sort((a, b) => score(b) - score(a));
   }, [data, sortKey]);
 
-  const totals = data?.totals ?? { views: 0, opens: 0, clicks: 0 };
+  const totals = data?.totals ?? {
+    views: 0,
+    opens: 0,
+    clicks: 0,
+    impressions: 0,
+    reach: 0,
+  };
   const isEmpty = (data?.daily ?? []).every((d) => d[metric] === 0);
   const focused =
     creative && data
@@ -153,6 +170,21 @@ export default function AdminAdAnalyticsPage() {
 
   function creativeName(c: BannerAnalyticsCreative): string {
     return c.title ?? t("deletedTitle", { source: t(`sources.${c.source}`) });
+  }
+
+  function plannedSov(c: BannerAnalyticsCreative): string {
+    if (c.source !== "ad" || c.sov_percent === null) return "—";
+    return c.placement && rotationModeFor(c.placement) === "rotation"
+      ? t("sovRotation")
+      : `${c.sov_percent}%`;
+  }
+
+  function period(c: BannerAnalyticsCreative): string {
+    const day = (iso: string | null) =>
+      iso ? formatDateShort(iso, locale) : "…";
+    return c.start_at || c.end_at
+      ? `${day(c.start_at)} – ${day(c.end_at)}`
+      : "—";
   }
 
   const selectCls =
@@ -316,19 +348,31 @@ export default function AdminAdAnalyticsPage() {
             aria-busy={loading}
           >
             {/* KPI tiles */}
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-              {METRICS.map((m) => (
-                <Kpi
-                  key={m}
-                  label={t(`metrics.${m}`)}
-                  value={formatNumber(totals[m])}
-                  color={METRIC_COLOR[m]}
-                />
-              ))}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Kpi
+                label={t("metrics.impressions")}
+                value={formatNumber(totals.impressions)}
+                color={METRIC_COLOR.impressions}
+              />
+              <Kpi
+                label={t("metrics.reach")}
+                value={formatNumber(totals.reach)}
+                color="#7C3AED"
+              />
+              <Kpi
+                label={t("metrics.clicks")}
+                value={formatNumber(totals.clicks)}
+                color={METRIC_COLOR.clicks}
+              />
               <Kpi
                 label={t("metrics.ctr")}
-                value={formatCtr(totals.clicks, totals.views)}
+                value={formatCtr(totals.clicks, totals.impressions)}
                 color="#0F172A"
+              />
+              <Kpi
+                label={t("metrics.opens")}
+                value={formatNumber(totals.opens)}
+                color={METRIC_COLOR.opens}
               />
               <Kpi
                 label={t("metrics.live")}
@@ -336,6 +380,30 @@ export default function AdminAdAnalyticsPage() {
                 color="#64748B"
               />
             </div>
+
+            {/* One campaign's report: its period and planned vs actual SOV. */}
+            {focused ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Kpi
+                  label={t("columns.period")}
+                  value={period(focused)}
+                  color="#1E293B"
+                  small
+                />
+                <Kpi
+                  label={t("metrics.sovPlanned")}
+                  value={plannedSov(focused)}
+                  color="#1E293B"
+                  small
+                />
+                <Kpi
+                  label={t("metrics.sovActual")}
+                  value={formatActualSov(focused)}
+                  color="#1E293B"
+                  small
+                />
+              </div>
+            ) : null}
 
             {/* Daily chart */}
             <section className="rounded-3xl border border-[#E2E8F0] bg-white p-5">
@@ -454,7 +522,7 @@ export default function AdminAdAnalyticsPage() {
                   </p>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="mt-3 w-full min-w-[560px] text-left text-[13px]">
+                    <table className="mt-3 w-full min-w-[640px] text-left text-[13px]">
                       <thead className="bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
                         <tr>
                           <th className="px-5 py-3">{tShared("placement")}</th>
@@ -466,6 +534,9 @@ export default function AdminAdAnalyticsPage() {
                               {t(`metrics.${m}`)}
                             </th>
                           ))}
+                          <th className="px-3 py-3 text-right">
+                            {t("metrics.reach")}
+                          </th>
                           <th className="px-5 py-3 text-right">
                             {t("metrics.ctr")}
                           </th>
@@ -491,8 +562,11 @@ export default function AdminAdAnalyticsPage() {
                                 {formatNumber(row[m])}
                               </td>
                             ))}
+                            <td className="px-3 py-3 text-right font-semibold text-[#1E293B]">
+                              {formatNumber(row.reach)}
+                            </td>
                             <td className="px-5 py-3 text-right font-black text-[#1E293B]">
-                              {formatCtr(row.clicks, row.views)}
+                              {formatCtr(row.clicks, row.impressions)}
                             </td>
                           </tr>
                         ))}
@@ -516,7 +590,10 @@ export default function AdminAdAnalyticsPage() {
                     onChange={(e) => setSortKey(e.target.value as SortKey)}
                     className={selectCls}
                   >
-                    <option value="views">{t("metrics.views")}</option>
+                    <option value="impressions">
+                      {t("metrics.impressions")}
+                    </option>
+                    <option value="reach">{t("metrics.reach")}</option>
                     <option value="clicks">{t("metrics.clicks")}</option>
                     <option value="ctr">{t("metrics.ctr")}</option>
                   </select>
@@ -528,7 +605,7 @@ export default function AdminAdAnalyticsPage() {
                 </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="mt-3 w-full min-w-[760px] text-left text-[13px]">
+                  <table className="mt-3 w-full min-w-[1040px] text-left text-[13px]">
                     <thead className="bg-[#F8FAFC] text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
                       <tr>
                         <th className="px-5 py-3">{t("columns.title")}</th>
@@ -540,7 +617,13 @@ export default function AdminAdAnalyticsPage() {
                           </th>
                         ))}
                         <th className="px-3 py-3 text-right">
+                          {t("metrics.reach")}
+                        </th>
+                        <th className="px-3 py-3 text-right">
                           {t("metrics.ctr")}
+                        </th>
+                        <th className="px-3 py-3 text-right">
+                          {t("columns.sov")}
                         </th>
                         <th className="px-5 py-3" />
                       </tr>
@@ -575,6 +658,9 @@ export default function AdminAdAnalyticsPage() {
                           </td>
                           <td className="px-3 py-3 text-[#64748B]">
                             {placementLabel(c.placement)}
+                            <p className="mt-1 text-[11px] font-medium text-[#94A3B8]">
+                              {period(c)}
+                            </p>
                           </td>
                           <td className="px-3 py-3">
                             <span
@@ -599,8 +685,16 @@ export default function AdminAdAnalyticsPage() {
                               {formatNumber(c[m])}
                             </td>
                           ))}
+                          <td className="px-3 py-3 text-right font-semibold text-[#1E293B]">
+                            {formatNumber(c.reach)}
+                          </td>
                           <td className="px-3 py-3 text-right font-black text-[#1E293B]">
-                            {formatCtr(c.clicks, c.views)}
+                            {formatCtr(c.clicks, c.impressions)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right font-semibold text-[#1E293B]">
+                            {plannedSov(c)}
+                            <span className="text-[#94A3B8]"> / </span>
+                            {formatActualSov(c)}
                           </td>
                           <td className="px-5 py-2 text-right">
                             {creative !== c.id ? (
@@ -638,17 +732,22 @@ function Kpi({
   label,
   value,
   color,
+  small = false,
 }: {
   label: string;
   value: string;
   color: string;
+  small?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-[#E2E8F0] bg-white px-4 py-4">
       <p className="text-[10px] font-bold uppercase leading-[15px] tracking-[0.5px] text-[#94A3B8]">
         {label}
       </p>
-      <p className="mt-1 text-[24px] font-black leading-8" style={{ color }}>
+      <p
+        className={`mt-1 font-black ${small ? "text-[16px] leading-6" : "text-[24px] leading-8"}`}
+        style={{ color }}
+      >
         {value}
       </p>
     </div>

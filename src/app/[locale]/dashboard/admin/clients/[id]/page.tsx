@@ -14,9 +14,11 @@ import {
   ShieldCheck,
   ShieldOff,
   Bell,
+  Gift,
   StickyNote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ClientGiftModal } from "@/components/admin/ClientGiftModal";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatPhone, formatPrice } from "@/lib/utils/format";
@@ -51,6 +53,7 @@ const manualBookingStatusLabels: Record<string, string> = {
 
 export default function ClientDetailPage() {
   const t = useTranslations("AdminClientDetail");
+  const tClients = useTranslations("AdminClients");
   const params = useParams();
   const router = useRouter();
   const userId = params.id as string;
@@ -65,6 +68,7 @@ export default function ClientDetailPage() {
   const [adminNote, setAdminNote] = useState("");
   const [roleSubmitting, setRoleSubmitting] = useState(false);
   const [verifiedSubmitting, setVerifiedSubmitting] = useState(false);
+  const [giftOpen, setGiftOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "properties" | "bookings" | "transactions"
   >("properties");
@@ -106,6 +110,18 @@ export default function ClientDetailPage() {
       cancelled = true;
     };
   }, [userId]);
+
+  // A ₾ bonus adds a transaction row; reload the tab's list after one.
+  const refreshTransactions = async () => {
+    const res = await fetch(`/api/admin/clients/${userId}/transactions`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return;
+    const payload = (await res.json().catch(() => null)) as {
+      transactions?: Tables<"transactions">[];
+    } | null;
+    setTransactions(payload?.transactions ?? []);
+  };
 
   const handleRoleChange = async (newRole: Enums<"user_role">) => {
     setRoleSubmitting(true);
@@ -266,6 +282,15 @@ export default function ClientDetailPage() {
                   {t("markVerified")}
                 </>
               )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setGiftOpen(true)}
+              className="border-green-300 text-green-600"
+            >
+              <Gift className="mr-1.5 h-3.5 w-3.5" />
+              {tClients("bonus")}
             </Button>
             <Button variant="outline" size="sm">
               <Bell className="mr-1.5 h-3.5 w-3.5" />
@@ -452,6 +477,12 @@ export default function ClientDetailPage() {
           </div>
         )}
       </motion.div>
+
+      <ClientGiftModal
+        client={giftOpen ? profile : null}
+        onClose={() => setGiftOpen(false)}
+        onBalanceGifted={() => void refreshTransactions()}
+      />
     </div>
   );
 }

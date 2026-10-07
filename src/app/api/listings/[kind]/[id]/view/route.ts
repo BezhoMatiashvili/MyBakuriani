@@ -1,5 +1,6 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { recordAnalyticsEvent } from "@/lib/analytics/events";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { hasSupabaseAuthCookie } from "@/lib/supabase/auth-cookies";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
@@ -89,5 +90,15 @@ export async function POST(
     p_client_ip: ip,
   });
   if (error) return Response.json({ counted: false, views }, { status: 503 });
+  // The same counted view, tagged with the visitor's analytics session for
+  // the admin dashboard's filters (C49; consenting visitors only).
+  after(() =>
+    recordAnalyticsEvent(req, {
+      name: "listing_view",
+      entityType: kind,
+      entityId: id,
+      userId,
+    }),
+  );
   return Response.json({ counted: true, views: views + 1 });
 }

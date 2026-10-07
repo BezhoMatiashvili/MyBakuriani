@@ -47,6 +47,17 @@ export type BannerCreative = {
   /** Shown in the editorial detail modal's schedule row. */
   startAt: string | null;
   endAt: string | null;
+  /** Last tie-break of the render order (newest first). */
+  createdAt: string | null;
+  /**
+   * Ads only (C47, the media plan's §7): the booked share of voice (25 | 50 |
+   * 100), priority (1–10) and daily frequency cap per device (null = none).
+   * Editorial banners carry nulls: they are house fill, drawn in the share
+   * the ads leave (src/lib/banner-slots-client.ts:useSlotRotation).
+   */
+  sovPercent: number | null;
+  priority: number | null;
+  frequencyCap: number | null;
 };
 
 const VIDEO_URL_RE = /\.(mp4|webm)(\?|#|$)/i;
@@ -178,6 +189,7 @@ type LandingBannerRow = {
   end_at: string | null;
   kind?: string;
   placement?: string | null;
+  created_at?: string | null;
 };
 
 /**
@@ -229,6 +241,10 @@ export function landingBannerToCreative(
     sortOrder: row.sort_order ?? 0,
     startAt: row.start_at ?? null,
     endAt: row.end_at ?? null,
+    createdAt: row.created_at ?? null,
+    sovPercent: null,
+    priority: null,
+    frequencyCap: null,
   };
 }
 
@@ -241,6 +257,10 @@ type AdRow = {
   position?: string | null;
   start_at?: string | null;
   end_at?: string | null;
+  created_at?: string | null;
+  sov_percent?: number | null;
+  priority?: number | null;
+  frequency_cap_per_day?: number | null;
 };
 
 function resolveAdPlacement(row: AdRow): BannerPlacement | null {
@@ -290,11 +310,13 @@ export function adRowToCreative(row: AdRow): BannerCreative | null {
     sortOrder: 0,
     startAt: row.start_at ?? null,
     endAt: row.end_at ?? null,
+    createdAt: row.created_at ?? null,
+    // A row read without these columns (an app ahead of its migration) is
+    // drawn as the whole slot, the way ads rendered before C47.
+    sovPercent: row.sov_percent ?? null,
+    priority: row.priority ?? null,
+    frequencyCap: row.frequency_cap_per_day ?? null,
   };
-}
-
-export function creativeHasMedia(creative: BannerCreative): boolean {
-  return creative.imageUrl != null || creative.videoUrl != null;
 }
 
 /** Re-exported so admin write paths keep `landing_banners.kind` valid. */

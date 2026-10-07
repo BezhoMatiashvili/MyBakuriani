@@ -37,13 +37,26 @@ import {
   type LandingBanner,
 } from "@/lib/banners";
 import BannerLivePreview from "@/components/admin/BannerLivePreview";
-import { landingBannerToCreative } from "@/lib/banner-creative";
+import {
+  landingBannerToCreative,
+  type BannerCreative,
+} from "@/lib/banner-creative";
 import {
   BANNER_PLACEMENTS,
   getPlacementSpec,
+  placementRequiresMedia,
+  selectLiveCreatives,
+  slotHolder,
+  slotState,
   type BannerPlacement,
   type BannerSurface,
+  type SlotState,
 } from "@/lib/banner-placements";
+import { tbilisiDateTimeOf } from "@/lib/admin-statuses";
+import {
+  enabledBannerCreatives,
+  useEnabledCreatives,
+} from "@/components/admin/useEnabledCreatives";
 import {
   ctrPercent,
   type BannerAnalytics,
@@ -123,6 +136,18 @@ export default function AdminBannersPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Paid ads share the placements and outrank editorial banners in a
+  // single-creative slot, so the row state needs them too.
+  const otherAds = useEnabledCreatives("ad");
+  const live = useMemo(
+    () =>
+      selectLiveCreatives(
+        [...enabledBannerCreatives(banners), ...otherAds],
+        Date.now(),
+      ),
+    [banners, otherAds],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -308,6 +333,16 @@ export default function AdminBannersPage() {
       setError(t("ctaUrlRequired"));
       return;
     }
+    // The site skips a leaderboard / sidebar / in-grid banner without media,
+    // so saving one would only look like it worked.
+    if (
+      placementRequiresMedia(form.placement) &&
+      !form.image_url.trim() &&
+      !form.video_url.trim()
+    ) {
+      setError(t("mediaRequired"));
+      return;
+    }
     if (
       form.start_at &&
       form.end_at &&
@@ -346,6 +381,9 @@ export default function AdminBannersPage() {
       const data = await res.json();
       if (!res.ok) {
         if (data.code === "timeout") throw new Error(t("saveTimeout"));
+        if (data.code === "media_required") {
+          throw new Error(t("mediaRequired"));
+        }
         throw new Error(data.error ?? tShared("saveFailed"));
       }
       toast.success(form.id ? t("updated") : t("created"));
@@ -445,6 +483,7 @@ export default function AdminBannersPage() {
                     <BannerRow
                       key={b.id}
                       banner={b}
+                      live={live}
                       metrics={
                         metrics
                           ? (metrics.get(b.id) ?? NO_COUNTS)
@@ -612,6 +651,7 @@ export default function AdminBannersPage() {
                   <DateTimeField
                     value={form.end_at}
                     onChange={(v) => setForm((p) => ({ ...p, end_at: v }))}
+                    defaultTime="23:59"
                     clearable
                     className="h-[55px] rounded-2xl"
                   />
@@ -690,16 +730,32 @@ function Field({
   );
 }
 
-const NO_COUNTS: BannerCounts = { views: 0, opens: 0, clicks: 0 };
+const NO_COUNTS: BannerCounts = {
+  views: 0,
+  opens: 0,
+  clicks: 0,
+  impressions: 0,
+};
+
+const STATE_STYLE: Record<SlotState, string> = {
+  live: "bg-[#10B981] text-white",
+  scheduled: "bg-[#F59E0B] text-white",
+  expired: "bg-[#94A3B8] text-white",
+  needs_media: "bg-[#F59E0B] text-white",
+  hidden: "bg-[#94A3B8] text-white",
+};
 
 function BannerRow({
   banner,
+  live,
   metrics,
   onEdit,
   onToggle,
   onDelete,
 }: {
   banner: LandingBanner;
+  /** selectLiveCreatives() over every enabled banner and ad. */
+  live: BannerCreative[];
   metrics: BannerCounts | null;
   onEdit: () => void;
   onToggle: () => void;
@@ -711,7 +767,25 @@ function BannerRow({
   const tCreate = useTranslations("CreateShared");
   const tAnalytics = useTranslations("AdminAdAnalytics");
   const tone = BANNER_TONE_STYLES[banner.tone];
-  const ctr = metrics ? ctrPercent(metrics.clicks, metrics.views) : null;
+  // C47: CTR = clicks / impressions, as on the ad-analytics page.
+  const ctr = metrics ? ctrPercent(metrics.clicks, metrics.impressions) : null;
+  // Whether visitors see it right now, by the public loader's own rules.
+  const creative = banner.active ? enabledBannerCreatives([banner])[0] : null;
+  const state: SlotState | null = creative
+    ? slotState(creative, live, Date.now())
+    : null;
+  const hint =
+    state === "scheduled" && banner.start_at
+      ? t("stateHint.scheduled", { date: tbilisiDateTimeOf(banner.start_at) })
+      : state === "expired"
+        ? t("stateHint.expired")
+        : state === "needs_media"
+          ? t("stateHint.needsMedia")
+          : state === "hidden"
+            ? t("stateHint.hidden", {
+                title: slotHolder(banner.placement, live)?.title ?? "",
+              })
+            : null;
   return (
     <article
       className="overflow-hidden rounded-2xl border bg-white shadow-[0px_2px_8px_-2px_rgba(0,0,0,0.04)]"
@@ -774,12 +848,22 @@ function BannerRow({
                   {t("disabledBadge")}
                 </span>
               )}
+              {state && (
+                <span className={`rounded px-2 py-1 ${STATE_STYLE[state]}`}>
+                  {t(`state.${state}`)}
+                </span>
+              )}
               {banner.cta_label && banner.cta_href && (
                 <span className="max-w-full break-words rounded bg-white/70 px-2 py-1 normal-case tracking-normal">
                   {banner.cta_label} → {banner.cta_href}
                 </span>
               )}
             </div>
+            {hint && (
+              <p className="mt-2 text-[12px] font-semibold leading-[18px] text-[#92400E]">
+                {hint}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -818,7 +902,7 @@ function BannerRow({
         <p className="text-[12px] font-semibold text-[#64748B]">
           {metrics
             ? tAnalytics("cardSummary", {
-                views: formatNumber(metrics.views),
+                impressions: formatNumber(metrics.impressions),
                 opens: formatNumber(metrics.opens),
                 clicks: formatNumber(metrics.clicks),
                 ctr: ctr === null ? "—" : `${ctr.toFixed(1)}%`,

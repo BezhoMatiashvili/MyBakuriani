@@ -104,7 +104,7 @@ export function WhatsAppButton({
       const response = await fetch(`/api/listings/${kind}/${id}/contact`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ device_id: deviceId, turnstile_token: turnstileToken }),
+        body: JSON.stringify({ device_id: deviceId, turnstile_token: turnstileToken, channel: "whatsapp" }),
       });
       if (!response.ok) return;
       const result = (await response.json()) as { whatsapp?: string | null };

@@ -5,9 +5,13 @@ import {
   BANNER_ANALYTICS_DEFAULT_DAYS,
   BANNER_ANALYTICS_MAX_DAYS,
   BANNER_ANALYTICS_PRESETS,
+  BANNER_BATCH_MAX,
+  BANNER_BATCH_TYPES,
   BANNER_EVENTS,
   BANNER_SOURCES,
+  actualSovPercent,
   ctrPercent,
+  isBannerBatchType,
   isBannerEvent,
   isBannerSource,
 } from "../../src/lib/banner-analytics.ts";
@@ -45,6 +49,31 @@ test("record_banner_event branches on exactly BANNER_SOURCES", () => {
     (m) => m[1],
   );
   assert.deepEqual([...new Set(sources)].sort(), [...BANNER_SOURCES].sort());
+});
+
+// C47: the batched writer must accept exactly the types and the batch size
+// the beacon sends, or a whole page's events are refused with 22023.
+test("record_banner_events accepts exactly BANNER_BATCH_TYPES and BANNER_BATCH_MAX", () => {
+  const body = newestDefinition("record_banner_events");
+  const listed = body.match(/v_type not in \(([^)]*)\)/);
+  assert.ok(listed, "event type list not found");
+  const types = new Set([...quoted(listed[1]), ...quoted((body.match(/v_type = '([a-z_]+)' then/) ?? [""])[0])]);
+  assert.deepEqual([...types].sort(), [...BANNER_BATCH_TYPES].sort());
+  const sources = [...body.matchAll(/v_source = '([a-z_]+)'/g)].map((m) => m[1]);
+  assert.deepEqual([...new Set(sources)].sort(), [...BANNER_SOURCES].sort());
+  const max = body.match(/jsonb_array_length\(p_events\) > (\d+)/);
+  assert.ok(max, "batch limit not found");
+  assert.equal(Number(max[1]), BANNER_BATCH_MAX);
+});
+
+test("actualSovPercent", () => {
+  assert.equal(actualSovPercent(0, 0), null);
+  assert.equal(actualSovPercent(25, 100), 25);
+  assert.equal(actualSovPercent(1, 3), 33.3);
+  assert.equal(actualSovPercent(120, 100), 100);
+  assert.equal(actualSovPercent(-1, 10), 0);
+  for (const t of BANNER_BATCH_TYPES) assert.ok(isBannerBatchType(t));
+  for (const bad of ["view", "", null, "IMP"]) assert.equal(isBannerBatchType(bad), false);
 });
 
 test("the table CHECK and the read RPC agree on BANNER_SOURCES", () => {

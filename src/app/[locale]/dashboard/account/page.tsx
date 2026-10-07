@@ -7,6 +7,9 @@ import { motion } from "framer-motion";
 import { Loader2, Mail, Phone, Plus, ShieldCheck, Unlink } from "lucide-react";
 import type { Provider, UserIdentity } from "@supabase/supabase-js";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { isPhoneAuthEnabled } from "@/lib/auth/phone";
+import { formatPhone } from "@/lib/utils/format";
+import PhoneOtpForm from "@/components/auth/PhoneOtpForm";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
@@ -37,7 +40,14 @@ export default function LinkedAccountsPage() {
     linkIdentity,
     unlinkIdentity,
     getUserIdentities,
+    startPhoneChange,
+    verifyPhoneChange,
   } = useAuth();
+  const phoneEnabled = isPhoneAuthEnabled();
+  // The number this account signs in with by SMS code (C48), once verified.
+  const [verifiedPhone, setVerifiedPhone] = useState<string | null>(null);
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneNotice, setPhoneNotice] = useState<string | null>(null);
 
   const [identities, setIdentities] = useState<UserIdentity[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,6 +62,7 @@ export default function LinkedAccountsPage() {
       router.push("/auth/login");
       return;
     }
+    setVerifiedPhone(user.phone && user.phone_confirmed_at ? user.phone : null);
     getUserIdentities()
       .then(setIdentities)
       .catch(() => setError(t("errors.loadFailed")))
@@ -109,6 +120,19 @@ export default function LinkedAccountsPage() {
     } finally {
       setUnlinkingId(null);
     }
+  }
+
+  // The code goes to the new number; once verified the number is this
+  // account's phone sign-in (a "Phone" identity), so signing in by SMS lands
+  // here instead of creating a second, empty account.
+  async function verifyNewPhone(phone: string, code: string) {
+    const data = await verifyPhoneChange(phone, code);
+    setVerifiedPhone(data.user?.phone || phone);
+    setEditingPhone(false);
+    setPhoneNotice(t("phone.saved"));
+    getUserIdentities()
+      .then(setIdentities)
+      .catch(() => {});
   }
 
   const linkedProviders = new Set((identities ?? []).map((i) => i.provider));
@@ -225,6 +249,62 @@ export default function LinkedAccountsPage() {
               </Button>
             ))}
           </div>
+        </motion.div>
+      )}
+
+      {phoneEnabled && !loading && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+          className="rounded-[24px] border bg-white p-6 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.08)] sm:p-8"
+        >
+          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#F8FAFC]">
+                <Phone className="size-4 text-[#64748B]" />
+              </span>
+              <div>
+                <h2 className="text-sm font-bold text-[#0F172A]">
+                  {t("phone.title")}
+                </h2>
+                <p className="mt-1 text-[13px] font-medium text-[#64748B]">
+                  {t("phone.hint")}
+                </p>
+                <p className="mt-2 text-sm font-bold text-[#0F172A]">
+                  {verifiedPhone ? formatPhone(verifiedPhone) : t("phone.none")}
+                </p>
+                {phoneNotice && (
+                  <p role="status" className="mt-1 text-xs text-green-700">
+                    {phoneNotice}
+                  </p>
+                )}
+              </div>
+            </div>
+            {!editingPhone && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditingPhone(true);
+                  setPhoneNotice(null);
+                }}
+                className="min-h-11 w-full shrink-0 sm:min-h-0 sm:w-auto"
+              >
+                {verifiedPhone ? t("phone.change") : t("phone.add")}
+              </Button>
+            )}
+          </div>
+          {editingPhone && (
+            <div className="mt-5 max-w-[420px]">
+              <PhoneOtpForm
+                idPrefix="account"
+                onSend={startPhoneChange}
+                onVerify={verifyNewPhone}
+                onCancel={() => setEditingPhone(false)}
+              />
+            </div>
+          )}
         </motion.div>
       )}
 

@@ -12,6 +12,7 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SalePagination } from "@/components/search/SalePagination";
 import { SalesTopBar } from "@/components/layout/SalesTopBar";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { interleaveSponsored } from "@/lib/ad-rotation";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -163,39 +164,47 @@ export default function SalesPageClient({ properties }: Props) {
               bare
               className="col-span-full"
             />
-            <BannerSlot placement="listing_grid" bare />
-
-            {paginatedProperties.map((p, i) => {
-              const photos = Array.isArray(p.photos)
-                ? (p.photos as string[])
-                : [];
-              const amenities = Array.isArray(p.amenities)
-                ? (p.amenities as string[])
-                : [];
-              return (
-                <ScrollReveal key={p.id} delay={i * 0.05} className="h-full">
-                  <InvestmentCard
-                    id={p.id}
-                    createdAt={p.created_at}
-                    title={p.title}
-                    location={p.location}
-                    photo={photos[0] ?? "/placeholder-property.jpg"}
-                    salePrice={p.sale_price ? Number(p.sale_price) : null}
-                    type={p.type}
-                    areaSqm={p.area_sqm ? Number(p.area_sqm) : null}
-                    roiPercent={p.roi_percent ? Number(p.roi_percent) : null}
-                    constructionStatus={p.construction_status}
-                    frameType={amenities[0] ?? null}
-                    paymentOptions={readPaymentOptions(p.house_rules)}
-                    discountPercent={p.discount_percent ?? 0}
-                    discountExpiresAt={p.discount_expires_at}
-                    isVip={p.is_vip ?? false}
-                    isSuperVip={p.is_super_vip ?? false}
-                    isOwnershipVerified={p.ownership_verified ?? false}
-                  />
-                </ScrollReveal>
-              );
-            })}
+            {interleaveSponsored(
+              paginatedProperties.map((p, i) => {
+                const photos = Array.isArray(p.photos)
+                  ? (p.photos as string[])
+                  : [];
+                const amenities = Array.isArray(p.amenities)
+                  ? (p.amenities as string[])
+                  : [];
+                return (
+                  <ScrollReveal key={p.id} delay={i * 0.05} className="h-full">
+                    <InvestmentCard
+                      id={p.id}
+                      createdAt={p.created_at}
+                      title={p.title}
+                      location={p.location}
+                      photo={photos[0] ?? "/placeholder-property.jpg"}
+                      salePrice={p.sale_price ? Number(p.sale_price) : null}
+                      type={p.type}
+                      areaSqm={p.area_sqm ? Number(p.area_sqm) : null}
+                      roiPercent={p.roi_percent ? Number(p.roi_percent) : null}
+                      constructionStatus={p.construction_status}
+                      frameType={amenities[0] ?? null}
+                      paymentOptions={readPaymentOptions(p.house_rules)}
+                      discountPercent={p.discount_percent ?? 0}
+                      discountExpiresAt={p.discount_expires_at}
+                      isVip={p.is_vip ?? false}
+                      isSuperVip={p.is_super_vip ?? false}
+                      isOwnershipVerified={p.ownership_verified ?? false}
+                    />
+                  </ScrollReveal>
+                );
+              }),
+              (slot) => (
+                <BannerSlot
+                  key={`sponsored-${slot}`}
+                  placement="listing_grid"
+                  bare
+                  position={slot}
+                />
+              ),
+            )}
           </div>
         )}
 

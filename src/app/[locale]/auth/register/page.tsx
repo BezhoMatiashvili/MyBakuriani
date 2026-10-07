@@ -19,6 +19,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import { toCanonicalGePhone } from "@/lib/sms/phone";
 import { withRetry } from "@/lib/with-timeout";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
 import type { Enums } from "@/lib/types/database";
@@ -268,7 +269,9 @@ export default function RegisterPage() {
 
     const profilePayload = {
       id: user.id,
-      phone: user.phone?.trim() ? user.phone.trim() : null,
+      // Auth stores a phone sign-up's number as "9955XXXXXXXX"; profiles keep
+      // the "+995…" form every SMS path reads (C48).
+      phone: toCanonicalGePhone(user.phone),
       display_name: displayName.trim(),
       bio: bio.trim() || null,
       avatar_url: uploadedAvatarUrl,

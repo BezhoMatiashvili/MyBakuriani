@@ -32,7 +32,9 @@ const BAKURIANI_CENTER: [number, number] = [41.7509, 43.5294];
 export interface MapProperty {
   id: string;
   title: string;
-  price: number;
+  /** Omitted for a listing with no single price (a restaurant): the marker
+   * then shows a pin instead of a price pill. */
+  price?: number;
   lat: number;
   lng: number;
   isVip?: boolean;

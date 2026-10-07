@@ -150,7 +150,8 @@ function cell(ref: string, value: unknown, kind: XlsxColumnKind): string {
   return textCell(ref, String(value));
 }
 
-export function buildXlsx(sheet: XlsxSheet): Buffer {
+/** One sheet's worksheet part: preamble, frozen header row, typed cells. */
+function worksheetXml(sheet: XlsxSheet): string {
   const preamble = sheet.preamble ?? [];
   const rowsXml: string[] = [];
   let r = 0;
@@ -184,14 +185,33 @@ export function buildXlsx(sheet: XlsxSheet): Buffer {
         `<col min="${i + 1}" max="${i + 1}" width="${col.width ?? (col.kind === "text" ? 24 : 14)}" customWidth="1"/>`,
     )
     .join("");
-  const worksheet =
+  return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
     `<sheetViews><sheetView workbookViewId="0"><pane ySplit="${headerRow}" topLeftCell="A${headerRow + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` +
     `<cols>${cols}</cols>` +
     `<sheetData>${rowsXml.join("")}</sheetData>` +
-    `</worksheet>`;
+    `</worksheet>`
+  );
+}
 
+const STYLES_XML =
+  `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+  `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+  `<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>` +
+  `<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>` +
+  `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +
+  `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
+  `<cellXfs count="3">` +
+  `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
+  `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>` +
+  `<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
+  `</cellXfs>` +
+  `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
+  `</styleSheet>`;
+
+export function buildXlsx(sheet: XlsxSheet): Buffer {
+  const worksheet = worksheetXml(sheet);
   const files: Record<string, string> = {
     "[Content_Types].xml":
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
@@ -218,22 +238,85 @@ export function buildXlsx(sheet: XlsxSheet): Buffer {
       `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>` +
       `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
       `</Relationships>`,
-    "xl/styles.xml":
-      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-      `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-      `<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>` +
-      `<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>` +
-      `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +
-      `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-      `<cellXfs count="3">` +
-      `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
-      `<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>` +
-      `<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` +
-      `</cellXfs>` +
-      `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
-      `</styleSheet>`,
+    "xl/styles.xml": STYLES_XML,
     "xl/worksheets/sheet1.xml": worksheet,
   };
+
+  const encoder = new TextEncoder();
+  return zip(
+    Object.entries(files).map(([name, text]) => ({
+      name,
+      data: encoder.encode(text),
+    })),
+  );
+}
+
+/**
+ * Several sheets in one workbook (admin analytics exports, C49). Sheet names
+ * stay unique after Excel's 31-character cut (compared case-insensitively, as
+ * Excel does), or Excel would offer to repair the file.
+ */
+export function buildXlsxWorkbook(sheets: XlsxSheet[]): Buffer {
+  const names: string[] = [];
+  for (const sheet of sheets) {
+    const base = safeSheetName(sheet.sheetName);
+    let name = base;
+    for (
+      let n = 2;
+      names.some((taken) => taken.toLowerCase() === name.toLowerCase());
+      n++
+    ) {
+      const suffix = ` (${n})`;
+      name = `${base.slice(0, 31 - suffix.length).trimEnd()}${suffix}`;
+    }
+    names.push(name);
+  }
+  const files: Record<string, string> = {
+    "[Content_Types].xml":
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+      `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+      `<Default Extension="xml" ContentType="application/xml"/>` +
+      `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
+      names
+        .map(
+          (_, i) =>
+            `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`,
+        )
+        .join("") +
+      `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>` +
+      `</Types>`,
+    "_rels/.rels":
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+      `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>` +
+      `</Relationships>`,
+    "xl/workbook.xml":
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+      `<sheets>${names
+        .map(
+          (name, i) =>
+            `<sheet name="${xmlText(name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`,
+        )
+        .join("")}</sheets>` +
+      `</workbook>`,
+    "xl/_rels/workbook.xml.rels":
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+      names
+        .map(
+          (_, i) =>
+            `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`,
+        )
+        .join("") +
+      `<Relationship Id="rId${names.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+      `</Relationships>`,
+    "xl/styles.xml": STYLES_XML,
+  };
+  sheets.forEach((sheet, i) => {
+    files[`xl/worksheets/sheet${i + 1}.xml`] = worksheetXml(sheet);
+  });
 
   const encoder = new TextEncoder();
   return zip(

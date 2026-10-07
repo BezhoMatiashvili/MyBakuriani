@@ -1479,7 +1479,9 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // PUBLIC, anon and authenticated where they are created and never granted back;
 // (d) only the statuses API and its server helper read the views or name the
 // RPCs; (e) the pure module has no "@/" import; (f) the *_admin_update
-// notification types stay out of the e-mail and SMS lists (bell only).
+// notification types stay out of the e-mail and SMS lists (bell only);
+// (g) admin_gift_sms_credits is service_role only and called only by the admin
+// bonus route.
 // ---------------------------------------------------------------------------
 {
   const pureFile = "src/lib/admin-statuses.ts";
@@ -1544,7 +1546,23 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 
   if (/from "@\//.test(pure)) problems.push(`${pureFile} imports from "@/" (scripts/unit loads it bare)`);
 
-  const ownTypes = ["membership_admin_update", "promotion_admin_update", "company_plan_admin_update"];
+  // SMS-credit gifts (admin_gift_sms_credits): service_role only, called only
+  // by the admin bonus route.
+  const giftFn = "admin_gift_sms_credits";
+  const giftCreator = migrations.find(([, sql]) => new RegExp(`CREATE (?:OR REPLACE )?FUNCTION public\\.${giftFn}\\(`).test(sql));
+  if (!giftCreator) problems.push(`no migration creates public.${giftFn}`);
+  else if (!new RegExp(`REVOKE ALL ON FUNCTION public\\.${giftFn}\\b[^;]*FROM PUBLIC, anon, authenticated`).test(giftCreator[1])) problems.push(`${giftCreator[0]} must REVOKE ALL on public.${giftFn} FROM PUBLIC, anon, authenticated`);
+  for (const [file, sql] of migrations) {
+    for (const grant of sql.match(new RegExp(`GRANT[^;]*\\bpublic\\.${giftFn}\\b[^;]*;`, "g")) ?? []) {
+      if (/\bTO\b[^;]*\b(?:anon|authenticated|PUBLIC)\b/.test(grant)) problems.push(`${file} grants public.${giftFn} to a client role`);
+    }
+  }
+  const giftRoute = join("src/app/api/admin/clients/bonus/route.ts");
+  const giftCallers = srcFiles.filter((f) => !f.startsWith(join("src/lib/types")) && new RegExp(`"${giftFn}"`).test(srcText.get(f)));
+  if (!giftCallers.includes(giftRoute)) problems.push(`${giftRoute} no longer calls ${giftFn}`);
+  if (giftCallers.some((f) => f !== giftRoute)) problems.push(`${giftFn} is called outside ${giftRoute}: ${giftCallers.filter((f) => f !== giftRoute).join(", ")}`);
+
+  const ownTypes = ["membership_admin_update", "promotion_admin_update", "company_plan_admin_update", "sms_credit_admin_update"];
   for (const fn of ["email_notification_types", "sms_notification_types"]) {
     const created = newest.find(([, sql]) => new RegExp(`FUNCTION public\\.${fn}\\(`, "i").test(sql));
     const list = created?.[1].match(new RegExp(`function public\\.${fn}\\(\\)[\\s\\S]*?select array\\[([\\s\\S]*?)\\]::text\\[\\]`, "i"))?.[1];
@@ -1559,43 +1577,237 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (!audited || !/CREATE TRIGGER trg_audit_row\s+AFTER INSERT OR UPDATE OR DELETE ON public\.organization_subscriptions/.test(audited[1])) problems.push("the newest migration touching trg_audit_row on organization_subscriptions must (re)create it: admin plan edits are audited");
 
   if (problems.length) problems.forEach((p) => fail(`C44: ${p}`));
-  else ok(`C44: membership status CHECK = MEMBERSHIP_STATUSES; ${rpcs.length} change RPCs' actions = the TS lists; RPCs and views service_role only; used only by the statuses API; pure module bare; admin status notices bell only; company plans audited`);
+  else ok(`C44: membership status CHECK = MEMBERSHIP_STATUSES; ${rpcs.length} change RPCs' actions = the TS lists; RPCs and views service_role only; used only by the statuses API; pure module bare; admin status notices bell only; SMS-credit gifts service_role only, one caller; company plans audited`);
 }
 
 // ---------------------------------------------------------------------------
 // C46 — ad & banner analytics. Every creative event goes beacon → one route →
 // one RPC, and every admin number comes from one read RPC behind requireAdmin:
-// (a) record_banner_event is called only by the track route and
-// admin_banner_analytics only by the admin route (which checks requireAdmin);
-// (b) only src/lib/banner-tracking.ts posts to the track route; (c) nothing
-// calls the superseded increment_ad_metric; (d) the renderer counts views on
-// the shell, opens where the detail window opens, and clicks on the detail
-// window's CTA; (e) src/lib/banner-analytics.ts stays free of "@/" imports
-// (scripts/unit loads it bare; the SQL lists are compared there).
+// (a) record_banner_events (C47's batched writer) is called only by the track
+// route and admin_banner_analytics only by the admin route (which checks
+// requireAdmin) and C49's src/lib/analytics/server.ts (imported only by the
+// requireAdmin analytics routes, pinned there); nothing calls the superseded record_banner_event or
+// increment_ad_metric; (b) only src/lib/banner-tracking.ts posts to the track
+// route; (c) the renderer counts impressions on the shell, opens where the
+// detail window opens, and clicks on the detail window's CTA; (d)
+// src/lib/banner-analytics.ts stays free of "@/" imports (scripts/unit loads
+// it bare; the SQL lists are compared there).
 // ---------------------------------------------------------------------------
 {
   const appFiles = srcFiles.filter((f) => !f.startsWith(join("src/lib/types")));
   const callers = (pattern) => appFiles.filter((f) => pattern.test(srcText.get(f)));
   const problems = [];
-  const expectOnly = (label, pattern, allowed) => {
+  const expectOnly = (label, pattern, allowed, also = []) => {
     const found = callers(pattern);
-    const extra = found.filter((f) => f !== join(allowed));
+    const extra = found.filter((f) => f !== join(allowed) && !also.some((a) => join(a) === f));
     if (!found.includes(join(allowed))) problems.push(`${allowed} no longer calls ${label}`);
     if (extra.length) problems.push(`${label} is called outside ${allowed}: ${extra.join(", ")}`);
   };
-  expectOnly("record_banner_event", /rpc\(\s*"record_banner_event"/, "src/app/api/banner-slots/track/route.ts");
-  expectOnly("admin_banner_analytics", /rpc\(\s*"admin_banner_analytics"/, "src/app/api/admin/banner-analytics/route.ts");
+  expectOnly("record_banner_events", /rpc\(\s*"record_banner_events"/, "src/app/api/banner-slots/track/route.ts");
+  const single = callers(/rpc\(\s*"record_banner_event"/);
+  if (single.length) problems.push(`record_banner_event is superseded by the batched record_banner_events: ${single.join(", ")}`);
+  expectOnly("admin_banner_analytics", /rpc\(\s*"admin_banner_analytics"/, "src/app/api/admin/banner-analytics/route.ts", ["src/lib/analytics/server.ts"]);
   expectOnly('the "/api/banner-slots/track" beacon', /["`]\/api\/banner-slots\/track["`]/, "src/lib/banner-tracking.ts");
   if (!/await requireAdmin\(\)/.test(read("src/app/api/admin/banner-analytics/route.ts"))) problems.push("src/app/api/admin/banner-analytics/route.ts must check requireAdmin() before reading");
   const legacy = callers(/increment_ad_metric/);
   if (legacy.length) problems.push(`increment_ad_metric is superseded by record_banner_event: ${legacy.join(", ")}`);
   const view = read("src/components/banners/BannerSlotView.tsx");
-  if (!/useBannerViewTracking\(creative, interactive\)/.test(view)) problems.push("BannerSlotView's CreativeShell must count views with useBannerViewTracking(creative, interactive)");
+  if (!/useBannerViewTracking\(\s*creative,\s*interactive\b/.test(view)) problems.push("BannerSlotView's CreativeShell must count impressions with useBannerViewTracking(creative, interactive, …)");
   if (!/reportBannerEvent\(creative, "open"\);\s*setExpanded\(creative\)/.test(view)) problems.push("BannerSlotView must count an open where the detail window opens");
   if (!/reportBannerEvent\(creative, "click"\)/.test(read("src/components/shared/BannerDetailModal.tsx"))) problems.push("BannerDetailModal's CTA must count a click");
   if (/from "@\//.test(read("src/lib/banner-analytics.ts"))) problems.push('src/lib/banner-analytics.ts imports from "@/" (scripts/unit loads it bare)');
   if (problems.length) problems.forEach((p) => fail(`C46: ${p}`));
-  else ok("C46: banner events go through one beacon, one route and one RPC; admin numbers through one read RPC behind requireAdmin; views, opens and clicks wired in the renderer");
+  else ok("C46: banner events go through one beacon, one route and one RPC; admin numbers through one read RPC behind requireAdmin; impressions, opens and clicks wired in the renderer");
+}
+
+// ---------------------------------------------------------------------------
+// C47 — ad campaigns per the owner's media plan (SOV, priority, frequency cap,
+// rotation, the sponsored grid card, the phone-only strip, the rate card):
+// (a) the draw happens in one place: BannerSlotView renders through
+// useSlotRotation (src/lib/banner-slots-client.ts), which is the only caller
+// of pickAd; (b) every listing_grid mount is a sponsored card placed by
+// interleaveSponsored (it carries `position={slot}`), never a fixed slot at the
+// top of a grid; (c) mobile_strip is mounted exactly once, in LocaleShell;
+// (d) the empty ad position is counted with useEmptySlotTracking; (e) both
+// admin ads routes read the campaign fields with parseCampaignFields and turn
+// the capacity trigger's SQLSTATE into a 409; (f) ad-rotation.ts and
+// ad-rate-card.ts stay free of "@/" imports (scripts/unit loads them bare and
+// compares them with the migration and the placement registry).
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  const appFiles = srcFiles.filter((f) => !f.startsWith(join("src/lib/types")));
+  const view = read("src/components/banners/BannerSlotView.tsx");
+  if (!/useSlotRotation\(/.test(view)) problems.push("BannerSlotView must choose its creatives with useSlotRotation (the one draw site)");
+  const pickers = appFiles.filter((f) => /\bpickAd\(/.test(srcText.get(f)) && f !== join("src/lib/ad-rotation.ts"));
+  if (pickers.join() !== join("src/lib/banner-slots-client.ts")) problems.push(`pickAd must be called only by src/lib/banner-slots-client.ts (found: ${pickers.join(", ") || "none"})`);
+  if (!/useEmptySlotTracking\(/.test(view)) problems.push("BannerSlotView must count an empty ad position with useEmptySlotTracking");
+  for (const f of appFiles) {
+    const text = srcText.get(f);
+    for (const m of text.matchAll(/<BannerSlot\b[^>]*placement="listing_grid"[^>]*>/g)) {
+      if (!/position=\{slot\}/.test(m[0]) || !/interleaveSponsored\(/.test(text)) problems.push(`${f}: a listing_grid slot must be a sponsored card placed by interleaveSponsored (position={slot})`);
+    }
+  }
+  const stripMounts = appFiles.filter((f) => /placement="mobile_strip"/.test(srcText.get(f)));
+  if (stripMounts.join() !== join("src/components/layout/LocaleShell.tsx")) problems.push(`mobile_strip must be mounted once, in LocaleShell (found: ${stripMounts.join(", ") || "none"})`);
+  for (const route of ["src/app/api/admin/ads/route.ts", "src/app/api/admin/ads/[id]/route.ts"]) {
+    const text = read(route);
+    if (!/parseCampaignFields\(/.test(text) || !/SLOT_FULL_SQLSTATE/.test(text) || !/status: 409/.test(text)) problems.push(`${route} must read SOV/priority/cap with parseCampaignFields and answer 409 to SLOT_FULL_SQLSTATE`);
+  }
+  for (const pure of ["src/lib/ad-rotation.ts", "src/lib/ad-rate-card.ts"]) {
+    if (/from "@\//.test(read(pure))) problems.push(`${pure} imports from "@/" (scripts/unit loads it bare)`);
+  }
+  if (problems.length) problems.forEach((p) => fail(`C47: ${p}`));
+  else ok("C47: one draw site (useSlotRotation), sponsored grid cards placed by interleaveSponsored, mobile_strip mounted once, empty ad positions counted, admin ads routes validate SOV/priority/cap and map the capacity trigger");
+}
+
+// ---------------------------------------------------------------------------
+// C48 — phone sign-in (SMS code through the Supabase Auth Send SMS hook):
+// (a) auth-send-sms verifies the Standard Webhooks signature before it reads
+// the payload and refuses when SEND_SMS_HOOK_SECRET is unset; (b) it texts the
+// toUbillNumber(sms.phone) target (Georgian mobiles only) as a uBill OTP
+// through _shared/ubill.ts:ubillSend and logs only through deps.log;
+// (c) _shared/ubill.ts is the only file that POSTs to uBill's /send;
+// (d) the login page's phone sign-in carries the C41 signup-link data;
+// (e) the login and account pages gate phone UI on isPhoneAuthEnabled;
+// (f) the app's refusal tokens equal the hook's; (g) the code-log functions
+// are never granted to anon/authenticated.
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  const handler = read("supabase/functions/auth-send-sms/handler.ts");
+  const verifyAt = handler.indexOf("verify(await req.text()");
+  const firstRead = handler.search(/event\.(sms|user|metadata)/);
+  if (verifyAt < 0 || firstRead < 0 || verifyAt > firstRead) problems.push("auth-send-sms must verify the signature (verify(await req.text(), …)) before reading the payload");
+  if (!/if \(!secrets\) \{[\s\S]{0,200}return refuse\(/.test(handler)) problems.push("auth-send-sms must refuse when SEND_SMS_HOOK_SECRET is unset");
+  if (!/toUbillNumber\(\s*String\(event\.sms\?\.phone/.test(handler)) problems.push("auth-send-sms must text toUbillNumber(sms.phone …), the number Auth names");
+  if (!/otp: true/.test(handler)) problems.push("auth-send-sms must send with uBill's otp flag");
+  if (/console\.(log|error|warn|info)/.test(handler)) problems.push("auth-send-sms/handler.ts must log only through deps.log (masked fields, never the code)");
+  if (!/send: ubillSend/.test(read("supabase/functions/auth-send-sms/index.ts"))) problems.push("auth-send-sms/index.ts must send through _shared/ubill.ts:ubillSend");
+  const senders = [...walk("supabase/functions", [".ts"])].filter((f) => !f.endsWith("_test.ts") && /\/send`/.test(read(f)));
+  if (senders.join() !== join("supabase/functions/_shared/ubill.ts")) problems.push(`only _shared/ubill.ts may POST to uBill's /send (found: ${senders.join(", ") || "none"})`);
+  const login = read("src/app/[locale]/auth/login/page.tsx");
+  if (!/signInWithPhone\([\s\S]{0,160}\[SIGNUP_LINK_METADATA_KEY\]: signupLink/.test(login)) problems.push("the login page's signInWithPhone must carry { [SIGNUP_LINK_METADATA_KEY]: signupLink } (C41)");
+  for (const page of ["src/app/[locale]/auth/login/page.tsx", "src/app/[locale]/dashboard/account/page.tsx"]) {
+    if (!/isPhoneAuthEnabled\(\)/.test(read(page))) problems.push(`${page} must gate its phone UI on isPhoneAuthEnabled()`);
+  }
+  const tokens = (text) => (text.match(/AUTH_SMS_ERRORS = \{([\s\S]*?)\} as const/)?.[1] ?? "").replace(/\s+/g, "");
+  const appTokens = tokens(read("src/lib/auth/phone.ts"));
+  if (!appTokens || appTokens !== tokens(read("supabase/functions/_shared/auth-sms.ts"))) problems.push("AUTH_SMS_ERRORS differs between src/lib/auth/phone.ts and supabase/functions/_shared/auth-sms.ts");
+  if (/from "@\//.test(read("src/lib/auth/phone.ts"))) problems.push('src/lib/auth/phone.ts imports from "@/" (scripts/unit loads it bare)');
+  const migrations = [...walk("supabase/migrations", [".sql"])].map(read).join("\n");
+  if (/GRANT[^;]*auth_sms_code[^;]*TO[^;]*\b(anon|authenticated|PUBLIC)\b/i.test(migrations)) problems.push("auth_sms_code_* must never be granted to anon, authenticated or PUBLIC (C34)");
+  if (problems.length) problems.forEach((p) => fail(`C48: ${p}`));
+  else ok("C48: hook verifies before reading and fails closed, texts toUbillNumber(sms.phone) as a uBill OTP via ubillSend (the only /send), login carries the signup-link data, phone UI gated, refusal tokens equal, code-log service-role only");
+}
+
+// ---------------------------------------------------------------------------
+// C49 — admin analytics (owner spec "Admin Dashboard"): (a) the vocabularies of
+// src/lib/analytics/model.ts equal the migrations' CHECK lists and function
+// outputs (sources, devices, page types, listing kinds, event names, the lead
+// events behind Key Actions); (b) only PageviewTracker posts to /api/track/view
+// and /api/track/ping and only track-client.ts to /api/track/event, only the
+// two track routes set the mb_sid cookie, only events.ts writes
+// analytics_events (behind the consent check) and only the ping route calls
+// analytics_ping; (c) the admin_analytics_* RPCs are called only from the
+// server-only src/lib/analytics/server.ts, which only the two admin analytics
+// routes import, both behind requireAdmin; (d) no migration grants the
+// analytics table, view or functions to anon, authenticated or PUBLIC (C34);
+// (e) the pure modules have no runtime imports (scripts/unit loads them bare);
+// (f) the DB-IP attribution (CC BY 4.0) is on the page and in every export.
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  const model = read("src/lib/analytics/model.ts");
+  const tsList = (name) =>
+    [...(model.match(new RegExp("export const " + name + " = \\[([\\s\\S]*?)\\] as const"))?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  const sqlFiles = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .map((f) => read(join("supabase/migrations", f)).replace(/--[^\n]*/g, ""));
+  const newest = (pattern) => [...sqlFiles].reverse().find((sql) => pattern.test(sql)) ?? "";
+  const body = (fn) =>
+    newest(new RegExp("function public\\." + fn + "\\(", "i")).match(new RegExp("function public\\." + fn + "\\([\\s\\S]*?\\$\\$([\\s\\S]*?)\\$\\$", "i"))?.[1] ?? "";
+  const literals = (text) => [...text.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  const same = (label, ts, sql) => {
+    const a = new Set(ts);
+    const b = new Set(sql);
+    if (!a.size || !setEq(a, b)) problems.push(label + ": model.ts [" + ts.join(", ") + "] vs SQL [" + [...b].join(", ") + "]");
+  };
+
+  const dims = body("analytics_check_dims");
+  same("analytics_check_dims devices", tsList("DEVICES"), literals(dims.match(/p_device not in \(([^)]*)\)/i)?.[1] ?? ""));
+  same("analytics_check_dims sources", tsList("TRAFFIC_SOURCES"), literals(dims.match(/p_source not in \(([^)]*)\)/i)?.[1] ?? ""));
+  same("analytics_check_dims page types", tsList("PAGE_TYPES"), literals(dims.match(/p_page_type not in \(([^)]*)\)/i)?.[1] ?? ""));
+  same("analytics_page_type outputs", tsList("PAGE_TYPES"), [...body("analytics_page_type").matchAll(/(?:then|else) '([^']+)'/gi)].map((m) => m[1]));
+  const kind = body("analytics_listing_kind");
+  same("analytics_listing_kind outputs", tsList("LISTING_KINDS"), [
+    ...[...kind.matchAll(/(?:then|else) '([^']+)'/gi)].map((m) => m[1]),
+    ...(/then p_type/i.test(kind) ? literals(kind.match(/when p_type in \(([^)]*)\) then p_type/i)?.[1] ?? "") : []),
+  ]);
+  const kindOrder = literals(body("admin_analytics_listings").match(/unnest\(array\[([^\]]*)\]\) with ordinality/i)?.[1] ?? "");
+  if (kindOrder.join() !== tsList("LISTING_KINDS").join()) problems.push("admin_analytics_listings kind order [" + kindOrder.join(", ") + "] must equal LISTING_KINDS");
+  const tables = newest(/page_views_source_check/i);
+  for (const [, list] of tables.matchAll(/\bsource in \(([^)]*)\)/gi)) same("source CHECK", tsList("TRAFFIC_SOURCES"), literals(list));
+  for (const [, list] of tables.matchAll(/\bdevice in \(([^)]*)\)/gi)) same("device CHECK", tsList("DEVICES"), literals(list));
+  same("analytics_events.name CHECK", tsList("EVENT_NAMES"), literals(newest(/table if not exists public\.analytics_events/i).match(/name text not null check \(name in \(([^)]*)\)/i)?.[1] ?? ""));
+  const keyActions = [...body("admin_analytics_traffic").matchAll(/\.name in \(([^)]*)\)/gi)];
+  if (!keyActions.length) problems.push("admin_analytics_traffic no longer lists the lead events");
+  for (const [, list] of keyActions) same("admin_analytics_traffic Key Actions", tsList("LEAD_EVENTS"), literals(list));
+  const events = new Set(tsList("EVENT_NAMES"));
+  const strays = tsList("CLIENT_EVENTS").filter((e) => !events.has(e));
+  if (strays.length) problems.push("CLIENT_EVENTS not in EVENT_NAMES: " + strays.join(", "));
+
+  const appFiles = srcFiles.filter((f) => !f.startsWith(join("src/lib/types")));
+  const only = (label, pattern, allowed) => {
+    const found = appFiles.filter((f) => pattern.test(srcText.get(f)));
+    const extra = found.filter((f) => !allowed.some((a) => join(a) === f));
+    const missing = allowed.filter((a) => !found.includes(join(a)));
+    if (extra.length) problems.push(label + " is used outside " + allowed.join(", ") + ": " + extra.join(", "));
+    if (missing.length) problems.push(missing.join(", ") + " no longer uses " + label);
+  };
+  only('the "/api/track/view" and "/api/track/ping" beacons', /["`]\/api\/track\/(view|ping)["`]/, ["src/components/analytics/PageviewTracker.tsx"]);
+  only('the "/api/track/event" beacon', /["`]\/api\/track\/event["`]/, ["src/lib/analytics/track-client.ts"]);
+  only("the mb_sid cookie writer (name: SESSION_COOKIE)", /name: SESSION_COOKIE/, ["src/app/api/track/view/route.ts", "src/app/api/track/ping/route.ts"]);
+  only('the literal "mb_sid"', /["'`]mb_sid["'`]/, ["src/lib/analytics/model.ts"]);
+  only('.from("analytics_events")', /\.from\(\s*"analytics_events"\s*\)/, ["src/lib/analytics/events.ts"]);
+  only("analytics_ping", /rpc\(\s*"analytics_ping"/, ["src/app/api/track/ping/route.ts"]);
+  only("the admin_analytics_* RPCs", /rpc\(\s*"admin_analytics_/, ["src/lib/analytics/server.ts"]);
+  const adminRoutes = ["src/app/api/admin/analytics/route.ts", "src/app/api/admin/analytics/export/route.ts"];
+  only("src/lib/analytics/server.ts", /from "@\/lib\/analytics\/server"/, adminRoutes);
+  for (const route of adminRoutes) {
+    if (!/await requireAdmin\(\)/.test(read(route))) problems.push(route + " must check requireAdmin() before reading");
+  }
+  for (const file of ["src/lib/analytics/server.ts", "src/lib/analytics/events.ts"]) {
+    if (!/^import "server-only";/m.test(read(file))) problems.push(file + ' must start with import "server-only"');
+  }
+  if (!/hasAnalyticsConsent\(/.test(read("src/lib/analytics/events.ts"))) problems.push("src/lib/analytics/events.ts must check analytics consent before recording");
+  if (!/hasAnalyticsConsent\(/.test(read("src/app/api/track/view/route.ts"))) problems.push("/api/track/view must check analytics consent");
+  for (const route of ["src/app/api/track/ping/route.ts", "src/app/api/track/event/route.ts"]) {
+    if (!/analyticsVisitor\(req\)/.test(read(route))) problems.push(route + " must resolve the consenting visitor (analyticsVisitor) before writing");
+  }
+
+  if (!/afterPageview\(\)\.then\(\(\) =>\s*fetch\(\`\/api\/listings\//.test(read("src/lib/hooks/useListingViewCount.ts"))) problems.push("useListingViewCount must send the listing view after afterPageview() (its analytics event needs the cookies the page view issues)");
+  if (!/\.finally\(pageviewAnswered\)/.test(read("src/components/analytics/PageviewTracker.tsx"))) problems.push("PageviewTracker must call pageviewAnswered when its view beacon settles");
+  const objects = "analytics_events|analytics_person_map_v|admin_analytics_\\w+|analytics_ping|analytics_page_type|analytics_listing_kind|analytics_check_\\w+";
+  const granted = new RegExp("grant[^;]*\\b(" + objects + ")\\b[^;]*\\bto\\b[^;]*\\b(anon|authenticated|public)\\b", "i");
+  if (sqlFiles.some((sql) => granted.test(sql))) problems.push("a migration grants an analytics table, view or function to anon, authenticated or PUBLIC (C34)");
+  if (!/alter table public\.analytics_events enable row level security/i.test(sqlFiles.join("\n"))) problems.push("analytics_events must have RLS enabled");
+
+  for (const name of ["model", "report", "traffic-source", "device", "geoip-core", "cities"]) {
+    if (/^import (?!type\b)[^;]*;/m.test(read("src/lib/analytics/" + name + ".ts"))) problems.push("src/lib/analytics/" + name + ".ts has a runtime import (scripts/unit loads it bare: use import type)");
+  }
+
+  const dashboard = read("src/components/admin/analytics/AnalyticsDashboard.tsx");
+  if (!/href="https:\/\/db-ip\.com"/.test(dashboard) || !/t\("geoAttribution"\)/.test(dashboard)) problems.push('the analytics page must link "IP Geolocation by DB-IP" to https://db-ip.com (CC BY 4.0)');
+  if (!/t\("export\.geo"\)/.test(read("src/lib/analytics/report.ts"))) problems.push("every analytics export must carry the DB-IP attribution (export.geo)");
+  for (const locale of ["ka", "en", "ru"]) {
+    const messages = JSON.parse(read("messages/" + locale + ".json")).AdminAnalytics ?? {};
+    if (!/IP Geolocation by DB-IP/.test(messages.geoAttribution ?? "") || !/IP Geolocation by DB-IP/.test(messages.export?.geo ?? "")) problems.push("messages/" + locale + '.json AdminAnalytics.geoAttribution and export.geo must say "IP Geolocation by DB-IP"');
+  }
+
+  if (problems.length) problems.forEach((p) => fail("C49: " + p));
+  else ok("C49: analytics vocabularies = the migrations; beacons, the mb_sid cookie, analytics_events and analytics_ping each have one writer behind the consent check; admin_analytics_* only through the server-only loader behind requireAdmin; nothing granted to clients; pure modules bare; DB-IP attribution on the page and in exports");
 }
 
 if (failures) {

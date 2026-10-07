@@ -1,5 +1,6 @@
 import { NextRequest, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { recordAnalyticsEvent } from "@/lib/analytics/events";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { isUuid } from "@/lib/utils/uuid";
@@ -8,7 +9,12 @@ import { isTurnstileConfigured, verifyTurnstile } from "@/lib/turnstile";
 
 export const runtime = "nodejs";
 
-type ContactRequest = { turnstile_token?: string; device_id?: string };
+type ContactRequest = {
+  turnstile_token?: string;
+  device_id?: string;
+  /** Which button asked (C49): CallButton "call", WhatsAppButton "whatsapp". */
+  channel?: string;
+};
 
 export async function POST(
   req: NextRequest,
@@ -127,6 +133,12 @@ export async function POST(
   // Its result was never checked, so it runs after the response is sent
   // rather than holding the number back for another round trip (C22: reveal
   // counts in listing analytics become eventual by a few milliseconds).
+  // The channel splits reveals into the admin analytics' calls and messages
+  // (C49); older clients send none, so the column stays nullable.
+  const channel =
+    body?.channel === "call" || body?.channel === "whatsapp"
+      ? body.channel
+      : null;
   after(async () => {
     await (
       db.from as unknown as (table: "contact_reveal_events") => {
@@ -138,7 +150,16 @@ export async function POST(
       account_id: user?.id ?? null,
       device_id: user ? null : device,
       client_ip: ip,
+      channel,
     });
+    if (channel) {
+      await recordAnalyticsEvent(req, {
+        name: channel === "call" ? "call" : "message",
+        entityType: kind,
+        entityId: id,
+        userId: user?.id ?? null,
+      });
+    }
   });
   // This is the only public contact representation: a deliberate detail
   // lookup, individually rate-limited and never part of list/search payloads.

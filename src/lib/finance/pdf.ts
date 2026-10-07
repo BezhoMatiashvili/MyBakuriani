@@ -567,6 +567,227 @@ export async function renderTablePdf(
 }
 
 // ---------------------------------------------------------------------------
+// Multi-table reports (admin analytics exports, C49)
+// ---------------------------------------------------------------------------
+
+export type PdfReportSection = {
+  title: string;
+  columns: PdfColumn[];
+  rows: readonly (readonly unknown[])[];
+  /** Printed under the table (definitions, caveats). */
+  notes?: string[];
+};
+
+export type PdfReportInput = {
+  title: string;
+  /** Lines under the title: period, filters, generated at. */
+  meta: string[];
+  sections: PdfReportSection[];
+  pageLabel: (page: number, pages: number) => string;
+  /** Added to every page's footer: the period and generation date (C49). */
+  footer?: string;
+};
+
+/**
+ * Titled tables one after another in the register layout of renderTablePdf;
+ * a table that runs onto the next page repeats its header row there.
+ */
+export async function renderReportPdf(
+  input: PdfReportInput,
+): Promise<Uint8Array> {
+  const ctx = await createContext(input.title);
+  const [W, H] = TABLE_PAGE;
+  const M = TABLE_MARGIN;
+  const tableWidth = W - 2 * M;
+  const bottom = M + 6;
+
+  let page = ctx.doc.addPage(TABLE_PAGE);
+  let y = H - M;
+
+  const logoHeight = 28;
+  page.drawImage(ctx.logo, {
+    x: M,
+    y: y - logoHeight,
+    width: logoHeight * LOGO_RATIO,
+    height: logoHeight,
+  });
+  y -= logoHeight + 18;
+  for (const line of wrap(ctx.clean(input.title), ctx.bold, 14, tableWidth)) {
+    page.drawText(line, { x: M, y, size: 14, font: ctx.bold, color: BRAND });
+    y -= 18;
+  }
+  for (const meta of input.meta) {
+    for (const line of wrap(ctx.clean(meta), ctx.regular, 8, tableWidth)) {
+      page.drawText(line, {
+        x: M,
+        y,
+        size: 8,
+        font: ctx.regular,
+        color: MUTED,
+      });
+      y -= 11;
+    }
+  }
+
+  const newPage = () => {
+    page = ctx.doc.addPage(TABLE_PAGE);
+    y = H - M;
+    page.drawText(ctx.clean(input.title), {
+      x: M,
+      y: y - 9,
+      size: 9,
+      font: ctx.bold,
+      color: BRAND,
+    });
+    y -= 20;
+  };
+
+  for (const section of input.sections) {
+    const weights = section.columns.map(
+      (col) => col.weight ?? (col.kind === "text" ? 2 : 1),
+    );
+    const weightSum = weights.reduce((sum, w) => sum + w, 0) || 1;
+    const widths = weights.map((w) => (w / weightSum) * tableWidth);
+    const xs = widths.map((_, i) =>
+      widths.slice(0, i).reduce((sum, w) => sum + w, M),
+    );
+    const cellLines = (row: readonly unknown[], font: PDFFont) =>
+      section.columns.map((col, i) =>
+        clampLines(
+          wrap(
+            ctx.clean(cellText(row[i], col.kind)),
+            font,
+            BODY_SIZE,
+            widths[i] - 2 * PAD_X,
+          ),
+          MAX_CELL_LINES,
+          font,
+          BODY_SIZE,
+          widths[i] - 2 * PAD_X,
+        ),
+      );
+    const rowHeight = (lines: string[][]) =>
+      Math.max(1, ...lines.map((cell) => cell.length)) * LINE_HEIGHT +
+      2 * PAD_Y;
+    const drawRow = (
+      lines: string[][],
+      height: number,
+      font: PDFFont,
+      background: ReturnType<typeof rgb> | null,
+    ) => {
+      if (background) {
+        page.drawRectangle({
+          x: M,
+          y: y - height,
+          width: tableWidth,
+          height,
+          color: background,
+        });
+      }
+      lines.forEach((cell, i) => {
+        const numeric = section.columns[i].kind !== "text";
+        cell.forEach((text, lineIndex) => {
+          const ty = y - PAD_Y - BODY_SIZE - lineIndex * LINE_HEIGHT + 1;
+          if (numeric) {
+            drawRight(
+              page,
+              text,
+              xs[i] + widths[i] - PAD_X,
+              ty,
+              font,
+              BODY_SIZE,
+            );
+          } else {
+            page.drawText(text, {
+              x: xs[i] + PAD_X,
+              y: ty,
+              size: BODY_SIZE,
+              font,
+              color: INK,
+            });
+          }
+        });
+      });
+      page.drawLine({
+        start: { x: M, y: y - height },
+        end: { x: M + tableWidth, y: y - height },
+        thickness: 0.4,
+        color: LINE,
+      });
+      y -= height;
+    };
+
+    const headerLines = cellLines(
+      section.columns.map((col) => col.header),
+      ctx.bold,
+    );
+    const headerHeight = rowHeight(headerLines);
+    const headingLines = wrap(
+      ctx.clean(section.title),
+      ctx.bold,
+      10,
+      tableWidth,
+    );
+    const firstRowHeight = section.rows[0]
+      ? rowHeight(cellLines(section.rows[0], ctx.regular))
+      : 0;
+    y -= 14;
+    // The heading stays with the header row and the first row.
+    if (
+      y - (headingLines.length * 13 + 4 + headerHeight + firstRowHeight) <
+      bottom
+    ) {
+      newPage();
+    }
+    for (const line of headingLines) {
+      page.drawText(line, {
+        x: M,
+        y: y - 10,
+        size: 10,
+        font: ctx.bold,
+        color: BRAND,
+      });
+      y -= 13;
+    }
+    y -= 4;
+    drawRow(headerLines, headerHeight, ctx.bold, HEAD_BG);
+    section.rows.forEach((row, index) => {
+      const lines = cellLines(row, ctx.regular);
+      const height = rowHeight(lines);
+      if (y - height < bottom) {
+        newPage();
+        drawRow(headerLines, headerHeight, ctx.bold, HEAD_BG);
+      }
+      drawRow(lines, height, ctx.regular, index % 2 === 1 ? ZEBRA : null);
+    });
+    for (const note of section.notes ?? []) {
+      const lines = wrap(ctx.clean(note), ctx.regular, 7.5, tableWidth);
+      if (y - (lines.length * 10 + 4) < bottom) newPage();
+      y -= 4;
+      for (const line of lines) {
+        page.drawText(line, {
+          x: M,
+          y: y - 7.5,
+          size: 7.5,
+          font: ctx.regular,
+          color: MUTED,
+        });
+        y -= 10;
+      }
+    }
+  }
+
+  // The report title already names MyBakuriani (AdminAnalytics.export.title).
+  drawFooters(
+    ctx,
+    [input.title, input.footer].filter(Boolean).join(" · "),
+    input.pageLabel,
+    M,
+  );
+  return ctx.doc.save();
+}
+
+// ---------------------------------------------------------------------------
 // Invoices
 // ---------------------------------------------------------------------------
 

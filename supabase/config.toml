@@ -111,5 +111,9 @@ verify_jwt = false
 [functions.sms-delivery-report]
 verify_jwt = false
 
+# Supabase Auth Send SMS hook (C48): Auth signs with SEND_SMS_HOOK_SECRET.
+[functions.auth-send-sms]
+verify_jwt = false
+
 [functions.vip-lifecycle]
 verify_jwt = false

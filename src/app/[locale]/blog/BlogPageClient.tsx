@@ -7,6 +7,7 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 import type { Tables } from "@/lib/types/database";
 import { formatDate } from "@/lib/utils/format";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { interleaveSponsored } from "@/lib/ad-rotation";
 
 type BlogListPost = Pick<
   Tables<"blog_posts">,
@@ -51,45 +52,53 @@ export default function BlogPageClient({ posts: serverPosts }: Props) {
         </ScrollReveal>
         <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <BannerSlot placement="listing_top" bare className="col-span-full" />
-          <BannerSlot placement="listing_grid" bare />
-
-          {displayPosts.map((post, i) => (
-            <ScrollReveal key={post.id} delay={i * 0.08} className="h-full">
-              <Link
-                href={`/blog/${post.slug}`}
-                data-blog-card
-                className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
-              >
-                <div className="relative aspect-[8/5] overflow-hidden">
-                  <Image
-                    src={post.image}
-                    alt={post.title}
-                    fill
-                    placeholder="blur"
-                    blurDataURL={CARD_BLUR_DATA_URL}
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <span
-                    className={`absolute top-4 left-4 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[1px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-[2px] ${post.categoryKey === "tips" ? "bg-blue-500" : post.categoryKey === "food" ? "bg-orange-500" : "bg-[#1E293B]/80"}`}
-                  >
-                    {post.category}
-                  </span>
-                </div>
-                <div className="flex flex-1 flex-col p-6">
-                  <time className="text-[11px] font-medium leading-[16px] text-[#94A3B8]">
-                    {post.date}
-                  </time>
-                  <h2 className="mt-2 line-clamp-2 min-h-[42px] text-[17px] font-black leading-[21px] text-[#1E293B] group-hover:text-brand-accent">
-                    {post.title}
-                  </h2>
-                  <p className="mt-2 text-[13px] leading-[21px] text-[#64748B] line-clamp-2">
-                    {post.excerpt}
-                  </p>
-                </div>
-              </Link>
-            </ScrollReveal>
-          ))}
+          {interleaveSponsored(
+            displayPosts.map((post, i) => (
+              <ScrollReveal key={post.id} delay={i * 0.08} className="h-full">
+                <Link
+                  href={`/blog/${post.slug}`}
+                  data-blog-card
+                  className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
+                >
+                  <div className="relative aspect-[8/5] overflow-hidden">
+                    <Image
+                      src={post.image}
+                      alt={post.title}
+                      fill
+                      placeholder="blur"
+                      blurDataURL={CARD_BLUR_DATA_URL}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <span
+                      className={`absolute top-4 left-4 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[1px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-[2px] ${post.categoryKey === "tips" ? "bg-blue-500" : post.categoryKey === "food" ? "bg-orange-500" : "bg-[#1E293B]/80"}`}
+                    >
+                      {post.category}
+                    </span>
+                  </div>
+                  <div className="flex flex-1 flex-col p-6">
+                    <time className="text-[11px] font-medium leading-[16px] text-[#94A3B8]">
+                      {post.date}
+                    </time>
+                    <h2 className="mt-2 line-clamp-2 min-h-[42px] text-[17px] font-black leading-[21px] text-[#1E293B] group-hover:text-brand-accent">
+                      {post.title}
+                    </h2>
+                    <p className="mt-2 text-[13px] leading-[21px] text-[#64748B] line-clamp-2">
+                      {post.excerpt}
+                    </p>
+                  </div>
+                </Link>
+              </ScrollReveal>
+            )),
+            (slot) => (
+              <BannerSlot
+                key={`sponsored-${slot}`}
+                placement="listing_grid"
+                bare
+                position={slot}
+              />
+            ),
+          )}
         </div>
       </div>
     </div>

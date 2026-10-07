@@ -27,10 +27,41 @@ test.describe("Admin Dashboard", () => {
 
     await expect(adminPage.locator("main")).toBeVisible();
     await expect(adminPage).toHaveURL(/\/dashboard\/admin/);
-    await expect(adminPage.getByText("გვერდის ნახვები (სულ)")).toBeVisible();
-    await expect(adminPage.getByText("სისტემაში შესული ვიზიტორები")).toBeVisible();
-    await expect(adminPage.getByTestId("admin-funnel-step")).toHaveCount(4);
-    await expect(adminPage.getByText(/დანაკარგი: -\d/)).toHaveCount(0);
+    // Business strip + the analytics dashboard (C49).
+    await expect(adminPage.getByTestId("admin-business-card")).toHaveCount(6);
+    await expect(adminPage.getByTestId("admin-analytics")).toBeVisible();
+    await expect(adminPage.getByTestId("analytics-chain")).toBeVisible();
+    await expect(
+      adminPage.getByTestId("analytics-kpi-uniqueUsers"),
+    ).toBeVisible();
+  });
+
+  test("analytics filters reach the chain and the export (C49)", async ({
+    adminPage,
+  }) => {
+    await adminPage.goto("/dashboard/admin?period=last7&device=mobile");
+    if (!(await assertDashboard(adminPage))) return;
+
+    await expect(adminPage.getByTestId("analytics-chip-device")).toContainText(
+      "მობილური",
+    );
+
+    const filtered = await adminPage.request.get(
+      "/api/admin/analytics/export?period=last7&device=mobile&block=all&scope=filtered&format=csv",
+    );
+    expect(filtered.status()).toBe(200);
+    expect(filtered.headers()["content-disposition"]).toMatch(
+      /^attachment; filename="mybakuriani-analytics-all-/,
+    );
+    const csv = await filtered.text();
+    expect(csv).toContain("აქტიური ფილტრები: მოწყობილობა: მობილური");
+    expect(csv).toContain("გენერირების თარიღი:");
+
+    const full = await adminPage.request.get(
+      "/api/admin/analytics/export?period=last7&device=mobile&block=kpis&scope=full&format=xlsx",
+    );
+    expect(full.status()).toBe(200);
+    expect(full.headers()["content-type"]).toContain("spreadsheetml");
   });
 
   test("verifications page loads", async ({ adminPage }) => {
@@ -565,5 +596,83 @@ test.describe("Admin statuses (C44)", () => {
       return [list.status, change.status];
     }, TEST_IDS.renter);
     expect(result).toEqual([403, 403]);
+  });
+});
+
+test.describe("Admin gifts", () => {
+  // The guest fixture: no other spec writes its balance or transactions, so the
+  // "no transaction, amount unchanged" checks hold in a parallel full run.
+  test("SMS credits from the client page: credits added, no transaction, bell-only notice", async ({
+    adminPage,
+  }) => {
+    await answerCookieBanner(adminPage);
+    const balanceOf = async () => {
+      const { data } = await supabaseAdmin
+        .from("balances")
+        .select("amount, sms_remaining")
+        .eq("user_id", TEST_IDS.guest)
+        .maybeSingle();
+      return {
+        amount: Number(data?.amount ?? 0),
+        sms: Number(data?.sms_remaining ?? 0),
+      };
+    };
+    const clearGiftNotices = () =>
+      supabaseAdmin
+        .from("notifications")
+        .delete()
+        .eq("user_id", TEST_IDS.guest)
+        .eq("type", "sms_credit_admin_update");
+    await clearGiftNotices();
+    const before = await balanceOf();
+    const startedAt = new Date().toISOString();
+    try {
+      await adminPage.goto(`/dashboard/admin/clients/${TEST_IDS.guest}`);
+      if (!(await assertDashboard(adminPage))) return;
+      await adminPage.getByRole("button", { name: "ბონუსი" }).click();
+      const dialog = adminPage.getByRole("dialog");
+      await dialog.getByRole("radio", { name: "SMS კრედიტები" }).click();
+      await dialog.locator("#client-gift-value").fill("7");
+      await dialog.getByRole("button", { name: "დარიცხვა" }).click();
+      await expect(adminPage.getByText("SMS კრედიტები დაერიცხა")).toBeVisible();
+      await expect(dialog).toBeHidden();
+
+      const after = await balanceOf();
+      expect(after.sms).toBe(before.sms + 7);
+      expect(after.amount).toBe(before.amount);
+      const { data: txs } = await supabaseAdmin
+        .from("transactions")
+        .select("id")
+        .eq("user_id", TEST_IDS.guest)
+        .gte("created_at", startedAt);
+      expect(txs).toEqual([]);
+      const { data: notices } = await supabaseAdmin
+        .from("notifications")
+        .select("type, dashboard_scope")
+        .eq("user_id", TEST_IDS.guest)
+        .eq("type", "sms_credit_admin_update");
+      expect(notices).toEqual([
+        { type: "sms_credit_admin_update", dashboard_scope: null },
+      ]);
+    } finally {
+      await supabaseAdmin
+        .from("balances")
+        .update({ sms_remaining: before.sms })
+        .eq("user_id", TEST_IDS.guest);
+      await clearGiftNotices();
+    }
+  });
+
+  test("a non-admin cannot gift", async ({ renterPage }) => {
+    await renterPage.goto("/dashboard/renter");
+    const status = await renterPage.evaluate(async (userId) => {
+      const res = await fetch("/api/admin/clients/bonus", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ user_id: userId, kind: "sms", credits: 5 }),
+      });
+      return res.status;
+    }, TEST_IDS.guest);
+    expect(status).toBe(403);
   });
 });

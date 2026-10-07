@@ -1,7 +1,7 @@
 /**
  * Watermark Backfill Script
  *
- * Adds the MyBakuriani logo watermark (bottom-right, medium transparency) to
+ * Adds the MyBakuriani logo watermark (centred, medium transparency) to
  * existing user-uploaded listing images:
  *   - properties.photos / services.photos TEXT[] (supabase storage URLs)
  *
@@ -182,7 +182,7 @@ async function applyWatermark(input: Buffer): Promise<{
   const meta = await sharp(input, { failOn: "none" }).metadata();
   // `.rotate()` below auto-orients via EXIF; orientations 5–8 are 90°/270°
   // rotations that swap width/height. Measure the post-rotation dimensions so
-  // the overlay lands in the visible bottom-right corner.
+  // the overlay lands in the centre of the visible image.
   const swap = (meta.orientation ?? 1) >= 5;
   const w = (swap ? meta.height : meta.width) ?? 0;
   const h = (swap ? meta.width : meta.height) ?? 0;
@@ -190,12 +190,12 @@ async function applyWatermark(input: Buffer): Promise<{
     return { buffer: input, skipped: "tiny" };
   }
   const wmW = Math.max(60, Math.round(w * 0.13));
-  const pad = Math.max(12, Math.round(w * 0.025));
   const overlay = await getOverlay(wmW);
   const overlayMeta = await sharp(overlay).metadata();
   const wmH = overlayMeta.height ?? Math.round(wmW * 0.2);
-  const left = Math.max(0, w - wmW - pad);
-  const top = Math.max(0, h - wmH - pad);
+  // Centred, not in a corner: a corner logo is removed by a simple crop.
+  const left = Math.max(0, Math.round((w - wmW) / 2));
+  const top = Math.max(0, Math.round((h - wmH) / 2));
   const out = await sharp(input, { failOn: "none" })
     .rotate()
     .composite([{ input: overlay, left, top }])

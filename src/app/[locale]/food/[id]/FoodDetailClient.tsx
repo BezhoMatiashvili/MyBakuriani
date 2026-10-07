@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { ArrowLeft, Eye, Heart, Share2 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -7,6 +8,8 @@ import { useTranslations } from "next-intl";
 import { FoodPhotoGallery } from "@/components/detail/FoodPhotoGallery";
 import { FoodInfoCard } from "@/components/food-detail/FoodInfoCard";
 import { FoodContactCard } from "@/components/food-detail/FoodContactCard";
+import ServiceLocationMap from "@/components/detail/ServiceLocationMap";
+import { parseServiceCoords } from "@/lib/maps/serviceCoords";
 import { formatPrice } from "@/lib/utils/format";
 import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { ShareMenu } from "@/components/shared/ShareMenu";
@@ -81,6 +84,10 @@ export default function FoodDetailClient({
   const cuisineTypeKey = optionKeyFor("cuisineTypes", service.cuisine_type);
 
   const subtitleZone = service.location ?? null;
+  const pin = useMemo(
+    () => parseServiceCoords(service.coords),
+    [service.coords],
+  );
   const subtitleHours = formatHoursRange(service.operating_hours);
 
   const formatAvgCheck = (value: string | null): string | null => {
@@ -275,6 +282,17 @@ export default function FoodDetailClient({
               </div>
             </div>
           ) : null}
+
+          {pin && (
+            <div style={enterUp(0.35)}>
+              <ServiceLocationMap
+                id={service.id}
+                title={service.title}
+                coords={pin}
+                photo={service.photos?.[0]}
+              />
+            </div>
+          )}
         </div>
 
         <aside
@@ -303,6 +321,7 @@ export default function FoodDetailClient({
               phone={service.phone}
               menuUrl={service.menu_url}
               location={service.location}
+              coords={pin}
               serviceId={service.id}
             />
             <BannerSlot placement="detail_sidebar" />

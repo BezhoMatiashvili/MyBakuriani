@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { HERO_NOISE_BACKGROUND } from "@/lib/utils/heroTexture";
 import { sortByPromotion } from "@/lib/utils/pricing";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { interleaveSponsored } from "@/lib/ad-rotation";
 import {
   RENT_PRICE_MAX,
   RENT_PRICE_MIN,
@@ -834,33 +835,41 @@ export default function SearchPageClient({
                   bare
                   className="col-span-full"
                 />
-                <BannerSlot placement="listing_grid" bare />
-
-                {properties.map((p, i) => (
-                  <ScrollReveal key={p.id} delay={i * 0.05}>
-                    <PropertyCard
-                      id={p.id}
-                      createdAt={p.created_at}
-                      title={p.title}
-                      location={p.location}
-                      photos={p.photos ?? []}
-                      pricePerNight={
-                        p.price_per_night ? Number(p.price_per_night) : null
-                      }
-                      salePrice={p.sale_price ? Number(p.sale_price) : null}
-                      rating={null}
-                      capacity={p.capacity}
-                      rooms={p.rooms}
-                      isVip={p.is_vip ?? false}
-                      isSuperVip={p.is_super_vip ?? false}
-                      discountPercent={p.discount_percent ?? 0}
-                      discountExpiresAt={p.discount_expires_at}
-                      isForSale={p.is_for_sale ?? false}
-                      paymentOptions={readPaymentOptions(p.house_rules)}
-                      isOwnershipVerified={p.ownership_verified ?? false}
+                {interleaveSponsored(
+                  properties.map((p, i) => (
+                    <ScrollReveal key={p.id} delay={i * 0.05}>
+                      <PropertyCard
+                        id={p.id}
+                        createdAt={p.created_at}
+                        title={p.title}
+                        location={p.location}
+                        photos={p.photos ?? []}
+                        pricePerNight={
+                          p.price_per_night ? Number(p.price_per_night) : null
+                        }
+                        salePrice={p.sale_price ? Number(p.sale_price) : null}
+                        rating={null}
+                        capacity={p.capacity}
+                        rooms={p.rooms}
+                        isVip={p.is_vip ?? false}
+                        isSuperVip={p.is_super_vip ?? false}
+                        discountPercent={p.discount_percent ?? 0}
+                        discountExpiresAt={p.discount_expires_at}
+                        isForSale={p.is_for_sale ?? false}
+                        paymentOptions={readPaymentOptions(p.house_rules)}
+                        isOwnershipVerified={p.ownership_verified ?? false}
+                      />
+                    </ScrollReveal>
+                  )),
+                  (slot) => (
+                    <BannerSlot
+                      key={`sponsored-${slot}`}
+                      placement="listing_grid"
+                      bare
+                      position={slot}
                     />
-                  </ScrollReveal>
-                ))}
+                  ),
+                )}
               </div>
             )}
 

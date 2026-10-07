@@ -8,6 +8,8 @@ import {
   isBannerPlacement,
   legacyPositionForPlacement,
 } from "@/lib/banner-placements";
+import { parseCampaignFields, SLOT_FULL_SQLSTATE } from "@/lib/ad-rotation";
+import { ADVERTISER_MAX_LENGTH, parseAdvertiser } from "@/lib/analytics/model";
 
 export const runtime = "nodejs";
 
@@ -86,6 +88,27 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     patch.status = body.status;
   }
 
+  // C47: share of voice, priority and frequency cap — only the ones sent.
+  const campaign = parseCampaignFields(body, { partial: true });
+  if (!campaign.ok) {
+    return Response.json({ error: campaign.error }, { status: 400 });
+  }
+  Object.assign(patch, campaign.fields);
+
+  // C49: who the ad is sold to; null or "" clears it.
+  if ("advertiser" in body) {
+    const advertiser = parseAdvertiser(body.advertiser);
+    if (advertiser === undefined) {
+      return Response.json(
+        {
+          error: `advertiser must be at most ${ADVERTISER_MAX_LENGTH} characters`,
+        },
+        { status: 400 },
+      );
+    }
+    patch.advertiser = advertiser;
+  }
+
   if (typeof body.start_at === "string") patch.start_at = body.start_at;
   if (typeof body.end_at === "string") patch.end_at = body.end_at;
 
@@ -114,6 +137,14 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     .select()
     .single();
 
+  if (error?.code === SLOT_FULL_SQLSTATE) {
+    // ads_enforce_slot_capacity: a resume, a new share or new dates would
+    // take the slot's booked SOV over 100 %.
+    return Response.json(
+      { error: "slot_full", remaining: Number(error.details) || 0 },
+      { status: 409 },
+    );
+  }
   if (error) return Response.json({ error: error.message }, { status: 500 });
   revalidatePath("/", "layout");
   return Response.json({ ad: data });

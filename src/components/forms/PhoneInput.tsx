@@ -5,6 +5,8 @@ interface PhoneInputProps {
   value: string;
   onChange: (value: string) => void;
   error?: string | null;
+  id?: string;
+  autoComplete?: string;
 }
 
 function formatPhone(raw: string): string {
@@ -19,10 +21,18 @@ export default function PhoneInput({
   value,
   onChange,
   error,
+  id,
+  autoComplete,
 }: PhoneInputProps) {
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
-      onChange(e.target.value.replace(/\D/g, "").slice(0, 9));
+      const digits = e.target.value.replace(/\D/g, "");
+      // A pasted or autofilled "+995 5XX …" keeps the local number, not "9955XXXXX".
+      const local =
+        digits.length > 9 && digits.startsWith("995")
+          ? digits.slice(3)
+          : digits;
+      onChange(local.slice(0, 9));
     },
     [onChange],
   );
@@ -36,6 +46,9 @@ export default function PhoneInput({
           <span>+995</span>
         </span>
         <input
+          id={id}
+          autoComplete={autoComplete}
+          aria-invalid={error ? true : undefined}
           type="tel"
           inputMode="numeric"
           value={formatPhone(value)}

@@ -2,8 +2,9 @@
 // scripts/unit/consent.test.mjs can import it straight from src/ (see C29).
 //
 // Three categories live in this codebase: Essential (mb_gate,
-// sb-*-auth-token, not declinable), Analytics (mb_vid, issued by
-// /api/track/view), and, as of 2026-09-28, Location - browser geolocation
+// sb-*-auth-token, not declinable), Analytics (mb_vid and the session cookie
+// mb_sid, both issued by /api/track/view, C49), and, as of 2026-09-28,
+// Location - browser geolocation
 // permission for the personalized road-status card and per-listing "show me
 // the route" maps (see src/lib/geolocation/useUserLocation.ts). Location has
 // no cookie of its own; the yes/no answer is recorded here, but the

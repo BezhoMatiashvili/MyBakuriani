@@ -110,6 +110,7 @@ export const AUTH_NAMESPACES = [
   "ConsentGate",
   "Error",
   "LanguageSelector",
+  "PhoneOtp",
   "Shared",
 ] as const;
 
@@ -127,6 +128,7 @@ export const SMS_CONSENT_NAMESPACES = ["SmsConsent"] as const;
 // (previously the full catalog).
 export const DASHBOARD_NAMESPACES = [
   "AdminAdAnalytics",
+  "AdminAnalytics",
   "AdminBanners",
   "AdminClientDetail",
   "AdminClients",
@@ -176,6 +178,7 @@ export const DASHBOARD_NAMESPACES = [
   "Organizations",
   "PaymentModal",
   "Payments",
+  "PhoneOtp",
   "PhotoUploader",
   "PriceDropSms",
   "RenterCalendar",

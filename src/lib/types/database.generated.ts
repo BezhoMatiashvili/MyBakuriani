@@ -21,14 +21,18 @@ export type Database = {
     Tables: {
       ads: {
         Row: {
+          advertiser: string | null;
           banner_url: string | null;
           clicks_count: number;
           created_at: string;
           created_by: string | null;
           end_at: string;
+          frequency_cap_per_day: number | null;
           id: string;
           placement: string;
           position: string;
+          priority: number;
+          sov_percent: number;
           start_at: string;
           status: string;
           title: string;
@@ -36,14 +40,18 @@ export type Database = {
           views_count: number;
         };
         Insert: {
+          advertiser?: string | null;
           banner_url?: string | null;
           clicks_count?: number;
           created_at?: string;
           created_by?: string | null;
           end_at: string;
+          frequency_cap_per_day?: number | null;
           id?: string;
           placement?: string;
           position: string;
+          priority?: number;
+          sov_percent?: number;
           start_at: string;
           status?: string;
           title: string;
@@ -51,14 +59,18 @@ export type Database = {
           views_count?: number;
         };
         Update: {
+          advertiser?: string | null;
           banner_url?: string | null;
           clicks_count?: number;
           created_at?: string;
           created_by?: string | null;
           end_at?: string;
+          frequency_cap_per_day?: number | null;
           id?: string;
           placement?: string;
           position?: string;
+          priority?: number;
+          sov_percent?: number;
           start_at?: string;
           status?: string;
           title?: string;
@@ -83,6 +95,79 @@ export type Database = {
           {
             foreignKeyName: "ads_created_by_fkey";
             columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      analytics_events: {
+        Row: {
+          city: string | null;
+          country: string | null;
+          created_at: string;
+          device: string | null;
+          entity_id: string | null;
+          entity_type: string | null;
+          id: string;
+          name: string;
+          page_type: string | null;
+          path: string | null;
+          session_id: string | null;
+          source: string | null;
+          user_id: string | null;
+          visitor_id: string;
+        };
+        Insert: {
+          city?: string | null;
+          country?: string | null;
+          created_at?: string;
+          device?: string | null;
+          entity_id?: string | null;
+          entity_type?: string | null;
+          id?: string;
+          name: string;
+          page_type?: string | null;
+          path?: string | null;
+          session_id?: string | null;
+          source?: string | null;
+          user_id?: string | null;
+          visitor_id: string;
+        };
+        Update: {
+          city?: string | null;
+          country?: string | null;
+          created_at?: string;
+          device?: string | null;
+          entity_id?: string | null;
+          entity_type?: string | null;
+          id?: string;
+          name?: string;
+          page_type?: string | null;
+          path?: string | null;
+          session_id?: string | null;
+          source?: string | null;
+          user_id?: string | null;
+          visitor_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "analytics_events_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "admin_membership_overview_v";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "analytics_events_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "analytics_events_user_id_fkey";
+            columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "public_listing_profiles";
             referencedColumns: ["id"];
@@ -137,6 +222,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      auth_sms_code_log: {
+        Row: {
+          created_at: string;
+          hook_id: string;
+          id: string;
+          ip: string | null;
+          kind: string;
+          phone: string;
+          provider_message_id: string | null;
+          settled_at: string | null;
+          status: string;
+          user_id: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          hook_id: string;
+          id?: string;
+          ip?: string | null;
+          kind: string;
+          phone: string;
+          provider_message_id?: string | null;
+          settled_at?: string | null;
+          status?: string;
+          user_id?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          hook_id?: string;
+          id?: string;
+          ip?: string | null;
+          kind?: string;
+          phone?: string;
+          provider_message_id?: string | null;
+          settled_at?: string | null;
+          status?: string;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
       balances: {
         Row: {
           amount: number;
@@ -185,8 +309,10 @@ export type Database = {
           clicks: number;
           creative_id: string;
           day: string;
+          impressions: number;
           opens: number;
           placement: string;
+          reach: number;
           source: string;
           views: number;
         };
@@ -194,8 +320,10 @@ export type Database = {
           clicks?: number;
           creative_id: string;
           day: string;
+          impressions?: number;
           opens?: number;
           placement: string;
+          reach?: number;
           source: string;
           views?: number;
         };
@@ -203,10 +331,30 @@ export type Database = {
           clicks?: number;
           creative_id?: string;
           day?: string;
+          impressions?: number;
           opens?: number;
           placement?: string;
+          reach?: number;
           source?: string;
           views?: number;
+        };
+        Relationships: [];
+      };
+      banner_slot_daily: {
+        Row: {
+          day: string;
+          impressions: number;
+          placement: string;
+        };
+        Insert: {
+          day: string;
+          impressions?: number;
+          placement: string;
+        };
+        Update: {
+          day?: string;
+          impressions?: number;
+          placement?: string;
         };
         Relationships: [];
       };
@@ -875,6 +1023,7 @@ export type Database = {
       contact_reveal_events: {
         Row: {
           account_id: string | null;
+          channel: string | null;
           client_ip: string | null;
           created_at: string;
           device_id: string | null;
@@ -884,6 +1033,7 @@ export type Database = {
         };
         Insert: {
           account_id?: string | null;
+          channel?: string | null;
           client_ip?: string | null;
           created_at?: string;
           device_id?: string | null;
@@ -893,6 +1043,7 @@ export type Database = {
         };
         Update: {
           account_id?: string | null;
+          channel?: string | null;
           client_ip?: string | null;
           created_at?: string;
           device_id?: string | null;
@@ -3214,24 +3365,60 @@ export type Database = {
       };
       page_views: {
         Row: {
+          city: string | null;
+          country: string | null;
           created_at: string;
+          device: string | null;
+          engaged_ms: number;
           id: string;
+          last_seen_at: string | null;
+          page_type: string | null;
           path: string | null;
+          referrer_host: string | null;
+          session_id: string | null;
+          source: string | null;
           user_id: string | null;
+          utm_campaign: string | null;
+          utm_medium: string | null;
+          utm_source: string | null;
           visitor_id: string;
         };
         Insert: {
+          city?: string | null;
+          country?: string | null;
           created_at?: string;
+          device?: string | null;
+          engaged_ms?: number;
           id?: string;
+          last_seen_at?: string | null;
+          page_type?: string | null;
           path?: string | null;
+          referrer_host?: string | null;
+          session_id?: string | null;
+          source?: string | null;
           user_id?: string | null;
+          utm_campaign?: string | null;
+          utm_medium?: string | null;
+          utm_source?: string | null;
           visitor_id: string;
         };
         Update: {
+          city?: string | null;
+          country?: string | null;
           created_at?: string;
+          device?: string | null;
+          engaged_ms?: number;
           id?: string;
+          last_seen_at?: string | null;
+          page_type?: string | null;
           path?: string | null;
+          referrer_host?: string | null;
+          session_id?: string | null;
+          source?: string | null;
           user_id?: string | null;
+          utm_campaign?: string | null;
+          utm_medium?: string | null;
+          utm_source?: string | null;
           visitor_id?: string;
         };
         Relationships: [
@@ -6210,6 +6397,13 @@ export type Database = {
         };
         Relationships: [];
       };
+      analytics_person_map_v: {
+        Row: {
+          user_id: string | null;
+          visitor_id: string | null;
+        };
+        Relationships: [];
+      };
       finance_invoices_v: {
         Row: {
           cancel_reason: string | null;
@@ -6758,6 +6952,58 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      admin_analytics_ads: {
+        Args: { p_from: string; p_to: string };
+        Returns: Json;
+      };
+      admin_analytics_listings: {
+        Args: {
+          p_city?: string;
+          p_country?: string;
+          p_device?: string;
+          p_from: string;
+          p_page_type?: string;
+          p_source?: string;
+          p_to: string;
+        };
+        Returns: Json;
+      };
+      admin_analytics_live: {
+        Args: {
+          p_city?: string;
+          p_country?: string;
+          p_device?: string;
+          p_minutes?: number;
+          p_page_type?: string;
+          p_source?: string;
+        };
+        Returns: Json;
+      };
+      admin_analytics_smart_match: {
+        Args: {
+          p_city?: string;
+          p_country?: string;
+          p_device?: string;
+          p_from: string;
+          p_page_type?: string;
+          p_source?: string;
+          p_to: string;
+        };
+        Returns: Json;
+      };
+      admin_analytics_traffic: {
+        Args: {
+          p_city?: string;
+          p_country?: string;
+          p_device?: string;
+          p_from: string;
+          p_granularity?: string;
+          p_page_type?: string;
+          p_source?: string;
+          p_to: string;
+        };
+        Returns: Json;
+      };
       admin_banner_analytics: {
         Args: {
           p_creative?: string;
@@ -6816,6 +7062,15 @@ export type Database = {
         Returns: Json;
       };
       admin_clients_with_stats: { Args: never; Returns: Json };
+      admin_gift_sms_credits: {
+        Args: {
+          p_admin_id: string;
+          p_credits: number;
+          p_note?: string;
+          p_user_id: string;
+        };
+        Returns: number;
+      };
       admin_overview_stats: {
         Args: never;
         Returns: {
@@ -6836,6 +7091,29 @@ export type Database = {
           weekly_visitors: number;
         }[];
       };
+      analytics_check_dims: {
+        Args: {
+          p_city: string;
+          p_country: string;
+          p_device: string;
+          p_page_type: string;
+          p_source: string;
+        };
+        Returns: undefined;
+      };
+      analytics_check_range: {
+        Args: { p_from: string; p_to: string };
+        Returns: undefined;
+      };
+      analytics_listing_kind: {
+        Args: { p_is_for_sale: boolean; p_table: string; p_type: string };
+        Returns: string;
+      };
+      analytics_page_type: { Args: { p_path: string }; Returns: string };
+      analytics_ping: {
+        Args: { p_id: string; p_ms: number; p_visitor_id: string };
+        Returns: boolean;
+      };
       apply_calendar_availability: {
         Args: { p_action: string; p_dates: string[]; p_property_id: string };
         Returns: {
@@ -6855,6 +7133,20 @@ export type Database = {
       approve_menu_item_discount_request: {
         Args: { p_admin_id: string; p_request_id: string };
         Returns: Json;
+      };
+      auth_sms_code_reserve: {
+        Args: {
+          p_hook_id: string;
+          p_ip: string;
+          p_kind: string;
+          p_phone: string;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      auth_sms_code_settle: {
+        Args: { p_id: string; p_provider_message_id: string; p_sent: boolean };
+        Returns: undefined;
       };
       cancel_manual_booking: {
         Args: { p_id: string };
@@ -7494,6 +7786,7 @@ export type Database = {
         Args: { p_event: string; p_id: string; p_source: string };
         Returns: boolean;
       };
+      record_banner_events: { Args: { p_events: Json }; Returns: number };
       record_contact_event: {
         Args: {
           p_channel: string;

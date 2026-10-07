@@ -72,12 +72,26 @@ export function LocaleShell({ children }: LocaleShellProps) {
   const content = (() => {
     // Checkout is a standalone hosted-style payment page — no app chrome.
     if (isDashboard || isCreate || isCheckout) return <>{children}</>;
-    if (isSalesIndex || isAuth) {
-      // Sales index and auth pages render their own header; keep global footer.
+    if (isAuth) {
+      // Auth pages render their own header; keep global footer.
       return (
         <>
           <main className="flex-1">{children}</main>
           <Footer />
+        </>
+      );
+    }
+    if (isSalesIndex) {
+      // The sales index renders its own header, so the site-wide slots go
+      // around it (the admin form promises them on every public page).
+      return (
+        <>
+          <BannerSlot placement="header_strip" className="pt-4" />
+          <BannerSlot placement="mobile_strip" />
+          <main className="flex-1">{children}</main>
+          <BannerSlot placement="footer_leaderboard" />
+          <Footer />
+          <BannerSlot placement="sticky_bottom" />
         </>
       );
     }
@@ -88,6 +102,8 @@ export function LocaleShell({ children }: LocaleShellProps) {
             server-side; these three are client-fetched and share one request
             with every other slot on the page. */}
         <BannerSlot placement="header_strip" />
+        {/* The rate card's phone-only strip (C47); draws nothing on wider screens. */}
+        <BannerSlot placement="mobile_strip" />
         <main className="flex-1">{children}</main>
         <BannerSlot placement="footer_leaderboard" />
         <Footer />

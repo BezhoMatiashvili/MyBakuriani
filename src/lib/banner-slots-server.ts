@@ -4,11 +4,10 @@ import { unstable_cache } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/admin";
 import {
   adRowToCreative,
-  creativeHasMedia,
   landingBannerToCreative,
   type BannerCreative,
 } from "@/lib/banner-creative";
-import { getPlacementSpec } from "@/lib/banner-placements";
+import { selectLiveCreatives } from "@/lib/banner-placements";
 
 /**
  * Every active creative on the site, from BOTH banner tables, normalized.
@@ -34,7 +33,7 @@ const fetchSlotCreativesCached = unstable_cache(
       db
         .from("landing_banners")
         .select(
-          "id, placement, kind, title, body, cta_label, cta_href, image_url, video_url, video_poster_url, tone, sort_order, start_at, end_at",
+          "id, placement, kind, title, body, cta_label, cta_href, image_url, video_url, video_poster_url, tone, sort_order, start_at, end_at, created_at",
         )
         .eq("active", true)
         .order("sort_order", { ascending: true })
@@ -45,24 +44,19 @@ const fetchSlotCreativesCached = unstable_cache(
         // client bypasses RLS entirely, so the "ads public read active" policy
         // never runs. Without this, pausing an ad would do nothing publicly.
         .select(
-          "id, placement, position, title, url, banner_url, start_at, end_at, status",
+          "id, placement, position, title, url, banner_url, start_at, end_at, status, created_at, sov_percent, priority, frequency_cap_per_day",
         )
         .eq("status", "active")
         .lte("start_at", nowIso)
         .gte("end_at", nowIso),
     ]);
 
-    const now = Date.now();
     const creatives: BannerCreative[] = [];
 
     // A failing query yields no creatives for that source rather than throwing —
     // banners are decorative, and a DB hiccup must not take down a page.
     if (!bannerRes.error && bannerRes.data) {
       for (const row of bannerRes.data) {
-        const startOk =
-          !row.start_at || new Date(row.start_at).getTime() <= now;
-        const endOk = !row.end_at || new Date(row.end_at).getTime() >= now;
-        if (!startOk || !endOk) continue;
         const creative = landingBannerToCreative(row);
         if (creative) creatives.push(creative);
       }
@@ -75,34 +69,12 @@ const fetchSlotCreativesCached = unstable_cache(
       }
     }
 
-    // A creative with no renderable media is dropped server-side rather than
-    // reaching the client and rendering an empty box. This is what contains the
-    // legacy ad rows whose banner_url is a page URL, not an image.
-    //
-    // `strip`, `sticky` and `promo-card` are text-driven and render fine without
-    // media — promo-card lays out title/body/CTA and treats the media column as
-    // optional, exactly as the pre-placement PromoBanners did. Requiring media
-    // here would let the admin save and PREVIEW a text-only promo banner that
-    // then never appears, which is the "preview lies" failure this whole design
-    // exists to prevent. Only the media-first styles (leaderboard, sidebar,
-    // in-grid) are genuinely nothing-without-an-image.
-    const TEXT_CAPABLE_STYLES = ["strip", "sticky", "promo-card"];
-
-    return creatives
-      .filter((creative) => {
-        const spec = getPlacementSpec(creative.placement);
-        if (!spec) return false;
-        if (TEXT_CAPABLE_STYLES.includes(spec.renderStyle)) return true;
-        return creativeHasMedia(creative);
-      })
-      .sort((a, b) => {
-        if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-        // Tie-break paid ahead of editorial. Ads are all sortOrder 0 and Array
-        // .sort is stable, so without this an editorial banner would always win a
-        // single-creative slot (leaderboard / sidebar / in-grid) against a paid
-        // ad — backwards for a monetised placement.
-        return Number(b.sponsored) - Number(a.sponsored);
-      });
+    // Schedule window, known placement, media where the placement needs it
+    // (leaderboard / sidebar / in-grid draw nothing without one, which is what
+    // contains the legacy ad rows whose banner_url is a page URL), and render
+    // order. Shared with the admin pages so their "shown / not shown" state is
+    // this exact decision (src/lib/banner-placements.ts).
+    return selectLiveCreatives(creatives, Date.now());
   },
   ["banner-slot-creatives"],
   { revalidate: 60 },

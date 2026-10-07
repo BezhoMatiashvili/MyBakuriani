@@ -4,6 +4,7 @@ import {
   assertStringIncludes,
 } from "https://deno.land/std@0.177.0/testing/asserts.ts";
 import {
+  buildAuthCode,
   buildCheckIn,
   buildConsentRequest,
   buildReviewRequest,
@@ -351,4 +352,17 @@ Deno.test("link-bearing texts stay within 3 segments with production-sized links
   for (const [name, text] of Object.entries(texts)) {
     assertEquals(segments(text) <= 3, true, `${name}: ${text.length} units`);
   }
+});
+
+Deno.test("the sign-in code fits one SMS on the production host", () => {
+  const text = buildAuthCode("123456", "mybakuriani.ge");
+  assertEquals(
+    text,
+    "MyBakuriani კოდი: 123456. არავის გაუზიაროთ.\n@mybakuriani.ge #123456",
+  );
+  assertEquals(segments(text), 1, `${text.length} units`);
+  // WebOTP: the origin-bound line is the last line.
+  assertEquals(text.split("\n").at(-1), "@mybakuriani.ge #123456");
+  assertEquals(segments(buildAuthCode("123456", "staging.mybakuriani.ge")) <= 2, true);
+  assertEquals(buildAuthCode("123456", null), "MyBakuriani კოდი: 123456. არავის გაუზიაროთ.");
 });

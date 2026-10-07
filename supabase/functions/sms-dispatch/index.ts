@@ -14,7 +14,8 @@
 // per-sender ranking, leases, and FIFO ordering. DO NOT re-implement those in TypeScript, and
 // do not add a "broke senders" Set - the RPC already excludes those rows.
 //
-// Provider: uBill.ge (api.ubill.dev). `sendSms()` is the SINGLE send integration point.
+// Provider: uBill.ge (api.ubill.dev). `sendSms()` is the SINGLE send integration point
+// for queued rows; its POST is `_shared/ubill.ts:ubillSend`, shared with auth-send-sms (C48).
 // uBill's delivery webhook (sms-delivery-report) only prompts a status check; both
 // it and the reconcileSubmitted() poll below settle rows from uBill's report API.
 // SMS_DELIVERY_ENABLED is an independent fail-closed switch checked before claiming.
@@ -36,8 +37,11 @@ import {
 import { secretsEqual } from "../_shared/secrets.ts";
 import {
   fetchUbillReportStatus,
+  toUbillNumber,
   UBILL_SMS_API,
   UBILL_TIMEOUT_MS,
+  ubillSend,
+  type UbillSendReply,
 } from "../_shared/ubill.ts";
 
 const BATCH_SIZE = 25;
@@ -71,15 +75,6 @@ const RECONCILE_BATCH = 25;
 // uBill send statusIDs. 0 = accepted. Everything else is an error; only the
 // "no valid number" family is the row's fault.
 const UBILL_ROW_ERRORS = new Set([20, 50]);
-
-// Same rule as sms_canonical_ge_phone: exactly a 9-digit mobile, optionally
-// prefixed by 995. Never truncate extra digits.
-function toUbillNumber(phone: string): string | null {
-  const digits = phone.replace(/\D/g, "");
-  if (/^5\d{8}$/.test(digits)) return `995${digits}`;
-  if (/^9955\d{8}$/.test(digits)) return digits;
-  return null;
-}
 
 function testRecipients(): Set<string> | null {
   const raw = Deno.env.get("SMS_TEST_RECIPIENTS")?.trim();
@@ -115,18 +110,14 @@ async function sendSms(
     };
   }
 
-  let res: Response;
+  let reply: UbillSendReply;
   try {
-    res = await fetch(`${UBILL_SMS_API}/send`, {
-      method: "POST",
-      headers: { key, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        brandID: brandId,
-        numbers: [Number(number)],
-        text: message,
-        stopList: true,
-      }),
-      signal: AbortSignal.timeout(UBILL_TIMEOUT_MS),
+    reply = await ubillSend({
+      key,
+      brandId,
+      number,
+      text: message,
+      stopList: true,
     });
   } catch (err) {
     return {
@@ -135,28 +126,18 @@ async function sendSms(
     };
   }
 
-  const body = (await res.json().catch(() => null)) as {
-    statusID?: number;
-    smsID?: number | string;
-    message?: string;
-  } | null;
-  const statusId = Number(body?.statusID);
-  const providerResponse = {
-    provider: "ubill",
-    http: res.status,
-    statusID: body?.statusID ?? null,
-    smsID: body?.smsID ?? null,
-    message: body?.message ?? null,
-  };
+  const ok = reply.http >= 200 && reply.http < 300;
+  const statusId = Number(reply.statusID);
+  const providerResponse = { provider: "ubill", ...reply };
 
-  if (res.ok && statusId === 0 && body?.smsID != null) {
+  if (ok && statusId === 0 && reply.smsID != null) {
     return {
       status: "submitted",
-      providerMessageId: String(body.smsID),
+      providerMessageId: String(reply.smsID),
       providerResponse,
     };
   }
-  if (res.ok && UBILL_ROW_ERRORS.has(statusId)) {
+  if (ok && UBILL_ROW_ERRORS.has(statusId)) {
     return { status: "failed", providerResponse };
   }
   console.error("sms-dispatch: provider refused batch", providerResponse);

@@ -50,7 +50,7 @@ Define success criteria. Loop until verified.
 - **React**: 19.1 with Server Components
 - **Styling**: Tailwind CSS 4 + shadcn/ui (New York style, Slate base, CSS variables)
 - **Database**: Supabase (PostgreSQL) with RLS policies
-- **Auth**: Supabase email + password and Google OAuth via `@supabase/ssr` 0.9 (phone OTP and Facebook were removed 2026-09-22; both providers are disabled on staging and prod)
+- **Auth**: Supabase email + password, Google OAuth and phone (SMS code) via `@supabase/ssr` 0.9. Phone sign-in came back 2026-10-06 on staging only: Supabase's Send SMS hook calls the `auth-send-sms` edge function, which texts the code through uBill, and the UI shows only with `NEXT_PUBLIC_PHONE_AUTH_ENABLED=true` (C48). Facebook was removed 2026-09-22
 - **Backend**: Supabase Edge Functions (Deno)
 - **Storage**: Supabase Storage (`property-photos` bucket)
 - **Maps**: Mapbox GL JS (`mapbox-gl` npm package, `light-v11` style; `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, a public "pk." token safe for client exposure). Default attribution control must stay enabled (Mapbox ToS requirement for any rendered map).

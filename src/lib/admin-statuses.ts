@@ -251,6 +251,11 @@ export function tbilisiDayStart(date: string): string {
   return `${date}T00:00:00+04:00`;
 }
 
+/** The last instant of a Tbilisi day (timestamptz literal). */
+export function tbilisiDayEnd(date: string): string {
+  return `${date}T23:59:59.999+04:00`;
+}
+
 /** `date` + n days. */
 export function addDays(date: string, n: number): string {
   const [y, m, d] = date.split("-").map(Number);
