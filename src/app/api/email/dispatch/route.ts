@@ -1,6 +1,7 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { claimRoom } from "@/lib/email/budget";
 import { getEmailConfig } from "@/lib/email/config";
+import { isReservedAddress, recipientAllowed } from "@/lib/email/recipients";
 import { renderNotificationEmail } from "@/lib/email/render";
 import { sendWithResend } from "@/lib/email/resend";
 import { syncResendContact } from "@/lib/email/resend-contacts";
@@ -36,12 +37,6 @@ function authorized(request: Request): "ok" | "denied" | "unconfigured" {
 
 type Db = ReturnType<typeof createServiceClient>;
 type Config = ReturnType<typeof getEmailConfig>;
-
-function recipientAllowed(config: Config, email: string): boolean {
-  return (
-    config.allowedRecipients === "all" || config.allowedRecipients.has(email)
-  );
-}
 
 /**
  * Email dispatcher (C33), driven by pg_cron every 5 minutes. Server to server:
@@ -162,10 +157,15 @@ async function dispatchTransactional(
       await releaseFrom(i, 0, "time_budget");
       break;
     }
-    if (!recipientAllowed(config, row.to_email)) {
+    if (
+      isReservedAddress(row.to_email) ||
+      !recipientAllowed(config.allowedRecipients, row.to_email)
+    ) {
       await finish(row.id, {
         status: "cancelled",
-        last_error: "not_in_allowlist",
+        last_error: isReservedAddress(row.to_email)
+          ? "reserved_domain"
+          : "not_in_allowlist",
       });
       counts.cancelled += 1;
       continue;
@@ -188,6 +188,8 @@ async function dispatchTransactional(
       href: path ? `${config.siteUrl}${path}` : null,
       accountUrl,
       cabinet,
+      // Admin email broadcasts (C33): marketing footer + unsubscribe link.
+      marketing: row.notification_type === "broadcast",
     });
     const outcome = await sendWithResend(config.resendApiKey, {
       id: row.id,
@@ -298,7 +300,12 @@ async function syncMarketing(
       counts.skipped += 1;
       continue;
     }
-    if (!recipientAllowed(config, row.email)) {
+    if (isReservedAddress(row.email)) {
+      await complete(row.user_id, "reserved_domain");
+      counts.skipped += 1;
+      continue;
+    }
+    if (!recipientAllowed(config.allowedRecipients, row.email)) {
       await complete(row.user_id, "not_in_allowlist");
       counts.skipped += 1;
       continue;

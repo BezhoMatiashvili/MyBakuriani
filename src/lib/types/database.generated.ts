@@ -7197,6 +7197,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      admin_broadcast_email_recipients: {
+        Args: { p_user_ids: string[] };
+        Returns: {
+          email: string;
+          outcome: string;
+          user_id: string;
+        }[];
+      };
       admin_change_company_plans: {
         Args: {
           p_action: string;

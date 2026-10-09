@@ -8,6 +8,12 @@
 
 const BRAND = "#1a56db";
 const FOOTER = "ეს არის სერვისული შეტყობინება თქვენი MyBakuriani ანგარიშიდან.";
+// Admin email broadcasts are marketing: only opted-in users get them, and every
+// one says why and links to the setting ("შეთავაზებები ელფოსტით") to stop them.
+const MARKETING_FOOTER =
+  "ამ წერილს იღებთ, რადგან MyBakuriani-ზე ჩართული გაქვთ „შეთავაზებები ელფოსტით“.";
+const UNSUBSCRIBE = "გამოწერის გაუქმება";
+const ACCOUNT = "ჩემი ანგარიში";
 
 export function escapeHtml(value: string): string {
   return value
@@ -36,8 +42,12 @@ export function renderNotificationEmail(input: {
   accountUrl: string;
   /** Georgian cabinet name of the notification's role; null for a global notice. */
   cabinet?: string | null;
+  /** An admin broadcast: marketing footer with an unsubscribe link. */
+  marketing?: boolean;
 }): RenderedEmail {
   const subject = cleanSubject(input.subject);
+  const footer = input.marketing ? MARKETING_FOOTER : FOOTER;
+  const footerLink = input.marketing ? UNSUBSCRIBE : ACCOUNT;
   const body = (input.body ?? "").trim();
   const cabinet = (input.cabinet ?? "").trim();
   const bodyHtml = escapeHtml(body).replace(/\r?\n/g, "<br>");
@@ -56,7 +66,7 @@ ${cabinet ? `<tr><td style="font-size:13px;line-height:1.4;padding-top:6px;color
 ${bodyHtml ? `<tr><td style="font-size:15px;line-height:1.6;padding-top:10px;color:#374151">${bodyHtml}</td></tr>` : ""}
 <tr><td>${button}</td></tr>
 </table>
-<p style="max-width:560px;font-size:12px;line-height:1.5;color:#6b7280;margin:16px auto 0">${FOOTER} <a href="${escapeHtml(input.accountUrl)}" style="color:#6b7280">ჩემი ანგარიში</a></p>
+<p style="max-width:560px;font-size:12px;line-height:1.5;color:#6b7280;margin:16px auto 0">${footer} <a href="${escapeHtml(input.accountUrl)}" style="color:#6b7280">${footerLink}</a></p>
 </td></tr></table>
 </body></html>`;
 
@@ -64,12 +74,7 @@ ${bodyHtml ? `<tr><td style="font-size:15px;line-height:1.6;padding-top:10px;col
   if (cabinet) lines.push(`კაბინეტი: ${cabinet}`);
   if (body) lines.push("", body);
   if (input.href) lines.push("", `ნახვა: ${input.href}`);
-  lines.push(
-    "",
-    "--",
-    FOOTER,
-    `ჩემი ანგარიში: ${input.accountUrl}`,
-  );
+  lines.push("", "--", footer, `${footerLink}: ${input.accountUrl}`);
 
   return { subject, html, text: lines.join("\n") };
 }

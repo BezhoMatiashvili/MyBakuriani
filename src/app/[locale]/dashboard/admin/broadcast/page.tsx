@@ -77,7 +77,7 @@ const CHANNELS: {
   {
     id: "email",
     label: "ელ. ფოსტის დაგზავნა (უფასო)",
-    helper: "გაფართოებული კონტენტი ბმულებით",
+    helper: "მხოლოდ მათ, ვისაც ჩართული აქვს „შეთავაზებები ელფოსტით“",
     icon: Mail,
   },
 ];
@@ -122,6 +122,43 @@ const ROLE_PRESETS: { id: string; label: string; roles: Role[] }[] = [
     roles: ROLES.filter((r) => r.id !== "admin").map((r) => r.id),
   },
 ];
+
+// What /api/admin/broadcasts reports for an email broadcast (C33).
+interface EmailCounts {
+  queued: number;
+  no_consent: number;
+  no_email: number;
+  suppressed: number;
+  not_allowed: number;
+  sendable_today: number;
+  capacity: number;
+}
+
+function emailSkipped(c: EmailCounts): string {
+  const parts = [
+    c.no_consent > 0 &&
+      `${c.no_consent} — გამორთული აქვს „შეთავაზებები ელფოსტით“`,
+    c.no_email > 0 && `${c.no_email} — დადასტურებული ელფოსტის გარეშე`,
+    c.suppressed > 0 && `${c.suppressed} — მისამართი დაბლოკილია (bounce/spam)`,
+    c.not_allowed > 0 &&
+      `${c.not_allowed} — ამ გარემოში დაშვებული მისამართების გარეთ`,
+  ].filter(Boolean);
+  return parts.length ? ` გამოტოვებულია: ${parts.join("; ")}.` : "";
+}
+
+function broadcastError(payload: {
+  error?: string;
+  email?: EmailCounts;
+}): string {
+  const c = payload.email;
+  if (payload.error === "email_not_configured")
+    return "ელ. ფოსტის დაგზავნა ამ გარემოში ჩართული არ არის.";
+  if (payload.error === "no_email_recipients" && c)
+    return `ელ. ფოსტა ვერცერთ ადრესატს ვერ გაეგზავნება.${emailSkipped(c)}`;
+  if (payload.error === "over_email_capacity" && c)
+    return `ადრესატები (${c.queued}) აღემატება ელ. ფოსტის ლიმიტს (${c.capacity} სამ დღეში). შეამცირეთ აუდიტორია.`;
+  return payload.error ?? "დაგზავნა ვერ მოხერხდა";
+}
 
 interface UserOption {
   id: string;
@@ -314,10 +351,22 @@ export default function AdminBroadcastPage() {
         }),
       });
       const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error ?? "დაგზავნა ვერ მოხერხდა");
-      toast.success(
-        `დაგზავნილია ${payload.broadcast?.recipient_count ?? 0} მომხმარებელზე`,
-      );
+      if (!res.ok) throw new Error(broadcastError(payload));
+      const c: EmailCounts | undefined = payload.email;
+      if (c) {
+        const later =
+          c.sendable_today < c.queued
+            ? ` დღეს გავა ${c.sendable_today}, დანარჩენი — მომდევნო დღეებში (დღიური ლიმიტი).`
+            : "";
+        toast.success(
+          `ელ. ფოსტა რიგშია ${c.queued} ადრესატისთვის და გაიგზავნება 5 წუთში.${later}${emailSkipped(c)}`,
+          { duration: 12000 },
+        );
+      } else {
+        toast.success(
+          `დაგზავნილია ${payload.broadcast?.recipient_count ?? 0} მომხმარებელზე`,
+        );
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "შეცდომა");
     } finally {

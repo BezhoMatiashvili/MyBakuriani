@@ -4,7 +4,8 @@
 // scripts/unit can load it straight from src/.
 //
 // Deliberately absent: listing_pending (an echo of the user's own action),
-// broadcast (mass messages are marketing: Resend Broadcasts), and
+// broadcast (push broadcasts must not be mailed; an admin EMAIL broadcast is
+// queued by /api/admin/broadcasts, opted-in users only), and
 // content_change_superseded (internal bookkeeping).
 export const EMAIL_NOTIFICATION_TYPES = [
   // money & membership

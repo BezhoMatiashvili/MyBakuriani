@@ -6,6 +6,10 @@ import {
   escapeHtml,
   renderNotificationEmail,
 } from "../../src/lib/email/render.ts";
+import {
+  isReservedAddress,
+  recipientAllowed,
+} from "../../src/lib/email/recipients.ts";
 import { classifyResendResponse } from "../../src/lib/email/resend.ts";
 import { classifyContactResponse } from "../../src/lib/email/resend-contacts.ts";
 import { verifySvixSignature } from "../../src/lib/email/svix.ts";
@@ -195,4 +199,44 @@ test("a bare /dashboard link goes to the notification's cabinet", () => {
 
 test("verification notices are emailed", () => {
   assert.ok(EMAIL_NOTIFICATION_TYPES.includes("verification"));
+});
+
+test("a broadcast carries the marketing footer and an unsubscribe link; notices do not", () => {
+  const base = {
+    subject: "სიახლე",
+    body: "ტექსტი",
+    href: null,
+    accountUrl: "https://mybakuriani.ge/dashboard/account",
+  };
+  const notice = renderNotificationEmail(base);
+  const broadcast = renderNotificationEmail({ ...base, marketing: true });
+  assert.ok(notice.html.includes("სერვისული შეტყობინება"));
+  assert.ok(!notice.html.includes("გამოწერის გაუქმება"));
+  assert.ok(notice.text.endsWith("ჩემი ანგარიში: https://mybakuriani.ge/dashboard/account"));
+  assert.ok(!broadcast.html.includes("სერვისული შეტყობინება"));
+  assert.ok(broadcast.html.includes("„შეთავაზებები ელფოსტით“"));
+  assert.ok(
+    broadcast.html.includes(
+      '<a href="https://mybakuriani.ge/dashboard/account" style="color:#6b7280">გამოწერის გაუქმება</a>',
+    ),
+  );
+  assert.ok(
+    broadcast.text.endsWith("გამოწერის გაუქმება: https://mybakuriani.ge/dashboard/account"),
+  );
+});
+
+test("reserved test domains are never mailed; the allow-list is exact unless *", () => {
+  assert.equal(isReservedAddress("admin@e2e.mybakuriani.test"), true);
+  assert.equal(isReservedAddress("a@x.EXAMPLE"), true);
+  assert.equal(isReservedAddress("a@b.invalid"), true);
+  assert.equal(isReservedAddress("a@localhost"), true);
+  assert.equal(isReservedAddress("info.mybakuriani@gmail.com"), false);
+  assert.equal(isReservedAddress("a@testing.ge"), false);
+  assert.equal(isReservedAddress("a@mybakuriani.ge"), false);
+  const list = new Set(["beji@gmail.com"]);
+  assert.equal(recipientAllowed(list, "beji@gmail.com"), true);
+  assert.equal(recipientAllowed(list, "Beji@Gmail.com"), true);
+  assert.equal(recipientAllowed(list, "other@gmail.com"), false);
+  assert.equal(recipientAllowed(new Set(), "beji@gmail.com"), false);
+  assert.equal(recipientAllowed("all", "anyone@gmail.com"), true);
 });

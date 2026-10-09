@@ -5,9 +5,9 @@
 // (public.email_notification_priority): 1 = payment receipts and refunds,
 // membership and payment-review decisions; 2 = everything else; 3 = types
 // other users (or the recipient) can trigger at will, also capped per
-// recipient at enqueue. email_claim_batch claims class 1 first and
-// takes at most `shared` rows of classes 2-3, so the last quarter of the daily
-// cap only ever goes to class 1.
+// recipient at enqueue; 4 = admin email broadcasts (marketing), after all of
+// them. email_claim_batch claims class 1 first and takes at most `shared` rows
+// of classes 2-4, so the last quarter of the daily cap only ever goes to class 1.
 
 /** Emails per day that only class-1 mail may use. */
 export function criticalReserve(dailyCap: number): number {

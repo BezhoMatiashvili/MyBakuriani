@@ -411,6 +411,27 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (!tsTypes.size || !sqlTypes.size) fail("C33: could not read EMAIL_NOTIFICATION_TYPES or email_notification_types()");
   else if (setEq(tsTypes, sqlTypes)) ok(`C33: ${typesFile} emails the ${tsTypes.size} notification types types.ts lists`);
   else describeSetMismatch("C33 email notification types", tsTypes, "types.ts", sqlTypes, typesFile);
+
+  // (c) Admin email broadcasts (2026-10-09): the route queues notification_type
+  // "broadcast" for the consent-gated recipients RPC only, the dispatcher gives
+  // them the marketing footer, the newest email_notification_priority() sends
+  // them after every transactional class, and the trigger's list never has them
+  // (push broadcasts insert 'broadcast' notifications).
+  const bRoute = read("src/app/api/admin/broadcasts/route.ts");
+  const prioFile = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .filter((f) => /FUNCTION public\.email_notification_priority\(/i.test(read(join("supabase/migrations", f))))
+    .at(-1);
+  const bClass = Number((prioFile ? read(join("supabase/migrations", prioFile)) : "").match(/when p_type = 'broadcast' then (\d)/)?.[1]);
+  const bProblems = [];
+  if (!/rpc\("admin_broadcast_email_recipients"/.test(bRoute)) bProblems.push("the broadcast route must read recipients through admin_broadcast_email_recipients");
+  if (!/\.from\("email_outbound"\)\s*\.insert\(/.test(bRoute) || !/notification_type: "broadcast"/.test(bRoute)) bProblems.push('the broadcast route must queue email_outbound rows of notification_type "broadcast"');
+  if (!/marketing: row\.notification_type === "broadcast"/.test(read("src/app/api/email/dispatch/route.ts"))) bProblems.push("the dispatcher must render broadcasts with the marketing footer");
+  if (!(bClass > 3)) bProblems.push(`${prioFile ?? "no migration"}: email_notification_priority() must put 'broadcast' after class 3`);
+  if (sqlTypes.has("broadcast")) bProblems.push("email_notification_types() must not list 'broadcast'");
+  if (bProblems.length) fail(`C33 broadcasts: ${bProblems.join("; ")}`);
+  else ok(`C33: email broadcasts are consent-gated, class ${bClass} (${prioFile}) and sent with the marketing footer`);
 }
 
 // ---------------------------------------------------------------------------
