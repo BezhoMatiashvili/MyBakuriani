@@ -18,6 +18,8 @@ export const runtime = "nodejs";
 
 type Severity = "info" | "warning" | "critical";
 type Channel = "push" | "email";
+/** An email broadcast is an offer (marketing, opt-in only) or a service notice. */
+type EmailKind = "marketing" | "service";
 type Role = Database["public"]["Enums"]["user_role"];
 type Db = ReturnType<typeof createServiceClient>;
 
@@ -48,14 +50,16 @@ type EmailPlan = {
 };
 
 /**
- * Admin email broadcasts (C33) are marketing: mailed only to users with
- * profiles.marketing_email_consent = true (admin_broadcast_email_recipients),
- * a confirmed address and no suppression, inside the recipient allow-list.
+ * Admin email broadcasts (C33), read through admin_broadcast_email_recipients:
+ * a confirmed address, no suppression, inside the recipient allow-list. An
+ * offer (marketing) also needs profiles.marketing_email_consent = true; a
+ * service notice goes out whatever the marketing choice.
  */
 async function planBroadcastEmail(
   db: Db,
   config: EmailConfig,
   userIds: string[],
+  kind: EmailKind,
 ): Promise<EmailPlan | { error: string }> {
   const counts: EmailCounts = {
     queued: 0,
@@ -73,9 +77,14 @@ async function planBroadcastEmail(
     });
     if (error) return { error: error.message };
     for (const r of data ?? []) {
-      if (r.outcome === "no_consent") counts.no_consent += 1;
+      // The RPC reports "suppressed" before "no_consent", so a service notice
+      // never reaches a suppressed address.
+      const mailable =
+        r.outcome === "ok" ||
+        (kind === "service" && r.outcome === "no_consent");
+      if (!mailable && r.outcome === "no_consent") counts.no_consent += 1;
       else if (r.outcome === "suppressed") counts.suppressed += 1;
-      else if (r.outcome !== "ok" || !r.email) counts.no_email += 1;
+      else if (!mailable || !r.email) counts.no_email += 1;
       else if (
         isReservedAddress(r.email) ||
         !recipientAllowed(config.allowedRecipients, r.email)
@@ -117,6 +126,8 @@ async function planBroadcastEmail(
 type Body = {
   severity?: Severity;
   channel?: Channel;
+  /** Email only; a missing value (an older page bundle) is an offer. */
+  email_kind?: EmailKind;
   title?: string;
   subject?: string;
   message?: string;
@@ -151,6 +162,10 @@ export async function POST(req: NextRequest) {
   }
   if (body.channel !== "push" && body.channel !== "email") {
     return Response.json({ error: "invalid channel" }, { status: 400 });
+  }
+  const emailKind = body.email_kind ?? "marketing";
+  if (emailKind !== "marketing" && emailKind !== "service") {
+    return Response.json({ error: "invalid email_kind" }, { status: 400 });
   }
   // Without these the dispatcher sends nothing: refuse instead of recording a
   // broadcast nobody receives.
@@ -217,6 +232,7 @@ export async function POST(req: NextRequest) {
       db,
       emailConfig,
       Array.from(recipientIds),
+      emailKind,
     );
     if ("error" in plan) {
       return Response.json({ error: plan.error }, { status: 500 });
@@ -255,11 +271,14 @@ export async function POST(req: NextRequest) {
   if (bErr) return Response.json({ error: bErr.message }, { status: 500 });
 
   // Email: one email_outbound row per recipient (no bell notification); the
-  // dispatcher sends them after all transactional mail (class 4, C33).
+  // dispatcher sends them after all transactional mail (class 4, C33), an
+  // offer with the marketing footer, a service notice with the service one.
   if (email) {
+    const notificationType =
+      emailKind === "service" ? "service_broadcast" : "broadcast";
     const rows = email.rows.map((r) => ({
       ...r,
-      notification_type: "broadcast",
+      notification_type: notificationType,
       subject: (subject ?? title).slice(0, 200),
       body: message.slice(0, 4000),
     }));

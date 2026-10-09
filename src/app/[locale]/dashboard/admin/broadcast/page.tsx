@@ -19,6 +19,7 @@ import type { Enums } from "@/lib/types/database";
 
 type Severity = "info" | "warning" | "critical";
 type Channel = "push" | "email";
+type EmailKind = "marketing" | "service";
 type Role = Enums<"user_role">;
 
 interface SeverityOption {
@@ -77,8 +78,24 @@ const CHANNELS: {
   {
     id: "email",
     label: "ელ. ფოსტის დაგზავნა (უფასო)",
-    helper: "მხოლოდ მათ, ვისაც ჩართული აქვს „შეთავაზებები ელფოსტით“",
+    helper: "შეთავაზება ან სერვისული შეტყობინება",
     icon: Mail,
+  },
+];
+
+// An email broadcast is marketing (opt-in only) or a service notice (C33).
+const EMAIL_KINDS: { id: EmailKind; label: string; helper: string }[] = [
+  {
+    id: "marketing",
+    label: "შეთავაზება / რეკლამა",
+    helper:
+      "ფასდაკლებები, აქციები, სიახლეები. მხოლოდ მათ, ვისაც ჩართული აქვს „შეთავაზებები ელფოსტით“.",
+  },
+  {
+    id: "service",
+    label: "სერვისული შეტყობინება",
+    helper:
+      "ტექნიკური სამუშაოები, წესების ან პირობების ცვლილება, ანგარიშის საკითხები. ყველას, ვისაც დადასტურებული ელფოსტა აქვს. არა შეთავაზებებისთვის ან ფასდაკლებებისთვის.",
   },
 ];
 
@@ -172,6 +189,7 @@ export default function AdminBroadcastPage() {
 
   const [severity, setSeverity] = useState<Severity>("info");
   const [channel, setChannel] = useState<Channel>("push");
+  const [emailKind, setEmailKind] = useState<EmailKind>("marketing");
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState(
@@ -342,6 +360,7 @@ export default function AdminBroadcastPage() {
         body: JSON.stringify({
           severity,
           channel,
+          email_kind: channel === "email" ? emailKind : undefined,
           title: title.trim(),
           subject: subject.trim() || undefined,
           message: message.trim(),
@@ -709,6 +728,50 @@ export default function AdminBroadcastPage() {
                   );
                 })}
               </div>
+              {channel === "email" ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {EMAIL_KINDS.map((kind) => {
+                    const checked = emailKind === kind.id;
+                    return (
+                      <label
+                        key={kind.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 px-4 py-3 transition ${
+                          checked
+                            ? "border-[#2563EB] bg-[#EFF6FF]"
+                            : "border-[#E2E8F0] bg-white hover:bg-[#F8FAFC]"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="email_kind"
+                          checked={checked}
+                          onChange={() => setEmailKind(kind.id)}
+                          className="sr-only"
+                        />
+                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-[#CBD5E1] bg-white">
+                          {checked ? (
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB]" />
+                          ) : null}
+                        </span>
+                        <span className="flex flex-col gap-0.5">
+                          <span
+                            className={`text-[13px] leading-5 ${
+                              checked
+                                ? "font-bold text-[#2563EB]"
+                                : "font-medium text-[#334155]"
+                            }`}
+                          >
+                            {kind.label}
+                          </span>
+                          <span className="text-[11px] font-medium leading-[15px] text-[#64748B]">
+                            {kind.helper}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
 
             {/* 4. Title */}

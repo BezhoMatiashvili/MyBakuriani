@@ -127,7 +127,9 @@ test.describe("Admin Dashboard", () => {
 
     await expect(adminPage.locator("main")).toBeVisible();
     await expect(adminPage).toHaveURL(/\/dashboard\/admin\/memberships/);
-    await expect(adminPage.getByRole("heading", { name: "საწევროს დადასტურება" })).toBeVisible();
+    await expect(
+      adminPage.getByRole("heading", { name: "საწევროს დადასტურება" }),
+    ).toBeVisible();
   });
 
   test("clients page loads", async ({ adminPage }) => {
@@ -766,7 +768,9 @@ test.describe("SMS control (C50)", () => {
       );
       expect(res.status()).toBe(200);
       expect(res.headers()["content-disposition"]).toMatch(
-        new RegExp(`^attachment; filename="mybakuriani-sms-all-[^"]*\\.${format}"$`),
+        new RegExp(
+          `^attachment; filename="mybakuriani-sms-all-[^"]*\\.${format}"$`,
+        ),
       );
     }
     const filtered = await (
@@ -842,7 +846,11 @@ test.describe("SMS control (C50)", () => {
       const record = await fetch("/api/admin/finance/sms/purchases", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ purchased_on: "2026-09-01", units: 100, amount: 10 }),
+        body: JSON.stringify({
+          purchased_on: "2026-09-01",
+          units: 100,
+          amount: 10,
+        }),
       });
       const exported = await fetch(
         "/api/admin/finance/sms/export?block=all&scope=full&format=csv",
@@ -858,51 +866,56 @@ test.describe("Admin email broadcasts (C33)", () => {
   // broadcast while queuing nothing. The e2e guest (a .test address, no
   // marketing consent) can never be mailed, so the route must refuse with its
   // counts and write neither a broadcasts row nor an email_outbound row.
-  test("an email broadcast nobody can receive is refused, never reported as sent", async ({
-    adminPage,
-  }) => {
-    await answerCookieBanner(adminPage);
-    await adminPage.goto("/dashboard/admin/broadcast");
-    if (!(await assertDashboard(adminPage))) return;
-    const title = `E2E email broadcast ${Date.now()}`;
-    const result = await adminPage.evaluate(
-      async (payload) => {
-        const res = await fetch("/api/admin/broadcasts", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        return { status: res.status, json: await res.json() };
-      },
-      {
-        severity: "info",
-        channel: "email",
-        title,
-        message: "E2E",
-        target_roles: [],
-        target_user_ids: [TEST_IDS.guest],
-        include_self: false,
-      },
-    );
-    expect(result.json.ok).toBeUndefined();
-    if (result.status === 503) {
-      // A build without EMAIL_DELIVERY_ENABLED / RESEND_API_KEY.
-      expect(result.json.error).toBe("email_not_configured");
-    } else {
-      expect(result.status).toBe(400);
-      expect(result.json.error).toBe("no_email_recipients");
-      expect(result.json.email.queued).toBe(0);
-    }
-    const { count: recorded } = await supabaseAdmin
-      .from("broadcasts")
-      .select("id", { count: "exact", head: true })
-      .eq("title", title);
-    expect(recorded).toBe(0);
-    const { count: queued } = await supabaseAdmin
-      .from("email_outbound")
-      .select("id", { count: "exact", head: true })
-      .eq("notification_type", "broadcast")
-      .eq("user_id", TEST_IDS.guest);
-    expect(queued).toBe(0);
-  });
+  // Both kinds: an offer (consent-gated) and a service notice (any confirmed
+  // address); the .test guest is never mailed either way.
+  for (const emailKind of ["marketing", "service"] as const) {
+    test(`an email ${emailKind} broadcast nobody can receive is refused, never reported as sent`, async ({
+      adminPage,
+    }) => {
+      await answerCookieBanner(adminPage);
+      await adminPage.goto("/dashboard/admin/broadcast");
+      if (!(await assertDashboard(adminPage))) return;
+      const title = `E2E email ${emailKind} broadcast ${Date.now()}`;
+      const result = await adminPage.evaluate(
+        async (payload) => {
+          const res = await fetch("/api/admin/broadcasts", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          return { status: res.status, json: await res.json() };
+        },
+        {
+          severity: "info",
+          channel: "email",
+          email_kind: emailKind,
+          title,
+          message: "E2E",
+          target_roles: [],
+          target_user_ids: [TEST_IDS.guest],
+          include_self: false,
+        },
+      );
+      expect(result.json.ok).toBeUndefined();
+      if (result.status === 503) {
+        // A build without EMAIL_DELIVERY_ENABLED / RESEND_API_KEY.
+        expect(result.json.error).toBe("email_not_configured");
+      } else {
+        expect(result.status).toBe(400);
+        expect(result.json.error).toBe("no_email_recipients");
+        expect(result.json.email.queued).toBe(0);
+      }
+      const { count: recorded } = await supabaseAdmin
+        .from("broadcasts")
+        .select("id", { count: "exact", head: true })
+        .eq("title", title);
+      expect(recorded).toBe(0);
+      const { count: queued } = await supabaseAdmin
+        .from("email_outbound")
+        .select("id", { count: "exact", head: true })
+        .in("notification_type", ["broadcast", "service_broadcast"])
+        .eq("user_id", TEST_IDS.guest);
+      expect(queued).toBe(0);
+    });
+  }
 });

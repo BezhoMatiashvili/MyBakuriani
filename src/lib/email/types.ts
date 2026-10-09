@@ -5,7 +5,8 @@
 //
 // Deliberately absent: listing_pending (an echo of the user's own action),
 // broadcast (push broadcasts must not be mailed; an admin EMAIL broadcast is
-// queued by /api/admin/broadcasts, opted-in users only), and
+// queued by /api/admin/broadcasts: offers to opted-in users only as
+// "broadcast", service notices as "service_broadcast"), and
 // content_change_superseded (internal bookkeeping).
 export const EMAIL_NOTIFICATION_TYPES = [
   // money & membership

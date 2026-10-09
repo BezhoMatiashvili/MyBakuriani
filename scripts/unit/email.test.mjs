@@ -152,6 +152,7 @@ test("the email allow-list has no duplicates and leaves marketing out", () => {
     EMAIL_NOTIFICATION_TYPES.length,
   );
   assert.ok(!EMAIL_NOTIFICATION_TYPES.includes("broadcast"));
+  assert.ok(!EMAIL_NOTIFICATION_TYPES.includes("service_broadcast"));
 });
 
 test("the cabinet line is above the body, escaped, only for a scoped notice", () => {
