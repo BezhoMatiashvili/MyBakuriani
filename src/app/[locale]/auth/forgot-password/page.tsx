@@ -6,9 +6,10 @@ import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { isAuthApiError } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { resetRequestOutcome } from "@/lib/auth/password-reset";
+import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY } from "@/lib/site-contact";
 
 export default function ForgotPasswordPage() {
   const t = useTranslations("AuthForgotPassword");
@@ -18,7 +19,12 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
+  // The address a link went to; the page then offers a resend instead of the
+  // form. `resendAt` is a clock time, so the countdown stays right while the
+  // phone is in the mail app and timers here are paused.
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [resendAt, setResendAt] = useState(0);
+  const [now, setNow] = useState(0);
 
   useEffect(() => {
     if (searchParams.get("error") === "invalid_link") {
@@ -27,28 +33,56 @@ export default function ForgotPasswordPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (resendAt <= Date.now()) return;
+    const id = setInterval(() => {
+      setNow(Date.now());
+      if (Date.now() >= resendAt) clearInterval(id);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [resendAt]);
+  const resendIn = Math.max(0, Math.ceil((resendAt - now) / 1000));
+
+  // C51: a request inside GoTrue's resend window means a link already went to
+  // this address moments ago, so it lands on the sent state with a countdown;
+  // only "nothing was sent" outcomes are errors, and each says what to do.
+  async function requestLink(address: string) {
+    setLoading(true);
+    setError(null);
+    let failure: unknown = null;
+    try {
+      await resetPasswordForEmail(address);
+    } catch (err) {
+      failure = err;
+    }
+    setLoading(false);
+    const outcome = resetRequestOutcome(failure);
+    if (outcome.kind === "sent") {
+      const at = Date.now();
+      setSentTo(address);
+      setNow(at);
+      setResendAt(at + outcome.resendIn * 1000);
+    } else if (outcome.kind === "mailUnavailable") {
+      setError(
+        t("errors.mailUnavailable", {
+          phone: CONTACT_PHONE_DISPLAY,
+          email: CONTACT_EMAIL,
+        }),
+      );
+    } else if (outcome.kind === "ipLimited") {
+      setError(t("errors.tooManyRequests"));
+    } else {
+      setError(t("errors.network"));
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!email.trim()) {
       setError(t("errors.fillAllFields"));
       return;
     }
-    setLoading(true);
-    setError(null);
-    try {
-      await resetPasswordForEmail(email);
-      setSent(true);
-    } catch (err) {
-      if (isAuthApiError(err) && err.status === 429) {
-        setError(t("errors.tooManyRequests"));
-      } else {
-        // Avoid leaking whether the email exists in the system — show the
-        // same neutral success state for any error other than a 429.
-        setSent(true);
-      }
-    } finally {
-      setLoading(false);
-    }
+    await requestLink(email.trim());
   }
 
   return (
@@ -71,11 +105,39 @@ export default function ForgotPasswordPage() {
         </div>
 
         <div className="rounded-[24px] border bg-white p-10 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.08)]">
-          {sent ? (
+          {sentTo ? (
             <div className="space-y-5">
-              <div className="rounded-lg bg-green-50 p-4 text-center text-sm text-green-700">
-                {t("linkSent")}
+              <div
+                role="status"
+                className="rounded-lg bg-green-50 p-4 text-center text-sm text-green-700"
+              >
+                <p>{t("linkSent")}</p>
+                <p className="mt-2 text-xs">{t("checkSpam")}</p>
               </div>
+              {error && <p className="text-xs text-[#EF4444]">{error}</p>}
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loading || resendIn > 0}
+                onClick={() => void requestLink(sentTo)}
+                className="min-h-11 w-full lg:min-h-0"
+                size="lg"
+              >
+                {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
+                {resendIn > 0
+                  ? t("resendIn", { seconds: resendIn })
+                  : t("resend")}
+              </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSentTo(null);
+                  setError(null);
+                }}
+                className="block min-h-11 w-full text-center text-sm font-medium text-[#64748B] hover:underline lg:min-h-0"
+              >
+                {t("otherEmail")}
+              </button>
               <Link
                 href="/auth/login"
                 className="block text-center text-sm font-medium text-brand-accent hover:underline"

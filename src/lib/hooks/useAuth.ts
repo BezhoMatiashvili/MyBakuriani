@@ -69,24 +69,35 @@ export function useAuth() {
     return data;
   }
 
+  // Not retried (C51): when a slow answer is lost after GoTrue sent the email,
+  // a retry either lands in the 60 s resend window (a 429 shown as an error)
+  // or sends a second email whose new token kills the first link.
   async function resetPasswordForEmail(email: string) {
-    const { error } = await withRetry(
-      () =>
-        supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
-        }),
-      isRetryableAuthError,
-    );
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+    });
     if (error) throw error;
   }
 
+  // Not retried (C51): when the change commits and the answer is lost, the
+  // retry gets 422 same_password, an error for a password that did change.
   async function updatePassword(password: string) {
-    const { data, error } = await withRetry(
-      () => supabase.auth.updateUser({ password }),
-      isRetryableAuthError,
-    );
+    const { data, error } = await supabase.auth.updateUser({ password });
     if (error) throw error;
     return data;
+  }
+
+  // The settings card's change (C51). updateUser takes a new password without
+  // any proof, so the current one is checked first by signing in with it: a
+  // failed sign-in leaves the session as it was, a successful one gives a
+  // fresh session (so the hosted 24 h re-authentication rule cannot fire).
+  async function changePassword(
+    email: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    await signInWithPassword(email, currentPassword);
+    return updatePassword(newPassword);
   }
 
   // Phone sign-in (C48). One call covers sign-up and sign-in: Supabase creates
@@ -168,6 +179,7 @@ export function useAuth() {
     signInWithPassword,
     resetPasswordForEmail,
     updatePassword,
+    changePassword,
     signInWithPhone,
     verifyPhoneOtp,
     startPhoneChange,

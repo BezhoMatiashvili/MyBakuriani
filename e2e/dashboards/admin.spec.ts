@@ -724,3 +724,131 @@ test.describe("Admin gifts", () => {
     expect(status).toBe(403);
   });
 });
+
+test.describe("SMS control (C50)", () => {
+  // Read-only on purpose: an SMS package is a Finances expense, and finance
+  // rows are append-only (a test package would stay in the registers as a
+  // voided package + a reversed expense on every run). The add/void cycle is
+  // checked by hand against staging and in the SQL tests.
+  test("the page shows the KPIs, the balance and the spec's six types", async ({
+    adminPage,
+  }) => {
+    await adminPage.goto("/dashboard/admin/finances/sms");
+    if (!(await assertDashboard(adminPage))) return;
+    await expect(
+      adminPage.getByRole("heading", { name: "SMS კონტროლი" }),
+    ).toBeVisible();
+    await expect(adminPage.getByTestId("sms-kpis")).toBeVisible();
+    await expect(adminPage.getByTestId("sms-balance")).toBeVisible();
+    const types = adminPage.getByTestId("sms-types");
+    await expect(types.locator("tbody tr")).toHaveCount(6);
+    for (const label of [
+      "OTP",
+      "Smart Match",
+      "განცხადების შეტყობინება",
+      "სარეკლამო SMS",
+      "Admin SMS",
+      "სხვა",
+    ]) {
+      await expect(types.getByText(label, { exact: true })).toBeVisible();
+    }
+    await expect(adminPage.getByTestId("sms-add-package")).toBeVisible();
+  });
+
+  test("every block exports in every format, filtered and full", async ({
+    adminPage,
+  }) => {
+    await adminPage.goto("/dashboard/admin/finances/sms");
+    if (!(await assertDashboard(adminPage))) return;
+    for (const format of ["xlsx", "csv", "pdf"]) {
+      const res = await adminPage.request.get(
+        `/api/admin/finance/sms/export?block=all&scope=filtered&format=${format}&type=otp`,
+      );
+      expect(res.status()).toBe(200);
+      expect(res.headers()["content-disposition"]).toMatch(
+        new RegExp(`^attachment; filename="mybakuriani-sms-all-[^"]*\\.${format}"$`),
+      );
+    }
+    const filtered = await (
+      await adminPage.request.get(
+        "/api/admin/finance/sms/export?block=types&scope=filtered&format=csv&type=marketing",
+      )
+    ).text();
+    expect(filtered).toContain("ფილტრები: SMS ტიპი: სარეკლამო SMS");
+    expect(filtered).toContain("შექმნილია:");
+    const full = await adminPage.request.get(
+      "/api/admin/finance/sms/export?block=ledger&scope=full&format=csv&type=marketing",
+    );
+    expect(full.headers()["content-disposition"]).toMatch(
+      /^attachment; filename="mybakuriani-sms-ledger-all_all-full\.csv"$/,
+    );
+    expect(await full.text()).toContain("ფილტრები: არცერთი");
+    const bad = await adminPage.request.get(
+      "/api/admin/finance/sms/export?block=nope&scope=full&format=csv",
+    );
+    expect(bad.status()).toBe(400);
+  });
+
+  test("a bad package is refused before anything is written", async ({
+    adminPage,
+  }) => {
+    await adminPage.goto("/dashboard/admin/finances/sms");
+    if (!(await assertDashboard(adminPage))) return;
+    const count = async (table) =>
+      (
+        await supabaseAdmin
+          .from(table)
+          .select("id", { count: "exact", head: true })
+      ).count;
+    const before = [
+      await count("sms_provider_purchases"),
+      await count("finance_expenses"),
+    ];
+    const tomorrow = new Date(Date.now() + 2 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const answers = await adminPage.evaluate(async (future) => {
+      const post = async (body) => {
+        const res = await fetch("/api/admin/finance/sms/purchases", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        return [res.status, (await res.json()).error];
+      };
+      return [
+        await post({ purchased_on: "2026-09-01", units: 0, amount: 10 }),
+        await post({ purchased_on: "2026-09-01", units: 2.5, amount: 10 }),
+        await post({ purchased_on: future, units: 100, amount: 10 }),
+        await post({ purchased_on: "2026-09-01", units: 100, amount: 0 }),
+      ];
+    }, tomorrow);
+    expect(answers).toEqual([
+      [400, "invalid_units"],
+      [400, "invalid_units"],
+      [400, "invalid_date"],
+      [400, "invalid_amount"],
+    ]);
+    expect([
+      await count("sms_provider_purchases"),
+      await count("finance_expenses"),
+    ]).toEqual(before);
+  });
+
+  test("a non-admin cannot read, record or export", async ({ renterPage }) => {
+    await renterPage.goto("/dashboard/renter");
+    const result = await renterPage.evaluate(async () => {
+      const summary = await fetch("/api/admin/finance/sms");
+      const record = await fetch("/api/admin/finance/sms/purchases", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ purchased_on: "2026-09-01", units: 100, amount: 10 }),
+      });
+      const exported = await fetch(
+        "/api/admin/finance/sms/export?block=all&scope=full&format=csv",
+      );
+      return [summary.status, record.status, exported.status];
+    });
+    expect(result).toEqual([403, 403, 403]);
+  });
+});

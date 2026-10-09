@@ -22,6 +22,7 @@ import {
   Link2,
   LogOut,
   MapPin,
+  MessageSquare,
   PieChart,
   Settings,
   ShieldCheck,
@@ -160,6 +161,11 @@ function getNavigation(role: string): RoleNavigation {
             labelKey: "finances",
             href: "/dashboard/admin/finances",
             icon: Wallet,
+          },
+          {
+            labelKey: "smsControl",
+            href: "/dashboard/admin/finances/sms",
+            icon: MessageSquare,
           },
           {
             labelKey: "payments",
@@ -426,7 +432,9 @@ export function MobileBottomNav({
         // Rental reviews are temporarily hidden (see RENTAL_REVIEWS_HIDDEN).
         (item.href !== "/dashboard/renter/reviews" || !RENTAL_REVIEWS_HIDDEN),
     ),
-    ...(showCabinets ? [accountItem] : []),
+    // Admin too: it has no cabinet switcher, and that page is where it
+    // changes its password.
+    accountItem,
   ];
   const hasMoreActive = more.some((item) => isActive(item, currentPath));
   const navVisibility = "lg:hidden";
@@ -682,37 +690,9 @@ export function MobileBottomNav({
               )}
             </div>
           ) : (
-            more.map((item) => {
-              const Icon = item.icon;
-              const badge = badgeFor(item);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMoreOpen(false)}
-                  className={cn(
-                    "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold",
-                    isActive(item, currentPath)
-                      ? "bg-[#EFF6FF] text-[#2563EB]"
-                      : "text-[#334155] hover:bg-[#F8FAFC]",
-                  )}
-                >
-                  <Icon className="size-5 shrink-0" aria-hidden />
-                  <span className="flex-1">
-                    {item.label ?? t(item.labelKey)}
-                  </span>
-                  {badge > 0 && (
-                    <span className="rounded-full bg-[#EF4444] px-2 py-0.5 text-[10px] text-white">
-                      {badge > 99 ? "99+" : badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })
-          )}
-          {!isSeller && (
             <>
-              <div className="my-3 border-t border-[#E2E8F0]" />
+              {/* Above the list, not after it: admin's ~20 entries pushed it
+                  below the fold, so the sheet looked like it had no way home. */}
               <Link
                 href="/"
                 onClick={() => setMoreOpen(false)}
@@ -721,19 +701,50 @@ export function MobileBottomNav({
                 <Home className="size-5" aria-hidden />
                 {tSidebar("backToHome")}
               </Link>
-              {onSignOut && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMoreOpen(false);
-                    onSignOut();
-                  }}
-                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"
-                >
-                  <LogOut className="size-5" aria-hidden />
-                  {tSidebar("logout")}
-                </button>
-              )}
+              <div className="my-3 border-t border-[#E2E8F0]" />
+              {more.map((item) => {
+                const Icon = item.icon;
+                const badge = badgeFor(item);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMoreOpen(false)}
+                    className={cn(
+                      "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold",
+                      isActive(item, currentPath)
+                        ? "bg-[#EFF6FF] text-[#2563EB]"
+                        : "text-[#334155] hover:bg-[#F8FAFC]",
+                    )}
+                  >
+                    <Icon className="size-5 shrink-0" aria-hidden />
+                    <span className="flex-1">
+                      {item.label ?? t(item.labelKey)}
+                    </span>
+                    {badge > 0 && (
+                      <span className="rounded-full bg-[#EF4444] px-2 py-0.5 text-[10px] text-white">
+                        {badge > 99 ? "99+" : badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </>
+          )}
+          {!isSeller && onSignOut && (
+            <>
+              <div className="my-3 border-t border-[#E2E8F0]" />
+              <button
+                type="button"
+                onClick={() => {
+                  setMoreOpen(false);
+                  onSignOut();
+                }}
+                className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"
+              >
+                <LogOut className="size-5" aria-hidden />
+                {tSidebar("logout")}
+              </button>
             </>
           )}
         </div>

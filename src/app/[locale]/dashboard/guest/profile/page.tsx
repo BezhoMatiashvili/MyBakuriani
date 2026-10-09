@@ -12,6 +12,7 @@ import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
 import { updateSelfServiceProfile } from "@/lib/self-service/client";
 import { NotificationPreferences } from "@/components/consent/NotificationPreferences";
+import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 
 export default function GuestProfilePage() {
   const t = useTranslations("GuestProfile");
@@ -327,6 +328,8 @@ export default function GuestProfilePage() {
           </div>
         ) : null}
       </motion.div>
+
+      <ChangePasswordCard />
     </div>
   );
 }

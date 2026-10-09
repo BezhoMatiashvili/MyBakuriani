@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Tables } from "@/lib/types/database";
 import { updateSelfServiceProfile } from "@/lib/self-service/client";
+import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 
 export default function RenterSettingsPage() {
   const t = useTranslations("RenterProfile");
@@ -260,6 +261,8 @@ export default function RenterSettingsPage() {
           </div>
         </motion.section>
       </div>
+
+      <ChangePasswordCard />
     </div>
   );
 }

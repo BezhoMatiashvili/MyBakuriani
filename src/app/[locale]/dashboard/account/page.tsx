@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { isPhoneAuthEnabled } from "@/lib/auth/phone";
 import { formatPhone } from "@/lib/utils/format";
 import PhoneOtpForm from "@/components/auth/PhoneOtpForm";
+import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
@@ -307,6 +308,8 @@ export default function LinkedAccountsPage() {
           )}
         </motion.div>
       )}
+
+      <ChangePasswordCard />
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}

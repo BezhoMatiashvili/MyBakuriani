@@ -264,12 +264,13 @@ for (const [table, values, name] of [
 // email is cancelled (C33) while every other check still passes. The two retention jobs
 // (20260927091000, C37) prune cron run history and strip personal data after 90 days. The
 // ownership-document purge (20261001200200, C39) deletes ID scans and registry extracts no
-// pending request needs and bounds abandoned uploads.
+// pending request needs and bounds abandoned uploads. The SMS finance job (20261007200000, C50)
+// keeps the SMS ledger synced and sends the low-balance warning.
 {
   const expected = [
     "rate-limit-gc", "booking-finalize-daily", "sms-automation-daily", "sms-dispatch-frequent", "vip-lifecycle-hourly",
     "keepz-reconcile-10min", "email-dispatch-5min", "cron-history-gc", "pii-retention-daily",
-    "ownership-document-purge-hourly",
+    "ownership-document-purge-hourly", "sms-finance-hourly",
   ];
   const present = snapshot.cron_jobs.filter((j) => j.active).map((j) => j.name);
   const missing = onlyIn(expected, present);
@@ -596,6 +597,61 @@ if (posture) {
   }
   if (problems.length) problems.forEach((p) => fail(`C44: ${p}`));
   else ok(`C44: ${views.length} admin views and ${calls.length} change RPCs exist, refuse non-admins and are closed to anon`);
+}
+
+// C50 — SMS financial control (migration 20261007200000). The ledger's type and status CHECKs
+// equal SMS_CATEGORIES / SMS_LEDGER_STATUSES; the tables and read RPCs answer for the service
+// role; a purchase by a non-admin actor is refused before anything is written; anon reaches
+// neither the tables nor the RPCs (service_role only, C34).
+{
+  const { SMS_CATEGORIES, SMS_LEDGER_STATUSES } = await import("../src/lib/finance/sms.ts");
+  for (const [column, list, name] of [
+    ["category", SMS_CATEGORIES, "SMS_CATEGORIES"],
+    ["status", SMS_LEDGER_STATUSES, "SMS_LEDGER_STATUSES"],
+  ]) {
+    const db = checkList("sms_usage_ledger", column);
+    if (!db) fail(`C50: sms_usage_ledger.${column} CHECK not found (migration 20261007200000)`);
+    else compareSets(`C50 sms_usage_ledger.${column}`, db, [...list], "CHECK constraint", name);
+  }
+  const call = async (apikey, path, body) => {
+    const res = await fetch(`${url}/rest/v1/${path}`, {
+      method: body ? "POST" : "GET",
+      headers: { apikey, Authorization: `Bearer ${apikey}`, "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { status: res.status, text: await res.text() };
+  };
+  const tables = ["sms_usage_ledger", "sms_provider_purchases"];
+  const reads = [["admin_sms_finance_purchases", {}], ["admin_sms_finance_ledger", { p_limit: 1 }]];
+  const nobody = "00000000-0000-0000-0000-000000000000";
+  const write = ["finance_record_sms_purchase", { p_actor: nobody, p_date: "2026-01-01", p_units: 1, p_amount: 1 }];
+  const problems = [];
+  for (const table of tables) {
+    const res = await call(key, `${table}?select=id&limit=1`);
+    if (res.status !== 200) problems.push(`${table} is not readable by the service role (HTTP ${res.status}: ${res.text.slice(0, 120)})`);
+  }
+  for (const [fn, body] of reads) {
+    const res = await call(key, `rpc/${fn}`, body);
+    if (res.status !== 200) problems.push(`${fn} failed for the service role (HTTP ${res.status}: ${res.text.slice(0, 120)})`);
+  }
+  const refused = await call(key, `rpc/${write[0]}`, write[1]);
+  if (!refused.text.includes("admin actor required")) {
+    problems.push(`${write[0]} did not refuse a non-admin actor (HTTP ${refused.status}: ${refused.text.slice(0, 120)})`);
+  }
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anon) warn("C50: NEXT_PUBLIC_SUPABASE_ANON_KEY not set — skipped the anon checks");
+  else {
+    for (const table of tables) {
+      const res = await call(anon, `${table}?select=id&limit=1`);
+      if (res.status === 200) problems.push(`anon can read ${table}`);
+    }
+    for (const [fn, body] of [...reads, write]) {
+      const res = await call(anon, `rpc/${fn}`, body);
+      if (res.status === 200 || res.text.includes("admin actor required")) problems.push(`anon can execute ${fn}`);
+    }
+  }
+  if (problems.length) problems.forEach((p) => fail(`C50: ${p}`));
+  else ok(`C50: SMS ledger CHECKs match, ${tables.length} tables and the SMS RPCs answer the service role only, a non-admin purchase is refused`);
 }
 
 finish();

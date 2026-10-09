@@ -1,6 +1,6 @@
 "use client";
 
-import { Mountain, Home } from "lucide-react";
+import { Mountain, Home, KeyRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
@@ -84,6 +84,10 @@ const sections: { titleKey: string; items: NavItem[] }[] = [
         href: "/dashboard/admin/finances",
       },
       {
+        labelKey: "smsControl",
+        href: "/dashboard/admin/finances/sms",
+      },
+      {
         labelKey: "payments",
         href: "/dashboard/admin/payments",
       },
@@ -157,7 +161,7 @@ export function AdminSidebar({
                     ? verificationAlerts
                     : item.href === "/dashboard/admin/memberships"
                       ? membershipAlerts
-                    : item.badge;
+                      : item.badge;
 
                 return (
                   <li key={item.href}>
@@ -188,6 +192,20 @@ export function AdminSidebar({
       </nav>
 
       <div className="shrink-0 border-t border-white/10 bg-[#020B29] px-4 pt-4">
+        {/* Account-wide settings (sign-in methods, password). Other cabinets
+            reach it through CabinetSwitcher, which admin does not render. */}
+        <Link
+          href="/dashboard/account"
+          className={cn(
+            "mb-3 flex h-10 items-center gap-3 rounded-[12px] px-3 text-[14px] font-medium transition-colors",
+            currentPath.startsWith("/dashboard/account")
+              ? "bg-[#052060] text-[#2E79FF] font-bold shadow-[inset_0_0_0_1px_rgba(37,99,235,0.2)]"
+              : "text-[#8D9BB7] hover:bg-[#0E1C45] hover:text-[#DCE6FB]",
+          )}
+        >
+          <KeyRound className="size-4" />
+          {t("switcher.linkedAccounts")}
+        </Link>
         <Link
           href="/"
           className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 text-[14px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.55)] transition-colors hover:bg-[#1D4ED8]"

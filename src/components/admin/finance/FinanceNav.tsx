@@ -21,6 +21,7 @@ const ITEMS = [
   { key: "threshold", href: `${BASE}/threshold` },
   { key: "vat", href: `${BASE}/vat` },
   { key: "documents", href: `${BASE}/documents` },
+  { key: "sms", href: `${BASE}/sms` },
   { key: "export", href: `${BASE}/export` },
   { key: "settings", href: `${BASE}/settings` },
 ] as const;

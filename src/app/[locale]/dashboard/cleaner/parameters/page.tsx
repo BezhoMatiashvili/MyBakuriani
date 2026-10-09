@@ -17,6 +17,7 @@ import { useTranslations } from "next-intl";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import TimeRangePicker, {
@@ -746,6 +747,8 @@ export default function CleanerParametersPage() {
           </div>
         )}
       </motion.section>
+
+      <ChangePasswordCard />
     </div>
   );
 }

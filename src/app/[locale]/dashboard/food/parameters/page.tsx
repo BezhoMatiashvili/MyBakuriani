@@ -17,6 +17,7 @@ import { CUISINE_TYPES } from "@/lib/constants/listing-options";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
 import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
+import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 
 type Service = Tables<"services">;
 
@@ -319,6 +320,8 @@ export default function FoodParametersPage() {
           </div>
         </motion.div>
       </div>
+
+      <ChangePasswordCard />
     </div>
   );
 }

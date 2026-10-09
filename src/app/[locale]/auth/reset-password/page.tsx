@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Link, useRouter } from "@/i18n/navigation";
 import { motion } from "framer-motion";
 import { Loader2, Eye, EyeOff } from "lucide-react";
@@ -9,7 +10,19 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { withRetry } from "@/lib/with-timeout";
-import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
+import {
+  MIN_PASSWORD_LENGTH,
+  passwordChangeErrorKey,
+} from "@/lib/auth/password";
+import { recoveryTokenHash } from "@/lib/auth/password-reset";
+
+// passwordChangeErrorKey's answers that can happen after a recovery sign-in;
+// the rest (wrong current password, re-authentication, ...) read as generic.
+const RESET_ERROR_KEYS = new Set([
+  "samePassword",
+  "weakPassword",
+  "leakedPassword",
+]);
 
 const ROLE_DASHBOARD: Record<string, string> = {
   admin: "/dashboard/admin",
@@ -27,6 +40,13 @@ export default function ResetPasswordPage() {
   const t = useTranslations("AuthResetPassword");
   const router = useRouter();
   const { session, loading: authLoading, updatePassword } = useAuth();
+  const searchParams = useSearchParams();
+  // C51: a link from the token_hash template. Read once; it is spent only when
+  // the new password is submitted (a scanner's prefetch only loads this page)
+  // and needs no PKCE verifier, so it works in any browser or mail app.
+  const [tokenHash] = useState(() => recoveryTokenHash(searchParams));
+  const [linkInvalid, setLinkInvalid] = useState(false);
+  const verified = useRef(false);
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -51,8 +71,25 @@ export default function ResetPasswordPage() {
     setLoading(true);
     setError(null);
     try {
-      await updatePassword(password);
       const supabase = createClient();
+      // Verified once: after a failed save (e.g. the old password typed again)
+      // the session it left behind carries the next attempt.
+      if (tokenHash && !verified.current) {
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          type: "recovery",
+          token_hash: tokenHash,
+        });
+        if (verifyError) {
+          if (verifyError.name === "AuthRetryableFetchError") {
+            setError(t("errors.generic"));
+          } else {
+            setLinkInvalid(true);
+          }
+          return;
+        }
+        verified.current = true;
+      }
+      await updatePassword(password);
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -71,8 +108,9 @@ export default function ResetPasswordPage() {
         router.refresh();
         router.push(target);
       }
-    } catch {
-      setError(t("errors.generic"));
+    } catch (err) {
+      const key = passwordChangeErrorKey(err);
+      setError(t(`errors.${RESET_ERROR_KEYS.has(key) ? key : "generic"}`));
     } finally {
       setLoading(false);
     }
@@ -101,7 +139,7 @@ export default function ResetPasswordPage() {
             <div className="flex justify-center py-4">
               <Loader2 className="size-6 animate-spin text-[#94A3B8]" />
             </div>
-          ) : !session ? (
+          ) : linkInvalid || (!session && !tokenHash) ? (
             <div className="space-y-4 text-center">
               <p className="text-sm text-[#94A3B8]">{t("noSession")}</p>
               <Link

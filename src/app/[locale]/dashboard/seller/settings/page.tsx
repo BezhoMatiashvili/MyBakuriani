@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import { updateSelfServiceProfile } from "@/lib/self-service/client";
+import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 
 type ProfileType = "ფიზიკური პირი" | "იურიდიული პირი";
 
@@ -326,6 +327,8 @@ export default function SellerSettingsPage() {
           </div>
         </motion.div>
       </div>
+
+      <ChangePasswordCard />
     </div>
   );
 }

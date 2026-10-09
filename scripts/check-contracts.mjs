@@ -1613,7 +1613,8 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // the RPC with its own); (c) the three RPCs and three views are revoked from
 // PUBLIC, anon and authenticated where they are created and never granted back;
 // (d) only the statuses API and its server helper read the views or name the
-// RPCs; (e) the pure module has no "@/" import; (f) the *_admin_update
+// RPCs (the admin clients route may read the views for its filters, never
+// name the RPCs); (e) the pure module has no "@/" import; (f) the *_admin_update
 // notification types stay out of the e-mail and SMS lists (bell only);
 // (g) admin_gift_sms_credits is service_role only and called only by the admin
 // bonus route.
@@ -1671,11 +1672,14 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   const apiDir = join("src/app/api/admin/statuses/");
   const allowed = new Set([join("src/lib/admin-statuses-server.ts"), join("src/lib/types/database.ts"), join("src/lib/types/database.generated.ts")]);
   const namePattern = new RegExp(`"(?:${objects.join("|")})"`);
+  // The clients directory reads the views for its filters (read-only).
+  const viewReaders = new Set([join("src/app/api/admin/clients/route.ts")]);
+  const rpcPattern = new RegExp(`"(?:${rpcs.map(([fn]) => fn).join("|")})"`);
   const strangers = srcFiles.filter((f) => {
     if (f.startsWith(apiDir) || allowed.has(f)) return false;
     // A type lookup (Views["admin_…_v"]) reads nothing at runtime.
     const text = srcText.get(f).replace(/\["admin_[a-z_]+_v"\]/g, "");
-    return namePattern.test(text);
+    return (viewReaders.has(f) ? rpcPattern : namePattern).test(text);
   });
   if (strangers.length) problems.push(`the admin status views/RPCs are used outside src/app/api/admin/statuses: ${strangers.join(", ")}`);
 
@@ -1951,6 +1955,153 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 
   if (problems.length) problems.forEach((p) => fail("C49: " + p));
   else ok("C49: analytics vocabularies = the migrations; beacons, the mb_sid cookie, analytics_events and analytics_ping each have one writer behind the consent check; admin_analytics_* only through the server-only loader behind requireAdmin; nothing granted to clients; pure modules bare; DB-IP attribution on the page and in exports");
+}
+
+// ---------------------------------------------------------------------------
+// C50 — SMS financial control (owner spec "SMS Control"): (a) SMS_CATEGORIES /
+// SMS_LEDGER_STATUSES (src/lib/finance/sms.ts) equal the ledger's CHECKs; (b)
+// every sms_outbound.automation_kind of the newest CHECK is named in the
+// newest sms_finance_category() (a kind left out silently lands in "other");
+// (c) the sign-in code template the ledger prices equals domain.ts
+// TEMPLATES.auth_code; (d) every route under api/admin/finance/sms calls
+// requireAdmin(); (e) nothing in src writes the ledger or the purchase table
+// (RPCs only) and the purchase/void/threshold RPCs are called only from that
+// API; (f) no SMS-finance table or function is granted to anon, authenticated
+// or PUBLIC; (g) the low-balance notice stays out of the SMS and e-mail lists
+// (bell only); (h) src/lib/finance/sms.ts stays free of "@/" imports.
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  const migrationFiles = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
+  const migrations = migrationFiles.map((f) => read(join("supabase/migrations", f)));
+  const newest = (pattern) => [...migrations].reverse().find((sql) => pattern.test(sql)) ?? null;
+  // A function's body from the newest migration that (re)creates it.
+  const fnBody = (name) => {
+    const sql = newest(new RegExp(`CREATE (?:OR REPLACE )?FUNCTION public\\.${name}\\(`, "i"));
+    if (!sql) return null;
+    const at = sql.search(new RegExp(`CREATE (?:OR REPLACE )?FUNCTION public\\.${name}\\(`, "i"));
+    const head = sql.slice(at).match(/\bAS\s+(\$[a-z_]*\$)/i);
+    if (!head) return null;
+    const start = at + head.index + head[0].length;
+    return sql.slice(start, sql.indexOf(head[1], start));
+  };
+  const checkValues = (name) => {
+    const sql = newest(new RegExp(`CONSTRAINT ${name}\\b`, "i"));
+    if (!sql) return null;
+    const at = [...sql.matchAll(new RegExp(`CONSTRAINT ${name}\\b`, "gi"))].at(-1).index;
+    const open = sql.indexOf("(", sql.search(/check/i) >= 0 ? sql.toLowerCase().indexOf("check", at) : at);
+    let depth = 0;
+    for (let i = open; i < sql.length; i += 1) {
+      if (sql[i] === "(") depth += 1;
+      else if (sql[i] === ")" && --depth === 0) return new Set([...sql.slice(open + 1, i).matchAll(/'([^']+)'/g)].map((m) => m[1]));
+    }
+    return null;
+  };
+
+  const pure = read("src/lib/finance/sms.ts");
+  const tsList = (name) =>
+    new Set([...(pure.match(new RegExp(`export const ${name} = \\[([\\s\\S]*?)\\]`))?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]));
+  for (const [constraint, constant] of [
+    ["sms_usage_ledger_category_check", "SMS_CATEGORIES"],
+    ["sms_usage_ledger_status_check", "SMS_LEDGER_STATUSES"],
+  ]) {
+    const db = checkValues(constraint);
+    const ts = tsList(constant);
+    if (!db || !ts.size) problems.push(`could not read ${db ? constant : constraint}`);
+    else if (!setEq(db, ts)) problems.push(`${constraint} [${[...db].join(", ")}] ≠ ${constant} [${[...ts].join(", ")}]`);
+  }
+
+  const kinds = checkValues("sms_outbound_automation_kind_check");
+  const mapping = fnBody("sms_finance_category");
+  if (!kinds || !mapping) problems.push(`could not read ${kinds ? "sms_finance_category()" : "sms_outbound_automation_kind_check"}`);
+  else {
+    const unnamed = [...kinds].filter((k) => !mapping.includes(`'${k}'`));
+    if (unnamed.length) problems.push(`sms_finance_category() does not name automation kind(s) ${unnamed.join(", ")} (map each to one of the six types)`);
+    const keys = tsList("SMS_KIND_KEYS");
+    const unworded = [...kinds].filter((k) => !keys.has(k));
+    if (unworded.length) problems.push(`SMS_KIND_KEYS lacks automation kind(s) ${unworded.join(", ")}`);
+  }
+
+  const template = read("supabase/functions/sms-automation-run/domain.ts").match(/auth_code: "([^"]+)"/)?.[1];
+  const otpSync = fnBody("_sms_finance_sync_auth_codes") ?? "";
+  if (!template || !otpSync.includes(`'${template.replace("[Code]", "000000")}'`)) {
+    problems.push("_sms_finance_sync_auth_codes() must price the text of domain.ts TEMPLATES.auth_code (with a 6-digit code)");
+  }
+
+  const routes = [...walk("src/app/api/admin/finance/sms", [".ts"])];
+  if (!routes.length) problems.push("no routes under src/app/api/admin/finance/sms");
+  for (const route of routes) {
+    if (!/await requireAdmin\(\)/.test(read(route))) problems.push(`${route} must call requireAdmin()`);
+  }
+
+  const owners = ["src/app/api/admin/finance/sms/", "src/lib/finance/server/sms.ts"];
+  const tableWriter = /\.from\(\s*"(?:sms_usage_ledger|sms_provider_purchases)"\s*\)[\s\S]{0,160}?\.(?:insert|update|upsert|delete)\(/;
+  const rpcCall = /\.rpc\(\s*"(?:finance_record_sms_purchase|finance_void_sms_purchase|finance_set_sms_low_balance|admin_sms_finance_\w+)"/;
+  for (const file of srcFiles) {
+    const text = srcText.get(file);
+    if (tableWriter.test(text)) problems.push(`${file} writes an SMS-finance table directly (only the RPCs may)`);
+    if (rpcCall.test(text) && !owners.some((o) => file.startsWith(o))) problems.push(`${file} calls an SMS-finance RPC outside the admin SMS finance API`);
+  }
+
+  const c50 = migrations.filter((_, i) => /finance_sms_control/.test(migrationFiles[i])).join("\n");
+  if (!c50) problems.push("the finance_sms_control migration is missing");
+  const names = "sms_usage_ledger|sms_provider_purchases|sms_billing_units|sms_finance_\\w+|_sms_finance_\\w+|admin_sms_finance_\\w+|finance_record_sms_purchase|finance_void_sms_purchase|finance_set_sms_low_balance|sms_outbound_keep_ledger";
+  const all = migrations.join("\n");
+  if (new RegExp(`GRANT[^;]*\\b(?:${names})\\b[^;]*TO[^;]*\\b(?:anon|authenticated|PUBLIC)\\b`, "i").test(all)) {
+    problems.push("an SMS-finance table or function is granted to anon, authenticated or PUBLIC (service_role only, C34)");
+  }
+  if (!/REVOKE ALL ON FUNCTION[\s\S]{0,200}FROM PUBLIC, anon, authenticated/.test(c50)) problems.push("the migration must revoke its functions from PUBLIC, anon and authenticated");
+
+  for (const fn of ["sms_notification_types", "email_notification_types"]) {
+    const body = fnBody(fn);
+    if (body === null) problems.push(`could not read ${fn}()`);
+    else if (body.includes("admin_sms_balance_low")) problems.push(`admin_sms_balance_low must stay out of ${fn}() (bell only)`);
+  }
+
+  if (/from "@\//.test(pure)) problems.push('src/lib/finance/sms.ts imports from "@/" (scripts/unit loads it bare)');
+
+  if (problems.length) problems.forEach((p) => fail(`C50: ${p}`));
+  else ok(`C50: SMS ledger CHECKs = sms.ts; all ${kinds.size} automation kinds mapped and worded; OTP template = domain.ts; ${routes.length} admin SMS routes requireAdmin; writes only through the RPCs; service_role only; low-balance notice bell only`);
+}
+
+// ---------------------------------------------------------------------------
+// C51 — password reset and change: (a) useAuth sends /recover and the password
+// update once (no withRetry: a lost answer would come back as a false 429 or
+// 422 same_password, or a second email killing the first link), and
+// changePassword signs in with the current password before the update;
+// (b) the forgot page reads every result through resetRequestOutcome (the
+// resend window is the sent state, not an error); (c) the reset page spends a
+// token_hash link only on submit (no effect verifies it); (d) the settings card
+// changes a password only through changePassword and sends an account without
+// one to the emailed link; (e) no other src file writes a password;
+// (f) the pure modules have no "@/" import.
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  const auth = read("src/lib/hooks/useAuth.ts");
+  for (const fn of ["resetPasswordForEmail", "updatePassword"]) {
+    const body = auth.match(new RegExp(`async function ${fn}\\([^)]*\\) \\{([\\s\\S]*?)\\n  \\}`))?.[1] ?? null;
+    if (body === null) problems.push(`useAuth.ts must define ${fn}`);
+    else if (/withRetry/.test(body)) problems.push(`useAuth.ts ${fn} must not use withRetry (one call)`);
+  }
+  if (!/async function changePassword\([\s\S]{0,200}await signInWithPassword\(email, currentPassword\);\s*return updatePassword\(newPassword\);/.test(auth)) problems.push("useAuth.ts changePassword must sign in with the current password, then call updatePassword");
+  const forgot = read("src/app/[locale]/auth/forgot-password/page.tsx");
+  if (!/resetRequestOutcome\(failure\)/.test(forgot) || /\.status === 429/.test(forgot)) problems.push("forgot-password/page.tsx must read every /recover result through resetRequestOutcome");
+  const reset = read("src/app/[locale]/auth/reset-password/page.tsx");
+  if (!/recoveryTokenHash\(searchParams\)/.test(reset)) problems.push("reset-password/page.tsx must read the link with recoveryTokenHash");
+  const verifyAt = reset.indexOf('type: "recovery"');
+  if (verifyAt < 0 || verifyAt < reset.indexOf("async function handleSubmit") || /useEffect\(/.test(reset)) problems.push('reset-password/page.tsx must verify the token (type: "recovery") only in handleSubmit, never in an effect');
+  const card = read("src/components/auth/ChangePasswordCard.tsx");
+  if (!/identity\.provider === "email"/.test(card) || !/changePassword\(email, currentPassword, password\)/.test(card) || /updatePassword|updateUser/.test(card)) problems.push("ChangePasswordCard must change a password only through changePassword, for an account with the email identity");
+  if (!/href="\/auth\/forgot-password"/.test(card)) problems.push("ChangePasswordCard must send an account without a password to /auth/forgot-password");
+  const code = (f) => read(f).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const writers = srcFiles.filter((f) => f !== join("src/lib/hooks/useAuth.ts") && /updateUser\(\s*\{[^}]*\bpassword\b/.test(code(f)));
+  if (writers.length) problems.push(`only useAuth.ts may call updateUser({ password }) (found: ${writers.join(", ")})`);
+  for (const file of ["src/lib/auth/password-reset.ts", "src/lib/auth/password.ts"]) {
+    if (/from "@\//.test(read(file))) problems.push(`${file} imports from "@/" (scripts/unit loads it bare)`);
+  }
+  if (problems.length) problems.forEach((p) => fail(`C51: ${p}`));
+  else ok("C51: /recover and the password update sent once; changePassword proves the current password; the resend window is the sent state; token_hash links spent only on submit; the card writes through changePassword; no other password writer; pure modules bare");
 }
 
 if (failures) {

@@ -18,12 +18,54 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AuditTimeline } from "@/components/admin/AuditTimeline";
 import { ClientGiftModal } from "@/components/admin/ClientGiftModal";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
+import { ClientFiltersPanel } from "@/components/admin/ClientFiltersPanel";
+import {
+  MembershipStatePill,
+  VipPill,
+  useDayFormat,
+  useStatusQuery,
+} from "@/components/admin/statuses/shared";
 import { Link } from "@/i18n/navigation";
 import { formatPhone, formatPrice } from "@/lib/utils/format";
-import type { Tables, Enums } from "@/lib/types/database";
+import {
+  COMPANY_STATES,
+  MEMBERSHIP_STATES,
+  VIP_TIERS,
+} from "@/lib/admin-statuses";
+import {
+  BALANCE_FILTERS,
+  CLIENT_FILTER_KEYS,
+  SEEN_FILTERS,
+  SIGN_IN_METHODS,
+  VERIFIED_FILTERS,
+  activeFilterCount,
+  matchesClientFilters,
+  parseClientFilters,
+  type ClientFilterKey,
+  type ClientFilterOptions,
+} from "@/lib/admin-clients-filter";
+import { Constants, type Tables, type Enums } from "@/lib/types/database";
 
+// Facts the filters read, added by GET /api/admin/clients.
 type ProfileWithCounts = Tables<"profiles"> & {
   balance_amount: number;
+  registered_on: string | null;
+  last_sign_in_at: string | null;
+  sign_in_methods: string[];
+  membership_state: string | null;
+  vip_tier: string | null;
+  company_state: string | null;
+};
+
+const FILTER_OPTIONS: ClientFilterOptions = {
+  role: Constants.public.Enums.user_role,
+  membership: MEMBERSHIP_STATES,
+  vip: ["any", ...VIP_TIERS, "none"],
+  company: ["any", ...COMPANY_STATES],
+  seen: SEEN_FILTERS,
+  method: SIGN_IN_METHODS,
+  balance: BALANCE_FILTERS,
+  verified: VERIFIED_FILTERS,
 };
 
 type Txn = {
@@ -63,9 +105,20 @@ function ClientsPageContent() {
       }),
     [locale],
   );
+  // Registration and last sign-in as Tbilisi days (bundled date-fns locales:
+  // Chrome's Intl has no Georgian month names).
+  const formatDay = useDayFormat();
+  const query = useStatusQuery();
+  const filters = useMemo(
+    () => parseClientFilters(query.get, FILTER_OPTIONS),
+    [query.get],
+  );
+  const filterCount = activeFilterCount(filters);
+  // One clock for every "last sign-in" window, set when the list loads.
+  const [now, setNow] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<ProfileWithCounts[]>([]);
-  const filtered = useMemo(() => {
+  const searched = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return profiles;
     const digits = q.replace(/\D/g, "");
@@ -77,6 +130,11 @@ function ClientsPageContent() {
         p.id.toLowerCase().includes(q),
     );
   }, [profiles, search]);
+  const filtered = useMemo(
+    () => searched.filter((p) => matchesClientFilters(p, filters, now)),
+    [searched, filters, now],
+  );
+  const narrowed = search.trim() !== "" || filterCount > 0;
   const [selectedProfile, setSelectedProfile] =
     useState<ProfileWithCounts | null>(null);
   // null = still loading the selected profile's transactions
@@ -101,6 +159,7 @@ function ClientsPageContent() {
       .then((payload: { clients?: ProfileWithCounts[] } | null) => {
         if (cancelled) return;
         if (payload?.clients) {
+          setNow(Date.now());
           setProfiles(payload.clients);
         } else {
           // Surface failures (e.g. RPC missing) instead of a silently
@@ -165,7 +224,7 @@ function ClientsPageContent() {
           </p>
           <p className="mt-1 text-[13px] font-bold text-[#2563EB]">
             {loading ? "…" : t("totalCount", { count: profiles.length })}
-            {!loading && search.trim()
+            {!loading && narrowed
               ? ` · ${t("filteredCount", { count: filtered.length })}`
               : null}
           </p>
@@ -183,6 +242,22 @@ function ClientsPageContent() {
         value={search}
         onChange={setSearch}
         placeholder={t("searchPlaceholder")}
+      />
+
+      <ClientFiltersPanel
+        rows={searched}
+        filters={filters}
+        options={FILTER_OPTIONS}
+        now={now}
+        activeCount={filterCount}
+        onChange={(key: ClientFilterKey, value) =>
+          query.update({ [key]: value })
+        }
+        onClear={() =>
+          query.update(
+            Object.fromEntries(CLIENT_FILTER_KEYS.map((key) => [key, null])),
+          )
+        }
       />
 
       <section className="overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)]">
@@ -223,14 +298,38 @@ function ClientsPageContent() {
                       {formatPhone(profile.phone)}
                     </span>
                   </div>
+                  <p className="mt-1.5 text-[12px] font-medium leading-[16px] text-[#94A3B8]">
+                    {profile.created_at
+                      ? `${t("registeredOn", {
+                          date: formatDay(profile.created_at),
+                        })} · `
+                      : null}
+                    {profile.last_sign_in_at
+                      ? t("lastSignIn", {
+                          date: formatDay(profile.last_sign_in_at),
+                        })
+                      : t("neverSignedIn")}
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <span
-                    className={`inline-flex rounded-lg px-3 py-1 text-[11px] font-black leading-[15px] tracking-[0.275px] ${roleBadgeClasses[profile.role]}`}
-                  >
-                    {tShared(`roles.${profile.role}`)}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span
+                      className={`inline-flex rounded-lg px-3 py-1 text-[11px] font-black leading-[15px] tracking-[0.275px] ${roleBadgeClasses[profile.role]}`}
+                    >
+                      {tShared(`roles.${profile.role}`)}
+                    </span>
+                    {profile.membership_state &&
+                    profile.membership_state !== "none" ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#64748B]">
+                        {t("membershipLabel")}
+                        <MembershipStatePill state={profile.membership_state} />
+                      </span>
+                    ) : null}
+                    {profile.vip_tier ? (
+                      <VipPill tier={profile.vip_tier} />
+                    ) : null}
+                  </div>
                   <p className="text-[12px] font-semibold leading-[16px] text-[#64748B]">
                     {tShared("balanceLabel", {
                       amount: formatPrice(profile.balance_amount),

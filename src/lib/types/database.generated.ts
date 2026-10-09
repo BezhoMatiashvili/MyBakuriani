@@ -1864,6 +1864,8 @@ export type Database = {
           small_business_high_rate: number;
           small_business_rate: number;
           small_business_threshold: number;
+          sms_low_balance_notified_at: string | null;
+          sms_low_balance_units: number;
           tax_id: string | null;
           threshold_warning_percent: number;
           updated_at: string;
@@ -1887,6 +1889,8 @@ export type Database = {
           small_business_high_rate?: number;
           small_business_rate?: number;
           small_business_threshold?: number;
+          sms_low_balance_notified_at?: string | null;
+          sms_low_balance_units?: number;
           tax_id?: string | null;
           threshold_warning_percent?: number;
           updated_at?: string;
@@ -1910,6 +1914,8 @@ export type Database = {
           small_business_high_rate?: number;
           small_business_rate?: number;
           small_business_threshold?: number;
+          sms_low_balance_notified_at?: string | null;
+          sms_low_balance_units?: number;
           tax_id?: string | null;
           threshold_warning_percent?: number;
           updated_at?: string;
@@ -5941,6 +5947,168 @@ export type Database = {
           },
         ];
       };
+      sms_provider_purchases: {
+        Row: {
+          amount_gel: number;
+          comment: string | null;
+          created_at: string;
+          created_by: string | null;
+          expense_id: string;
+          id: string;
+          invoice_ref: string | null;
+          purchase_no: number;
+          purchased_on: string;
+          unit_cost: number | null;
+          units: number;
+          void_expense_id: string | null;
+          void_reason: string | null;
+          voided_at: string | null;
+          voided_by: string | null;
+        };
+        Insert: {
+          amount_gel: number;
+          comment?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          expense_id: string;
+          id?: string;
+          invoice_ref?: string | null;
+          purchase_no?: never;
+          purchased_on: string;
+          unit_cost?: number | null;
+          units: number;
+          void_expense_id?: string | null;
+          void_reason?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+        };
+        Update: {
+          amount_gel?: number;
+          comment?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          expense_id?: string;
+          id?: string;
+          invoice_ref?: string | null;
+          purchase_no?: never;
+          purchased_on?: string;
+          unit_cost?: number | null;
+          units?: number;
+          void_expense_id?: string | null;
+          void_reason?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sms_provider_purchases_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "admin_membership_overview_v";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "sms_provider_purchases_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sms_provider_purchases_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sms_provider_purchases_expense_id_fkey";
+            columns: ["expense_id"];
+            isOneToOne: true;
+            referencedRelation: "finance_expenses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sms_provider_purchases_void_expense_id_fkey";
+            columns: ["void_expense_id"];
+            isOneToOne: false;
+            referencedRelation: "finance_expenses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sms_provider_purchases_voided_by_fkey";
+            columns: ["voided_by"];
+            isOneToOne: false;
+            referencedRelation: "admin_membership_overview_v";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "sms_provider_purchases_voided_by_fkey";
+            columns: ["voided_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sms_provider_purchases_voided_by_fkey";
+            columns: ["voided_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      sms_usage_ledger: {
+        Row: {
+          category: string;
+          created_at: string;
+          credit_charged: boolean;
+          id: string;
+          kind: string;
+          notification_type: string | null;
+          provider_message_id: string | null;
+          segments: number;
+          sent_at: string;
+          source: string;
+          source_id: string;
+          status: string;
+          units: number;
+          updated_at: string;
+        };
+        Insert: {
+          category: string;
+          created_at?: string;
+          credit_charged?: boolean;
+          id?: string;
+          kind: string;
+          notification_type?: string | null;
+          provider_message_id?: string | null;
+          segments: number;
+          sent_at: string;
+          source: string;
+          source_id: string;
+          status: string;
+          units: number;
+          updated_at?: string;
+        };
+        Update: {
+          category?: string;
+          created_at?: string;
+          credit_charged?: boolean;
+          id?: string;
+          kind?: string;
+          notification_type?: string | null;
+          provider_message_id?: string | null;
+          segments?: number;
+          sent_at?: string;
+          source?: string;
+          source_id?: string;
+          status?: string;
+          units?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       transactions: {
         Row: {
           amount: number;
@@ -6942,6 +7110,21 @@ export type Database = {
         };
         Returns: undefined;
       };
+      _sms_finance_check_filters: {
+        Args: {
+          p_category: string;
+          p_from: string;
+          p_status: string;
+          p_to: string;
+        };
+        Returns: undefined;
+      };
+      _sms_finance_require_admin: {
+        Args: { p_actor: string };
+        Returns: undefined;
+      };
+      _sms_finance_sync_auth_codes: { Args: never; Returns: number };
+      _sms_finance_sync_outbound: { Args: { p_id?: string }; Returns: number };
       add_renter_guest_to_blacklist: {
         Args: { p_name: string; p_note?: string; p_phone?: string };
         Returns: Database["public"]["CompositeTypes"]["renter_guest_blacklist_result"];
@@ -7090,6 +7273,27 @@ export type Database = {
           visits_7d: number;
           weekly_visitors: number;
         }[];
+      };
+      admin_sms_finance_ledger: {
+        Args: {
+          p_category?: string;
+          p_from?: string;
+          p_limit?: number;
+          p_offset?: number;
+          p_status?: string;
+          p_to?: string;
+        };
+        Returns: Json;
+      };
+      admin_sms_finance_purchases: { Args: never; Returns: Json };
+      admin_sms_finance_summary: {
+        Args: {
+          p_category?: string;
+          p_from?: string;
+          p_status?: string;
+          p_to?: string;
+        };
+        Returns: Json;
       };
       analytics_check_dims: {
         Args: {
@@ -7498,6 +7702,22 @@ export type Database = {
         Args: { p_category: string; p_code: string };
         Returns: string;
       };
+      finance_record_sms_purchase: {
+        Args: {
+          p_actor: string;
+          p_amount: number;
+          p_comment?: string;
+          p_date: string;
+          p_invoice_ref?: string;
+          p_payment_method?: string;
+          p_units: number;
+        };
+        Returns: Json;
+      };
+      finance_set_sms_low_balance: {
+        Args: { p_actor: string; p_units: number };
+        Returns: Json;
+      };
       finance_tax_year: {
         Args: { p_year: number };
         Returns: {
@@ -7533,6 +7753,10 @@ export type Database = {
           window_end: string;
           window_start: string;
         }[];
+      };
+      finance_void_sms_purchase: {
+        Args: { p_actor: string; p_id: string; p_reason: string };
+        Returns: Json;
       };
       finance_wallet_reconciliation: {
         Args: never;
@@ -8023,6 +8247,7 @@ export type Database = {
         };
         Returns: number;
       };
+      sms_billing_units: { Args: { p_text: string }; Returns: number };
       sms_cancel_ineligible_automation: { Args: never; Returns: number };
       sms_cancel_ineligible_price_drop: { Args: never; Returns: number };
       sms_cancel_queued_automation: {
@@ -8071,6 +8296,38 @@ export type Database = {
         Returns: string;
       };
       sms_expire_stale_automation: { Args: never; Returns: number };
+      sms_finance_active_purchases: {
+        Args: never;
+        Returns: {
+          amount_gel: number;
+          id: string;
+          lot_start: number;
+          purchase_no: number;
+          purchased_on: string;
+          unit_cost: number;
+          units: number;
+        }[];
+      };
+      sms_finance_category: {
+        Args: { p_kind: string; p_notification_type: string; p_source: string };
+        Returns: string;
+      };
+      sms_finance_check_balance: { Args: never; Returns: Json };
+      sms_finance_costed: {
+        Args: never;
+        Returns: {
+          cost: number;
+          ledger_id: string;
+          revenue: number;
+          unpriced_units: number;
+        }[];
+      };
+      sms_finance_hourly: { Args: never; Returns: Json };
+      sms_finance_outbound_status: {
+        Args: { p_delivered_at: string; p_status: string };
+        Returns: string;
+      };
+      sms_finance_sync: { Args: never; Returns: number };
       sms_mark_claim_failed: {
         Args: {
           p_claim_token: string;

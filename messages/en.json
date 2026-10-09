@@ -356,7 +356,8 @@
       "statuses": "Memberships & VIP",
       "payments": "Card payments",
       "signupLinks": "Sign-up links",
-      "adAnalytics": "Ad analytics"
+      "adAnalytics": "Ad analytics",
+      "smsControl": "SMS control"
     },
     "notifications": "{count} notifications",
     "logout": "Log out",
@@ -2246,11 +2247,17 @@
     "sendLink": "Send reset link",
     "linkSent": "If that email is registered, a password reset link has been sent.",
     "backToLogin": "Back to sign in",
+    "checkSpam": "It can take a few minutes to arrive. If you don't see it, check your Spam or Junk folder.",
+    "resend": "Send the link again",
+    "resendIn": "Resend in {seconds}s",
+    "otherEmail": "Use a different email",
     "errors": {
       "fillAllFields": "Please enter your email",
       "linkExpired": "This link has expired or was already used. Please try again.",
-      "tooManyRequests": "Too many requests. Please try again later.",
-      "generic": "Error. Please try again."
+      "tooManyRequests": "Too many requests from this network. Please try again in a few minutes.",
+      "generic": "Error. Please try again.",
+      "mailUnavailable": "We can't send emails right now. Try again in a few minutes or contact us: {phone}, {email}.",
+      "network": "Couldn't reach the server. Check your connection and try again."
     }
   },
   "AuthResetPassword": {
@@ -2264,6 +2271,9 @@
       "fillAllFields": "Please fill in all fields",
       "passwordTooShort": "Password must be at least 12 characters",
       "passwordsMismatch": "Passwords do not match",
+      "samePassword": "The new password must be different from the old one.",
+      "weakPassword": "This password is too weak. Choose a stronger one.",
+      "leakedPassword": "This password has appeared in a data breach. Choose a different one.",
       "generic": "Error. Please try again."
     }
   },
@@ -3417,6 +3427,33 @@
       "add": "Add number",
       "change": "Change number",
       "saved": "Number verified."
+    },
+    "password": {
+      "title": "Password",
+      "hint": "Change the password you use to sign in with your email.",
+      "noPasswordHint": "Your account has no password yet. To set one, request a link to your email — that confirms the address is yours.",
+      "setViaEmail": "Request a link",
+      "change": "Change password",
+      "currentLabel": "Current password",
+      "forgotCurrent": "Forgot your current password?",
+      "newLabel": "New password",
+      "confirmLabel": "Confirm password",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saved": "Password changed.",
+      "errors": {
+        "fillAllFields": "Please fill in all fields",
+        "tooShort": "Password must be at least {min} characters",
+        "mismatch": "Passwords do not match",
+        "wrongCurrent": "The current password is incorrect.",
+        "samePassword": "The new password must be different from the old one.",
+        "leakedPassword": "This password has appeared in a data breach. Choose a different one.",
+        "weakPassword": "This password is too weak. Choose a stronger one.",
+        "tooManyAttempts": "Too many attempts. Try again in a few minutes.",
+        "reauthenticate": "For your security, sign out and sign in again, then change the password.",
+        "network": "Couldn't reach the server. Check your connection and try again.",
+        "generic": "Error. Please try again."
+      }
     }
   },
   "DashboardShared": {
@@ -4665,6 +4702,187 @@
       "code_taken": "This code is already taken"
     }
   },
+  "AdminSmsControl": {
+    "title": "SMS control",
+    "subtitle": "SMS financial control: uBill packages, every SMS sent, cost, revenue and balance.",
+    "filters": {
+      "type": "SMS type",
+      "status": "Status"
+    },
+    "categories": {
+      "otp": "OTP",
+      "smart_match": "Smart Match",
+      "listing": "Listing notification",
+      "marketing": "Promotional SMS",
+      "admin": "Admin SMS",
+      "other": "Other"
+    },
+    "statuses": {
+      "sent": "Sent",
+      "delivered": "Delivered",
+      "failed": "Failed"
+    },
+    "errors": {
+      "invalid_units": "Enter the number of SMS bought (a whole number from 1).",
+      "invalid_threshold": "The threshold must be a whole number from 0."
+    },
+    "kpis": {
+      "title": "SMS financial KPIs",
+      "subtitle": "For the chosen period and filters.",
+      "purchased": "Total SMS bought",
+      "packages": "{count, plural, =0 {no packages} one {# package} other {# packages}}",
+      "used": "Total SMS used",
+      "messagesHint": "{count} messages, {charged} of them on an owner's credit",
+      "remaining": "SMS remaining",
+      "remainingHint": "Current balance, whatever the period",
+      "purchaseCost": "Total SMS purchase cost",
+      "usedCost": "Cost of SMS used",
+      "usedCostHint": "FIFO: packages in purchase order",
+      "unpricedHint": "{units} units not covered by a package",
+      "revenue": "Revenue from SMS",
+      "cashHint": "Package sales: {amount} ({credits} credits)",
+      "profit": "SMS profit",
+      "profitHint": "Profit = revenue − cost",
+      "messages": "Messages sent",
+      "cashSales": "SMS package sales (cash)",
+      "unpriced": "Units not covered by a package",
+      "revenueHint": "Revenue = every SMS that used an owner's credit × the average sale price of one credit; system SMS (OTP, notifications) earn nothing."
+    },
+    "balance": {
+      "title": "SMS balance control",
+      "subtitle": "Packages bought minus units used, as of now.",
+      "remaining": "Current SMS balance",
+      "avgPrice": "Average price per SMS",
+      "remainingValue": "Value of the units left",
+      "forecast": "Forecast",
+      "noForecast": "No usage in the last 30 days",
+      "forecastNoPackages": "No package entered yet — no forecast",
+      "forecastValue": "≈ {days} days (until {date})",
+      "dailyLine": "{daily} units a day on average (last 30 days) · bought {purchased} · used {used}",
+      "threshold": "Warning threshold (SMS)",
+      "saveThreshold": "Save threshold",
+      "thresholdSaved": "Threshold saved",
+      "low": "Balance is low",
+      "ok": "Balance is fine",
+      "alertHint": "Automatic low-balance warning: when the SMS left fall to the threshold, admins get one notice (checked hourly).",
+      "lowNotice": "SMS balance is low: {remaining} SMS left (threshold: {threshold}). Buy a uBill package and add it here.",
+      "noPackages": "No uBill package has been added yet: add the packages you bought (past dates are fine) so cost and balance can be counted.",
+      "unpricedNotice": "{units} used units are not covered by any package added here, so they cost 0. Add the missing package.",
+      "purchased": "Total bought",
+      "used": "Total used",
+      "daily": "Average daily usage (30 days)",
+      "state": "State",
+      "sharedProvider": "The balance counts this site's own SMS; if the uBill account also serves another environment (staging/prod), uBill's real balance may differ."
+    },
+    "types": {
+      "title": "SMS by type",
+      "hint": "For each type: sent, cost, revenue, profit. Click a type to see what it contains.",
+      "type": "SMS type",
+      "messages": "Sent",
+      "units": "Units",
+      "statuses": "Sent / deliv. / failed",
+      "cost": "Cost",
+      "revenue": "Revenue",
+      "profit": "Profit"
+    },
+    "purchases": {
+      "title": "uBill packages",
+      "hint": "SMS packages are entered by hand (no automatic uBill integration). Each package is also booked as an expense in Finances.",
+      "add": "Add SMS package",
+      "date": "Date",
+      "units": "SMS bought",
+      "amount": "Amount paid (₾)",
+      "unitCost": "Cost of 1 SMS",
+      "unitCostAuto": "Automatic",
+      "invoice": "uBill invoice/transaction no.",
+      "method": "Payment method",
+      "comment": "Comment",
+      "expenseNote": "Saving books the package as an expense in Finances (communications, uBill). A package added by mistake is voided, never deleted.",
+      "save": "Save package",
+      "created": "{code} added (expense {expense})",
+      "empty": "No package added yet.",
+      "no": "No.",
+      "usedLeft": "Used / left",
+      "used": "Used",
+      "left": "Left",
+      "expense": "Expense",
+      "state": "Status",
+      "active": "Active",
+      "voided": "Voided",
+      "voidedBecause": "Voided: {reason}",
+      "actions": "Action",
+      "void": "Void",
+      "voidTitle": "Void {code}",
+      "voidBody": "The package stops counting in the balance and cost, and its expense is reversed in Finances. This record is kept.",
+      "voidReason": "Reason",
+      "voidDone": "Package voided"
+    },
+    "ledger": {
+      "title": "Automatic SMS record",
+      "hint": "Every SMS sent from MyBakuriani: type, send date, units, cost and status. A text of 2 or more units counts its real units.",
+      "count": "{count, plural, =0 {no records} one {# record} other {# records}}",
+      "empty": "No SMS match these filters.",
+      "sentAt": "Sent",
+      "kind": "Detail",
+      "units": "SMS units",
+      "status": "Status",
+      "credit": "Owner credit",
+      "yes": "Yes",
+      "no": "No",
+      "unpriced": "Not covered",
+      "smsId": "uBill smsID"
+    },
+    "kinds": {
+      "check_in": "Check-in details (to guest)",
+      "review_request": "Review request (to guest)",
+      "win_back": "Guest win-back",
+      "price_drop": "Price drop alert",
+      "consent_request": "Consent request (to guest)",
+      "vip_activation": "VIP activated",
+      "vip_expiry": "VIP expiring",
+      "subscription": "Package / membership",
+      "notification": "Notification",
+      "legacy": "Older SMS",
+      "sign_in": "Sign-in code",
+      "phone_change": "Phone change code",
+      "notification_payment_success": "Notification: payment succeeded",
+      "notification_payment_failed": "Notification: payment failed",
+      "notification_payment_refund": "Notification: refund",
+      "notification_cleaning_task_new": "Notification: new call-out",
+      "notification_cleaning_task_status": "Notification: call-out status",
+      "notification_cleaning_task_cancelled": "Notification: call-out cancelled",
+      "notification_cleaning_task_cancellation_requested": "Notification: cancellation request",
+      "notification_smart_match_offer": "Notification: Smart Match offer",
+      "notification_listing_moderation": "Notification: listing moderation",
+      "notification_verification": "Notification: verification",
+      "notification_job_application": "Notification: job application"
+    },
+    "export": {
+      "aria_kpis": "Download the KPIs",
+      "aria_balance": "Download the balance",
+      "aria_types": "Download the type table",
+      "aria_purchases": "Download the packages",
+      "aria_ledger": "Download the SMS record",
+      "aria_all": "Download the whole page",
+      "wholePage": "SMS export",
+      "method": "Cost = uBill packages in purchase order (FIFO); units are counted from the text (Georgian: 70 characters in one SMS, 67 per part) and only for SMS uBill accepted.",
+      "limits": "Limits: a gifted credit or one bought with bonus money also counts as revenue at the average price; delivery status comes from uBill's report (sign-in codes: only sent/failed).",
+      "title": "MyBakuriani — SMS control",
+      "period": "{from} — {to}",
+      "allTime": "All time",
+      "periodLine": "Period: {period}",
+      "scopeLine": "Scope: {scope}",
+      "scope_filtered": "With current filters",
+      "scope_full": "Full data (period, no filters)",
+      "filtersLine": "Filters: {filters}",
+      "noFilters": "none",
+      "generatedLine": "Generated: {at}",
+      "metric": "Metric",
+      "value": "Value",
+      "truncated": "Showing {shown} of {total} records (file limit {limit}).",
+      "page": "Page {page} / {pages}"
+    }
+  },
   "AdminDashboard": {
     "title": "Dashboard",
     "subtitle": "Platform operations management",
@@ -4881,7 +5099,8 @@
       "documents": "Documents",
       "invoices": "Invoices",
       "export": "Export",
-      "settings": "Settings"
+      "settings": "Settings",
+      "sms": "SMS"
     },
     "common": {
       "loading": "Loading…",
@@ -6723,6 +6942,53 @@
       "withdrawal": "Withdrawal",
       "commission": "Commission",
       "sms_send": "SMS sent"
+    },
+    "registeredOn": "Registered {date}",
+    "lastSignIn": "last sign-in {date}",
+    "neverSignedIn": "never signed in",
+    "membershipLabel": "Membership:",
+    "filters": {
+      "title": "Filters",
+      "clear": "Clear filters",
+      "all": "All",
+      "role": "Role",
+      "membership": "Membership",
+      "vip": "VIP status",
+      "company": "Company plan",
+      "verified": "Verification",
+      "seen": "Last sign-in",
+      "method": "Sign-in method",
+      "balance": "Balance",
+      "from": "Registered from",
+      "to": "Registered to",
+      "companyAny": "Owns a company",
+      "vipOptions": {
+        "any": "VIP or SUPER VIP",
+        "super": "SUPER VIP",
+        "vip": "VIP",
+        "none": "No VIP"
+      },
+      "seenOptions": {
+        "7": "In the last 7 days",
+        "30": "In the last 30 days",
+        "90": "In the last 90 days",
+        "over30": "Not for 30+ days",
+        "over90": "Not for 90+ days",
+        "never": "Never"
+      },
+      "methodOptions": {
+        "email": "Email",
+        "google": "Google",
+        "phone": "Phone"
+      },
+      "balanceOptions": {
+        "positive": "More than 0 ₾",
+        "zero": "0 ₾"
+      },
+      "verifiedOptions": {
+        "yes": "Verified",
+        "no": "Not verified"
+      }
     }
   },
   "AdminClientDetail": {

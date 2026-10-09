@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import type { Tables } from "@/lib/types/database";
 import { updateSelfServiceProfile } from "@/lib/self-service/client";
 import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
+import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 
 interface NotifPrefs {
   newInquiry: boolean;
@@ -369,6 +370,8 @@ export default function ServiceParametersPage() {
           </div>
         </motion.div>
       </div>
+
+      <ChangePasswordCard />
     </div>
   );
 }
