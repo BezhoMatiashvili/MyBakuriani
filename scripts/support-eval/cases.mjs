@@ -352,6 +352,26 @@ export function buildCases({ nextDate }) {
       expect: { actionsAny: ["menu", "add_listing"], guide: true },
     },
     {
+      name: "food-ka-no-discount",
+      locale: "ka",
+      cabinet: "food",
+      path: "/dashboard/food",
+      signedIn: true,
+      message: "როგორ გავააქტიურო ფასდაკლება ჩემს კერძზე?",
+      expect: {
+        textAny: [
+          "ვერ ",
+          "არ შეუძლ",
+          "არ შეგიძლ",
+          "შეუძლებ",
+          "არ აქვთ",
+          "არ გაქვთ",
+          "არ არის",
+        ],
+        textNone: ["ფასდაკლების გააქტიურება"],
+      },
+    },
+    {
       name: "employment-ka-cvs",
       locale: "ka",
       cabinet: "employment",

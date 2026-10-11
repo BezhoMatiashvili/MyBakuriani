@@ -409,7 +409,7 @@ const ACTIONS = {
   },
   menu: {
     where: ["food"],
-    prompt: 'the PDF menu, its link and dish discounts ("ჩემი მენიუ (PDF)")',
+    prompt: 'the PDF menu, its link and dishes ("ჩემი მენიუ (PDF)")',
     href: () => "/dashboard/food/orders",
   },
   orders: {

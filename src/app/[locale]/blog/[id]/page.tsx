@@ -59,7 +59,7 @@ const getBlogPostDetail = cache(async (key: string) => {
   const supabase = createPublicClient();
   return supabase
     .from("blog_posts")
-    .select("*, profiles!blog_posts_author_id_fkey(display_name, avatar_url)")
+    .select("*")
     .eq(lookupColumn(key), key)
     .eq("published", true)
     .maybeSingle();
@@ -122,11 +122,6 @@ export default async function BlogDetailPage({ params }: Props) {
     );
   }
 
-  const author = post.profiles as {
-    display_name: string;
-    avatar_url: string | null;
-  } | null;
-
   const postUrl = new URL(
     pathForLocale(`/blog/${post.slug}`, locale, routing.defaultLocale),
     SITE_URL,
@@ -153,7 +148,7 @@ export default async function BlogDetailPage({ params }: Props) {
             sanitizePhotos([post.image_url]),
           ),
           datePublished: post.published_at,
-          authorName: author?.display_name,
+          // No byline on the page, so the post is credited to the site (C40).
           inLanguage: "ka",
           publisherName: SITE_NAME,
           publisherLogoUrl: `${SITE_URL}${SITE_LOGO_PATH}`,
@@ -180,12 +175,6 @@ export default async function BlogDetailPage({ params }: Props) {
             <time dateTime={post.published_at}>
               {formatDate(post.published_at, locale)}
             </time>
-          )}
-          {author && (
-            <>
-              <span>·</span>
-              <span>{author.display_name}</span>
-            </>
           )}
         </div>
 

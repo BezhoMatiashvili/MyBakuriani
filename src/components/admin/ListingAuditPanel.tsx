@@ -1009,13 +1009,16 @@ function ServiceForm({
             onChange={(v) => setField("currency", v)}
             placeholder="₾"
           />
-          <NumberField
-            label={t("discountPercent")}
-            value={effective<number | null>("discount_percent", null)}
-            onChange={(v) => setField("discount_percent", v)}
-            min={0}
-            max={100}
-          />
+          {/* Restaurants make no discounts (C21); the database refuses one. */}
+          {!isFood && (
+            <NumberField
+              label={t("discountPercent")}
+              value={effective<number | null>("discount_percent", null)}
+              onChange={(v) => setField("discount_percent", v)}
+              min={0}
+              max={100}
+            />
+          )}
         </Grid3>
       </Section>
 

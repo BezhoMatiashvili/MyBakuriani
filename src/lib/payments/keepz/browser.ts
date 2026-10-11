@@ -165,31 +165,8 @@ export async function executePurchaseIntent(
     vipConflict: string;
     network: string;
     generic: string;
-    insufficient: string;
   },
 ): Promise<void> {
-  if (intent.kind === "menu-item-discount") {
-    let response: Response;
-    try {
-      response = await fetch("/api/food/menu-item-discount-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(intent.body),
-      });
-    } catch {
-      throw new Error(messages.network);
-    }
-    if (response.ok) return;
-    const payload = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    throw new Error(
-      payload?.error === "insufficient_balance"
-        ? messages.insufficient
-        : messages.generic,
-    );
-  }
-
   const supabase = createClient();
   const { error } =
     intent.kind === "purchase-vip"

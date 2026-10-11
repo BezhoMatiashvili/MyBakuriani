@@ -114,7 +114,6 @@ export default async function TransportDetailPage({ params }: Props) {
         locale={locale}
         kind="transport"
         excludeId={id}
-        location={cached.location}
       />
     </>
   );

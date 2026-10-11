@@ -164,7 +164,6 @@ export default async function HotelDetailPage({ params }: Props) {
         locale={locale}
         kind="hotels"
         excludeId={id}
-        location={cached.location}
       />
     </>
   );

@@ -114,7 +114,6 @@ export default async function EntertainmentDetailPage({ params }: Props) {
         locale={locale}
         kind="entertainment"
         excludeId={id}
-        location={cached.location}
       />
     </>
   );

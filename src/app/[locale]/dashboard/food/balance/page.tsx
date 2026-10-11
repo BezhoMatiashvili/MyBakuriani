@@ -7,7 +7,6 @@ import {
   purchaseReasonMessages,
 } from "@/lib/promotion-purchase";
 import { motion } from "framer-motion";
-import { useRouter } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,7 +38,6 @@ export default function FoodBalancePage() {
   const locale = useLocale();
   const { user } = useAuth();
   const supabase = createClient();
-  const router = useRouter();
 
   const [balance, setBalance] = useState<Balance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -51,8 +49,19 @@ export default function FoodBalancePage() {
     tier: VipInfoTier;
   }>({ open: false, tier: "super-vip" });
   const [confirmPkg, setConfirmPkg] = useState<PricingPackage | null>(null);
-  const [restaurant, setRestaurant] = useState<Service | null>(null);
+  // Every food listing of the owner, newest first: maybeSingle() errored for
+  // owners with two restaurants, which left the VIP picker empty.
+  const [restaurants, setRestaurants] = useState<Service[]>([]);
+  const [listingsFailed, setListingsFailed] = useState(false);
   const [pickerPkg, setPickerPkg] = useState<PricingPackage | null>(null);
+
+  const fetchRestaurants = () =>
+    supabase
+      .from("services")
+      .select("*")
+      .eq("owner_id", user!.id)
+      .eq("category", "food")
+      .order("created_at", { ascending: false });
 
   useEffect(() => {
     fetchPricingPackages(["vip", "sms"]).then(setPackages);
@@ -73,16 +82,12 @@ export default function FoodBalancePage() {
           .eq("user_id", user!.id)
           .order("created_at", { ascending: false })
           .limit(10),
-        supabase
-          .from("services")
-          .select("*")
-          .eq("owner_id", user!.id)
-          .eq("category", "food")
-          .maybeSingle(),
+        fetchRestaurants(),
       ]);
       if (balRes.data) setBalance(balRes.data);
       if (txRes.data) setTransactions(txRes.data);
-      if (restaurantRes.data) setRestaurant(restaurantRes.data);
+      if (restaurantRes.data) setRestaurants(restaurantRes.data);
+      setListingsFailed(Boolean(restaurantRes.error));
       setLoading(false);
     }
     fetchData();
@@ -126,6 +131,12 @@ export default function FoodBalancePage() {
       setPurchasing(null);
     }
   }
+
+  // Restaurants make no discounts (C21): the shared discount package is not
+  // offered here.
+  const visiblePackages = packages.filter(
+    (pkg) => inferVipInfoTier(pkg) !== "discount",
+  );
 
   return (
     <div className="space-y-6">
@@ -174,22 +185,23 @@ export default function FoodBalancePage() {
         transition={{ delay: 0.05 }}
         className="grid grid-cols-2 gap-3 sm:gap-4"
       >
-        {packages.length === 0 ? (
+        {visiblePackages.length === 0 ? (
           <p className="col-span-full text-center text-sm text-[#94A3B8]">
             {tShared("noPackages")}
           </p>
         ) : (
-          packages.map((pkg) => {
+          visiblePackages.map((pkg) => {
             const display = getPackageDisplay(pkg, locale);
             const tier = inferVipInfoTier(pkg);
+            // Every package needs a restaurant, SMS too. A failed read must
+            // not claim there is none.
+            const noListings =
+              !loading && !listingsFailed && restaurants.length === 0;
             const standardVipAvailable =
               tier !== "vip" ||
-              Boolean(
-                restaurant &&
-                !isSuperVipActive(
-                  restaurant.is_super_vip,
-                  restaurant.vip_expires_at,
-                ),
+              listingsFailed ||
+              restaurants.some(
+                (r) => !isSuperVipActive(r.is_super_vip, r.vip_expires_at),
               );
             return (
               <BalancePackageCard
@@ -202,21 +214,19 @@ export default function FoodBalancePage() {
                 price={pkg.amount_gel}
                 unit={display.unit}
                 ctaColor={display.ctaColor}
-                available={standardVipAvailable}
+                available={!loading && !noListings && standardVipAvailable}
                 disabledReason={
-                  standardVipAvailable
+                  loading
                     ? undefined
-                    : tShared("noVipEligibleListings")
+                    : noListings
+                      ? tShared("noListingsYet")
+                      : standardVipAvailable
+                        ? undefined
+                        : tShared("noVipEligibleListings")
                 }
                 purchasing={purchasing === pkg.id}
                 onHowItWorks={() => setVipModal({ open: true, tier })}
                 onActivate={() => {
-                  // Restaurant discounts are now per-dish, managed from the
-                  // menu screen instead of a whole-listing promotion purchase.
-                  if (pkg.category === "vip" && tier === "discount") {
-                    router.push("/dashboard/food/orders");
-                    return;
-                  }
                   if (pkg.category === "vip") {
                     setPickerPkg(pkg);
                     return;
@@ -240,9 +250,9 @@ export default function FoodBalancePage() {
         <TransactionList
           transactions={transactions}
           loading={loading}
-          listingTitles={
-            restaurant ? { [restaurant.id]: restaurant.title } : {}
-          }
+          listingTitles={Object.fromEntries(
+            restaurants.map((r) => [r.id, r.title]),
+          )}
         />
       </motion.section>
 
@@ -259,32 +269,23 @@ export default function FoodBalancePage() {
         packageId={pickerPkg?.id}
         target="service"
         flat
-        listings={
-          restaurant
-            ? [
-                {
-                  id: restaurant.id,
-                  title: restaurant.title,
-                  subtitle: restaurant.location ?? undefined,
-                  photoUrl: (restaurant.photos ?? [])[0] ?? null,
-                  badgeLabel: tShared("foodBadge"),
-                  badgeColor: "blue",
-                  standardVipDisabled: isSuperVipActive(
-                    restaurant.is_super_vip,
-                    restaurant.vip_expires_at,
-                  ),
-                },
-              ]
-            : []
-        }
+        listings={restaurants.map((restaurant) => ({
+          id: restaurant.id,
+          title: restaurant.title,
+          subtitle: restaurant.location ?? undefined,
+          photoUrl: (restaurant.photos ?? [])[0] ?? null,
+          badgeLabel: tShared("foodBadge"),
+          badgeColor: "blue",
+          standardVipDisabled: isSuperVipActive(
+            restaurant.is_super_vip,
+            restaurant.vip_expires_at,
+          ),
+          notLive: restaurant.status !== "active",
+        }))}
         onPurchased={async () => {
-          if (!user || !restaurant) return;
-          const { data } = await supabase
-            .from("services")
-            .select("*")
-            .eq("id", restaurant.id)
-            .maybeSingle();
-          if (data) setRestaurant(data);
+          if (!user) return;
+          const { data } = await fetchRestaurants();
+          if (data) setRestaurants(data);
           // The wallet header and history stayed at the pre-purchase state.
           const [balRes, txRes] = await Promise.all([
             supabase

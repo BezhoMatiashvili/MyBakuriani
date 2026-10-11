@@ -74,7 +74,6 @@ const CHIPS: Record<string, ChipPlan> = {
   acceptTask: { kind: "guide" },
   schedule: { kind: "answer", actions: [{ id: "schedule" }] },
   uploadMenu: { kind: "guide" },
-  dishDiscount: { kind: "guide" },
   readCvs: { kind: "answer", actions: [{ id: "orders" }] },
   reviewListings: {
     kind: "answer",
@@ -118,7 +117,7 @@ const QUICK_ACTIONS: Record<SupportCabinet, readonly string[]> = {
   seller: ["addSale", "uploadPhotos", "topUp"],
   guest: ["smartMatch", "favorites", "profilePhoto"],
   cleaner: ["acceptTask", "schedule"],
-  food: ["uploadMenu", "dishDiscount", "topUp"],
+  food: ["uploadMenu", "topUp"],
   entertainment: ["addService", "uploadPhotos", "topUp"],
   transport: ["addService", "uploadPhotos", "topUp"],
   employment: ["addVacancy", "readCvs"],

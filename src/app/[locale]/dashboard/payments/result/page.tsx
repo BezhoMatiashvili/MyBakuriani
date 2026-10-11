@@ -107,7 +107,6 @@ export default function PaymentResultPage() {
           vipConflict: tShared("superVipBlocksVip"),
           network: tShared("purchaseNetworkError"),
           generic: tShared("genericRetry"),
-          insufficient: t("insufficient"),
         });
         setResume({ state: "done" });
       } catch (err) {
@@ -118,7 +117,7 @@ export default function PaymentResultPage() {
         });
       }
     },
-    [t, tShared],
+    [tShared],
   );
 
   useEffect(() => {

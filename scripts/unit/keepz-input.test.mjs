@@ -108,7 +108,7 @@ test("purchase-vip intents keep only known, bounded fields", () => {
   }
 });
 
-test("company-subscription and menu-item-discount intents are strict", () => {
+test("company-subscription intents are strict; menu-item-discount is retired", () => {
   assert.deepEqual(
     parsePurchaseIntent(
       {
@@ -129,21 +129,16 @@ test("company-subscription and menu-item-discount intents are strict", () => {
     ),
     null,
   );
+  // Restaurants make no discounts (C21): a card checkout can no longer resume
+  // a per-dish discount.
   const menu = {
     menuItemId: U1,
     packageId: U2,
     discountPercent: 20,
     quantity: 2,
   };
-  assert.deepEqual(
-    parsePurchaseIntent({ kind: "menu-item-discount", body: menu }, TIERS),
-    { kind: "menu-item-discount", body: menu },
-  );
   assert.equal(
-    parsePurchaseIntent(
-      { kind: "menu-item-discount", body: { ...menu, quantity: undefined } },
-      TIERS,
-    ),
+    parsePurchaseIntent({ kind: "menu-item-discount", body: menu }, TIERS),
     null,
   );
 });

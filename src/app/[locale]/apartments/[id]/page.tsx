@@ -158,7 +158,6 @@ export default async function ApartmentDetailPage({ params }: Props) {
         locale={locale}
         kind="apartments"
         excludeId={id}
-        location={cached.location}
       />
     </>
   );

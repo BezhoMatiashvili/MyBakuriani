@@ -90,6 +90,18 @@ const nextConfig: NextConfig = {
         source: "/:locale(ka|en|ru)?/blog/:slug([^/.]+)",
         ...edgeCached,
       },
+      // Home and the blog index are ISR too, and Next's own header for them
+      // allows a year of stale-while-revalidate: on a quiet site Cloudflare
+      // kept serving a home page from before the latest blog posts. Bound it
+      // like the detail pages so an admin's new post shows within minutes.
+      {
+        source: "/:locale(ka|en|ru)?",
+        ...edgeCached,
+      },
+      {
+        source: "/:locale(ka|en|ru)?/blog",
+        ...edgeCached,
+      },
       // An RSC request without the `_rsc` cache-busting param never comes from
       // a real Next client (fetch-server-response always appends it). The CDN
       // keys on the URL and ignores Vary, so with a public Cache-Control its

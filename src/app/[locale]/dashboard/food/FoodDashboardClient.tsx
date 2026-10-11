@@ -3,17 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
-import { Link, useRouter } from "@/i18n/navigation";
-import {
-  BookOpen,
-  Star,
-  Eye,
-  Heart,
-  Phone,
-  ChevronRight,
-  Sparkles,
-  Clock,
-} from "lucide-react";
+import { BookOpen, Star, Eye, Heart, Phone, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRealtimeSubscription } from "@/lib/hooks/useRealtime";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,7 +29,6 @@ export default function FoodDashboardClient({
   const t = useTranslations("FoodDashboard");
   const tShared = useTranslations("DashboardShared");
   const supabase = createClient();
-  const router = useRouter();
 
   // Seeded from the server render — content is present on first paint, so there
   // is no loading skeleton on initial load. Realtime updates refresh silently.
@@ -56,22 +45,15 @@ export default function FoodDashboardClient({
     /** Listing whose row button opened the picker (preselected). */
     listingId?: string;
   }>({ open: false, tier: "super-vip" });
-  const [stats, setStats] = useState(initial.stats);
   const [kpis, setKpis] = useState<OwnerStats | null>(initial.kpis);
 
-  // Live: restaurant status changes and new orders/inquiries refresh without reload.
+  // Live: restaurant status changes refresh without reload.
   useRealtimeSubscription(
     [
       {
         table: "services",
         event: "*",
         filter: `owner_id=eq.${userId}`,
-        handler: () => void loadFoodData(supabase, userId).then(apply),
-      },
-      {
-        table: "sms_messages",
-        event: "*",
-        filter: `to_user_id=eq.${userId}`,
         handler: () => void loadFoodData(supabase, userId).then(apply),
       },
     ],
@@ -83,7 +65,6 @@ export default function FoodDashboardClient({
       setRestaurant(data.restaurant);
       setPublished(data.restaurant.status === "active");
     }
-    setStats(data.stats);
     setKpis(data.kpis);
   }
 
@@ -149,45 +130,6 @@ export default function FoodDashboardClient({
             {published ? tShared("published") : tShared("paused")}
           </span>
         </button>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#334155] p-8 text-white shadow-[0px_20px_50px_-12px_rgba(15,23,42,0.4)]"
-      >
-        <div
-          aria-hidden
-          className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#F97316] opacity-20 blur-3xl"
-        />
-        <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
-          <Sparkles className="h-3 w-3" />
-          {t("premiumPaid")}
-        </p>
-        <div className="relative mt-4 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-bold uppercase text-white/60">
-              {t("dailyRevenue")}
-            </p>
-            {loading ? (
-              <Skeleton className="mt-2 h-[56px] w-[200px] bg-white/10" />
-            ) : (
-              <p className="mt-1 text-[36px] font-black leading-[44px] sm:text-[52px] sm:leading-[60px]">
-                {stats.revenueThisMonth.toFixed(2)}
-                <span className="ml-1 text-[22px] font-bold text-white/60">
-                  ₾
-                </span>
-              </p>
-            )}
-          </div>
-          <Link
-            href="/dashboard/food/orders"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#10B981] px-5 py-3 text-[13px] font-black text-white transition-colors hover:bg-[#059669]"
-          >
-            {t("menuAndPromo")}
-            <ChevronRight className="h-4 w-4" />
-          </Link>
-        </div>
       </motion.div>
 
       <motion.div
@@ -274,8 +216,6 @@ export default function FoodDashboardClient({
             isVip={restaurant.is_vip}
             isSuperVip={restaurant.is_super_vip}
             vipExpiresAt={restaurant.vip_expires_at}
-            discountPercent={restaurant.discount_percent}
-            discountExpiresAt={restaurant.discount_expires_at}
           />
         )}
         <div className="mt-4 flex flex-wrap items-center gap-4">
@@ -306,15 +246,11 @@ export default function FoodDashboardClient({
             className="mt-5 border-t border-[#F1F5F9] pt-4"
             viewUrl={serviceViewUrl(restaurant, { preview: true })}
             editUrl={serviceEditUrl(restaurant)}
-            onPromote={(tier) => {
-              // Restaurant discounts are now per-dish, managed from the menu
-              // screen instead of a whole-listing promotion purchase.
-              if (tier === "discount") {
-                router.push("/dashboard/food/orders");
-                return;
-              }
-              setPickerModal({ open: true, tier, listingId: restaurant.id });
-            }}
+            // Restaurants make no discounts (C21): VIP and SUPER VIP only.
+            hideDiscount
+            onPromote={(tier) =>
+              setPickerModal({ open: true, tier, listingId: restaurant.id })
+            }
             standardVipDisabled={isSuperVipActive(
               restaurant.is_super_vip,
               restaurant.vip_expires_at,

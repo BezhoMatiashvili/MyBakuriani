@@ -151,7 +151,6 @@ export default async function SaleDetailPage({ params }: Props) {
         locale={locale}
         kind="sales"
         excludeId={id}
-        location={cached.location}
       />
     </>
   );

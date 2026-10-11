@@ -65,6 +65,7 @@ import HomeStatusCards from "@/components/landing/HomeStatusCards";
 import { AddListingButton } from "@/components/shared/AddListingButton";
 import type { StatusCard } from "@/lib/status-cards/types";
 import { MobileRail } from "@/components/shared/MobileRail";
+import HomeBlogCarousel from "./HomeBlogCarousel";
 
 type PublicService = LandingService;
 
@@ -468,34 +469,6 @@ export default function LandingPage({
     [vipPropertyCards, hotOffersDiscountOnly],
   );
 
-  const hotelCards =
-    serverHotels && serverHotels.length > 0
-      ? serverHotels.map((p) => ({
-          id: p.id,
-          title: p.title,
-          location: p.location,
-          photos: p.photos ?? [],
-          pricePerNight: p.price_per_night ? Number(p.price_per_night) : null,
-          salePrice: null as number | null,
-          rating: null as number | null,
-          capacity: p.capacity,
-          rooms: p.rooms,
-          isVip: p.is_vip ?? false,
-          isSuperVip: p.is_super_vip ?? false,
-          discountPercent: p.discount_percent ?? 0,
-          discountExpiresAt: p.discount_expires_at ?? null,
-          createdAt: p.created_at,
-          isForSale: false,
-          isHotel: true as const,
-          hotelStars: p.hotel_stars ?? undefined,
-          numericRating: p.numeric_rating ?? undefined,
-          isB2BPartner: p.is_b2b_partner ?? false,
-          roomType: p.room_type ?? undefined,
-          amenities: p.location,
-          isOwnershipVerified: p.ownership_verified ?? false,
-        }))
-      : [];
-
   // Group server services by category
   const servicesByCategory = (category: string) => {
     if (serverServices && serverServices.length > 0) {
@@ -750,17 +723,6 @@ export default function LandingPage({
         showAddButton
       />
 
-      {/* ═══ 5. Hotels Section ═══ */}
-      <PropertySection
-        title={t("hotels")}
-        subtitle={t("hotelsSubtitle")}
-        properties={hotelCards}
-        href="/hotels"
-        muted
-        showDiscountToggle
-        showAddButton
-      />
-
       {/* ═══ 5.5 Recommended services (admin-managed) ═══ */}
       {hasHomePromo && (
         <section
@@ -820,7 +782,6 @@ export default function LandingPage({
         subtitle={t("foodSubtitle")}
         cards={servicesByCategory("food")}
         href="/food"
-        showDiscountToggle
         showAddButton
       />
 
@@ -846,10 +807,7 @@ export default function LandingPage({
               </Link>
             </div>
           </ScrollReveal>
-          <MobileRail
-            desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:items-stretch lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none"
-            desktopItemClassName="lg:h-full lg:w-auto lg:snap-none"
-          >
+          <HomeBlogCarousel label={t("blogAndNews")}>
             {blogItems.map((post, i) => {
               const chipPalette = [
                 { bg: "#DBEAFE", fg: "#1D4ED8", label: t("blogChips.news") },
@@ -905,7 +863,7 @@ export default function LandingPage({
                 </ScrollReveal>
               );
             })}
-          </MobileRail>
+          </HomeBlogCarousel>
         </div>
       </section>
 

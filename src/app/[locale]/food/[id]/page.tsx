@@ -140,7 +140,6 @@ export default async function FoodDetailPage({ params }: Props) {
         locale={locale}
         kind="food"
         excludeId={id}
-        location={cached.location}
       />
     </>
   );

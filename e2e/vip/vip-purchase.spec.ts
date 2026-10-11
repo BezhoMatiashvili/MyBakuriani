@@ -48,6 +48,8 @@ const EN = {
 type Strings = typeof KA;
 
 const GEORGIAN = /[Ⴀ-ჿ]/;
+// Balance-page card reason when the owner has no listing yet.
+const NO_LISTINGS_KA = "გასააქტიურებლად ჯერ დაამატეთ განცხადება";
 
 let lane: Lane;
 let ids: ReturnType<typeof laneIds>;
@@ -576,6 +578,24 @@ test("[B5] edge function returns actionable 4xx, never a masked 500", async () =
   expect(await getBalance(ids.poor)).toBeCloseTo(1, 2);
 });
 
+test("[B9] a restaurant cannot buy the discount badge", async () => {
+  test.skip(!isDesktop(), "server-only checks run once");
+  const { session } = await signIn(ids.svcOwner);
+  const { discount } = await vipPackages();
+  const res = await invokePurchase(session.access_token, {
+    package_id: discount.id,
+    service_id: ids.food,
+    quantity: 1,
+    discount_percent: 20,
+  });
+  // Restaurants make no discounts (C21): the database refuses the write, so
+  // purchase_package rolls back and nothing is charged.
+  expect(res.status, JSON.stringify(res.json)).toBe(400);
+  expect(res.json.reason).toBe("invalid_target");
+  expect((await getListing("services", ids.food)).discount_percent ?? 0).toBe(0);
+  expect(await getBalance(ids.svcOwner)).toBeCloseTo(200, 2);
+});
+
 test("[B1] an owner cannot create a service that is already SUPER VIP", async () => {
   test.skip(!isDesktop(), "server-only checks run once");
   const e2e = configureIsolatedE2E();
@@ -1043,11 +1063,96 @@ test("[B16] balance page does not flash 'no eligible listings' while loading", a
   const flashing = await page
     .getByText("სტანდარტული VIP-ისთვის ხელმისაწვდომი განცხადება არ არის")
     .count();
+  const flashingNone = await page.getByText(NO_LISTINGS_KA).count();
   expect(held && !released, "listings request still held").toBe(true);
   expect(flashing, "no 'no eligible listings' while loading").toBe(0);
+  expect(flashingNone, "no 'add a listing first' while loading").toBe(0);
   await expect(
     packageCard(page, "VIP სტატუსი").getByRole("button", { name: "გააქტიურება" }),
   ).toBeEnabled({ timeout: 15_000 });
+});
+
+// ---------------------------------------------------------------------------
+// An owner with no listing yet: nothing on "ბალანსი და VIP" can be activated
+// ---------------------------------------------------------------------------
+
+/** Answers the page's own listings read: none (200 []) or a server error. */
+async function answerListings(
+  page: Page,
+  table: "properties" | "services",
+  status: 200 | 500,
+) {
+  await page.route(`**/rest/v1/${table}?*`, (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({
+          status,
+          contentType: "application/json",
+          body:
+            status === 200
+              ? "[]"
+              : JSON.stringify({ code: "XX000", message: "e2e: read failed" }),
+        })
+      : route.continue(),
+  );
+}
+
+async function expectEveryCardGreyedOut(page: Page) {
+  const cards = page.locator("[data-balance-package-card]");
+  await expect(cards.first()).toBeVisible({ timeout: 15_000 });
+  const count = await cards.count();
+  expect(count, "package cards").toBeGreaterThan(0);
+  for (let i = 0; i < count; i += 1) {
+    const card = cards.nth(i);
+    await expect(card, `card ${i} reason`).toContainText(NO_LISTINGS_KA, {
+      timeout: 15_000,
+    });
+    await expect(
+      card.getByRole("button", { name: "გააქტიურება" }),
+      `card ${i} button`,
+    ).toBeDisabled();
+  }
+  // Not the old VIP-only reason, which blamed standard-VIP eligibility.
+  await expect(
+    page.getByText("სტანდარტული VIP-ისთვის ხელმისაწვდომი განცხადება არ არის"),
+  ).toHaveCount(0);
+}
+
+test("[B18] no listing: every renter package card is greyed out, SMS too", async ({
+  page,
+}) => {
+  await loginPage(page, ids.owner);
+  await answerListings(page, "properties", 200);
+  await open(page, "/dashboard/renter/balance");
+  await expectEveryCardGreyedOut(page);
+  await expect(packageCard(page, "SUPER VIP")).toContainText(NO_LISTINGS_KA);
+  await expect(packageCard(page, "SMS პაკეტი")).toContainText(NO_LISTINGS_KA);
+});
+
+test("[B18] no listing: the transport and food balance pages grey out every card", async ({
+  page,
+}) => {
+  await loginPage(page, ids.svcOwner);
+  await answerListings(page, "services", 200);
+  for (const path of ["/dashboard/transport/balance", "/dashboard/food/balance"]) {
+    await open(page, path);
+    await expectEveryCardGreyedOut(page);
+  }
+});
+
+test("[B18] a failed listings read keeps the cards usable, no false 'no listing'", async ({
+  page,
+}) => {
+  await loginPage(page, ids.owner);
+  await answerListings(page, "properties", 500);
+  await open(page, "/dashboard/renter/balance");
+  await expect(walletHeader(page)).toContainText("200.00");
+  for (const name of ["SMS პაკეტი", "VIP სტატუსი"]) {
+    await expect(
+      packageCard(page, name).getByRole("button", { name: "გააქტიურება" }),
+      name,
+    ).toBeEnabled({ timeout: 15_000 });
+  }
+  await expect(page.getByText(NO_LISTINGS_KA)).toHaveCount(0);
 });
 
 test("[B14] English transport balance page has no Georgian package labels", async ({ page }) => {

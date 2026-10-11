@@ -114,7 +114,6 @@ export default async function ServiceDetailPage({ params }: Props) {
         locale={locale}
         kind="services"
         excludeId={id}
-        location={cached.location}
       />
     </>
   );

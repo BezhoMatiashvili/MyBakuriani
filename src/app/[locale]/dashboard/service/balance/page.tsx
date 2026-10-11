@@ -48,6 +48,7 @@ export default function ServiceBalancePage() {
   const [balance, setBalance] = useState<Balance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [listingsFailed, setListingsFailed] = useState(false);
   const [packages, setPackages] = useState<PricingPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
@@ -95,6 +96,7 @@ export default function ServiceBalancePage() {
       if (balRes.data) setBalance(balRes.data);
       if (txRes.data) setTransactions(txRes.data);
       if (svcRes.data) setServices(svcRes.data);
+      setListingsFailed(Boolean(svcRes.error));
       setLoading(false);
     }
     fetchData();
@@ -206,8 +208,13 @@ export default function ServiceBalancePage() {
           const display = getPackageDisplay(pkg, locale);
           const tier = inferVipInfoTier(pkg);
           const price = pkg.amount_gel;
+          // Every package needs a listing, SMS too. A failed read must not
+          // claim there is none.
+          const noListings =
+            !loading && !listingsFailed && services.length === 0;
           const standardVipAvailable =
             tier !== "vip" ||
+            listingsFailed ||
             services.some(
               (service) =>
                 !isSuperVipActive(service.is_super_vip, service.vip_expires_at),
@@ -223,11 +230,15 @@ export default function ServiceBalancePage() {
               price={price}
               unit={display.unit}
               ctaColor={display.ctaColor}
-              available={standardVipAvailable}
+              available={!loading && !noListings && standardVipAvailable}
               disabledReason={
-                standardVipAvailable
+                loading
                   ? undefined
-                  : tShared("noVipEligibleListings")
+                  : noListings
+                    ? tShared("noListingsYet")
+                    : standardVipAvailable
+                      ? undefined
+                      : tShared("noVipEligibleListings")
               }
               purchasing={purchasing === pkg.id}
               onHowItWorks={() => setVipModal({ open: true, tier })}

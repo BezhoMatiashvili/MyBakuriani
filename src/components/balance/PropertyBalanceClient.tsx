@@ -59,6 +59,7 @@ export default function PropertyBalanceClient() {
   const [balance, setBalance] = useState<Balance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [listingsFailed, setListingsFailed] = useState(false);
   const [packages, setPackages] = useState<PricingPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
@@ -114,6 +115,7 @@ export default function PropertyBalanceClient() {
       if (balanceRes.data) setBalance(balanceRes.data);
       if (txRes.data) setTransactions(txRes.data);
       if (propRes.data) setProperties(propRes.data);
+      setListingsFailed(Boolean(propRes.error));
       setLoading(false);
     }
 
@@ -306,8 +308,13 @@ export default function PropertyBalanceClient() {
           : sortedPackages.map((pkg) => {
               const display = getPackageDisplay(pkg, locale);
               const tier = inferVipInfoTier(pkg);
+              // Every package needs a listing, SMS too. A failed read must not
+              // claim there is none.
+              const noListings =
+                !loading && !listingsFailed && properties.length === 0;
               const standardVipAvailable =
                 tier !== "vip" ||
+                listingsFailed ||
                 properties.some(
                   (property) =>
                     !isSuperVipActive(
@@ -326,13 +333,15 @@ export default function PropertyBalanceClient() {
                   price={pkg.amount_gel}
                   unit={display.unit}
                   ctaColor={display.ctaColor}
-                  available={
-                    !(loading && pkg.category === "vip") && standardVipAvailable
-                  }
+                  available={!loading && !noListings && standardVipAvailable}
                   disabledReason={
-                    loading || standardVipAvailable
+                    loading
                       ? undefined
-                      : t("noVipEligibleListings")
+                      : noListings
+                        ? t("noListingsYet")
+                        : standardVipAvailable
+                          ? undefined
+                          : t("noVipEligibleListings")
                   }
                   purchasing={purchasing === pkg.id}
                   onHowItWorks={() => setVipModal({ open: true, tier })}

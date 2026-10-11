@@ -165,8 +165,8 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
       .from("blog_posts")
       .select(LANDING_BLOG_COLUMNS)
       .eq("published", true)
-      .order("published_at", { ascending: false })
-      .limit(3),
+      .order("created_at", { ascending: false })
+      .limit(6),
     "blog_posts",
   ).catch((error: unknown) => {
     logOptionalLandingError("blog_posts", error);

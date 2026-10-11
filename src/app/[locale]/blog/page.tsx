@@ -38,7 +38,7 @@ export default async function BlogPage({
     .from("blog_posts")
     .select("id, slug, title, excerpt, image_url, published_at, created_at")
     .eq("published", true)
-    .order("published_at", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(100);
 
   if (error) throw error;

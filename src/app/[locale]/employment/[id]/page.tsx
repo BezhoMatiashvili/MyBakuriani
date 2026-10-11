@@ -142,7 +142,6 @@ export default async function EmploymentDetailPage({ params }: Props) {
         locale={locale}
         kind="employment"
         excludeId={id}
-        location={cached.location}
       />
     </>
   );

@@ -76,7 +76,7 @@ const CABINET_MAPS: Record<SupportCabinet, string> = {
 - /dashboard/cleaner/schedule "გრაფიკი": platform jobs and jobs the cleaner added.
 - /dashboard/cleaner/parameters "პარამეტრები": profile, photo, "დასუფთავების სერვისის შექმნა" (-> /create/service).`,
   food: `- /dashboard/food "ჩემი კაბინეტი": restaurant stats.
-- /dashboard/food/orders "ჩემი მენიუ (PDF)": the PDF menu, the menu link, discounts on single dishes; the menu file itself is changed in the restaurant's edit form.
+- /dashboard/food/orders "ჩემი მენიუ (PDF)": the PDF menu, the menu link, single dishes with prices; the menu file itself is changed in the restaurant's edit form.
 - /dashboard/food/balance "ბალანსი და VIP"; /dashboard/food/notifications; /dashboard/food/parameters.`,
   entertainment: SERVICE_MAP(
     "/dashboard/entertainment",
@@ -94,7 +94,7 @@ const CABINET_MAPS: Record<SupportCabinet, string> = {
     "/dashboard/services",
     '"შეკვეთები": messages from customers.',
   ),
-  admin: `- /dashboard/admin "მთავარი გვერდი": "ბიზნესის მაჩვენებლები" (revenue, users, occupancy, nightly price, bookings), then the site "ანალიტიკა": a period (today, yesterday, 7 or 30 days, this month or "სხვა თარიღი") with "შედარება წინა პერიოდთან", "დამატებითი ფილტრები" (device, country and city, traffic source, page type), and blocks for users and sessions, the chart (day / week / month), "ტრაფიკის წყაროები", "განცხადებების ანალიტიკა", Smart Match, "რეკლამის ანალიტიკა" and "ახლა საიტზე" (visitors right now and their pages). Every block has "ექსპორტი" (Excel, CSV or PDF, filtered by the current filters or full); "სტატისტიკის გადმოწერა" exports the whole page. Visitor numbers count only visitors who accepted analytics cookies.
+  admin: `- /dashboard/admin "მთავარი გვერდი": the site "ანალიტიკა": a period (today, yesterday, 7 or 30 days, this month or "სხვა თარიღი") with "შედარება წინა პერიოდთან", "დამატებითი ფილტრები" (device, country and city, traffic source, page type), and blocks for users and sessions, the chart (day / week / month), "ტრაფიკის წყაროები", "განცხადებების ანალიტიკა", Smart Match, "რეკლამის ანალიტიკა" and "ახლა საიტზე" (visitors right now and their pages). Every block has "ექსპორტი" (Excel, CSV or PDF, filtered by the current filters or full); "სტატისტიკის გადმოწერა" exports the whole page. Visitor numbers count only visitors who accepted analytics cookies.
 - /dashboard/admin/verifications "ვერიფიკაციები": tabs for new listings, content changes and ownership requests.
 - /dashboard/admin/memberships "საწევროს დადასტურება": approve renter memberships.
 - /dashboard/admin/statuses "საწევრო და VIP": change existing statuses in tabs "საწევრო", "VIP და ფასდაკლება" and "კომპანიის პაკეტები" (add or remove days, set the end date, grant, revoke with an optional refund to the balance, VIP ↔ SUPER VIP). Filter, tick rows (or every row of the filter, up to 200), pick an action, then "წინასწარ ნახვა" shows exactly what will change and "შესრულება" applies it.
@@ -163,8 +163,8 @@ Rentals and membership
 - Rentals (hotels included) are visible on the site only while the owner's membership is active right now. When it lapses they disappear from the site at once but stay in the dashboard.
 
 Promotion
-- On "ბალანსი და VIP": SUPER VIP = top of search and the home page's SUPER VIP section; VIP = a badge; the discount badge (package card "ფასდაკლების ბეიჯი") = a 1-90% discount the owner chooses, for a limited time, shown in hot offers. Standard VIP is not available while SUPER VIP is active; buying SUPER VIP ends a standard VIP.
-- Restaurants discount single dishes on "ჩემი მენიუ (PDF)" instead.
+- On "ბალანსი და VIP": SUPER VIP = top of search and the home page's SUPER VIP section; VIP = a badge; the discount badge (package card "ფასდაკლების ბეიჯი") = a 1-90% discount the owner chooses, for a limited time, shown in hot offers. Standard VIP is not available while SUPER VIP is active; buying SUPER VIP ends a standard VIP. Every package card there, SMS included, stays greyed out until the owner has at least one listing that page can promote, in any status (the renter and seller pages count every property, the transport, entertainment, employment and services pages every listing of those four, the food page restaurants); a short balance does not grey it out: the payment window asks for the missing amount by card.
+- Restaurants cannot make discounts: their "ბალანსი და VIP" has no discount badge, and dishes on "ჩემი მენიუ (PDF)" have no discount.
 - Prices: the package cards on "ბალანსი და VIP", the membership payment window and the public /pricing page.
 
 Money and SMS

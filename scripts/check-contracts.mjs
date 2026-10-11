@@ -264,6 +264,48 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
+// C21 — restaurants make no discounts (the owner's call 2026-10-11). (a) The
+// newest migration naming each database rule (re)creates it: the dish CHECK
+// and the food trigger, whose function raises food_discounts_removed with HINT
+// invalid_target, which purchase-vip answers with 400; (b) the food cabinet
+// offers none: food home passes hideDiscount, the food balance page drops the
+// discount package; (c) no src file but the generated types names the per-dish
+// route or RPC or the menu-item-discount resume kind.
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  const migrations = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
+  const sqlOf = (f) => read(join("supabase/migrations", f));
+  const rules = [
+    ["service_menu_items_no_discount", /ADD CONSTRAINT service_menu_items_no_discount CHECK \(discount_percent = 0\)/],
+    ["services_refuse_food_discount", /CREATE TRIGGER services_refuse_food_discount\s+AFTER INSERT OR UPDATE OF discount_percent, category ON public\.services\b/],
+  ];
+  for (const [name, created] of rules) {
+    const last = migrations.filter((f) => sqlOf(f).includes(name)).at(-1);
+    if (!last || !created.test(sqlOf(last))) problems.push(`${last ?? "no migration"} does not (re)create ${name}`);
+  }
+  const fnFile = migrations.filter((f) => /FUNCTION public\.refuse_food_listing_discount\(\)/.test(sqlOf(f))).at(-1);
+  const fn = (fnFile && sqlOf(fnFile).match(/FUNCTION public\.refuse_food_listing_discount\(\)[\s\S]*?\$function\$;/)?.[0]) ?? "";
+  if (!/NEW\.category = 'food'/.test(fn) || !fn.includes("'food_discounts_removed'") || !/HINT = 'invalid_target'/.test(fn))
+    problems.push(`${fnFile ?? "no migration"}: refuse_food_listing_discount() must refuse food rows with 'food_discounts_removed' and HINT 'invalid_target'`);
+  if (!/\binvalid_target:\s*400\b/.test(read("supabase/functions/purchase-vip/index.ts")))
+    problems.push("purchase-vip no longer answers invalid_target with 400 (a refused restaurant discount becomes a masked 500)");
+  if (!/\bhideDiscount\b/.test(read("src/app/[locale]/dashboard/food/FoodDashboardClient.tsx")))
+    problems.push("FoodDashboardClient no longer passes hideDiscount to ListingActions");
+  if (!read("src/app/[locale]/dashboard/food/balance/page.tsx").includes('inferVipInfoTier(pkg) !== "discount"'))
+    problems.push("the food balance page no longer drops the discount package");
+  if (existsSync(join(root, "src/app/api/food/menu-item-discount-requests")))
+    problems.push("src/app/api/food/menu-item-discount-requests exists again");
+  for (const [file, text] of srcText) {
+    if (file === join("src/lib/types/database.generated.ts")) continue;
+    if (/menu-item-discount|self_service_activate_menu_item_discount/.test(text))
+      problems.push(`${file} names the retired per-dish discount path`);
+  }
+  if (problems.length) problems.forEach((p) => fail(`C21: ${p}`));
+  else ok("C21: restaurants make no discounts (dish CHECK + food trigger, HINT invalid_target → 400; food home hides it, the balance page drops the package; no per-dish route, RPC call or resume kind in src)");
+}
+
+// ---------------------------------------------------------------------------
 // C31 — the rental posting gate's HINT is the token the create form matches:
 // the newest migration defining enforce_private_rental_membership() must raise
 // exactly RENTAL_MEMBERSHIP_REQUIRED_HINT from src/lib/membership/plans.ts.

@@ -27,9 +27,9 @@ test.describe("Admin Dashboard", () => {
 
     await expect(adminPage.locator("main")).toBeVisible();
     await expect(adminPage).toHaveURL(/\/dashboard\/admin/);
-    // Business strip + the analytics dashboard (C49).
-    await expect(adminPage.getByTestId("admin-business-card")).toHaveCount(6);
+    // The analytics dashboard (C49); the business strip was removed (2026-10-11).
     await expect(adminPage.getByTestId("admin-analytics")).toBeVisible();
+    await expect(adminPage.getByTestId("admin-business-card")).toHaveCount(0);
     await expect(adminPage.getByTestId("analytics-chain")).toBeVisible();
     await expect(
       adminPage.getByTestId("analytics-kpi-uniqueUsers"),

@@ -8,7 +8,6 @@ import {
   Link as LinkIcon,
   QrCode,
   Plus,
-  Percent,
   ExternalLink,
   UtensilsCrossed,
 } from "lucide-react";
@@ -21,11 +20,6 @@ import {
 } from "@/lib/content-change/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import MenuItemDiscountModal, {
-  type MenuItemDiscountActivationResult,
-} from "@/components/dashboard/MenuItemDiscountModal";
-import { ListingBadge } from "@/components/shared/ListingBadge";
-import { isDiscountActive } from "@/lib/utils/pricing";
 import type { Tables } from "@/lib/types/database";
 
 type Service = Tables<"services">;
@@ -60,9 +54,6 @@ export default function FoodOrdersPage() {
   const [reviewError, setReviewError] = useState("");
 
   const [items, setItems] = useState<MenuItem[]>([]);
-  const [discountModalItem, setDiscountModalItem] = useState<MenuItem | null>(
-    null,
-  );
   const [dishFormOpen, setDishFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [dishName, setDishName] = useState("");
@@ -450,10 +441,6 @@ export default function FoodOrdersPage() {
         ) : (
           <div className="space-y-3">
             {items.map((item) => {
-              const discountActive = isDiscountActive(
-                item.discount_percent,
-                item.discount_expires_at,
-              );
               return (
                 <div
                   key={item.id}
@@ -465,14 +452,6 @@ export default function FoodOrdersPage() {
                         <p className="text-[13px] font-black text-[#0F172A]">
                           {item.name}
                         </p>
-                        {discountActive && (
-                          <ListingBadge
-                            variant="discount"
-                            className="normal-case"
-                          >
-                            −{item.discount_percent}%
-                          </ListingBadge>
-                        )}
                       </div>
                       {item.description && (
                         <p className="mt-1 text-[12px] text-[#64748B]">
@@ -482,16 +461,6 @@ export default function FoodOrdersPage() {
                       <p className="mt-1.5 text-[13px] font-bold text-[#0F172A]">
                         {Number(item.price).toFixed(2)} ₾
                       </p>
-                      {discountActive && item.discount_expires_at && (
-                        <p className="mt-1 text-[11px] font-semibold text-[#166534]">
-                          {t("itemDiscountExpires", {
-                            date: new Intl.DateTimeFormat(undefined, {
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            }).format(new Date(item.discount_expires_at)),
-                          })}
-                        </p>
-                      )}
                     </div>
 
                     <div className="flex shrink-0 flex-col items-end gap-2">
@@ -524,17 +493,6 @@ export default function FoodOrdersPage() {
                           {t("deleteDish")}
                         </button>
                       </div>
-                      {!discountActive && (
-                        <button
-                          type="button"
-                          disabled={!service || service.status !== "active"}
-                          onClick={() => setDiscountModalItem(item)}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-[#16A34A] px-3 py-1.5 text-[11px] font-bold text-white hover:bg-[#15803D] disabled:opacity-50"
-                        >
-                          <Percent className="h-3.5 w-3.5" />
-                          {t("activateItemDiscount")}
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -543,34 +501,6 @@ export default function FoodOrdersPage() {
           </div>
         )}
       </motion.section>
-
-      <MenuItemDiscountModal
-        isOpen={!!discountModalItem}
-        onClose={() => setDiscountModalItem(null)}
-        item={
-          discountModalItem
-            ? {
-                id: discountModalItem.id,
-                name: discountModalItem.name,
-                price: Number(discountModalItem.price),
-              }
-            : null
-        }
-        onActivated={(result: MenuItemDiscountActivationResult) => {
-          setItems((prev) =>
-            prev.map((item) =>
-              item.id === result.menu_item_id
-                ? {
-                    ...item,
-                    discount_percent: result.discount_percent,
-                    discount_expires_at: result.discount_expires_at,
-                  }
-                : item,
-            ),
-          );
-          setDiscountModalItem(null);
-        }}
-      />
     </div>
   );
 }

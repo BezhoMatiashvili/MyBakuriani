@@ -38,17 +38,9 @@ export interface CompanySubscriptionBody {
   tier: string;
 }
 
-export interface MenuItemDiscountBody {
-  menuItemId: string;
-  packageId: string;
-  discountPercent: number;
-  quantity: number;
-}
-
 export type PurchaseIntent =
   | { kind: "purchase-vip"; body: PurchaseVipBody }
-  | { kind: "company-subscription"; body: CompanySubscriptionBody }
-  | { kind: "menu-item-discount"; body: MenuItemDiscountBody };
+  | { kind: "company-subscription"; body: CompanySubscriptionBody };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return (
@@ -157,32 +149,6 @@ export function parsePurchaseIntent(
       return null;
     }
     return { kind, body: { org_id: body.org_id, tier: body.tier } };
-  }
-
-  if (kind === "menu-item-discount") {
-    if (
-      !hasOnlyKeys(body, [
-        "menuItemId",
-        "packageId",
-        "discountPercent",
-        "quantity",
-      ]) ||
-      !isUuid(body.menuItemId) ||
-      !isUuid(body.packageId) ||
-      !isIntIn(body.discountPercent, 1, 90) ||
-      !isIntIn(body.quantity, 1, 365)
-    ) {
-      return null;
-    }
-    return {
-      kind,
-      body: {
-        menuItemId: body.menuItemId,
-        packageId: body.packageId,
-        discountPercent: body.discountPercent,
-        quantity: body.quantity,
-      },
-    };
   }
 
   return null;
