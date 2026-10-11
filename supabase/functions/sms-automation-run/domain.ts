@@ -5,10 +5,10 @@ export type AutomationKind = "check_in" | "review_request" | "win_back";
 // 70 UTF-16 units in one SMS and 67 per segment once it is split, so every value
 // below is clamped and the texts carry no filler.
 export const TEMPLATES = {
-  // One line. buildCheckIn drops the optional " — name", " 📍map" and
-  // " ☎️phone" parts when their value is missing.
+  // One line per part. buildCheckIn drops the " — name" clause and every line
+  // whose value is missing; each URL ends its own line, so nothing is glued to it.
   check_in:
-    "გამარჯობა, [Guest_Name]! გელოდებით ხვალ [Check_In_Time]-დან — [Property_Name]. 📍[Map_Link] ☎️[Host_Phone]",
+    "გამარჯობა, [Guest_Name]! გელოდებით ხვალ [Check_In_Time]-დან — [Property_Name].\n🔗 [Listing_Link]\n📍 [Location]\n☎️ [Host_Phone]",
   review_request:
     "[Guest_Name], მადლობა! შეგვიფასეთ ბინა: [Property_Review_Link] — MyBakuriani",
   win_back:
@@ -26,6 +26,8 @@ export const TEMPLATES = {
 const GUEST_NAME_FALLBACK = "ძვირფასო სტუმარო";
 const GUEST_NAME_MAX = 20;
 const PROPERTY_TITLE_MAX = 25;
+// A pin-less listing's area (its zone name, or what the owner typed) as text.
+const AREA_MAX = 30;
 // Longest host number kept when it is not a Georgian mobile (those are 13).
 const HOST_PHONE_MAX = 20;
 
@@ -46,6 +48,7 @@ export interface PropertyRef {
   is_for_sale: boolean | null;
   location_lat: number | null;
   location_lng: number | null;
+  location: string | null;
   phone: string | null;
   check_in_time: string | null;
   title: string | null;
@@ -107,14 +110,30 @@ function pinCoordinate(value: number): number {
   return Number(value.toFixed(5));
 }
 
-export function buildCheckIn(c: Candidate, rule: Rule): string {
+/**
+ * `listingVisible`: public_properties serves the listing (C31 hides a lapsed
+ * owner's rentals), so its page opens. Otherwise the text carries no link.
+ */
+export function buildCheckIn(
+  c: Candidate,
+  rule: Rule,
+  siteUrl: string,
+  listingVisible: boolean,
+): string {
   const p = c.property;
   const time = (p?.check_in_time ?? "14:00").slice(0, 5);
   const title = clampOneLine(p?.title ?? null, PROPERTY_TITLE_MAX);
+  const listingLink = p && listingVisible
+    ? `${siteUrl}${propertyViewPath(p)}`
+    : null;
   const pin = p && p.location_lat != null && p.location_lng != null
     ? [p.location_lat, p.location_lng].map(pinCoordinate).join(",")
     : null;
-  const mapLink = pin ? `https://maps.google.com/?q=${pin}` : null;
+  // The owner's exact pin, else the area as text: a zone's centre on a map
+  // would read as the exact spot and send the guest to the wrong place.
+  const location = pin
+    ? `https://maps.google.com/?q=${pin}`
+    : (clampOneLine(p?.location ?? null, AREA_MAX) || null);
   // A Georgian mobile in its fixed +995 form; any other number as typed, cut short.
   const rawPhone = p?.phone ?? rule.owner_phone ?? null;
   const hostPhone = toCanonicalGePhone(rawPhone) ??
@@ -124,15 +143,27 @@ export function buildCheckIn(c: Candidate, rule: Rule): string {
     Guest_Name: clampName(c.guest_name),
     Check_In_Time: time,
     Property_Name: title,
-    Map_Link: mapLink,
+    Listing_Link: listingLink,
+    Location: location,
     Host_Phone: hostPhone,
   };
-  let template: string = TEMPLATES.check_in;
-  if (!title) template = template.replace(" — [Property_Name]", "");
-  if (!mapLink) template = template.replace(" 📍[Map_Link]", "");
-  if (!hostPhone) template = template.replace(" ☎️[Host_Phone]", "");
-  // Single pass, so a value is never re-read as a placeholder or as a `$` pattern.
-  return template.replace(/\[(\w+)\]/g, (_, key: string) => values[key] ?? "");
+  const template = title
+    ? TEMPLATES.check_in
+    : TEMPLATES.check_in.replace(" — [Property_Name]", "");
+  // Single pass per line, so a value is never re-read as a placeholder or as a
+  // `$` pattern; a line with a missing value is left out.
+  return template
+    .split("\n")
+    .flatMap((line) => {
+      let missing = false;
+      const filled = line.replace(/\[(\w+)\]/g, (_, key: string) => {
+        const value = values[key];
+        if (!value) missing = true;
+        return value ?? "";
+      });
+      return missing ? [] : [filled];
+    })
+    .join("\n");
 }
 
 export function buildReviewRequest(

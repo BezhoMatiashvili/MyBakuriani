@@ -101,10 +101,38 @@ type SbClient = ReturnType<typeof createServiceClient>;
 // string would filter the TOP-LEVEL table and silently do nothing useful here.
 const RENTAL_ONLY = "is_for_sale.eq.false,is_for_sale.is.null";
 const PROPERTY_EMBED =
-  "property:property_id!inner(id, type, is_for_sale, location_lat, location_lng, phone, check_in_time, title)";
+  "property:property_id!inner(id, type, is_for_sale, location_lat, location_lng, location, phone, check_in_time, title)";
 
 function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
+// The listings among these candidates that public_properties serves. C31 hides a
+// rental whose owner's membership lapsed, so a link to it would open a 404. A
+// failed lookup only drops the links: the check-in still goes out.
+async function publicPropertyIds(
+  db: SbClient,
+  candidates: Candidate[],
+): Promise<Set<string>> {
+  const ids = [
+    ...new Set(
+      candidates
+        .map((c) => c.property?.id)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+  if (ids.length === 0) return new Set();
+  const { data, error } = await db
+    .from("public_properties")
+    .select("id")
+    .in("id", ids);
+  if (error) {
+    console.error(
+      JSON.stringify({ public_properties_lookup_failed: error.message }),
+    );
+    return new Set();
+  }
+  return new Set(((data as { id: string }[] | null) ?? []).map((r) => r.id));
 }
 
 serve(async (req: Request) => {
@@ -314,26 +342,28 @@ serve(async (req: Request) => {
       // T1 ignores marketing_consent - it is transactional, not marketing (spec §2).
       if (rule.check_in_reminder_enabled) {
         const tomorrow = tbilisiDate(1);
-        for (
-          const c of await scanPlatform(db, {
+        const checkIns = [
+          ...await scanPlatform(db, {
             owner_id: rule.user_id,
             dateCol: "check_in",
             date: tomorrow,
             statuses: ["confirmed"],
-          })
-        ) {
-          if (!reachable(c, false)) continue;
-          await enqueue("check_in", c, buildCheckIn(c, rule));
-        }
-        for (
-          const c of await scanManual(db, {
+          }),
+          ...await scanManual(db, {
             owner_id: rule.user_id,
             dateCol: "check_in",
             date: tomorrow,
-          })
-        ) {
+          }),
+        ];
+        const visible = await publicPropertyIds(db, checkIns);
+        for (const c of checkIns) {
           if (!reachable(c, false)) continue;
-          await enqueue("check_in", c, buildCheckIn(c, rule));
+          const listingVisible = !!c.property && visible.has(c.property.id);
+          await enqueue(
+            "check_in",
+            c,
+            buildCheckIn(c, rule, siteUrl, listingVisible),
+          );
         }
       }
 

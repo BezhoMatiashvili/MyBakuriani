@@ -1,4 +1,5 @@
 import {
+  assert,
   assertEquals,
   assertFalse,
   assertStringIncludes,
@@ -16,7 +17,12 @@ import {
 } from "./domain.ts";
 
 const PIN = "\u{1F4CD}";
+const LINK = "\u{1F517}";
 const PHONE = "☎️";
+const SITE = "https://mybakuriani.ge";
+// The longest host the function runs on, for the length budget.
+const STAGING = "https://staging.mybakuriani.ge";
+const LISTING_ID = "3590e66c-c48a-40a0-a7f4-79e0fa82b384";
 
 /** Georgian goes out as UCS-2: 70 UTF-16 units in one SMS, 67 per segment after. */
 function segments(text: string): number {
@@ -47,6 +53,7 @@ const candidate: Candidate = {
     is_for_sale: false,
     location_lat: 41.75,
     location_lng: 43.53,
+    location: "ცენტრი / პარკი",
     phone: null,
     check_in_time: "15:30:00",
     title: "ნინოს ბინა",
@@ -66,7 +73,7 @@ Deno.test("Tbilisi date uses UTC+4 at the UTC day boundary", () => {
   assertEquals(tbilisiDate(1, atUtcEvening), "2026-08-02");
 });
 
-Deno.test("check-in text uses fallback name and drops unavailable clauses", () => {
+Deno.test("check-in text uses fallback name and drops unavailable lines", () => {
   const message = buildCheckIn(
     {
       ...candidate,
@@ -75,9 +82,12 @@ Deno.test("check-in text uses fallback name and drops unavailable clauses", () =
         ...candidate.property,
         location_lat: null,
         location_lng: null,
+        location: " ",
       },
     },
     { ...rule, owner_phone: null },
+    SITE,
+    false,
   );
   assertEquals(
     message,
@@ -86,13 +96,14 @@ Deno.test("check-in text uses fallback name and drops unavailable clauses", () =
   assertFalse(/\[[A-Za-z_]+\]/.test(message));
 });
 
-Deno.test("check-in text is one line: name, map pin and host number", () => {
+Deno.test("check-in text: listing link, map pin and host number on their own lines", () => {
   const message = buildCheckIn(
     {
       ...candidate,
       guest_name: "ილო",
       property: candidate.property && {
         ...candidate.property,
+        id: LISTING_ID,
         type: "studio",
         location_lat: 41.666867,
         location_lng: 44.751657,
@@ -102,11 +113,62 @@ Deno.test("check-in text is one line: name, map pin and host number", () => {
       },
     },
     rule,
+    SITE,
+    true,
   );
   assertEquals(
     message,
-    "გამარჯობა, ილო! გელოდებით ხვალ 14:00-დან — ბინა მთაში. " +
-      `${PIN}https://maps.google.com/?q=41.66687,44.75166 ${PHONE}+995577350909`,
+    "გამარჯობა, ილო! გელოდებით ხვალ 14:00-დან — ბინა მთაში.\n" +
+      `${LINK} ${SITE}/apartments/${LISTING_ID}\n` +
+      `${PIN} https://maps.google.com/?q=41.66687,44.75166\n` +
+      `${PHONE} +995577350909`,
+  );
+});
+
+// Staging 2026-10-10: a hotel with no pin got neither a link nor a location.
+Deno.test("check-in text names a pin-less listing's area as text, never a zone pin", () => {
+  const message = buildCheckIn(
+    {
+      ...candidate,
+      source: "manual",
+      recipient_id: null,
+      guest_name: "Nino",
+      property: {
+        id: LISTING_ID,
+        type: "hotel",
+        is_for_sale: false,
+        location_lat: null,
+        location_lng: null,
+        location: "დიდველი / კრისტალი",
+        phone: "+995577350909",
+        check_in_time: "14:00:00",
+        title: "კრისტალ ლოფტში",
+      },
+    },
+    rule,
+    SITE,
+    true,
+  );
+  assertEquals(
+    message,
+    "გამარჯობა, Nino! გელოდებით ხვალ 14:00-დან — კრისტალ ლოფტში.\n" +
+      `${LINK} ${SITE}/hotels/${LISTING_ID}\n` +
+      `${PIN} დიდველი / კრისტალი\n` +
+      `${PHONE} +995577350909`,
+  );
+  assertFalse(message.includes("maps.google.com"));
+  assertEquals(segments(message), 3);
+});
+
+Deno.test("check-in text links no listing the site does not show", () => {
+  const message = buildCheckIn(candidate, rule, SITE, false);
+  assertFalse(message.includes(SITE));
+  assertFalse(message.includes(LINK));
+  assertEquals(
+    message,
+    "გამარჯობა, ნინო! გელოდებით ხვალ 15:30-დან — ნინოს ბინა.\n" +
+      `${PIN} https://maps.google.com/?q=41.75,43.53\n` +
+      `${PHONE} +995555000000`,
   );
 });
 
@@ -117,54 +179,74 @@ Deno.test("check-in text falls back to the owner's number and drops the name cla
       property: candidate.property && { ...candidate.property, title: " \n " },
     },
     rule,
+    SITE,
+    true,
   );
   assertEquals(
     message,
-    "გამარჯობა, ნინო! გელოდებით ხვალ 15:30-დან. " +
-      `${PIN}https://maps.google.com/?q=41.75,43.53 ${PHONE}+995555000000`,
+    "გამარჯობა, ნინო! გელოდებით ხვალ 15:30-დან.\n" +
+      `${LINK} ${SITE}/apartments/property-id\n` +
+      `${PIN} https://maps.google.com/?q=41.75,43.53\n` +
+      `${PHONE} +995555000000`,
   );
 });
 
-Deno.test("check-in text keeps an owner-typed title on one line, verbatim", () => {
+Deno.test("check-in text keeps owner-typed title and area on their own line, verbatim", () => {
   const message = buildCheckIn(
     {
       ...candidate,
       property: candidate.property && {
         ...candidate.property,
-        title: "ბინა\n[Map_Link] $& 📍x y",
+        location_lat: null,
+        location_lng: null,
+        title: "ბინა\n[Location] $& 📍x y",
+        location: "ზონა\r\n[Host_Phone] $1",
       },
     },
     rule,
+    SITE,
+    true,
   );
-  assertFalse(message.includes("\n"));
-  assertStringIncludes(message, "— ბინა [Map_Link] $& 📍x y. ");
-  assertEquals(message.split("https://maps.google.com/").length - 1, 1);
+  const lines = message.split("\n");
+  assertEquals(lines.length, 4);
+  assertStringIncludes(lines[0], "— ბინა [Location] $& 📍x y.");
+  assertEquals(lines[2], `${PIN} ზონა [Host_Phone] $1`);
+  assertEquals(lines[3], `${PHONE} +995555000000`);
 });
 
-Deno.test("check-in text clamps name, title and a non-Georgian number", () => {
+Deno.test("check-in text clamps name, title, area and a non-Georgian number", () => {
   const message = buildCheckIn(
     {
       ...candidate,
       guest_name: "ა".repeat(100),
       property: candidate.property && {
         ...candidate.property,
+        location_lat: null,
+        location_lng: null,
+        location: "გ".repeat(100),
         phone: "+995 577 350 909 / +995 599 000 000",
         title: "ბ".repeat(100),
       },
     },
     rule,
+    SITE,
+    true,
   );
   assertStringIncludes(message, `გამარჯობა, ${"ა".repeat(20)}! `);
-  assertStringIncludes(message, `— ${"ბ".repeat(25)}. `);
-  assertStringIncludes(message, `${PHONE}+995 577 350 909 / +`);
+  assertStringIncludes(message, `— ${"ბ".repeat(25)}.\n`);
+  assertStringIncludes(message, `\n${PIN} ${"გ".repeat(30)}\n`);
+  assertStringIncludes(message, `${PHONE} +995 577 350 909 / +`);
 });
 
-Deno.test("check-in text segment budget over the spec's input shapes", () => {
-  const full = candidate.property!;
+// sms_enqueue_automation cuts a message at 320 characters, so the longest text
+// must stay under it; links decide the segment count.
+Deno.test("check-in text length budget over the input shapes", () => {
+  const full = { ...candidate.property!, id: LISTING_ID };
   const cases: {
     name: string;
     candidate: Candidate;
     rule?: Rule;
+    visible?: boolean;
     length: number;
     sms: number;
   }[] = [
@@ -177,10 +259,12 @@ Deno.test("check-in text segment budget over the spec's input shapes", () => {
           title: "",
           location_lat: null,
           location_lng: null,
+          location: null,
           phone: null,
         },
       },
       rule: { ...rule, owner_phone: null },
+      visible: false,
       length: 42,
       sms: 1,
     },
@@ -197,8 +281,27 @@ Deno.test("check-in text segment budget over the spec's input shapes", () => {
           phone: "+995577350909",
         },
       },
-      length: 123,
-      sms: 2,
+      length: 207,
+      sms: 4,
+    },
+    {
+      name: "pin-less hotel with its zone, everything",
+      candidate: {
+        ...candidate,
+        guest_name: "Nino",
+        property: {
+          ...full,
+          type: "hotel",
+          title: "კრისტალ ლოფტში",
+          location_lat: null,
+          location_lng: null,
+          location: "დიდველი / კრისტალი",
+          phone: "+995577350909",
+          check_in_time: "14:00:00",
+        },
+      },
+      length: 176,
+      sms: 3,
     },
     {
       name: "maximum name and title, everything",
@@ -213,40 +316,8 @@ Deno.test("check-in text segment budget over the spec's input shapes", () => {
           phone: "+995577350909",
         },
       },
-      length: 149,
-      sms: 3,
-    },
-    {
-      name: "very long listing name, everything",
-      candidate: {
-        ...candidate,
-        property: {
-          ...full,
-          title: "ბ".repeat(300),
-          location_lat: 41.666867,
-          location_lng: 44.751657,
-          phone: "+995577350909",
-        },
-      },
-      length: 133,
-      sms: 2,
-    },
-    {
-      name: "maximum name and title, nothing else",
-      candidate: {
-        ...candidate,
-        guest_name: "ა".repeat(20),
-        property: {
-          ...full,
-          title: "ბ".repeat(25),
-          location_lat: null,
-          location_lng: null,
-          phone: null,
-        },
-      },
-      rule: { ...rule, owner_phone: null },
-      length: 86,
-      sms: 2,
+      length: 233,
+      sms: 4,
     },
     {
       name: "worst case: 15-digit pin, two numbers typed, 100-letter name",
@@ -256,19 +327,25 @@ Deno.test("check-in text segment budget over the spec's input shapes", () => {
         property: {
           ...full,
           title: "ბ".repeat(100),
-          location_lat: 41.123456789012345,
-          location_lng: 44.123456789012345,
+          location_lat: -41.123456789012345,
+          location_lng: -144.123456789012345,
           phone: "+995 577 350 909 / +995 599 000 000",
         },
       },
-      length: 156,
-      sms: 3,
+      length: 243,
+      sms: 4,
     },
   ];
   for (const c of cases) {
-    const message = buildCheckIn(c.candidate, c.rule ?? rule);
+    const message = buildCheckIn(
+      c.candidate,
+      c.rule ?? rule,
+      STAGING,
+      c.visible ?? true,
+    );
     assertEquals(message.length, c.length, c.name);
     assertEquals(segments(message), c.sms, c.name);
+    assert(message.length <= 320, c.name);
     assertFalse(/\[[A-Za-z_]+\]/.test(message), c.name);
   }
 });
