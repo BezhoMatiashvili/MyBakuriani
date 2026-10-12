@@ -99,7 +99,6 @@ export default function RegisterPage() {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [displayName, setDisplayName] = useState("");
-  const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [selectedRole, setSelectedRole] = useState<Enums<"user_role"> | null>(
@@ -273,7 +272,6 @@ export default function RegisterPage() {
       // the "+995…" form every SMS path reads (C48).
       phone: toCanonicalGePhone(user.phone),
       display_name: displayName.trim(),
-      bio: bio.trim() || null,
       avatar_url: uploadedAvatarUrl,
       role: selectedRole,
     };
@@ -497,20 +495,6 @@ export default function RegisterPage() {
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder={t("namePlaceholder")}
                       className="min-h-11 w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-[#DBEAFE]/50 lg:min-h-0"
-                    />
-                  </div>
-
-                  {/* Bio */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      {t("bioLabel")}
-                    </label>
-                    <textarea
-                      value={bio}
-                      onChange={(e) => setBio(e.target.value)}
-                      placeholder={t("bioPlaceholder")}
-                      rows={3}
-                      className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-[#DBEAFE]/50"
                     />
                   </div>
 

@@ -54,7 +54,22 @@ const fetchSlotCreativesCached = unstable_cache(
     const creatives: BannerCreative[] = [];
 
     // A failing query yields no creatives for that source rather than throwing —
-    // banners are decorative, and a DB hiccup must not take down a page.
+    // banners are decorative, and a DB hiccup must not take down a page. It is
+    // logged, though: silently empty slots read as "my ad does not show".
+    if (bannerRes.error) {
+      console.error(
+        "[banner-slots:landing_banners] query failed",
+        bannerRes.error.code,
+        bannerRes.error.message,
+      );
+    }
+    if (adRes.error) {
+      console.error(
+        "[banner-slots:ads] query failed",
+        adRes.error.code,
+        adRes.error.message,
+      );
+    }
     if (!bannerRes.error && bannerRes.data) {
       for (const row of bannerRes.data) {
         const creative = landingBannerToCreative(row);

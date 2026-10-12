@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { BannerCreative } from "@/lib/banner-creative";
 import { BANNER_BATCH_MAX, type BannerEvent } from "@/lib/banner-analytics";
+import { isStaffBrowser } from "@/lib/staff-browser";
 
 /**
  * Impression / open / click beacons for every creative the banner system
@@ -20,6 +21,11 @@ import { BANNER_BATCH_MAX, type BannerEvent } from "@/lib/banner-analytics";
  *     at least once (the reach flag, "unique users");
  *   - localStorage `mybakuriani:ad_frequency`: today's impressions per ad on
  *     this device (the media plan's frequency cap, §4).
+ *
+ * An admin's browser (`mybakuriani:staff_browser`, src/lib/staff-browser.ts)
+ * sends nothing, writes none of these keys and is never capped (the owner's
+ * call, 2026-10-11): an admin checking the site must not hide an ad from
+ * themselves nor add their own views to an advertiser's report.
  */
 const SEEN_KEY: Record<BannerEvent, string> = {
   view: "mybakuriani:banner_views",
@@ -127,7 +133,7 @@ export function cappedCreativeIds(
   creatives: readonly { id: string; frequencyCap?: number | null }[],
 ): Set<string> {
   const capped = new Set<string>();
-  if (typeof window === "undefined") return capped;
+  if (typeof window === "undefined" || isStaffBrowser()) return capped;
   const { counts } = readFrequency();
   for (const creative of creatives) {
     const cap = creative.frequencyCap;
@@ -185,6 +191,7 @@ function flush(): void {
 }
 
 function enqueue(event: QueuedEvent, immediate = false): void {
+  if (isStaffBrowser()) return;
   queue.push(event);
   if (immediate || queue.length >= BANNER_BATCH_MAX) flush();
   else if (flushTimer === null) flushTimer = setTimeout(flush, FLUSH_DELAY_MS);
@@ -208,6 +215,7 @@ export function reportBannerEvent(
   creative: BannerCreative,
   event: "open" | "click",
 ): void {
+  if (isStaffBrowser()) return;
   if (alreadyCounted(event, creative.id)) return;
   markCounted(event, creative.id);
   // A click usually leaves the page (or opens a tab): send it now.
@@ -301,6 +309,7 @@ export function useBannerViewTracking(
   const { id: creativeId, source, sourceId, sponsored } = creative;
 
   return useViewable(enabled, `${creativeId}|${displayKey}`, () => {
+    if (isStaffBrowser()) return;
     const firstInSession = !alreadyCounted("view", creativeId);
     if (firstInSession) markCounted("view", creativeId);
     const firstOnDevice = markReached(creativeId);

@@ -1844,9 +1844,15 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // top of a grid; (c) mobile_strip is mounted exactly once, in LocaleShell;
 // (d) the empty ad position is counted with useEmptySlotTracking; (e) both
 // admin ads routes read the campaign fields with parseCampaignFields and turn
-// the capacity trigger's SQLSTATE into a 409; (f) ad-rotation.ts and
-// ad-rate-card.ts stay free of "@/" imports (scripts/unit loads them bare and
-// compares them with the migration and the placement registry).
+// the capacity trigger's SQLSTATE into a 409; (f) ad-rotation.ts,
+// ad-rate-card.ts, staff-browser.ts and ad-preview.ts stay free of "@/"
+// imports (scripts/unit loads them bare and compares them with the migration
+// and the placement registry); (g) the admin's on-site preview route
+// (2026-10-11) checks requireAdmin() and answers private, no-store; (h) an
+// admin's browser obeys no cap and sends no event: banner-tracking.ts returns
+// first on isStaffBrowser() in cappedCreativeIds, enqueue, reportBannerEvent
+// and the impression callback; (i) every file that signs out also calls
+// clearStaffBrowser().
 // ---------------------------------------------------------------------------
 {
   const problems = [];
@@ -1868,11 +1874,29 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     const text = read(route);
     if (!/parseCampaignFields\(/.test(text) || !/SLOT_FULL_SQLSTATE/.test(text) || !/status: 409/.test(text)) problems.push(`${route} must read SOV/priority/cap with parseCampaignFields and answer 409 to SLOT_FULL_SQLSTATE`);
   }
-  for (const pure of ["src/lib/ad-rotation.ts", "src/lib/ad-rate-card.ts"]) {
+  for (const pure of ["src/lib/ad-rotation.ts", "src/lib/ad-rate-card.ts", "src/lib/staff-browser.ts", "src/lib/ad-preview.ts"]) {
     if (/from "@\//.test(read(pure))) problems.push(`${pure} imports from "@/" (scripts/unit loads it bare)`);
   }
+  const stripComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/[^\n]*/g, "$1");
+  const previewRoute = "src/app/api/admin/ads/[id]/preview/route.ts";
+  const previewText = stripComments(read(previewRoute));
+  if (!/await requireAdmin\(\)/.test(previewText) || !/"private, no-store"/.test(previewText)) problems.push(`${previewRoute} must check requireAdmin() and answer "private, no-store" (an ad's preview, paused ones included, is admin-only)`);
+  const tracking = stripComments(read("src/lib/banner-tracking.ts"));
+  const staffGates = [
+    ["cappedCreativeIds", /export function cappedCreativeIds\b[\s\S]{0,300}?isStaffBrowser\(\)\) return capped;/],
+    ["enqueue", /function enqueue\([^)]*\)[^{]*\{\s*if \(isStaffBrowser\(\)\) return;/],
+    ["reportBannerEvent", /export function reportBannerEvent\([^)]*\)[^{]*\{\s*if \(isStaffBrowser\(\)\) return;/],
+    ["the impression callback", /useViewable\([^()]*,\s*\(\)\s*=>\s*\{\s*if \(isStaffBrowser\(\)\) return;/],
+  ];
+  for (const [name, pattern] of staffGates) {
+    if (!pattern.test(tracking)) problems.push(`src/lib/banner-tracking.ts: ${name} must return first on isStaffBrowser() (an admin's browser obeys no cap and counts nothing)`);
+  }
+  for (const f of appFiles) {
+    const code = stripComments(srcText.get(f));
+    if (/\.auth\.signOut\(/.test(code) && !/clearStaffBrowser\(\)/.test(code)) problems.push(`${f} signs out without clearStaffBrowser() (the next person on that browser would be neither capped nor counted)`);
+  }
   if (problems.length) problems.forEach((p) => fail(`C47: ${p}`));
-  else ok("C47: one draw site (useSlotRotation), sponsored grid cards placed by interleaveSponsored, mobile_strip mounted once, empty ad positions counted, admin ads routes validate SOV/priority/cap and map the capacity trigger");
+  else ok("C47: one draw site (useSlotRotation), sponsored grid cards placed by interleaveSponsored, mobile_strip mounted once, empty ad positions counted, admin ads routes validate SOV/priority/cap and map the capacity trigger; the on-site preview is admin-only and no-store; an admin's browser is gated out of the cap and the beacon, and every sign-out clears it");
 }
 
 // ---------------------------------------------------------------------------

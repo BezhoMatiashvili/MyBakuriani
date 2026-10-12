@@ -633,7 +633,9 @@ export default function ServiceCard({
             >
               {title}
             </h3>
-            {!isTransport && (
+            {/* Restaurants have no ratings or reviews yet (owner, 2026-10-12),
+                so food cards show no star. */}
+            {!isTransport && !isFood && (
               <span className="flex shrink-0 items-center gap-1 rounded-[6px] bg-[#0F172A] px-2 py-1 text-[11px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
                 <Star className="h-3 w-3 fill-white text-white" />
                 4.9

@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   BarChart3,
+  ExternalLink,
   Flame,
   Loader2,
   Pause,
@@ -20,8 +21,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { Link, useRouter } from "@/i18n/navigation";
 import { toast } from "sonner";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import BannerLivePreview from "@/components/admin/BannerLivePreview";
@@ -63,9 +64,11 @@ import {
   DEFAULT_SOV,
   FREQUENCY_CAP_MAX,
   SOV_TIERS,
+  everyNthLoad,
   rotationModeFor,
 } from "@/lib/ad-rotation";
 import { RATE_CARD_DAYS, rateCardSlot } from "@/lib/ad-rate-card";
+import { invalidateBannerCreatives } from "@/lib/banner-slots-client";
 import { ADVERTISER_MAX_LENGTH } from "@/lib/analytics/model";
 
 type Ad = {
@@ -191,10 +194,29 @@ function AdBannerThumb({ url }: { url: string }) {
   );
 }
 
+/** Strip and sticky placements show an ad as text: title, small image, label. */
+function isTextPlacement(placement: string): boolean {
+  const style = getPlacementSpec(placement)?.renderStyle;
+  return style === "strip" || style === "sticky";
+}
+
 export default function ModerationPage() {
   const t = useTranslations("AdminModeration");
   const tShared = useTranslations("AdminShared");
   const tAnalytics = useTranslations("AdminAdAnalytics");
+  const locale = useLocale();
+  const router = useRouter();
+
+  // "საიტზე ნახვა": the placement's public page with this ad drawn on every
+  // load (C47 on-site preview). A plain new-tab link: no popup blocker.
+  const previewHref = (id: string) =>
+    `/api/admin/ads/${id}/preview?open=1&locale=${locale}`;
+  // A save shows on the site at once in this browser: drop the banner store
+  // and the prefetched pages (the sidebar's "back to home" link).
+  const refreshSite = () => {
+    invalidateBannerCreatives();
+    router.refresh();
+  };
 
   const placementLabel = useCallback(
     (id: string) =>
@@ -398,6 +420,7 @@ export default function ModerationPage() {
         toast.error(data.error ?? tShared("deleteFailed"));
       } else {
         toast.success(t("deleted"));
+        refreshSite();
         await load();
       }
     } catch {
@@ -423,6 +446,7 @@ export default function ModerationPage() {
         toast.error(campaignError(data) ?? data.error ?? tShared("error"));
       else {
         toast.success(t("updated"));
+        refreshSite();
         await load();
       }
     } catch {
@@ -497,7 +521,18 @@ export default function ModerationPage() {
           campaignError(data) ?? data.error ?? tShared("createFailed"),
         );
       }
-      toast.success(isEditing ? t("updated") : t("adCreated"));
+      const savedId: string | undefined = data.ad?.id;
+      toast.success(isEditing ? t("updated") : t("adCreated"), {
+        action: savedId
+          ? {
+              label: t("previewOnSite"),
+              onClick: () => {
+                window.open(previewHref(savedId), "_blank", "noopener");
+              },
+            }
+          : undefined,
+      });
+      refreshSite();
       setFormState(INITIAL_FORM_STATE);
       setFormError("");
       setIsModalOpen(false);
@@ -689,6 +724,16 @@ export default function ModerationPage() {
                     <p className="text-[13px] font-bold leading-5 text-[#F97316]">
                       {placementLabel(ad.placement)}
                     </p>
+                    {getPlacementSpec(ad.placement)?.description ? (
+                      <p className="text-[12px] font-medium leading-[18px] text-[#64748B]">
+                        {getPlacementSpec(ad.placement)!.description}
+                      </p>
+                    ) : null}
+                    {isTextPlacement(ad.placement) ? (
+                      <p className="text-[12px] font-medium leading-[18px] text-[#64748B]">
+                        {t("textPlacementNote")}
+                      </p>
+                    ) : null}
                     <p
                       data-testid="ad-advertiser"
                       className="text-[12px] font-semibold leading-5 text-[#475569]"
@@ -696,6 +741,18 @@ export default function ModerationPage() {
                       {t("advertiser")}: {ad.advertiser ?? t("advertiserNone")}
                     </p>
                     <CampaignChips ad={ad} />
+                    {isLive ? (
+                      <p
+                        data-testid="ad-delivery"
+                        className="text-[12px] font-bold leading-[18px] text-[#047857]"
+                      >
+                        {rotationModeFor(ad.placement) === "rotation"
+                          ? t("deliveryRotation")
+                          : t("deliveryEvery", {
+                              n: everyNthLoad(ad.sov_percent ?? DEFAULT_SOV),
+                            })}
+                      </p>
+                    ) : null}
                     <a
                       href={ad.url}
                       target="_blank"
@@ -704,6 +761,18 @@ export default function ModerationPage() {
                     >
                       {ad.url}
                     </a>
+                    <div className="pt-2">
+                      <a
+                        href={previewHref(ad.id)}
+                        target="_blank"
+                        rel="noopener"
+                        data-testid="ad-preview-on-site"
+                        className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#E2E8F0] px-4 text-[13px] font-bold text-[#2563EB] transition-colors hover:bg-[#EFF6FF]"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        {t("previewOnSite")}
+                      </a>
+                    </div>
                   </div>
                 </div>
 
@@ -837,6 +906,11 @@ export default function ModerationPage() {
                   {getPlacementSpec(formState.placement)?.description && (
                     <p className="pl-1 text-[11px] font-medium leading-[15px] text-[#94A3B8]">
                       {getPlacementSpec(formState.placement)!.description}
+                    </p>
+                  )}
+                  {isTextPlacement(formState.placement) && (
+                    <p className="pl-1 text-[11px] font-medium leading-[15px] text-[#94A3B8]">
+                      {t("textPlacementNote")}
                     </p>
                   )}
                 </div>
@@ -985,7 +1059,7 @@ export default function ModerationPage() {
                   </div>
                 </div>
                 <p className="pl-1 text-[11px] font-medium leading-[15px] text-[#94A3B8]">
-                  {t("campaignHint")}
+                  {t("campaignHint", { button: t("previewOnSite") })}
                 </p>
                 <p className="pl-1 text-[13px] font-bold leading-5 text-[#1E293B]">
                   {formRate

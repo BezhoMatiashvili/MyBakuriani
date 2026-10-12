@@ -39,6 +39,12 @@ const CookieConsentBanner = dynamic(
     ),
   { ssr: false },
 );
+// The admin's on-site ad preview ("საიტზე ნახვა", C47): reads the URL hash and
+// session storage, so it never renders on the server.
+const AdPreviewBar = dynamic(
+  () => import("@/components/banners/AdPreviewBar"),
+  { ssr: false },
+);
 
 function isDashboardRoute(pathname: string) {
   return /(^|\/)dashboard(\/|$)/.test(pathname);
@@ -92,6 +98,7 @@ export function LocaleShell({ children }: LocaleShellProps) {
           <BannerSlot placement="footer_leaderboard" />
           <Footer />
           <BannerSlot placement="sticky_bottom" />
+          <AdPreviewBar />
         </>
       );
     }
@@ -110,6 +117,7 @@ export function LocaleShell({ children }: LocaleShellProps) {
         {/* Was gated to the home page, which contradicted the admin help text
             promising "ხილული საიტის ყველა საჯარო გვერდზე". */}
         <BannerSlot placement="sticky_bottom" />
+        <AdPreviewBar />
       </HomeListingModeProvider>
     );
   })();

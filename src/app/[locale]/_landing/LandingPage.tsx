@@ -60,6 +60,7 @@ import type {
 } from "./columns";
 import BannerSlotView from "@/components/banners/BannerSlotView";
 import type { BannerCreative } from "@/lib/banner-creative";
+import { useLiveSlotCreatives } from "@/lib/banner-slots-client";
 import type { Zone } from "@/lib/zones/types";
 import HomeStatusCards from "@/components/landing/HomeStatusCards";
 import { AddListingButton } from "@/components/shared/AddListingButton";
@@ -368,11 +369,14 @@ export default function LandingPage({
   services: serverServices,
   superVipServices: serverSuperVipServices,
   blogPosts: serverBlogPosts,
-  bannerCreatives = [],
+  bannerCreatives: serverBannerCreatives = [],
   pricePerSqmByZone,
   saleResearch,
 }: LandingPageProps) {
   const t = useTranslations("Landing");
+  // The ISR HTML's creatives until the shared store answers: a cached home
+  // page from before an admin's save must not hide a new ad (C47).
+  const bannerCreatives = useLiveSlotCreatives(serverBannerCreatives);
   const [mode, setMode] = useState<"rent" | "sale">("rent");
   const [hotOffersDiscountOnly, setHotOffersDiscountOnly] = useState(false);
   const { setListingMode } = useHomeListingMode();
@@ -381,9 +385,6 @@ export default function LandingPage({
   // gets no heading that would sit empty the rest of the time.
   const hasHomePromo = bannerCreatives.some(
     (creative) => creative.placement === "home_promo" && !creative.sponsored,
-  );
-  const hasHomePromoAd = bannerCreatives.some(
-    (creative) => creative.placement === "home_promo" && creative.sponsored,
   );
 
   useEffect(() => {
@@ -740,7 +741,8 @@ export default function LandingPage({
           />
         </section>
       )}
-      {!hasHomePromo && hasHomePromoAd && (
+      {/* Renders nothing without a paid ad (or the admin's preview of one). */}
+      {!hasHomePromo && (
         <BannerSlotView placement="home_promo" creatives={bannerCreatives} />
       )}
 

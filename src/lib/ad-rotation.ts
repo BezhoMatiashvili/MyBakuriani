@@ -253,6 +253,32 @@ export function stackSlot<T extends RotationCandidate>(
   return ad ? [ad, ...house] : house;
 }
 
+/**
+ * The admin's on-site preview (2026-10-11): the previewed ad takes the slot's
+ * ad position on every load — no share-of-voice draw, no cap, no phone limit.
+ * A stacked slot keeps its editorial banners and never a second copy of the
+ * ad; in a grid only the first sponsored card shows it. Null = draw as usual.
+ */
+export function previewSlot<T extends RotationCandidate>(
+  candidates: readonly T[],
+  preview: T,
+  {
+    single,
+    mode,
+    position = 0,
+  }: { single: boolean; mode: RotationMode; position?: number },
+): T[] | null {
+  if (mode === "rotation" && position > 0) return null;
+  return single ? [preview] : stackSlot(candidates, preview);
+}
+
+/** About one page load in how many shows a lone ad of this share (25 → 4). */
+export function everyNthLoad(sovPercent: number): number {
+  const value = Number(sovPercent);
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  return Math.max(1, Math.round(100 / Math.min(value, 100)));
+}
+
 /** True when the slot has nothing to draw: no paid ad among the candidates. */
 export function isDeterministic(
   candidates: readonly RotationCandidate[],

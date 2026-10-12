@@ -408,11 +408,19 @@ async function LandingWithData() {
       // One fetch covers every home placement. The landing page renders these
       // server-side (no flash, no layout shift above the fold); every other
       // surface gets them client-side from /api/banner-slots.
-      withTimeout(
+      withTimeout<BannerCreative[] | null>(
         fetchSlotCreatives(),
         LANDING_DEP_TIMEOUT_MS,
-        [] as BannerCreative[],
-      ),
+        null,
+      ).then((creatives) => {
+        if (creatives) return creatives;
+        // The slots refill from /api/banner-slots in the browser (C47).
+        logOptionalLandingError(
+          "banner_slots",
+          new Error(`timed out after ${LANDING_DEP_TIMEOUT_MS} ms`),
+        );
+        return [] as BannerCreative[];
+      }),
       // The admin cards with live weather / road / lift status laid over them,
       // the same cards every other page shows (src/lib/status-cards/live.ts).
       getLiveStatusCards(LANDING_DEP_TIMEOUT_MS),

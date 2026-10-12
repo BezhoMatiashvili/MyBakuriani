@@ -14,6 +14,7 @@ import dynamic from "next/dynamic";
 import { ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { clearSupportChat } from "@/lib/support/storage";
+import { clearStaffBrowser, markStaffBrowser } from "@/lib/staff-browser";
 import {
   leadsClient,
   SELLER_LEADS_CHANGED_EVENT,
@@ -521,8 +522,15 @@ export function DashboardShell({
       .catch(() => {});
   }, [role, pathname]);
 
+  // An admin's browser is never frequency-capped and sends no banner stats
+  // (C47, src/lib/staff-browser.ts); cleared again in handleSignOut.
+  useEffect(() => {
+    if (role === "admin") markStaffBrowser();
+  }, [role]);
+
   async function handleSignOut() {
     clearSupportChat();
+    clearStaffBrowser();
     try {
       const supabase = createClient();
       await supabase.auth.signOut();

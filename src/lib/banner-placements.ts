@@ -85,7 +85,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     surface: "site",
     aspect: "320×100",
     description:
-      "მხოლოდ ტელეფონზე: ყველა გვერდზე, ნავიგაციის ქვემოთ, ეკრანის სიგანის ზოლი",
+      "მხოლოდ ტელეფონზე (კომპიუტერზე არ ჩანს): ყველა გვერდზე, ნავიგაციის ქვემოთ, ეკრანის სიგანის ზოლი",
     legacyKind: "promo",
   },
   {
@@ -93,7 +93,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "leaderboard",
     surface: "site",
     aspect: "1160×180",
-    description: "გამოჩნდება ყველა გვერდზე, ფუტერის თავზე",
+    description: "გამოჩნდება ყველა გვერდის ბოლოში, ფუტერის თავზე",
     legacyKind: "promo",
   },
   {
@@ -102,7 +102,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     surface: "site",
     aspect: "—",
     description:
-      "გამოჩნდება ყველა გვერდზე, ეკრანის ბოლოში მიმაგრებული ზოლის სახით",
+      "გამოჩნდება ყველა გვერდზე, ეკრანის ბოლოში მიმაგრებული ზოლის სახით; ვიზიტორს შეუძლია მისი დახურვა",
     legacyKind: "sticky_news",
   },
   {
@@ -110,7 +110,8 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "leaderboard",
     surface: "home",
     aspect: "1160×180",
-    description: "მთავარი გვერდის თავზე, დიდი ბანერი",
+    description:
+      "მთავარი გვერდი: დიდი ბანერი საძიებო ბლოკისა და სტატუს-ბარათების ქვემოთ, ზედა ინფო ზოლის შემდეგ (არა გვერდის თავში — ჩანს ოდნავ ჩამოსქროლვისას)",
     legacyKind: "promo",
   },
   {
@@ -118,7 +119,8 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "strip",
     surface: "home",
     aspect: "—",
-    description: "მთავარი გვერდი, ჰედერის ქვემოთ",
+    description:
+      "მთავარი გვერდი: საძიებო ბლოკისა და სტატუს-ბარათების ქვემოთ, ჰერო ბანერის თავზე (ჩანს ოდნავ ჩამოსქროლვისას)",
     legacyKind: "info",
   },
   {
@@ -126,7 +128,8 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "promo-card",
     surface: "home",
     aspect: "320×180",
-    description: "მთავარი გვერდის პრომო ბლოკი",
+    description:
+      "მთავარი გვერდი (მხოლოდ „გაქირავება“ რეჟიმში): ბლოკი „რეკომენდებული სერვისები“, „აპარტამენტები და კოტეჯები“ სექციის ქვემოთ",
     legacyKind: "promo",
   },
   {
@@ -134,7 +137,8 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "promo-card",
     surface: "home",
     aspect: "320×180",
-    description: "მთავარი გვერდი, კონტენტის სექციებს შორის",
+    description:
+      "მთავარი გვერდი (მხოლოდ „გაქირავება“ რეჟიმში): სექციებს „ცხელი შეთავაზებები“ და „აპარტამენტები და კოტეჯები“ შორის",
     legacyKind: "promo",
   },
   {
@@ -143,7 +147,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     surface: "listing",
     aspect: "1160×180",
     description:
-      "განცხადებების გვერდებზე (ბინები, სასტუმროები, გაყიდვები, კვება და სხვ.), ბადის თავზე",
+      "კატალოგის გვერდებზე (ბინები, სასტუმროები, გაყიდვები, კვება, სერვისები, გართობა, ტრანსპორტი, დასაქმება, ძიება, ბლოგი), ბადის თავზე; ცარიელ სიაზე არ ჩანს",
     legacyKind: "promo",
   },
   {
@@ -151,7 +155,8 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "in-grid",
     surface: "listing",
     aspect: "1×1",
-    description: "იგივე გვერდები, ბადეში, განცხადებების ბარათებს შორის",
+    description:
+      "იგივე კატალოგის გვერდები, ბადეში: ყოველი მე-8 ბარათის შემდეგ (გვერდზე მაქსიმუმ 2; 8-ზე ნაკლებ განცხადებაზე — ბოლოში)",
     legacyKind: "promo",
   },
   {
@@ -160,7 +165,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     surface: "detail",
     aspect: "320×400",
     description:
-      "დეტალურ გვერდებზე (ბინა, სასტუმრო, გაყიდვა, კვება, სამუშაო) — გვერდითი პანელი",
+      "დეტალურ გვერდებზე (ბინა, სასტუმრო, გაყიდვა, კვება, სამუშაო) — გვერდითი სვეტი (ტელეფონზე გვერდის ქვედა ნაწილში)",
     legacyKind: "promo",
   },
   {
@@ -168,7 +173,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "promo-card",
     surface: "blog",
     aspect: "320×180",
-    description: "ბლოგის სტატიის ტექსტში",
+    description: "ბლოგის სტატიის გვერდზე, სტატიის ტექსტის ბოლოს",
     legacyKind: "promo",
   },
 ];

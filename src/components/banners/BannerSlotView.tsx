@@ -31,6 +31,7 @@ import {
   useEmptySlotTracking,
 } from "@/lib/banner-tracking";
 import { useSlotRotation } from "@/lib/banner-slots-client";
+import { useAdPreview } from "@/lib/ad-preview-client";
 
 /**
  * The single public banner renderer. Pure and presentational — it NEVER fetches.
@@ -76,7 +77,9 @@ export type BannerSlotViewProps = {
 const SlotDisplayContext = createContext<{
   displayKey: string;
   slotCreativeId: string | null;
-}>({ displayKey: "", slotCreativeId: null });
+  /** The ad an admin is previewing on the site (outlined, never hidden). */
+  previewId: string | null;
+}>({ displayKey: "", slotCreativeId: null, previewId: null });
 
 export default function BannerSlotView({
   placement,
@@ -106,8 +109,49 @@ export default function BannerSlotView({
   }
 
   const spec = getPlacementSpec(placement);
+  // The ad an admin opened with "საიტზე ნახვა", when it is booked here (C47).
+  const adPreview = useAdPreview();
+  const preview =
+    interactive && spec && adPreview?.placement === spec.id ? adPreview : null;
+  // Ads this device closed in the sticky bar leave the draw at once, so a
+  // closed ad never holds a phone claim (C47). The bar stays empty for the rest
+  // of that page view (another bar appearing under the visitor's click reads
+  // as "the X did not work"); the editorial bar takes the slot from the next.
+  const isSticky = spec?.renderStyle === "sticky";
+  const pathname = usePathname() ?? "";
+  const [dismissedAds, setDismissedAds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [closedOn, setClosedOn] = useState<string | null>(null);
+  useEffect(() => {
+    if (interactive && isSticky) setDismissedAds(readDismissed());
+  }, [interactive, isSticky]);
+  useEffect(() => {
+    setClosedOn(null);
+  }, [pathname]);
+  const dismissAd = useCallback(
+    (creative: BannerCreative) => {
+      if (!creative.sponsored) return;
+      setClosedOn(pathname);
+      setDismissedAds((prev) =>
+        prev.has(creative.sourceId)
+          ? prev
+          : new Set(prev).add(creative.sourceId),
+      );
+    },
+    [pathname],
+  );
   const mine = spec
-    ? creatives.filter((c) => c.placement === spec.id && !failedIds.has(c.id))
+    ? creatives.filter(
+        (c) =>
+          c.placement === spec.id &&
+          !failedIds.has(c.id) &&
+          !(
+            c.sponsored &&
+            dismissedAds.has(c.sourceId) &&
+            c.id !== preview?.id
+          ),
+      )
     : [];
 
   // C47: which of them this page view shows — the media plan's share-of-voice
@@ -118,6 +162,7 @@ export default function BannerSlotView({
     interactive,
     position,
     refresh: spec?.renderStyle === "sidebar",
+    preview,
   });
   // An ad position seen with nothing drawn into it still counts toward the
   // slot's displays (actual SOV). Not for grid cards: their marker could not
@@ -136,7 +181,9 @@ export default function BannerSlotView({
   // An unmapped placement renders nothing rather than throwing. Never replace
   // this with an index lookup.
   if (!spec) return null;
-  if (mine.length === 0) return null;
+  if (mine.length === 0 && !preview) return null;
+  // The sticky ad the visitor just closed: nothing in its place this view.
+  if (closedOn !== null && closedOn === pathname) return null;
 
   const shown = display.shown;
   // Absolutely positioned and 1 px: no grid cell, no layout shift.
@@ -157,6 +204,7 @@ export default function BannerSlotView({
       value={{
         displayKey: display.displayKey,
         slotCreativeId: display.slotCreativeId,
+        previewId: preview?.id ?? null,
       }}
     >
       {marker}
@@ -169,6 +217,7 @@ export default function BannerSlotView({
           interactive={interactive}
           onExpand={expand}
           onMediaError={dropCreative}
+          onDismiss={dismissAd}
         />
       ))}
     </SlotDisplayContext.Provider>
@@ -178,7 +227,12 @@ export default function BannerSlotView({
     <>
       <SlotFrame
         style={spec.renderStyle}
-        className={className}
+        className={
+          // A phone-only strip previewed on a wide screen keeps a phone's width.
+          preview && spec.renderStyle === "mobile-strip"
+            ? `${className ?? ""} mx-auto max-w-[420px]`
+            : className
+        }
         bare={bare}
         count={shown.length}
       >
@@ -310,6 +364,7 @@ function Creative({
   interactive,
   onExpand,
   onMediaError,
+  onDismiss,
 }: {
   creative: BannerCreative;
   style: BannerRenderStyle;
@@ -318,6 +373,8 @@ function Creative({
   onExpand: (creative: BannerCreative) => void;
   /** Media-first styles only: the creative is nothing without its media. */
   onMediaError: (creativeId: string) => void;
+  /** Sticky bar: the visitor closed it. */
+  onDismiss?: (creative: BannerCreative) => void;
 }) {
   switch (style) {
     case "strip":
@@ -384,6 +441,7 @@ function Creative({
           creative={creative}
           interactive={interactive}
           onExpand={onExpand}
+          onDismiss={onDismiss}
         />
       );
     default:
@@ -392,7 +450,14 @@ function Creative({
 }
 
 /** Small "რეკლამა" disclosure. Not optional, not admin-configurable. */
-function SponsoredBadge({ tone }: { tone: ReturnType<typeof getTonePalette> }) {
+function SponsoredBadge({
+  tone,
+  inline = false,
+}: {
+  tone: ReturnType<typeof getTonePalette>;
+  /** In the text flow (the sticky bar, whose close button owns the corner). */
+  inline?: boolean;
+}) {
   const locale = useLocale();
   return (
     <span
@@ -403,7 +468,9 @@ function SponsoredBadge({ tone }: { tone: ReturnType<typeof getTonePalette> }) {
       // (tester PDF p.7: the black "რეკლამა" pill showing through the white
       // block). The badge still paints above its own creative because it comes
       // after the media in DOM order. SlotFrame now also isolates its subtree.
-      className="pointer-events-none absolute right-2 top-2 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.5px] text-white/95"
+      className={`pointer-events-none rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.5px] text-white/95 ${
+        inline ? "mr-1.5 inline-block align-middle" : "absolute right-2 top-2"
+      }`}
       style={{ backgroundColor: tone.badgeBg }}
     >
       {sponsoredLabel(locale)}
@@ -434,11 +501,17 @@ function CreativeShell({
   style?: React.CSSProperties;
   children: ReactNode;
 }) {
-  const { displayKey, slotCreativeId } = useContext(SlotDisplayContext);
+  const { displayKey, slotCreativeId, previewId } =
+    useContext(SlotDisplayContext);
   const ref = useBannerViewTracking(creative, interactive, {
     displayKey,
     slot: slotCreativeId === creative.id,
   });
+  // The admin's on-site preview: outlined, and marked for its scroll.
+  const previewed = interactive && previewId === creative.id;
+  const shellClassName = previewed
+    ? `${className} outline outline-[3px] outline-offset-2 outline-[#F97316]`
+    : className;
 
   if (!interactive) {
     return (
@@ -456,8 +529,9 @@ function CreativeShell({
         target="_blank"
         rel="sponsored nofollow noopener noreferrer"
         onClick={() => reportBannerEvent(creative, "click")}
-        className={className}
+        className={shellClassName}
         style={style}
+        data-ad-preview={previewed ? "" : undefined}
       >
         {children}
       </a>
@@ -473,8 +547,9 @@ function CreativeShell({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onExpand(creative);
       }}
-      className={className}
+      className={shellClassName}
       style={style}
+      data-ad-preview={previewed ? "" : undefined}
     >
       {children}
     </div>
@@ -797,14 +872,32 @@ function PromoTag({
 /** Fixed bottom bar with per-creative dismissal. Ports StickyNewsBar. */
 const DISMISS_KEY = "mybakuriani:sticky_news:dismissed";
 
+/** The creatives (source ids) this device closed; empty without storage. */
+function readDismissed(): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(DISMISS_KEY);
+    const seen: unknown = raw ? JSON.parse(raw) : [];
+    return new Set(
+      Array.isArray(seen)
+        ? seen.filter((id): id is string => typeof id === "string")
+        : [],
+    );
+  } catch {
+    // storage unavailable — treat as not dismissed
+    return new Set();
+  }
+}
+
 function StickyCreative({
   creative,
   interactive,
   onExpand,
+  onDismiss,
 }: {
   creative: BannerCreative;
   interactive: boolean;
   onExpand: (creative: BannerCreative) => void;
+  onDismiss?: (creative: BannerCreative) => void;
 }) {
   // "Shared" only — already in PUBLIC_NAMESPACES and already pulled in by
   // BannerDetailModal, so this adds no namespace to the public bundle.
@@ -812,26 +905,27 @@ function StickyCreative({
   const tone = getTonePalette(creative.tone);
   const [dismissed, setDismissed] = useState(false);
   const [hydrated, setHydrated] = useState(!interactive);
+  // An ad's thumbnail; a broken one falls back to the icon, the bar stays.
+  const [imageFailed, setImageFailed] = useState(false);
+  const { previewId } = useContext(SlotDisplayContext);
 
   // Dismissal lives in localStorage, so the bar must not paint until we've read
   // it — otherwise it flashes for a user who already closed it. The preview has
   // no storage to consult and renders immediately.
   useEffect(() => {
     if (!interactive) return;
-    try {
-      const raw = window.localStorage.getItem(DISMISS_KEY);
-      const seen = raw ? (JSON.parse(raw) as string[]) : [];
-      if (seen.includes(creative.sourceId)) setDismissed(true);
-    } catch {
-      // storage unavailable — treat as not dismissed
-    }
+    // A stored dismissal does not hide the ad an admin is previewing.
+    setDismissed(
+      previewId !== creative.id && readDismissed().has(creative.sourceId),
+    );
     setHydrated(true);
-  }, [interactive, creative.sourceId]);
+  }, [interactive, creative.sourceId, creative.id, previewId]);
 
   if (!hydrated || dismissed) return null;
 
   function dismiss() {
     setDismissed(true);
+    onDismiss?.(creative);
     try {
       const raw = window.localStorage.getItem(DISMISS_KEY);
       const seen = raw ? (JSON.parse(raw) as string[]) : [];
@@ -855,17 +949,31 @@ function StickyCreative({
       style={{ backgroundColor: tone.bg, borderColor: tone.border }}
     >
       <div className="flex min-w-0 flex-1 items-start gap-3">
-        <span
-          aria-hidden
-          className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-black"
-          style={{ backgroundColor: tone.iconBg, color: tone.iconText }}
-        >
-          !
-        </span>
+        {creative.sponsored && creative.imageUrl && !imageFailed ? (
+          <div className="relative size-10 shrink-0 overflow-hidden rounded-lg">
+            <Image
+              src={creative.imageUrl}
+              alt=""
+              fill
+              sizes="40px"
+              onError={() => setImageFailed(true)}
+              className="object-cover"
+            />
+          </div>
+        ) : (
+          <span
+            aria-hidden
+            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-black"
+            style={{ backgroundColor: tone.iconBg, color: tone.iconText }}
+          >
+            !
+          </span>
+        )}
         <p
           className="min-w-0 text-[12px] font-medium leading-[18px] line-clamp-2 @[640px]:text-[13px] @[640px]:leading-[20px]"
           style={{ color: tone.text }}
         >
+          {creative.sponsored ? <SponsoredBadge tone={tone} inline /> : null}
           <span className="font-bold" style={{ color: tone.title }}>
             {creative.title}
           </span>

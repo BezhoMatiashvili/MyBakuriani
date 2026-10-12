@@ -9,10 +9,12 @@ import {
   MAX_SPONSORED_PER_PAGE,
   ROTATION_PLACEMENTS,
   SOV_TIERS,
+  everyNthLoad,
   interleaveSponsored,
   isDeterministic,
   pickAd,
   pickSlot,
+  previewSlot,
   rotationModeFor,
   sponsoredGridPositions,
   stackSlot,
@@ -169,6 +171,60 @@ test("stacked slots keep every editorial banner and add at most one ad first", (
   );
   assert.equal(isDeterministic([house("h1")]), true);
   assert.equal(isDeterministic(candidates), false);
+});
+
+test("the admin's on-site preview takes the ad position on every load", () => {
+  const preview = ad("p", 25, 1, 3);
+  const candidates = [house("h1"), ad("a", 100), preview, house("h2")];
+  // Single slot: the preview alone, whatever the SOV, priority or cap.
+  assert.deepEqual(
+    previewSlot(candidates, preview, { single: true, mode: "sov" }).map(
+      (c) => c.id,
+    ),
+    ["p"],
+  );
+  // Stacked: first, then the editorial banners, never a second copy.
+  assert.deepEqual(
+    previewSlot(candidates, preview, { single: false, mode: "sov" }).map(
+      (c) => c.id,
+    ),
+    ["p", "h1", "h2"],
+  );
+  // An ad that is not live (paused, scheduled) is not among the candidates.
+  assert.deepEqual(
+    previewSlot([house("h1")], preview, { single: false, mode: "sov" }).map(
+      (c) => c.id,
+    ),
+    ["p", "h1"],
+  );
+  // Grid: the first sponsored card shows it, the second draws as usual.
+  assert.deepEqual(
+    previewSlot(candidates, preview, {
+      single: true,
+      mode: "rotation",
+      position: 0,
+    }).map((c) => c.id),
+    ["p"],
+  );
+  assert.equal(
+    previewSlot(candidates, preview, {
+      single: true,
+      mode: "rotation",
+      position: 1,
+    }),
+    null,
+  );
+});
+
+test("everyNthLoad matches the simulated share of a lone ad", () => {
+  assert.equal(everyNthLoad(25), 4);
+  assert.equal(everyNthLoad(50), 2);
+  assert.equal(everyNthLoad(100), 1);
+  assert.equal(everyNthLoad(0), 0);
+  assert.equal(everyNthLoad(Number.NaN), 0);
+  for (const sov of SOV_TIERS) {
+    near(shares([ad("a", sov)]).a, 100 / everyNthLoad(sov));
+  }
 });
 
 test("sponsored cards: after every 8th listing, at most 2, short pages at the end", () => {

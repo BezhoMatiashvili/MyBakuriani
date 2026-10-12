@@ -12,11 +12,13 @@ import {
   isDeterministic,
   pickAd,
   pickHouse,
+  previewSlot,
   rotationModeFor,
   stackSlot,
   type RotationCandidate,
 } from "@/lib/ad-rotation";
 import { cappedCreativeIds } from "@/lib/banner-tracking";
+import { isStaffBrowser } from "@/lib/staff-browser";
 
 /**
  * Module-level creative store.
@@ -28,27 +30,41 @@ import { cappedCreativeIds } from "@/lib/banner-tracking";
  * StrictMode's double-invoke in development.
  */
 const TTL_MS = 60_000; // matches the route's s-maxage=60
+/** An admin's browser re-asks the origin this soon (one page's slots share it). */
+const STAFF_TTL_MS = 5_000;
 
-let inflight: Promise<BannerCreative[]> | null = null;
+let inflight: Promise<BannerCreative[] | null> | null = null;
 let cached: { at: number; data: BannerCreative[] } | null = null;
 
-export function loadBannerCreatives(): Promise<BannerCreative[]> {
-  if (cached && Date.now() - cached.at < TTL_MS) {
+/**
+ * Every live creative, or null when the load failed. A failure is not cached,
+ * so the next mount or page view tries again instead of showing no banners for
+ * a minute. An admin's browser (C47) skips the CDN with `?fresh=` and
+ * no-store, so a save shows on the very next page view.
+ */
+export function loadBannerCreatives(): Promise<BannerCreative[] | null> {
+  const staff = isStaffBrowser();
+  if (cached && Date.now() - cached.at < (staff ? STAFF_TTL_MS : TTL_MS)) {
     return Promise.resolve(cached.data);
   }
   if (inflight) return inflight;
 
-  inflight = fetch("/api/banner-slots", { signal: AbortSignal.timeout(8_000) })
+  inflight = fetch(
+    staff ? `/api/banner-slots?fresh=${Date.now()}` : "/api/banner-slots",
+    {
+      signal: AbortSignal.timeout(8_000),
+      ...(staff ? { cache: "no-store" as const } : {}),
+    },
+  )
     .then((r) => (r.ok ? r.json() : null))
     .then((payload) => {
-      const data: BannerCreative[] = Array.isArray(payload?.creatives)
-        ? payload.creatives
-        : [];
+      if (!Array.isArray(payload?.creatives)) return null;
+      const data: BannerCreative[] = payload.creatives;
       cached = { at: Date.now(), data };
       return data;
     })
     // Banners are decorative — a failed load renders nothing, never an error.
-    .catch(() => [] as BannerCreative[])
+    .catch(() => null)
     .finally(() => {
       inflight = null;
     });
@@ -65,19 +81,48 @@ export function useBannerCreatives(
   placement: BannerPlacement,
 ): BannerCreative[] {
   const [creatives, setCreatives] = useState<BannerCreative[]>([]);
+  // The layout's slots (LocaleShell) never remount, so every page view asks
+  // the store again; it answers from its cache until that is a minute old.
+  const pathname = usePathname() ?? "";
 
   useEffect(() => {
     let cancelled = false;
     loadBannerCreatives().then((all) => {
-      if (cancelled) return;
+      // A failed load keeps what the slot already shows.
+      if (cancelled || all === null) return;
       setCreatives(all.filter((c) => c.placement === placement));
     });
     return () => {
       cancelled = true;
     };
-  }, [placement]);
+  }, [placement, pathname]);
 
   return creatives;
+}
+
+/**
+ * The landing page's slots start from the creatives baked into its ISR HTML
+ * and switch to the store's list once it answers, so a cached page from before
+ * an admin's save can neither hide a new ad nor keep a removed one. A slot
+ * re-draws only when its own placement's list changed (`signature` in
+ * useSlotRotation), so a fresh page keeps the C47 phone-claim order.
+ */
+export function useLiveSlotCreatives(
+  server: BannerCreative[],
+): BannerCreative[] {
+  const [live, setLive] = useState<BannerCreative[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadBannerCreatives().then((all) => {
+      if (!cancelled && all !== null) setLive(all);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return live ?? server;
 }
 
 /* ---------------------------------------------------- rotation (C47) */
@@ -211,6 +256,7 @@ export function useSlotRotation<T extends Rotatable>(
     interactive,
     position = 0,
     refresh = false,
+    preview = null,
   }: {
     single: boolean;
     interactive: boolean;
@@ -218,6 +264,8 @@ export function useSlotRotation<T extends Rotatable>(
     position?: number;
     /** Re-draw every SIDEBAR_REFRESH_MS (the 320×400 sidebar). */
     refresh?: boolean;
+    /** The ad an admin opened with "საიტზე ნახვა" (src/lib/ad-preview-client.ts). */
+    preview?: T | null;
   },
 ): SlotDisplay<T> {
   const instance = useId();
@@ -240,11 +288,29 @@ export function useSlotRotation<T extends Rotatable>(
     )
     .join("|");
 
+  const previewId = preview?.id ?? null;
+
   useEffect(() => {
     if (!interactive) return;
 
     let next: Draw<T> | null;
-    if (phoneOnly && !isPhone()) {
+    const forced = preview
+      ? previewSlot(creatives.map(toCandidate), toCandidate(preview), {
+          single,
+          mode: rotationModeFor(placement),
+          position,
+        })
+      : null;
+    if (preview && forced) {
+      // The admin's on-site preview: this ad on every load — no share-of-voice
+      // draw, no cap, no phone claim, at any width.
+      next = {
+        shown: forced.map((entry) => entry.creative),
+        slotCreativeId: preview.id,
+        emptyAdPosition: false,
+      };
+      setShown(placement, instance, preview.id);
+    } else if (phoneOnly && !isPhone()) {
       next = NOTHING;
     } else if (deterministic) {
       // Nothing to draw. The phone-only strip still waited for the check.
@@ -296,7 +362,8 @@ export function useSlotRotation<T extends Rotatable>(
       setShown(placement, instance, null);
     };
     // `signature` stands in for `creatives`; `pathname` re-draws the layout's
-    // slots on every page view; `tick` is the sidebar refresh.
+    // slots on every page view; `tick` is the sidebar refresh; `previewId`
+    // starts or ends the admin's preview.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     signature,
@@ -307,6 +374,7 @@ export function useSlotRotation<T extends Rotatable>(
     placement,
     position,
     instance,
+    previewId,
   ]);
 
   useEffect(() => {
@@ -333,5 +401,14 @@ export function useSlotRotation<T extends Rotatable>(
   // A new page view re-arms impressions even when the same creative stays.
   const displayKey = `${pathname}#${drawCount}`;
   if (phoneOnly && draw === null) return { ...NOTHING, displayKey };
-  return { ...(draw ?? houseDraw(creatives, single, position)), displayKey };
+  const current = draw ?? houseDraw(creatives, single, position);
+  return {
+    ...current,
+    // The rows as the store holds them now: an edited title or image shows
+    // without a re-draw (and without a second impression).
+    shown: current.shown.map(
+      (shown) => creatives.find((c) => c.id === shown.id) ?? shown,
+    ),
+    displayKey,
+  };
 }
