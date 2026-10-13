@@ -55,7 +55,7 @@ Define success criteria. Loop until verified.
 - **Storage**: Supabase Storage (`property-photos` bucket)
 - **Maps**: Mapbox GL JS (`mapbox-gl` npm package, `light-v11` style; `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, a public "pk." token safe for client exposure). Default attribution control must stay enabled (Mapbox ToS requirement for any rendered map).
 - **Weather**: WeatherAPI.com (server-only key; free-tier attribution required — rendered in `Footer`)
-- **Routing**: Mapbox Directions API, `driving-traffic` profile — replaced the keyless FOSSGIS OSRM fetch that ran here before 2026-09. Server-side (secret `MAPBOX_ACCESS_TOKEN`) for the landing road badge's fixed Tbilisi→Bakuriani estimate (`src/lib/road-condition/server.ts`). Client-side (public `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`) for the personalized, geolocation-based road card and every listing detail map's "show me the route" button (`src/lib/maps/directions.ts`)
+- **Routing**: Mapbox Directions API, `driving-traffic` profile — replaced the keyless FOSSGIS OSRM fetch that ran here before 2026-09. Server-side (secret `MAPBOX_ACCESS_TOKEN`) for the landing road badge's fixed Tbilisi→Bakuriani estimate (`src/lib/road-condition/server.ts`). Client-side (public `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`) for the personalized, geolocation-based road card (`src/lib/maps/directions.ts`). Listing detail maps only link to Google Maps directions ("Google Maps-ში გახსნა", since 2026-10-13, C38)
 - **Animations**: Framer Motion 12
 - **Font**: Noto Sans Georgian (Google Fonts)
 - **Deployment**: DigitalOcean App Platform (`mybakuriani-prod` on `main`, `mybakuriani-staging` on `staging`, both Singapore/SGP1) + Supabase Cloud

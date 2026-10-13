@@ -232,38 +232,37 @@ export default function LoginPage() {
       // options: the confirmation link must come back to /auth/confirm.
       // An admin sign-up link's code rides along in user_metadata, so the
       // wizard still finds it when the link is opened in another browser (C41).
+      // One call, no retry (as on /recover, C51): when the answer to a send
+      // that worked is lost, a retry runs into GoTrue's one-email-a-minute 429
+      // or mails a second link that kills the first.
       const supabase = createClient();
       const signupLink = readSignupLinkCookie(document.cookie);
-      const { data, error: signUpError } = await withRetry(
-        () =>
-          supabase.auth.signUp({
-            email: submittedEmail,
-            password: submittedPassword,
-            options: {
-              emailRedirectTo: CONFIRM_REDIRECT_URL,
-              ...(signupLink
-                ? { data: { [SIGNUP_LINK_METADATA_KEY]: signupLink } }
-                : {}),
-            },
-          }),
-        isRetryableAuthError,
-      );
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: submittedEmail,
+        password: submittedPassword,
+        options: {
+          emailRedirectTo: CONFIRM_REDIRECT_URL,
+          ...(signupLink
+            ? { data: { [SIGNUP_LINK_METADATA_KEY]: signupLink } }
+            : {}),
+        },
+      });
       if (signUpError) throw signUpError;
       if (data?.user && !data.user.identities?.length) {
-        // Supabase deliberately returns an obfuscated user for an existing
-        // address. Preserve that protection instead of turning it into an
-        // account-enumeration oracle.
-        showConfirmationSent(submittedEmail);
+        // The address already has a confirmed account (password or Google).
+        // With "Confirm email" on, GoTrue answers with this masked user and
+        // mails nothing, so "link sent" here left people waiting for a mail
+        // that never comes. The empty identities tell any caller anyway
+        // (that is how this branch knows), so say it.
+        showAlreadyRegistered();
         return;
       }
       if (data?.session && data.user) await redirectAfterAuth(data.user.id);
       else if (!data?.session) showConfirmationSent(submittedEmail);
     } catch (err) {
       if (isAuthApiError(err) && err.code === "user_already_exists") {
-        // Only reachable when "Confirm email" is disabled — with it enabled,
-        // Supabase returns the obfuscated-user branch above instead of an
-        // error, to avoid an account-enumeration oracle.
-        setError(t("errors.emailTaken"));
+        // The same case with "Confirm email" off (prod today).
+        showAlreadyRegistered();
       } else if (isAuthApiError(err) && err.status === 429) {
         // An unconfirmed address signing up again within GoTrue's
         // one-email-a-minute window.
@@ -278,8 +277,15 @@ export default function LoginPage() {
     }
   }
 
-  // One "check your email" state for a new address and for the obfuscated
-  // existing one. GoTrue has just sent a link, so resend starts cooling down.
+  // An address that already has an account: back to sign-in with the address
+  // kept, where "forgot password" and Google are.
+  function showAlreadyRegistered() {
+    switchMode("login");
+    setError(t("errors.emailTaken"));
+  }
+
+  // The "check your email" state once GoTrue has mailed a link (a new address,
+  // or one not confirmed yet), so resend starts cooling down.
   function showConfirmationSent(address: string) {
     setPendingEmail(address);
     setResendNotice(null);

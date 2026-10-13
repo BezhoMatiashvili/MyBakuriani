@@ -11,7 +11,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Maximize2, X } from "lucide-react";
+import { ArrowUpRight, Maximize2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import BannerDetailModal from "@/components/shared/BannerDetailModal";
 import ScrollReveal from "@/components/shared/ScrollReveal";
@@ -455,7 +455,7 @@ function SponsoredBadge({
   inline = false,
 }: {
   tone: ReturnType<typeof getTonePalette>;
-  /** In the text flow (the sticky bar, whose close button owns the corner). */
+  /** Above the title (the sticky bar, whose close button owns the corner). */
   inline?: boolean;
 }) {
   const locale = useLocale();
@@ -468,8 +468,8 @@ function SponsoredBadge({
       // (tester PDF p.7: the black "რეკლამა" pill showing through the white
       // block). The badge still paints above its own creative because it comes
       // after the media in DOM order. SlotFrame now also isolates its subtree.
-      className={`pointer-events-none rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.5px] text-white/95 ${
-        inline ? "mr-1.5 inline-block align-middle" : "absolute right-2 top-2"
+      className={`pointer-events-none rounded text-[10px] font-bold uppercase tracking-[0.5px] text-white/95 ${
+        inline ? "inline-block px-1.5 leading-4" : "absolute right-2 top-2 px-2 py-0.5"
       }`}
       style={{ backgroundColor: tone.badgeBg }}
     >
@@ -652,7 +652,10 @@ function MediaCreative({
   );
 }
 
-/** Thin informational strip — ports the pre-placement InfoBanners look. */
+/**
+ * Thin informational strip — ports the pre-placement InfoBanners look. An ad
+ * has its own layout (below).
+ */
 function StripCreative({
   creative,
   interactive,
@@ -662,9 +665,56 @@ function StripCreative({
   interactive: boolean;
   onExpand: (creative: BannerCreative) => void;
 }) {
+  const locale = useLocale();
   const tone = getTonePalette(creative.tone);
   // Text-led: a broken thumbnail falls back to the icon, the strip stays.
   const [imageFailed, setImageFailed] = useState(false);
+
+  // An ad (the owner's mockup, 2026-10-13): a wide image, a large title and
+  // the "რეკლამა" label at the right end, all centred on one line. A strip
+  // narrower than 640 px puts the label above the title instead. Without an
+  // image (none, a video ad, or one that failed to load) it is the title and
+  // the label only, never an empty box.
+  if (creative.sponsored) {
+    const imageUrl = imageFailed ? null : creative.imageUrl;
+    return (
+      <CreativeShell
+        creative={creative}
+        interactive={interactive}
+        onExpand={onExpand}
+        className={`grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center rounded-2xl border pr-3 @[640px]:grid-cols-[auto_minmax(0,1fr)_auto] @[640px]:pr-4 ${
+          imageUrl ? "py-2 pl-2" : "py-3 pl-4"
+        }`}
+        style={{ backgroundColor: tone.bg, borderColor: tone.border }}
+      >
+        {imageUrl ? (
+          <div className="relative row-span-2 mr-3 aspect-[8/3] w-[120px] overflow-hidden rounded-lg @[640px]:row-span-1 @[640px]:mr-4 @[640px]:w-[200px]">
+            <Image
+              src={imageUrl}
+              alt=""
+              fill
+              sizes="(min-width: 672px) 200px, 120px"
+              onError={() => setImageFailed(true)}
+              className="object-cover"
+            />
+          </div>
+        ) : null}
+        <span
+          data-sponsored="true"
+          className="col-start-2 row-start-1 mb-1 self-end justify-self-start whitespace-nowrap rounded-md px-1.5 text-[11px] font-bold leading-5 text-white @[640px]:col-start-3 @[640px]:mb-0 @[640px]:ml-4 @[640px]:self-center @[640px]:rounded-lg @[640px]:px-4 @[640px]:text-[14px] @[640px]:leading-8"
+          style={{ backgroundColor: tone.badgeBg }}
+        >
+          {sponsoredLabel(locale)}
+        </span>
+        <span
+          className="col-start-2 row-start-2 line-clamp-2 self-start text-[15px] font-bold leading-5 @[640px]:row-start-1 @[640px]:self-center @[640px]:text-[24px] @[640px]:leading-8"
+          style={{ color: tone.title }}
+        >
+          {creative.title}
+        </span>
+      </CreativeShell>
+    );
+  }
 
   return (
     <CreativeShell
@@ -712,7 +762,6 @@ function StripCreative({
           interactive={interactive}
         />
       ) : null}
-      {creative.sponsored ? <SponsoredBadge tone={tone} /> : null}
     </CreativeShell>
   );
 }
@@ -905,7 +954,7 @@ function StickyCreative({
   const tone = getTonePalette(creative.tone);
   const [dismissed, setDismissed] = useState(false);
   const [hydrated, setHydrated] = useState(!interactive);
-  // An ad's thumbnail; a broken one falls back to the icon, the bar stays.
+  // An ad's thumbnail; a broken one drops out and the bar stays.
   const [imageFailed, setImageFailed] = useState(false);
   const { previewId } = useContext(SlotDisplayContext);
 
@@ -940,71 +989,135 @@ function StickyCreative({
     }
   }
 
+  const sponsored = creative.sponsored;
+  const thumbnailUrl = sponsored && !imageFailed ? creative.imageUrl : null;
+  // An ad's close button is lighter than a house notice's (unchanged).
+  const closeClass = sponsored
+    ? "right-2 transition-colors hover:bg-black/5"
+    : "right-[13px] border bg-white @[640px]:right-[21px]";
+  const closeStyle = sponsored
+    ? { color: tone.text }
+    : { borderColor: tone.ctaBorder, color: tone.text };
+
+  // The close button is the shell's sibling, not its child: an ad's shell is
+  // an <a>, and a button inside it is invalid nesting that also read "close"
+  // as part of the link's name. It sits over the shell's right padding, so the
+  // bar and the admin preview's outline keep their shape.
   return (
-    <CreativeShell
-      creative={creative}
-      interactive={interactive}
-      onExpand={onExpand}
-      className="pointer-events-auto relative flex min-h-16 max-h-[72px] w-full max-w-[1160px] cursor-pointer flex-nowrap items-center justify-between gap-2 overflow-hidden rounded-2xl border px-3 py-2 shadow-[0px_8px_24px_-8px_rgba(15,23,42,0.25)] @[640px]:gap-3 @[640px]:px-5"
-      style={{ backgroundColor: tone.bg, borderColor: tone.border }}
+    <div
+      className={
+        // An ad is a short title (adRowToCreative), so on a wide screen its bar
+        // hugs it instead of stretching an empty strip across the page. A house
+        // notice keeps the full width its body text needs.
+        sponsored
+          ? "relative w-full @[640px]:w-auto @[640px]:min-w-[400px] @[640px]:max-w-[720px]"
+          : "relative w-full max-w-[1160px]"
+      }
     >
-      <div className="flex min-w-0 flex-1 items-start gap-3">
-        {creative.sponsored && creative.imageUrl && !imageFailed ? (
-          <div className="relative size-10 shrink-0 overflow-hidden rounded-lg">
-            <Image
-              src={creative.imageUrl}
-              alt=""
-              fill
-              sizes="40px"
-              onError={() => setImageFailed(true)}
-              className="object-cover"
-            />
-          </div>
+      <CreativeShell
+        creative={creative}
+        interactive={interactive}
+        onExpand={onExpand}
+        className={
+          sponsored
+            ? "pointer-events-auto flex min-h-16 w-full cursor-pointer items-center gap-3 overflow-hidden rounded-2xl border p-2 pr-[60px] shadow-[0px_8px_24px_-8px_rgba(15,23,42,0.25)]"
+            : "pointer-events-auto relative flex min-h-16 max-h-[72px] w-full cursor-pointer flex-nowrap items-center justify-between gap-2 overflow-hidden rounded-2xl border py-2 pl-3 pr-16 shadow-[0px_8px_24px_-8px_rgba(15,23,42,0.25)] @[640px]:gap-3 @[640px]:pl-5 @[640px]:pr-[72px]"
+        }
+        style={{ backgroundColor: tone.bg, borderColor: tone.border }}
+      >
+        {sponsored ? (
+          <>
+            {thumbnailUrl ? (
+              // Landscape: ad creatives are wide, and a 40 px square crop of
+              // one showed an unreadable sliver.
+              <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-[10px]">
+                <Image
+                  src={thumbnailUrl}
+                  alt=""
+                  fill
+                  sizes="64px"
+                  onError={() => setImageFailed(true)}
+                  className="object-cover"
+                />
+              </div>
+            ) : null}
+            {/* Disclosure above the title, both centred on the thumbnail. */}
+            <span
+              className={`flex min-w-0 flex-1 flex-col items-start gap-0.5 ${
+                thumbnailUrl ? "" : "pl-2"
+              }`}
+            >
+              <SponsoredBadge tone={tone} inline />
+              <span className="flex min-w-0 max-w-full items-center gap-1">
+                <span
+                  className="line-clamp-2 min-w-0 text-[13px] font-bold leading-[18px] @[640px]:line-clamp-1 @[640px]:text-[14px] @[640px]:leading-[20px]"
+                  style={{ color: tone.title }}
+                >
+                  {creative.title}
+                </span>
+                {/* The advertiser's site opens in a new tab. Wide bars only:
+                    a phone's two-line title would leave it adrift. */}
+                {creative.href ? (
+                  <ArrowUpRight
+                    aria-hidden
+                    className="hidden size-3.5 shrink-0 @[640px]:block"
+                    style={{ color: tone.text }}
+                  />
+                ) : null}
+              </span>
+            </span>
+          </>
         ) : (
-          <span
-            aria-hidden
-            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-black"
-            style={{ backgroundColor: tone.iconBg, color: tone.iconText }}
-          >
-            !
-          </span>
+          <>
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              <span
+                aria-hidden
+                className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-black"
+                style={{ backgroundColor: tone.iconBg, color: tone.iconText }}
+              >
+                !
+              </span>
+              <p
+                className="min-w-0 text-[12px] font-medium leading-[18px] line-clamp-2 @[640px]:text-[13px] @[640px]:leading-[20px]"
+                style={{ color: tone.text }}
+              >
+                <span className="font-bold" style={{ color: tone.title }}>
+                  {creative.title}
+                </span>
+                {creative.body ? <> — {creative.body}</> : null}
+              </p>
+            </div>
+            {creative.ctaLabel && creative.href ? (
+              <CreativeCta
+                creative={creative}
+                tone={tone}
+                interactive={interactive}
+              />
+            ) : null}
+          </>
         )}
-        <p
-          className="min-w-0 text-[12px] font-medium leading-[18px] line-clamp-2 @[640px]:text-[13px] @[640px]:leading-[20px]"
-          style={{ color: tone.text }}
+      </CreativeShell>
+      {interactive ? (
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label={t("close")}
+          className={`pointer-events-auto absolute top-1/2 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-full ${closeClass}`}
+          style={closeStyle}
         >
-          {creative.sponsored ? <SponsoredBadge tone={tone} inline /> : null}
-          <span className="font-bold" style={{ color: tone.title }}>
-            {creative.title}
-          </span>
-          {creative.body ? <> — {creative.body}</> : null}
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {creative.ctaLabel && creative.href ? (
-          <CreativeCta
-            creative={creative}
-            tone={tone}
-            interactive={interactive}
-          />
-        ) : null}
-        {interactive ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              dismiss();
-            }}
-            aria-label={t("close")}
-            className="inline-flex size-11 items-center justify-center rounded-full border bg-white"
-            style={{ borderColor: tone.ctaBorder, color: tone.text }}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        ) : null}
-      </div>
-    </CreativeShell>
+          <X className="h-4 w-4" />
+        </button>
+      ) : (
+        // The admin's preview frame shows it too, inert, as visitors see it.
+        <span
+          aria-hidden
+          className={`absolute top-1/2 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-full ${closeClass}`}
+          style={closeStyle}
+        >
+          <X className="h-4 w-4" />
+        </span>
+      )}
+    </div>
   );
 }
 

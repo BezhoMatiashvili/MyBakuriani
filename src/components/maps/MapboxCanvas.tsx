@@ -375,7 +375,7 @@ export default function MapboxMapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boundsKey, fitBoundsEnabled, hasProperties]);
 
-  // Draws (or clears) the "show me the route" line + a marker at its origin,
+  // Draws (or clears) the road card's route line + a marker at its origin,
   // and fits both endpoints into view. Declared after the map-creation effect
   // above so mapRef.current is already set by the time this runs on mount.
   useEffect(() => {

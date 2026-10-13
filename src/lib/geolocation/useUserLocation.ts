@@ -11,16 +11,15 @@ import {
 } from "@/lib/consent/cookies";
 
 // The one place in the codebase that touches navigator.geolocation. Backs
-// the cookie banner's "enable location" choice, the personalized road-status
-// card, and every map's "show me the route" button.
+// the cookie banner's "enable location" choice and the personalized
+// road-status card.
 //
 // Coordinates are NEVER persisted anywhere - not this cookie, not
 // localStorage/sessionStorage. Only the yes/no permission outcome is
 // recorded (in the same mb_cookie_consent cookie as the analytics choice).
-// Every consumer that needs coordinates again (a fresh page load, a second
-// "show me the route" click) calls getCurrentPosition again: once consent is
-// true, the browser already granted the permission, so this resolves
-// without a dialog.
+// Every consumer that needs coordinates again (a fresh page load) calls
+// getCurrentPosition again: once consent is true, the browser already
+// granted the permission, so this resolves without a dialog.
 
 const POSITION_TIMEOUT_MS = 8000;
 const POSITION_MAX_AGE_MS = 5 * 60 * 1000;

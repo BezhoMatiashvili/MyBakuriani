@@ -1,6 +1,6 @@
-// Deep-links to Google Maps with the same origin/destination we just routed
-// on our own map. Pure and dependency-free; reused by the personalized road
-// card's map and every listing map's "show me the route" button.
+// Deep-links to Google Maps directions. Pure and dependency-free; used by the
+// personalized road card's map (with the visitor's origin) and every listing
+// map's "Google Maps-ში გახსნა" link (destination only).
 
 export interface LatLng {
   lat: number;

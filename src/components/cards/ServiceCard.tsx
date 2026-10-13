@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Car, Check, Clock, MapPin, Star, Users } from "lucide-react";
+import { Car, Check, Clock, MapPin, Users } from "lucide-react";
 import Image from "next/image";
 import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link, useRouter } from "@/i18n/navigation";
@@ -216,23 +216,14 @@ export default function ServiceCard({
                   size={compactGrid ? "card" : "compact"}
                 />
               </div>
-              {/* A fresh listing's "new" pill can be as wide as this column on
-                  a narrow card (the landing rail's 280 px), so the rating
-                  wraps under it instead of pushing the row into the avatar. */}
-              <div className="flex flex-wrap items-center justify-end gap-1">
-                <NewlyAddedBadge
-                  createdAt={createdAt}
-                  className={
-                    compactGrid
-                      ? "max-w-[72px] truncate sm:max-w-none max-sm:h-4 max-sm:px-1.5 max-sm:text-[7px]"
-                      : undefined
-                  }
-                />
-                <span className="flex items-center gap-1 text-[12px] font-bold text-[#1E293B]">
-                  <Star className="h-3.5 w-3.5 fill-[#F97316] text-[#F97316]" />
-                  4.9
-                </span>
-              </div>
+              <NewlyAddedBadge
+                createdAt={createdAt}
+                className={
+                  compactGrid
+                    ? "max-w-[72px] truncate sm:max-w-none max-sm:h-4 max-sm:px-1.5 max-sm:text-[7px]"
+                    : undefined
+                }
+              />
             </div>
           </div>
           <h3
@@ -436,10 +427,6 @@ export default function ServiceCard({
                   size="compact"
                   className="border-0 bg-white/90 backdrop-blur-sm"
                 />
-                <span className="inline-flex items-center gap-1 rounded-[6px] bg-[#0F172A]/70 px-2 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
-                  <Star className="h-3 w-3 fill-[#F97316] text-[#F97316]" />
-                  4.9
-                </span>
               </div>
             </div>
             <div className="mt-auto">
@@ -633,14 +620,6 @@ export default function ServiceCard({
             >
               {title}
             </h3>
-            {/* Restaurants have no ratings or reviews yet (owner, 2026-10-12),
-                so food cards show no star. */}
-            {!isTransport && !isFood && (
-              <span className="flex shrink-0 items-center gap-1 rounded-[6px] bg-[#0F172A] px-2 py-1 text-[11px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-                <Star className="h-3 w-3 fill-white text-white" />
-                4.9
-              </span>
-            )}
           </div>
           {isTransport ? (
             <div className="mt-2 space-y-1">

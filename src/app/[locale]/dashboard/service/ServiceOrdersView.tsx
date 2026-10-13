@@ -17,6 +17,7 @@ import {
   Banknote,
   Download,
 } from "lucide-react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -32,24 +33,19 @@ type ApplicationRow = Tables<"job_applications"> & {
   service: { id: string; title: string; owner_id: string } | null;
 };
 
-type ViewType = "messages" | "applications";
 type StatusTab = "new" | "processed";
 
 /**
- * "service": full orders cabinet (transport / entertainment / handyman) with the
- * inquiries + applications switcher.
- * "employment": employer CV inbox — applications only, titled "CV-ები", no switcher.
+ * "service": the orders page of the transport / entertainment / handyman
+ * cabinets — customer inquiries only.
+ * "employment": the employer's CV inbox, titled "CV-ები" — the only place job
+ * applications and their CVs are shown, whichever cabinets the owner also has.
  */
 type Variant = "service" | "employment";
 
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "new", label: "ახალი" },
   { key: "processed", label: "დამუშავებული" },
-];
-
-const viewTabs: { key: ViewType; label: string }[] = [
-  { key: "messages", label: "შეკითხვები" },
-  { key: "applications", label: "ვაკანსიის განაცხადები" },
 ];
 
 export function ServiceOrdersView({
@@ -61,9 +57,6 @@ export function ServiceOrdersView({
   const { user } = useAuth();
   const isEmployment = variant === "employment";
 
-  const [viewType, setViewType] = useState<ViewType>(
-    isEmployment ? "applications" : "messages",
-  );
   const [activeTab, setActiveTab] = useState<StatusTab>("new");
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -99,10 +92,9 @@ export function ServiceOrdersView({
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    const tasks = isEmployment
-      ? [fetchApplications()]
-      : [fetchMessages(), fetchApplications()];
-    Promise.all(tasks).finally(() => setLoading(false));
+    (isEmployment ? fetchApplications() : fetchMessages()).finally(() =>
+      setLoading(false),
+    );
   }, [user, isEmployment, fetchMessages, fetchApplications]);
 
   // Realtime: messages (not used in the employment CV inbox)
@@ -128,10 +120,11 @@ export function ServiceOrdersView({
     };
   }, [user, isEmployment, supabase, fetchMessages]);
 
-  // Realtime: applications. The DB filter is by service_id, not owner, so we
-  // refetch and rely on the SELECT RLS policy to scope to the current owner.
+  // Realtime: applications (CV inbox only). The DB filter is by service_id, not
+  // owner, so we refetch and rely on the SELECT RLS policy to scope to the
+  // current owner.
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isEmployment) return;
     const channel = supabase
       .channel("service-orders-applications-rt")
       .on(
@@ -149,7 +142,7 @@ export function ServiceOrdersView({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, supabase, fetchApplications]);
+  }, [user, isEmployment, supabase, fetchApplications]);
 
   const filteredMessages = messages.filter((msg) =>
     activeTab === "new" ? !msg.is_read : msg.is_read,
@@ -171,14 +164,23 @@ export function ServiceOrdersView({
     );
   }
 
+  // Browsers cannot UPDATE job_applications, so the status goes through the
+  // owner-checked API route.
   async function markApplicationProcessed(id: string) {
-    const { error } = await supabase
-      .from("job_applications")
-      .update({ status: "processed" })
-      .eq("id", id);
-    if (error) return;
+    const response = await fetch(`/api/job-applications/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "processed" }),
+    }).catch(() => null);
+    if (!response?.ok) {
+      toast.error("შენახვა ვერ მოხერხდა");
+      return;
+    }
     setApplications((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status: "processed" } : a)),
+    );
+    setSelectedApplication((current) =>
+      current?.id === id ? { ...current, status: "processed" } : current,
     );
   }
 
@@ -188,58 +190,14 @@ export function ServiceOrdersView({
         {isEmployment ? "CV-ები" : "შეკვეთები / შეკითხვები"}
       </h1>
 
-      {/* View type switcher (hidden in the employment CV inbox) */}
-      {!isEmployment && (
-        <div className="inline-flex max-w-full flex-wrap rounded-xl border border-[#E2E8F0] bg-white p-1">
-          {viewTabs.map((vt) => {
-            const active = viewType === vt.key;
-            const badge =
-              vt.key === "messages" ? newMessageCount : newApplicationCount;
-            return (
-              <button
-                key={vt.key}
-                type="button"
-                onClick={() => {
-                  setViewType(vt.key);
-                  setActiveTab("new");
-                }}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-colors ${
-                  active
-                    ? "bg-[#2563EB] text-white"
-                    : "text-[#64748B] hover:text-[#1E293B]"
-                }`}
-              >
-                {vt.key === "messages" ? (
-                  <MessageSquare className="h-4 w-4" />
-                ) : (
-                  <Briefcase className="h-4 w-4" />
-                )}
-                {vt.label}
-                {badge > 0 && (
-                  <span
-                    className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
-                      active
-                        ? "bg-white text-[#2563EB]"
-                        : "bg-[#EF4444] text-white"
-                    }`}
-                  >
-                    {badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {/* Status tabs */}
       <div className="flex gap-1 rounded-xl bg-[#F8FAFC] p-1">
         {statusTabs.map((tab) => {
           const count =
             tab.key === "new"
-              ? viewType === "messages"
-                ? newMessageCount
-                : newApplicationCount
+              ? isEmployment
+                ? newApplicationCount
+                : newMessageCount
               : 0;
           return (
             <button
@@ -272,17 +230,17 @@ export function ServiceOrdersView({
             />
           ))}
         </div>
-      ) : viewType === "messages" ? (
-        <MessagesList
-          rows={filteredMessages}
-          activeTab={activeTab}
-          onSelect={setSelectedMessage}
-        />
-      ) : (
+      ) : isEmployment ? (
         <ApplicationsList
           rows={filteredApplications}
           activeTab={activeTab}
           onSelect={setSelectedApplication}
+        />
+      ) : (
+        <MessagesList
+          rows={filteredMessages}
+          activeTab={activeTab}
+          onSelect={setSelectedMessage}
         />
       )}
 
@@ -376,13 +334,9 @@ export function ServiceOrdersView({
           >
             <ApplicationDetail
               app={selectedApplication}
-              onMarkProcessed={() => {
-                markApplicationProcessed(selectedApplication.id);
-                setSelectedApplication({
-                  ...selectedApplication,
-                  status: "processed",
-                });
-              }}
+              onMarkProcessed={() =>
+                markApplicationProcessed(selectedApplication.id)
+              }
               onClose={() => setSelectedApplication(null)}
             />
           </Modal>

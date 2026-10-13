@@ -32,7 +32,7 @@ interface Props {
 
 /**
  * A service listing's own pin (food, entertainment) with the same
- * "show me the route" control as the apartment, hotel and sale pages (C38).
+ * "Google Maps-ში გახსნა" link as the apartment, hotel and sale pages (C38).
  */
 export default function ServiceLocationMap({
   id,

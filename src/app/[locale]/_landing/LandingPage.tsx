@@ -442,8 +442,9 @@ export default function LandingPage({
     [serverVipProperties],
   );
 
-  // Main-page SUPER VIP section (2026 price list §2.3): rentals in this
-  // carousel, services in the rail below it, sales in SaleLandingBody.
+  // Main-page VIP section (2026 price list §2.3): rentals in this carousel,
+  // services in the rail below it, sales in SaleLandingBody. SUPER VIP first,
+  // then VIP: the server's order, kept here.
   const superVipPropertyCards = useMemo(
     () =>
       (serverSuperVipProperties ?? [])
@@ -470,12 +471,12 @@ export default function LandingPage({
     [vipPropertyCards, hotOffersDiscountOnly],
   );
 
-  // Group server services by category
-  const servicesByCategory = (category: string) => {
+  // Group server services by category (a row may span several)
+  const servicesByCategory = (...categories: string[]) => {
     if (serverServices && serverServices.length > 0) {
-      const isFood = category === "food";
+      const isFood = categories.includes("food");
       return serverServices
-        .filter((s) => s.category === category)
+        .filter((s) => categories.includes(s.category))
         .sort((a, b) => {
           // SUPER VIP → VIP → active discount → newest (2026 price list: the
           // discount badge buys no priority over the paid VIP tiers).
@@ -566,7 +567,7 @@ export default function LandingPage({
 
       <BannerSlotView placement="home_hero" creatives={bannerCreatives} />
 
-      {/* ═══ 2.5 SUPER VIP — main-page section (2026 price list §2.3) ═══ */}
+      {/* ═══ 2.5 VIP — main-page section (2026 price list §2.3) ═══ */}
       {(superVipPropertyCards.length > 0 ||
         superVipServiceCards.length > 0) && (
         <section className="mx-auto w-full max-w-[1160px] px-4 pt-[52px] sm:pt-8 lg:pt-10">
@@ -761,7 +762,7 @@ export default function LandingPage({
       <ServiceSection
         title={t("servicesAndHandymen")}
         subtitle={t("servicesSubtitle")}
-        cards={servicesByCategory("handyman")}
+        cards={servicesByCategory("handyman", "cleaning")}
         href="/services"
         showAddButton
         cardVariant="avatar"

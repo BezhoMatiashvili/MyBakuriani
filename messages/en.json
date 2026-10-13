@@ -629,7 +629,7 @@
     "viewAll": "View All",
     "hotels": "Hotels",
     "hotelsSubtitle": "Full service: breakfast, pool, spa",
-    "apartmentsAndCottages": "Apartments & Cottages",
+    "apartmentsAndCottages": "Accommodation",
     "accommodationObjects": "Accommodation",
     "apartmentsSubtitle": "The best choice for your vacation",
     "recommendedServices": "Recommended Services",
@@ -744,8 +744,8 @@
       "selectedInventoryEyebrow": "Selected Inventory",
       "researchEyebrow": "Q3 2024 Research"
     },
-    "superVipTitle": "SUPER VIP",
-    "superVipSubtitle": "Listings with the highest visibility package — shown first.",
+    "superVipTitle": "VIP",
+    "superVipSubtitle": "Listings with a VIP visibility package — shown first.",
     "apartmentsH1Lead": "Find a place to relax",
     "hotelsH1Lead": "Hotels",
     "h1InBakuriani": "in Bakuriani"
@@ -977,7 +977,7 @@
         "tiers": {
           "superVip": {
             "title": "SUPER VIP",
-            "what": "SUPER VIP is the highest listing-visibility package. While it is active, the listing gets priority placement, appears among the priority search results and in the SUPER VIP section of the home page.",
+            "what": "SUPER VIP is the highest listing-visibility package. While it is active, the listing gets priority placement, appears among the priority search results and in the VIP section of the home page, ahead of listings with VIP status.",
             "how": "After purchase, the system automatically moves your listing up in the promotion queue. It shows a priority badge and gets maximum visibility in any search."
           },
           "vip": {
@@ -1515,9 +1515,6 @@
     "mapTitle": "Map of Bakuriani",
     "collapse": "Collapse",
     "mapUnavailable": "Map is temporarily unavailable",
-    "showRoute": "Show me the route",
-    "locatingYou": "Locating you...",
-    "routeUnavailable": "Couldn't build the route",
     "openInGoogleMaps": "Open in Google Maps"
   },
   "ZoneLocationLink": {
@@ -4115,6 +4112,27 @@
     "whatsapp": "WhatsApp",
     "contactAfterAcceptance": "The cleaner's number appears on this card after they accept the call-out.",
     "contactUnavailable": "The cleaner's contact number is unavailable.",
+    "callStatusSummary": "Call-out statuses",
+    "callFilters": "Filter call-outs",
+    "filterAll": "All",
+    "noCallsForFilter": "No call-outs match this filter",
+    "clearCleanerFilter": "{name}: clear filter",
+    "cleanerCalls": "{count, plural, one {# call-out} other {# call-outs}} · latest:",
+    "progress": {
+      "label": "Call-out progress",
+      "sent": "Sent",
+      "accepted": "Accepted",
+      "declined": "Declined",
+      "cancelled": "Cancelled",
+      "cancellationRequested": "Cancellation requested",
+      "started": "Started",
+      "completed": "Completed",
+      "state": {
+        "done": "done",
+        "current": "current step",
+        "upcoming": "next step"
+      }
+    },
     "status": {
       "pending": "Pending",
       "accepted": "Accepted",
@@ -7272,7 +7290,7 @@
         },
         "super": {
           "name": "SUPER VIP",
-          "description": "SUPER VIP is the highest listing-visibility package. While active, the listing gets priority placement, appears among the priority search results and in the SUPER VIP section of the home page."
+          "description": "SUPER VIP is the highest listing-visibility package. While active, the listing gets priority placement, appears among the priority search results and in the VIP section of the home page, ahead of listings with VIP status."
         }
       }
     },
@@ -7284,7 +7302,7 @@
         "discountMark": "Discount mark",
         "offers": "Special offers section/filter",
         "priority": "Priority visibility",
-        "superSection": "Home page SUPER VIP section",
+        "superSection": "Home page VIP section",
         "validity": "Validity",
         "price": "Price"
       },

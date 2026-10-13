@@ -15,7 +15,7 @@ export default async function HomeAbout({ locale }: { locale: AppLocale }) {
       className="border-t border-[#E2E8F0] bg-white"
     >
       <div className="mx-auto w-full max-w-[1160px] px-4 py-10 sm:py-14 lg:py-16">
-        <div className="max-w-3xl">
+        <div className="mx-auto max-w-3xl text-center">
           <h2
             id="home-about-title"
             className="text-[22px] font-black leading-[28px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]"

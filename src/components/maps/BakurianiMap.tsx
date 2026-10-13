@@ -4,13 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { staticMapUrl } from "@/lib/maps/staticMapUrl";
-import {
-  fetchDrivingRoute,
-  type LatLng,
-  type RouteLineString,
-} from "@/lib/maps/directions";
+import type { LatLng, RouteLineString } from "@/lib/maps/directions";
 import { googleMapsDirectionsUrl } from "@/lib/maps/googleMapsUrl";
-import { requestUserLocation } from "@/lib/geolocation/useUserLocation";
 import Modal from "@/components/shared/Modal";
 import { loadMapboxCanvas, loadedMapboxCanvas } from "./loadMapboxCanvas";
 
@@ -74,17 +69,16 @@ interface BakurianiMapProps {
   /** Admin-managed zone list. Falls back to the 4 seeded zones if omitted. */
   zones?: Zone[];
   /**
-   * Adds a "show me the route" control that, on click, asks for the
-   * visitor's location and draws the driving route from there to `center`.
-   * Only meaningful when `center` names a single known destination (a
-   * listing detail page) - not the multi-pin listing/zone maps.
+   * Adds a "Google Maps-ში გახსნა" link with directions to `center`; Google
+   * Maps starts the route from the visitor's own device. Only meaningful when
+   * `center` names a single known destination (a listing detail page) - not
+   * the multi-pin listing/zone maps.
    */
   showRouteButton?: boolean;
   /**
-   * A pre-fetched route to draw instead of `showRouteButton`'s own internal
-   * fetch - e.g. the landing road card's visitor-or-Tbilisi -> Bakuriani
-   * route (RoadRouteMap.tsx), which already knows both endpoints and only
-   * needs this component to render the line.
+   * A pre-fetched route to draw - e.g. the landing road card's
+   * visitor-or-Tbilisi -> Bakuriani route (RoadRouteMap.tsx), which already
+   * knows both endpoints and only needs this component to render the line.
    */
   route?: RouteDisplay | null;
 }
@@ -123,7 +117,7 @@ export default function BakurianiMap({
   previewUntilExpanded,
   zones = FALLBACK_ZONES,
   showRouteButton,
-  route: routeProp,
+  route,
 }: BakurianiMapProps) {
   const t = useTranslations("BakurianiMap");
 
@@ -141,47 +135,16 @@ export default function BakurianiMap({
     height: number;
   } | null>(null);
   const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
-  const [internalRoute, setInternalRoute] = useState<RouteDisplay | null>(null);
-  const [routeStatus, setRouteStatus] = useState<"idle" | "loading" | "error">(
-    "idle",
-  );
   const mapFrameRef = useRef<HTMLDivElement>(null);
-
-  const route = routeProp ?? internalRoute;
 
   // Falls back to the sole property's own coordinates when the caller passed
   // `properties` but no explicit `center` (e.g. the sale detail page) - both
-  // name the same single, exact destination a "show me the route" button
-  // needs.
+  // name the same single, exact destination the Google Maps link needs.
   const singleDestination: LatLng | undefined =
     center ??
     (properties && properties.length === 1
       ? { lat: properties[0].lat, lng: properties[0].lng }
       : undefined);
-
-  const handleShowRoute = async () => {
-    if (!singleDestination) return;
-    setMapReady(true);
-    setExpanded(true);
-    setRouteStatus("loading");
-    const coords = await requestUserLocation();
-    if (!coords) {
-      setRouteStatus("error");
-      return;
-    }
-    const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
-    const result = await fetchDrivingRoute(coords, singleDestination, token);
-    if (!result) {
-      setRouteStatus("error");
-      return;
-    }
-    setInternalRoute({
-      origin: coords,
-      destination: singleDestination,
-      geojson: result.geojson,
-    });
-    setRouteStatus("idle");
-  };
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 767px)");
@@ -428,48 +391,19 @@ export default function BakurianiMap({
           </button>
         )}
 
-        {/* "Show me the route": always on the opposite side from the expand
-            button above (which is right-anchored), so the two never collide. */}
+        {/* Directions in Google Maps, which starts from the visitor's own
+            device. Bottom-left, lifted above the Mapbox logo there (it must
+            stay visible): beside the phone preview's top-right expand button
+            the two overlap on a phone. */}
         {showRouteButton && singleDestination && (
-          <div className="absolute bottom-3 left-3 z-10 flex flex-col items-start gap-1.5">
-            {internalRoute ? (
-              <a
-                href={googleMapsDirectionsUrl(
-                  internalRoute.destination,
-                  internalRoute.origin,
-                )}
-                target="_blank"
-                rel="noreferrer"
-                className="flex h-11 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#334155] shadow-[0px_2px_8px_rgba(0,0,0,0.12)] transition-colors hover:bg-[#F1F5F9]"
-              >
-                {t("openInGoogleMaps")}
-              </a>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void handleShowRoute()}
-                disabled={routeStatus === "loading"}
-                className="flex h-11 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#334155] shadow-[0px_2px_8px_rgba(0,0,0,0.12)] transition-colors hover:bg-[#F1F5F9] disabled:opacity-60"
-              >
-                {routeStatus === "loading" ? t("locatingYou") : t("showRoute")}
-              </button>
-            )}
-            {routeStatus === "error" && (
-              <>
-                <span className="rounded-md bg-white/90 px-2 py-1 text-[11px] font-semibold text-[#64748B] shadow-sm">
-                  {t("routeUnavailable")}
-                </span>
-                <a
-                  href={googleMapsDirectionsUrl(singleDestination)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex h-9 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-3 text-[12px] font-bold text-[#334155] shadow-sm transition-colors hover:bg-[#F1F5F9]"
-                >
-                  {t("openInGoogleMaps")}
-                </a>
-              </>
-            )}
-          </div>
+          <a
+            href={googleMapsDirectionsUrl(singleDestination)}
+            target="_blank"
+            rel="noreferrer"
+            className="absolute bottom-10 left-3 z-10 flex h-11 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#334155] shadow-[0px_2px_8px_rgba(0,0,0,0.12)] transition-colors hover:bg-[#F1F5F9]"
+          >
+            {t("openInGoogleMaps")}
+          </a>
         )}
       </div>
 

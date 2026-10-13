@@ -90,6 +90,11 @@ export default function ServiceDetailClient({
     return years ? t("experienceYears", { count: Number(years[1]) }) : value;
   })();
   const owner = service.profiles;
+  // The listing's own profile photo (/create/service stores it as photos[0],
+  // the /services card shows it); the account avatar is only the fallback.
+  const profilePhoto = service.photos?.[0] ?? owner?.avatar_url ?? null;
+  const providerName =
+    service.provider_name ?? owner?.display_name ?? t("providerFallback");
   const categoryLabel = tCard.has(`categories.${service.category}`)
     ? tCard(`categories.${service.category}`)
     : service.category;
@@ -135,25 +140,23 @@ export default function ServiceDetailClient({
           {service.title}
         </h1>
         <div className="mt-3 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
-          <span className="flex items-center gap-2 font-medium">
-            <span className="relative size-7 shrink-0 overflow-hidden rounded-full bg-[#F8FAFC]">
-              {owner?.avatar_url ? (
+          <span className="flex items-center gap-3 font-medium">
+            <span className="relative size-12 shrink-0 overflow-hidden rounded-full border border-[#E2E8F0] bg-[#F8FAFC]">
+              {profilePhoto ? (
                 <Image
-                  src={owner.avatar_url}
-                  alt={owner.display_name ?? ""}
+                  src={profilePhoto}
+                  alt={providerName}
                   fill
-                  sizes="28px"
+                  sizes="48px"
                   className="object-cover"
                 />
               ) : (
-                <span className="flex size-full items-center justify-center text-[12px] font-bold text-[#94A3B8]">
+                <span className="flex size-full items-center justify-center text-[16px] font-bold text-[#94A3B8]">
                   {owner?.display_name?.charAt(0) ?? t("providerInitial")}
                 </span>
               )}
             </span>
-            {service.provider_name ??
-              owner?.display_name ??
-              t("providerFallback")}
+            {providerName}
             {owner?.is_verified && (
               <BadgeCheck className="h-4 w-4 text-[#2563EB]" />
             )}

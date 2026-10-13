@@ -66,9 +66,14 @@ export async function generateMetadata({
 
 export const revalidate = 120;
 
+// Four rows per category, in the order LandingPage sorts by, so a row built
+// from two categories still gets its true first four. The services row is
+// handyman + cleaning, as on /services: with handyman alone it showed the one
+// handyman listing and none of the cleaning ones (2026-10-13).
 const LANDING_SERVICE_CATEGORIES = [
   "transport",
   "handyman",
+  "cleaning",
   "entertainment",
   "food",
   "employment",
@@ -173,21 +178,31 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
     return null;
   });
 
-  // Main-page SUPER VIP section (2026 price list §2.3). Optional like the
-  // blog: a failure hides the section instead of failing the landing render.
-  // The public views already drop expired SUPER VIP flags.
+  // Main-page VIP section (2026 price list §2.3; standard VIP joined SUPER VIP
+  // there on 2026-10-12): SUPER VIP first, then VIP, newest first within a
+  // tier. The order is in the query so the limit never drops a SUPER VIP for
+  // a VIP (NULLS LAST: a descending sort would put a NULL flag first).
+  // Rentals and sales are read apart so neither view loses its rows to the
+  // other. Optional like the blog: a failure hides the section instead of
+  // failing the landing render. The public views already drop expired flags.
+  const vipSectionProperties = (isForSale: boolean) =>
+    supabase
+      .from("public_properties")
+      .select(LANDING_SALE_COLUMNS)
+      .eq("is_for_sale", isForSale)
+      .or("is_super_vip.eq.true,is_vip.eq.true")
+      .order("is_super_vip", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(12);
   const superVipQuery = withLandingTimeout(
     Promise.all([
-      supabase
-        .from("public_properties")
-        .select(LANDING_SALE_COLUMNS)
-        .eq("is_super_vip", true)
-        .order("created_at", { ascending: false })
-        .limit(12),
+      vipSectionProperties(false),
+      vipSectionProperties(true),
       supabase
         .from("public_services")
         .select(LANDING_SERVICE_COLUMNS)
-        .eq("is_super_vip", true)
+        .or("is_super_vip.eq.true,is_vip.eq.true")
+        .order("is_super_vip", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false })
         .limit(8),
     ]),
@@ -236,13 +251,15 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
     superVipQuery,
   ]);
   const blogPosts = optionalLandingData("blog_posts", blogResult);
-  const superVipProperties = optionalLandingData(
-    "super_vip_properties",
-    superVipResults?.[0] ?? null,
-  );
+  // One list for both views: LandingPage keeps the rentals, SaleLandingBody
+  // gets the sales, each still in its query's order.
+  const superVipProperties = [
+    ...optionalLandingData("super_vip_rentals", superVipResults?.[0] ?? null),
+    ...optionalLandingData("super_vip_sales", superVipResults?.[1] ?? null),
+  ];
   const superVipServices = optionalLandingData(
     "super_vip_services",
-    superVipResults?.[1] ?? null,
+    superVipResults?.[2] ?? null,
   );
   const saleAggregateRows = optionalLandingData(
     "sale_price_aggregate",

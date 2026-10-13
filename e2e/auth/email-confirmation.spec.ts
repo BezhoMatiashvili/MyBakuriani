@@ -28,6 +28,8 @@ const LINK_EXPIRED = "ბმულს ვადა გაუვიდა ან 
 const RESEND = "ბმულის ხელახლა გაგზავნა";
 const RESENT = "ახალი ბმული გამოგზავნილია თქვენს ელ. ფოსტაზე.";
 const TOO_MANY = "მოთხოვნები ძალიან ხშირია. სცადეთ მოგვიანებით.";
+const EMAIL_TAKEN = "ეს ელ. ფოსტა უკვე რეგისტრირებულია.";
+const TIMEOUT = "სერვერი ნელა პასუხობს. გთხოვთ სცადოთ თავიდან.";
 const COOLDOWN = /ხელახლა გაგზავნა \d+ წამში/;
 const CONFIRM = "ელ. ფოსტის დადასტურება";
 
@@ -342,20 +344,76 @@ test.describe("Sign-up awaiting confirmation", () => {
     expect(redirectTo).toMatch(/\/auth\/confirm$/);
   });
 
-  test("an existing address gets the same state", async ({ page }) => {
-    // GoTrue's obfuscated user for an existing address: no identities.
-    await page.route(/\/auth\/v1\/signup(\?|$)/, (route) =>
-      route.fulfill({
+  test("an existing address is sent to sign-in, never told a link went out", async ({
+    page,
+  }) => {
+    // GoTrue's masked user for an address that already has a confirmed
+    // account: no identities, and it mails nothing.
+    let signupRequests = 0;
+    await page.route(/\/auth\/v1\/signup(\?|$)/, (route) => {
+      signupRequests += 1;
+      return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify(signupUser([])),
+      });
+    });
+
+    await submitRegister(page);
+
+    await expect(page.getByText(EMAIL_TAKEN)).toBeVisible();
+    // The sign-in form, with the address kept and the reset link at hand.
+    await expect(page.locator("#auth-email")).toHaveValue(
+      "new-person@example.com",
+    );
+    await expect(page.locator("#auth-confirm-password")).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "დაგავიწყდათ პაროლი?" }),
+    ).toBeVisible();
+    await expect(page.getByText(CHECK_EMAIL)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: RESEND })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: COOLDOWN })).toHaveCount(0);
+    expect(signupRequests).toBe(1);
+  });
+
+  test("with confirmation off, an existing address is sent to sign-in too", async ({
+    page,
+  }) => {
+    // GoTrue's answer when "Confirm email" is off (prod today).
+    await page.route(/\/auth\/v1\/signup(\?|$)/, (route) =>
+      route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: "user_already_exists",
+          error_code: "user_already_exists",
+          msg: "User already registered",
+        }),
       }),
     );
 
     await submitRegister(page);
 
-    await expect(page.getByText(CHECK_EMAIL)).toBeVisible();
-    await expect(page.getByRole("button", { name: COOLDOWN })).toBeDisabled();
+    await expect(page.getByText(EMAIL_TAKEN)).toBeVisible();
+    await expect(page.locator("#auth-email")).toHaveValue(
+      "new-person@example.com",
+    );
+    await expect(page.locator("#auth-confirm-password")).toHaveCount(0);
+  });
+
+  test("a sign-up whose answer is lost is not sent again", async ({ page }) => {
+    // A retry would land in GoTrue's one-email-a-minute window (a 429 after a
+    // link went out) or mail a second link that kills the first.
+    let signupRequests = 0;
+    await page.route(/\/auth\/v1\/signup(\?|$)/, (route) => {
+      signupRequests += 1;
+      return route.abort("failed");
+    });
+
+    await submitRegister(page);
+
+    await expect(page.getByText(TIMEOUT)).toBeVisible();
+    expect(signupRequests).toBe(1);
   });
 });
 

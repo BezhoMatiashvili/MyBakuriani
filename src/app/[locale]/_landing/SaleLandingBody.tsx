@@ -192,7 +192,8 @@ export default function SaleLandingBody({
     () => (saleProperties ?? []).map(toSaleCard),
     [saleProperties],
   );
-  // Main-page SUPER VIP section (2026 price list §2.3) — sale listings.
+  // Main-page VIP section (2026 price list §2.3) — sale listings, SUPER VIP
+  // first, then VIP (the server's order).
   const superVipCards = useMemo(
     () => (superVipProperties ?? []).map(toSaleCard),
     [superVipProperties],
@@ -378,7 +379,7 @@ export default function SaleLandingBody({
 
       <BannerSlotView placement="home_hero" creatives={bannerCreatives} />
 
-      {/* ═══ SUPER VIP — main-page section (2026 price list §2.3) ═══ */}
+      {/* ═══ VIP — main-page section (2026 price list §2.3) ═══ */}
       {superVipCards.length > 0 && (
         <section className="px-4 py-12 lg:py-16">
           <div className="mx-auto max-w-[1180px]">

@@ -47,7 +47,8 @@ const COMPARISON: { key: string; levels: Record<VipTier, 0 | 1 | 2> }[] = [
   { key: "discountMark", levels: { standard: 0, discount: 1, super: 0 } },
   { key: "offers", levels: { standard: 0, discount: 1, super: 0 } },
   { key: "priority", levels: { standard: 1, discount: 0, super: 2 } },
-  { key: "superSection", levels: { standard: 0, discount: 0, super: 1 } },
+  // The home page VIP section: SUPER VIP first, then VIP (since 2026-10-12).
+  { key: "superSection", levels: { standard: 1, discount: 0, super: 2 } },
 ];
 
 const FEATURE_KEYS = [
