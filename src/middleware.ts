@@ -313,8 +313,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // The second pattern skips dotted paths (static files). Every /api path runs
-  // the middleware anyway: a dotted dynamic segment (/api/x/a.b) would otherwise
-  // skip the Origin gate and the 11 MB body cap (middlewareClientMaxBodySize).
-  matcher: ["/api/:path*", "/((?!trpc|_next|_vercel|.*\\..*).*)"],
+  // The second pattern skips paths whose last segment has a dot (static files).
+  // A dot in an earlier segment does not: /k.a/dashboard/admin would otherwise
+  // reach the [locale] pages without the auth redirect, the site lock and the
+  // security headers. Every /api path runs the middleware anyway: a dotted
+  // dynamic segment (/api/x/a.b) would otherwise skip the Origin gate and the
+  // 11 MB body cap (middlewareClientMaxBodySize).
+  matcher: ["/api/:path*", "/((?!trpc|_next|_vercel|.*\\.[^/]*$).*)"],
 };

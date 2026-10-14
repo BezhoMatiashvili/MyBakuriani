@@ -113,6 +113,8 @@ Invariants held by **string keys, generated code, or wire shapes**—couplings i
 
 **Breaks:** Forget protected-route prefix (renders for anon); gates drift (middleware allows, layout redirects); `GET_USER_TIMEOUT_MS` lengthened (dashboards hang).
 
+**Page-level checks (2026-10-15):** a layout's `redirect()` does not keep its page's output out of the response: Next renders layouts and pages in parallel, so `/dashboard/admin/page.tsx` put the service-role `admin_overview_stats()` figures (revenue, visits, users, occupancy) into the RSC payload of a signed-in non-admin's response (200 + meta refresh) and, through `/k.a/dashboard/admin`, of anyone's: the matcher skipped every path with a dot, so the middleware's redirect never ran, and the `[locale]` layout's 404 did not stop the page either. A server page that reads with the service role checks the role itself first (`isAdminViewer()`, memoized with the layouts' profile read; `getPropertyById`, `getServiceById` and the food preview menu already did); the admin page renders nothing for anyone else. The middleware matcher skips a path only for a dot in its last segment (static files), so a dotted locale gets the auth redirect, the site lock and the security headers like any page. `check-contracts` C8 asserts both: every non-API `src/app` file that value-imports `@/lib/supabase/admin` or `getAdminStats` calls `isAdminViewer()` before its first service-role read, and the matcher runs for `/k.a/dashboard/admin` and skips `/favicon.ico`. **Breaks:** a page that trusts its layout and reads with the service role (its data reaches every visitor); the matcher back to `.*\\..*` (dotted locales skip every middleware check again).
+
 ---
 
 ## C9 — Favorites dual-reference pattern
@@ -146,6 +148,8 @@ Invariants held by **string keys, generated code, or wire shapes**—couplings i
 **Breaks:** Update payload unconditionally includes `organization_id` (fires trigger on every edit, 42501 when sub lapses); rental attached to org.
 
 **Admin plan writer (C44, 2026-10-06, staging):** `admin_change_company_plans` grants (only an `active` organization without a current plan; `amount_gel 0`, limit from `company-<tier>`, then `_auto_link_org_sale_listings` in a sub-block), extends, shortens, re-dates, re-tiers or ends `organization_subscriptions` rows. Ending a plan does not hide listings (`public_properties` checks `organizations.status` only); it blocks adding or re-publishing company listings. `organization_subscriptions` carries `trg_audit_row` since `20261006120000`.
+
+**Listing limit lock (2026-10-15, `20261013151500`, STAGING; ledger `20261014202755`):** `enforce_org_listing_rules()` counts the organization's listings under `pg_advisory_xact_lock(hashtextextended('org-listing-limit:' || organization_id, 0))`. Before, separate concurrent attaches (approved members' `PATCH properties {organization_id}`) each counted only committed rows, so all of them passed under `listing_limit` and a company kept more listings than its plan allows. Sequential attaches and the error text are unchanged; a plan without a limit takes no lock. Checked on staging with two concurrent attaches against a limit of 1: the second waited for the first to commit (3.3 s) and was refused with the limit error, where the old count still read 0. `check-contracts` C11 asserts the lock precedes the count. **Breaks:** the function re-created from an older body (the race is back).
 
 ---
 
@@ -215,7 +219,7 @@ Invariants held by **string keys, generated code, or wire shapes**—couplings i
 
 **IPv6 /64 (2026-10-13):** one host owns a whole /64, so the per-address key alone gave it a fresh bucket per request. `src/lib/client-ip.ts:ipv6Net64` + `src/lib/rateLimit.ts:checkNet64RateLimit` add a `<scope>:net64:<prefix>` bucket at 8x the limit after the unchanged per-address check, on the job-application, signed-out support (own limits, before the shared allowances, C43 F1 order), anonymous contact-reveal and geocode brakes. `getClientIp` is unchanged (geo, Turnstile, stored client_ip and the view dedup keep the exact address). **Breaks:** the /64 check moved before the per-address one (a denied address would spend its /64); a /64 key on the view dedup (changes owner-visible counts).
 
-**Middleware on dotted /api paths (2026-10-13):** `config.matcher` runs the middleware for every `/api/:path*`, dotted ones included, so the Origin gate and the 11 MB body cap (`middlewareClientMaxBodySize`) cannot be skipped with a dotted dynamic segment (`/api/sms-consent/a.b`). Pages and static files keep the dotted-path skip (C41's `/join/<code>` rule unchanged).
+**Middleware on dotted /api paths (2026-10-13):** `config.matcher` runs the middleware for every `/api/:path*`, dotted ones included, so the Origin gate and the 11 MB body cap (`middlewareClientMaxBodySize`) cannot be skipped with a dotted dynamic segment (`/api/sms-consent/a.b`). Pages keep the skip only for a dot in the last segment (static files; C41's `/join/<code>` rule unchanged): C8 "Page-level checks".
 
 **Upload intents (F-MC09, 2026-10-14):** `POST /api/media/intents` (no caller in `src/`, but reachable) adds the /64 bucket to its 12/min per-address limit and caps intents at 100 per account per 24 h (`media-intent:user:<id>`, after the listing-ownership check): each intent signs a 10 MiB service-role upload into `media-quarantine` (owner NULL), which the per-owner Storage budget (C5) does not count.
 
@@ -442,6 +446,8 @@ Invariants held by **string keys, generated code, or wire shapes**—couplings i
 
 
 **2026-10-14 (b):** `check-contracts` C25 (the `contact_events` column list and its user-session readers) and C33 (nine writers: the price-drop SMS title joins the eight notification writers); `check-db-contracts` C5 also asserts the storage type trigger (`mime_trigger_enabled`), and `check-contracts` C5 that its newest definition keeps the client-role test.
+
+**2026-10-15:** `check-contracts` C8 (non-API server files that read with the service role call `isAdminViewer()` first; the middleware matcher skips only a dotted last segment) and C11 (the company listing limit counts under its per-organization lock).
 
 ---
 

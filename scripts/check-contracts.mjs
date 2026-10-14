@@ -447,6 +447,72 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
+// C11 — the company listing limit counts under a per-organization advisory
+// lock: without it concurrent attaches each count before the other commits and
+// all pass under the plan's listing_limit.
+// ---------------------------------------------------------------------------
+{
+  const migDir = "supabase/migrations";
+  const create = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:"?public"?\.)?"?enforce_org_listing_rules"?\s*\(/i;
+  const file = readdirSync(join(root, migDir))
+    .filter((f) => f.endsWith(".sql") && create.test(read(join(migDir, f)).replace(/--[^\n]*/g, "")))
+    .sort()
+    .at(-1);
+  const sql = file ? read(join(migDir, file)).replace(/--[^\n]*/g, "") : "";
+  const at = sql.search(create);
+  const tag = at < 0 ? null : /\bAS\s+\$(\w*)\$/i.exec(sql.slice(at));
+  const start = tag ? at + tag.index + tag[0].length : -1;
+  const body = start < 0 ? "" : sql.slice(start, sql.indexOf(`$${tag[1]}$`, start));
+  const lock = body.search(/pg_advisory_xact_lock\(\s*hashtextextended\(\s*'org-listing-limit:'\s*\|\|\s*NEW\.organization_id/i);
+  const count = body.search(/SELECT\s+count\(\*\)\s+INTO\s+v_count/i);
+  if (!file) fail("C11: no migration defines public.enforce_org_listing_rules()");
+  else if (lock < 0 || count < 0 || lock > count) fail(`C11: ${file} counts the organization's listings without the per-organization advisory lock first (concurrent attaches overshoot listing_limit)`);
+  else ok(`C11: the company listing limit counts under a per-organization advisory lock (${file})`);
+}
+
+// ---------------------------------------------------------------------------
+// C8 — a page is not protected by its layout: layouts and pages render in
+// parallel, so a layout's redirect() leaves the page's output in the response.
+// (a) A server file under src/app outside the API routes that reads with the
+// service role (@/lib/supabase/admin, getAdminStats) calls isAdminViewer()
+// before its first service-role read. (b) The middleware matcher skips a path
+// only for a dot in its last segment (static files), so a dotted locale
+// (/k.a/dashboard/admin) still gets the auth redirect.
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  let gated = 0;
+  const serviceImport = /^import\s+(?!type\b)[^;]*from\s+["']@\/lib\/(?:supabase\/admin|admin\/getAdminStats)["']/m;
+  for (const f of srcFiles) {
+    if (!f.startsWith("src/app/") || f.startsWith("src/app/api/") || /\/route\.tsx?$/.test(f)) continue;
+    const t = read(f);
+    if (!serviceImport.test(t)) continue;
+    const firstRead = t.search(/\b(?:createServiceClient|getAdminStats)\(/);
+    if (firstRead < 0) continue;
+    const check = t.search(/\bisAdminViewer\(\)/);
+    if (check < 0 || check > firstRead) problems.push(`${f} reads with the service role without calling isAdminViewer() first`);
+    else gated++;
+  }
+  const mw = read("src/middleware.ts");
+  const list = /matcher:\s*\[(.*)\]\s*,?\s*$/m.exec(mw)?.[1] ?? "";
+  const patterns = [...list.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => JSON.parse(`"${m[1]}"`));
+  const page = patterns.find((p) => p.startsWith("/((?!"));
+  const re = page ? new RegExp(`^${page}$`) : null;
+  const runs = ["/k.a/dashboard/admin", "/ka./dashboard/admin", "/en.x/create/rental", "/dashboard/admin", "/k.a/apartments"];
+  const skips = ["/favicon.ico", "/robots.txt", "/category-icons/a.svg", "/join/a.b", "/_next/static/x.js"];
+  if (!patterns.includes("/api/:path*")) problems.push('src/middleware.ts matcher must keep "/api/:path*"');
+  if (!re) problems.push("could not read the page pattern of the middleware matcher");
+  else {
+    const missed = runs.filter((p) => !re.test(p));
+    const ran = skips.filter((p) => re.test(p));
+    if (missed.length) problems.push(`the middleware matcher skips ${missed.join(", ")} (a dot outside the last segment must not skip it)`);
+    if (ran.length) problems.push(`the middleware matcher runs for static files ${ran.join(", ")}`);
+  }
+  if (problems.length) problems.forEach((p) => fail(`C8: ${p}`));
+  else ok(`C8: ${gated} server page(s) reading with the service role check isAdminViewer() first; the middleware skips only dotted last segments`);
+}
+
+// ---------------------------------------------------------------------------
 // C31 — the rental posting gate's HINT is the token the create form matches:
 // the newest migration defining enforce_private_rental_membership() must raise
 // exactly RENTAL_MEMBERSHIP_REQUIRED_HINT from src/lib/membership/plans.ts.
