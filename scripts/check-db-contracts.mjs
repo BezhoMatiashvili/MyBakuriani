@@ -375,6 +375,73 @@ if (posture) {
     if (drift.length) fail(`C34: client write grants differ from EXPECTED_CLIENT_WRITES: ${drift.join("; ")}`);
     else ok("C34: anon writes none of the client tables, authenticated only the payload columns, bookings and manual_bookings nothing");
   }
+  // 20261013150000: no API role holds TRUNCATE (it does not run RLS), TRIGGER, REFERENCES or MAINTAIN on a
+  // public relation, anon inserts nowhere, and the tables only server code writes take no client writes.
+  // Every SECURITY DEFINER function authenticated can execute binds auth.uid()/ownership (audited
+  // 2026-10-13); a new one must be reviewed and added here.
+  const AUTH_DEFINER_ALLOW = [
+    "add_renter_guest_to_blacklist(text,text,text)", "apply_calendar_availability(uuid,date[],text)",
+    "cancel_manual_booking(uuid)", "create_cleaning_task(uuid,uuid,text,timestamp with time zone,text,text)",
+    "create_guest_manual_booking(uuid,date,date,text,text,text,boolean,numeric,numeric,date)",
+    "create_manual_booking(uuid,date,date,text,text,text,integer,numeric,text,text,text,uuid,boolean,numeric,date)",
+    "create_organization(text,text,text,text,text,text,text,text,text,text,text,double precision,double precision)",
+    "get_cleaner_renter_counts()", "get_cleaning_task_contact(uuid)", "get_my_cleaning_task_cleaner_details()",
+    "get_my_cleaning_task_owner_details()", "get_platform_cleaners()", "is_admin_user()", "is_approved_org_member(uuid)",
+    "listing_analytics(text,uuid,integer)",
+    "owner_dashboard_stats(text,timestamp with time zone,timestamp with time zone,uuid[],uuid)",
+    "request_organization_membership(uuid)", "respond_membership_request(uuid,text)", "restore_manual_booking(uuid)",
+    "seller_dashboard_stats(timestamp with time zone,timestamp with time zone,uuid[],uuid)",
+    "transition_cleaning_task(uuid,text)",
+    "update_manual_booking(uuid,date,date,text,text,text,integer,numeric,text,text,text,uuid,boolean,numeric,date)",
+  ];
+  const authDefiner = posture.authenticated_definer_functions;
+  if (!authDefiner) fail("C34: security_posture_snapshot() has no authenticated_definer_functions — apply 20261013150000_client_privilege_hygiene.sql");
+  else {
+    const extra = onlyIn(authDefiner, AUTH_DEFINER_ALLOW);
+    if (extra.length) fail(`C34: SECURITY DEFINER functions newly executable by authenticated (review, then allow-list): ${extra.join(", ")}`);
+    else ok(`C34: authenticated reaches only the ${AUTH_DEFINER_ALLOW.length} reviewed definer functions`);
+  }
+  const hygiene = posture.client_privilege_hygiene;
+  if (!hygiene) fail("C34: security_posture_snapshot() has no client_privilege_hygiene — apply 20261013150000_client_privilege_hygiene.sql");
+  else {
+    const drift = [
+      ...hygiene.rls_bypass_grants.map((g) => `rls-bypass ${g}`),
+      ...hygiene.anon_insert_relations.map((t) => `anon-insert ${t}`),
+      ...hygiene.server_only_client_writes.map((g) => `server-only ${g}`),
+    ];
+    if (drift.length) fail(`C34: client privilege hygiene drifted: ${drift.join(", ")}`);
+    else ok("C34: no client TRUNCATE/TRIGGER/REFERENCES/MAINTAIN, anon inserts nowhere, server-only tables take no client writes");
+  }
+  // C5 storage (20261013150500 / 150600 / 150900): the per-owner upload budget trigger is enabled,
+  // only the two folder-pinned UPDATE policies remain, no storage policy is open to anon/PUBLIC, and
+  // anon cannot list the public buckets (behavioural). A SELECT policy that reaches only authenticated is not seen
+  // here: 20261013150600 checks a signed-in stranger at apply time only.
+  const storage = posture.storage;
+  if (!storage) fail("C5: security_posture_snapshot() has no storage section — apply 20261013150000_client_privilege_hygiene.sql");
+  else {
+    const problems = [];
+    if (storage.budget_trigger_enabled !== true)
+      problems.push("trigger enforce_storage_upload_budget is missing or disabled (apply 20261013150900)");
+    const extraUpdate = onlyIn(storage.update_policies, ["avatars owner update", "landing-media admin update"]);
+    if (extraUpdate.length)
+      problems.push(`UPDATE policies beyond the two folder-pinned ones (a move refills the budget): ${extraUpdate.join(", ")}`);
+    if (storage.policies_open_to_anon.length)
+      problems.push(`policies open to anon/PUBLIC: ${storage.policies_open_to_anon.join(", ")}`);
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!anonKey) warn("C5: NEXT_PUBLIC_SUPABASE_ANON_KEY not set — skipped the anonymous listing check");
+    else
+      for (const bucket of ["property-photos", "logos", "avatars", "restaurant-menus", "landing-media"]) {
+        const res = await fetch(`${url}/storage/v1/object/list/${bucket}`, {
+          method: "POST",
+          headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ prefix: "", limit: 1 }),
+        });
+        const body = (await res.text()).trim();
+        if (res.status !== 200 || body !== "[]") problems.push(`anon can list ${bucket} (HTTP ${res.status}: ${body.slice(0, 80)})`);
+      }
+    if (problems.length) problems.forEach((p) => fail(`C5: ${p}`));
+    else ok("C5: upload budget trigger enabled, only folder-pinned UPDATE policies, nothing open to anon, public buckets not listable");
+  }
 }
 
 // C24 — a cleaner's view of a call-out comes only through get_my_cleaning_task_owner_details() (RLS hides

@@ -15,7 +15,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5";
+    PostgrestVersion: "14.17";
   };
   public: {
     Tables: {
@@ -7079,6 +7079,7 @@ export type Database = {
         Args: { p_kind: string; p_message: string; p_user_id: string };
         Returns: undefined;
       };
+      _notice_text: { Args: { p_text: string }; Returns: string };
       _notify: {
         Args: {
           p_action_url?: string;
