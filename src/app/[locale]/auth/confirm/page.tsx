@@ -52,7 +52,10 @@ async function verifyLink(
 ): Promise<boolean> {
   if ("tokenHash" in link) {
     const { error } = await supabase.auth.verifyOtp({
-      type: link.type,
+      // Sign-up confirmations only. GoTrue's "email" type also accepts recovery
+      // and magic-link token hashes, which would sign this browser into the
+      // account that link belongs to.
+      type: "signup",
       token_hash: link.tokenHash,
     });
     return !error;

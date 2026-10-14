@@ -54,10 +54,21 @@ export function parseStorageObjectUrl(value: string): {
     }
   }
 
+  // A stray "%" in a stored URL must drop that one value, not throw a URIError
+  // through sanitizePhotos into the sitemap and the listing's own render.
+  let bucket: string;
+  let path: string;
+  try {
+    bucket = decodeURIComponent(match[1]);
+    path = decodeURIComponent(match[2]);
+  } catch {
+    return null;
+  }
+
   return {
     origin: url.origin,
-    bucket: decodeURIComponent(match[1]),
-    path: decodeURIComponent(match[2]),
+    bucket,
+    path,
     sameOrigin,
     currentUrl,
   };

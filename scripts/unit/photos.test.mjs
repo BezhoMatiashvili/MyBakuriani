@@ -1,6 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { firstPhotoOnly } from "../../src/lib/utils/photos.ts";
+import {
+  firstPhotoOnly,
+  parseStorageObjectUrl,
+  sanitizePhotos,
+} from "../../src/lib/utils/photos.ts";
+
+test("a malformed %-escape drops that photo instead of throwing", () => {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://abc.supabase.co";
+  const base =
+    "https://abc.supabase.co/storage/v1/object/public/property-photos";
+  const good = `${base}/u1/ok.jpg`;
+  const bad = `${base}/u1/a%ZZ.jpg`;
+  assert.equal(parseStorageObjectUrl(bad), null);
+  assert.deepEqual(sanitizePhotos([bad, good]), [good]);
+  assert.equal(parseStorageObjectUrl(good)?.path, "u1/ok.jpg");
+});
 
 test("firstPhotoOnly keeps only the first photo", () => {
   const row = { id: "a", photos: ["1.jpg", "2.jpg", "3.jpg"] };

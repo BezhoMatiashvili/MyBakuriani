@@ -1,6 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import {
+  checkNet64RateLimit,
+  checkRateLimit,
+  getClientIp,
+} from "@/lib/rateLimit";
 import { getActiveZones } from "@/lib/zones/server";
 import { CONTACT_EMAIL, CONTACT_PHONE_E164 } from "@/lib/site-contact";
 import { OpenRouterError, isSupportConfigured } from "@/lib/support/openrouter";
@@ -124,6 +128,19 @@ async function withinLimits(
         ],
   );
   if (own.includes(false)) return false;
+  if (!userId) {
+    const ip = getClientIp(request);
+    const net = await Promise.all([
+      checkNet64RateLimit(
+        `support:${parsed.mode}:ip`,
+        ip,
+        plan ? 15 : 20,
+        HOUR,
+      ),
+      checkNet64RateLimit("support:day:ip", ip, 60, DAY),
+    ]);
+    if (net.includes(false)) return false;
+  }
   // Narrowest shared allowance first, for the same reason: a full
   // signed-out allowance must not keep spending the site-wide one.
   if (!userId && !(await checkRateLimit("support:day:anon", 1500, DAY)))

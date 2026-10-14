@@ -4,6 +4,7 @@ import {
   CLOUDFLARE_IPV4_RANGES,
   CLOUDFLARE_IPV6_RANGES,
   getClientIp,
+  ipv6Net64,
   isCloudflareIp,
 } from "../../src/lib/client-ip.ts";
 
@@ -167,4 +168,18 @@ test("isCloudflareIp matches the published ranges, edges included", () => {
 test("range tables match cloudflare.com/ips-v4 and /ips-v6 (2026-09-26)", () => {
   assert.equal(CLOUDFLARE_IPV4_RANGES.length, 15);
   assert.equal(CLOUDFLARE_IPV6_RANGES.length, 7);
+});
+
+test("ipv6Net64: the /64 of an IPv6 client, null for anything else", () => {
+  assert.equal(ipv6Net64("198.51.100.1"), null);
+  assert.equal(ipv6Net64("::ffff:203.0.113.5"), null);
+  assert.equal(ipv6Net64("unknown"), null);
+  const net = "2001:db8:1234:5678::/64";
+  assert.equal(ipv6Net64("2001:db8:1234:5678::1"), net);
+  assert.equal(ipv6Net64("2001:DB8:1234:5678:0:0:0:ffff"), net);
+  assert.equal(ipv6Net64("2001:0db8:1234:5678:aaaa:bbbb:cccc:dddd"), net);
+  assert.notEqual(ipv6Net64("2001:db8:1234:5679::1"), net);
+  assert.equal(ipv6Net64("2001:db8::1"), "2001:db8:0:0::/64");
+  assert.equal(ipv6Net64("2001:db8:0:0:1::"), "2001:db8:0:0::/64");
+  assert.equal(ipv6Net64("64:ff9b::192.0.2.33"), "64:ff9b:0:0::/64");
 });

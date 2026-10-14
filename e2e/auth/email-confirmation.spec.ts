@@ -214,7 +214,7 @@ test.describe("Confirmation link page", () => {
     // No profiles row yet: the registration wizard creates it.
     await clickConfirmAndLand(page, "/auth/register");
     expect(verifyBodies).toEqual([
-      expect.objectContaining({ token_hash: TOKEN_HASH, type: "email" }),
+      expect.objectContaining({ token_hash: TOKEN_HASH, type: "signup" }),
     ]);
   });
 

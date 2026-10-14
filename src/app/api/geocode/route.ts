@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
 import { timeoutFetch } from "@/lib/with-timeout";
-import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import {
+  checkNet64RateLimit,
+  checkRateLimit,
+  getClientIp,
+} from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -126,6 +130,12 @@ async function reverseGeocode(lat: number, lng: number): Promise<Response> {
 
 export async function GET(req: NextRequest) {
   if (!(await checkRateLimit(`geocode:${getClientIp(req)}`, 60, 60_000))) {
+    return Response.json(
+      { error: "rate limited", results: [] },
+      { status: 429 },
+    );
+  }
+  if (!(await checkNet64RateLimit("geocode", getClientIp(req), 60, 60_000))) {
     return Response.json(
       { error: "rate limited", results: [] },
       { status: 429 },

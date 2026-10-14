@@ -6,6 +6,7 @@ import { ExternalLink } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import { Link } from "@/i18n/navigation";
 import { formatPhone } from "@/lib/utils/format";
+import { isFacebookProfileUrl } from "@/lib/fb-profile-url";
 import {
   Button,
   Notice,
@@ -289,7 +290,7 @@ function DrawerBody({
                         {p.review_note}
                       </p>
                     )}
-                    {p.fb_profile_url?.startsWith("https://") && (
+                    {isFacebookProfileUrl(p.fb_profile_url) && (
                       <a
                         href={p.fb_profile_url}
                         target="_blank"

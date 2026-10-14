@@ -19,6 +19,7 @@
  * from a client component.
  */
 import { createServiceClient } from "@/lib/supabase/admin";
+import { ipv6Net64 } from "@/lib/client-ip";
 
 type Bucket = { count: number; resetAt: number };
 
@@ -154,6 +155,29 @@ export async function checkRateLimit(
     `[rateLimit] no shared store reachable; using local fallback for "${key}"`,
   );
   return localLimit(key, limit, windowMs);
+}
+
+/** Per-/64 headroom: a lone address never gets near it (C16). */
+const NET64_FACTOR = 8;
+
+/**
+ * The /64 half of an IP-keyed brake (C16). True for IPv4. For an IPv6 client
+ * it consumes `<scope>:net64:<prefix>` at NET64_FACTOR x `limit`, so a host
+ * cycling through the addresses of its /64 cannot get a fresh bucket per
+ * request. Call it only after the per-address check passed: a denied address
+ * then adds nothing to its /64.
+ */
+export async function checkNet64RateLimit(
+  scope: string,
+  ip: string,
+  limit: number,
+  windowMs: number,
+): Promise<boolean> {
+  const net = ipv6Net64(ip);
+  return (
+    net === null ||
+    checkRateLimit(`${scope}:net64:${net}`, limit * NET64_FACTOR, windowMs)
+  );
 }
 
 /** Trusted client address: rule and history in src/lib/client-ip.ts (C16). */

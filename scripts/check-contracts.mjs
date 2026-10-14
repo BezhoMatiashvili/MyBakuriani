@@ -306,6 +306,81 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
+// C14 — admin approval is bound to the version the admin loaded: the owner's
+// resubmit rewrites a pending request in place (same id), so the verifications
+// page sends expectedUpdatedAt = the listed row's updated_at and the approve
+// route compares it with the pending row's updated_at before any approve RPC.
+// The field is optional, so a rename on either side would fail open silently.
+// ---------------------------------------------------------------------------
+{
+  const page = read("src/app/[locale]/dashboard/admin/verifications/page.tsx");
+  const route = read("src/app/api/admin/content-change-requests/[id]/route.ts");
+  const problems = [];
+  if (!/expectedUpdatedAt:\s*item\.updated_at/.test(page))
+    problems.push("the verifications page no longer sends expectedUpdatedAt: item.updated_at");
+  if (!/\.select\(\s*"request_kind, updated_at"\s*\)/.test(route))
+    problems.push("the approve route no longer reads updated_at with request_kind");
+  if (!/pending\.updated_at\s*!==\s*body\.expectedUpdatedAt/.test(route))
+    problems.push("the approve route no longer compares pending.updated_at with body.expectedUpdatedAt");
+  const answer = route.indexOf("changed_since_loaded");
+  if (answer < 0 || answer > route.indexOf(".rpc("))
+    problems.push("the approve route must answer superseded/changed_since_loaded before calling an approve RPC");
+  if (problems.length) problems.forEach((p) => fail(`C14: ${p}`));
+  else ok("C14: approval is bound to the loaded version (page sends updated_at; the route compares it before the RPC)");
+}
+
+// ---------------------------------------------------------------------------
+// C33 — user-typed text in mailed notifications: the newest migration that
+// (re)creates each writer below passes the typed name, title or address through
+// public._notice_text (line breaks and invisible characters flattened, links
+// defanged). A function re-created from an older body would drop it silently.
+// ---------------------------------------------------------------------------
+{
+  const migDir = "supabase/migrations";
+  const files = readdirSync(join(root, migDir))
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+  const noComments = (sql) => sql.replace(/--[^\n]*/g, "");
+  const WRITERS = [
+    "notify_admins_content_change_pending",
+    "notify_admins_sms_broadcast_pending",
+    "request_organization_membership",
+    "notify_job_application",
+    "notify_admins_organization_pending",
+    "notify_listing_pending",
+    "respond_membership_request",
+    "notify_cleaner_of_new_task",
+  ];
+  const missing = [];
+  for (const name of WRITERS) {
+    const create = new RegExp(
+      `CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+(?:"?public"?\\.)?"?${name}"?\\s*\\(`,
+      "i",
+    );
+    const file = files
+      .filter((f) => create.test(noComments(read(join(migDir, f)))))
+      .at(-1);
+    if (!file) {
+      missing.push(`${name}: no migration defines it`);
+      continue;
+    }
+    const sql = noComments(read(join(migDir, file)));
+    const at = sql.search(create);
+    const tag = /\bAS\s+\$(\w*)\$/i.exec(sql.slice(at));
+    const start = tag ? at + tag.index + tag[0].length : -1;
+    const body =
+      start < 0 ? "" : sql.slice(start, sql.indexOf(`$${tag[1]}$`, start));
+    if (!body.includes("_notice_text(")) missing.push(`${name} (${file})`);
+  }
+  if (missing.length)
+    missing.forEach((m) =>
+      fail(`C33: ${m} puts user-typed text into a notification without public._notice_text`),
+    );
+  else
+    ok(`C33: all ${WRITERS.length} notification writers pass user-typed text through public._notice_text`);
+}
+
+// ---------------------------------------------------------------------------
 // C31 — the rental posting gate's HINT is the token the create form matches:
 // the newest migration defining enforce_private_rental_membership() must raise
 // exactly RENTAL_MEMBERSHIP_REQUIRED_HINT from src/lib/membership/plans.ts.

@@ -1,7 +1,11 @@
 import { NextRequest } from "next/server";
 import { requireUser } from "@/lib/auth/require-user";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import {
+  checkNet64RateLimit,
+  checkRateLimit,
+  getClientIp,
+} from "@/lib/rateLimit";
 import { isUuid } from "@/lib/utils/uuid";
 
 export const runtime = "nodejs";
@@ -18,7 +22,11 @@ type IntentBody = {
 };
 
 export async function POST(req: NextRequest) {
-  if (!(await checkRateLimit(`media-intent:${getClientIp(req)}`, 12, 60_000))) {
+  const ip = getClientIp(req);
+  if (
+    !(await checkRateLimit(`media-intent:${ip}`, 12, 60_000)) ||
+    !(await checkNet64RateLimit("media-intent", ip, 12, 60_000))
+  ) {
     return Response.json({ error: "rate_limited" }, { status: 429 });
   }
   const guard = await requireUser();
@@ -52,6 +60,13 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
   if (!listing || listing.owner_id !== user.id) {
     return Response.json({ error: "forbidden" }, { status: 403 });
+  }
+  // Each intent signs a 10 MiB quarantine upload made by the service role
+  // (owner_id NULL, outside the per-account Storage budget), so cap them per account.
+  if (
+    !(await checkRateLimit(`media-intent:user:${user.id}`, 100, 86_400_000))
+  ) {
+    return Response.json({ error: "rate_limited" }, { status: 429 });
   }
 
   const extension = contentType.split("/")[1];

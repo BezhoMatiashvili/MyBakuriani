@@ -2,7 +2,11 @@ import { NextRequest, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { recordAnalyticsEvent } from "@/lib/analytics/events";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import {
+  checkNet64RateLimit,
+  checkRateLimit,
+  getClientIp,
+} from "@/lib/rateLimit";
 import { isUuid } from "@/lib/utils/uuid";
 import { normalizeE164Phone } from "@/lib/security";
 import {
@@ -71,6 +75,16 @@ export async function POST(req: NextRequest) {
   if (
     !(await checkRateLimit(
       `job-application:${getClientIp(req)}`,
+      5,
+      60 * 60_000,
+    ))
+  ) {
+    return Response.json({ error: "rate_limited" }, { status: 429 });
+  }
+  if (
+    !(await checkNet64RateLimit(
+      "job-application",
+      getClientIp(req),
       5,
       60 * 60_000,
     ))

@@ -89,6 +89,41 @@ function canonical(ip: string): string {
 }
 
 /**
+ * The /64 an IPv6 client sits in ("2001:db8:1:2::/64"), or null for IPv4,
+ * IPv4-mapped and anything that is not an address. One subscriber controls a
+ * whole /64 (a handset on mobile, a LAN on fixed lines, a VPS) and can send
+ * from any address in it, so a per-address brake alone gives such a host a
+ * fresh bucket per request. For rate-limit keys only: geo lookups, Turnstile
+ * and the stored client_ip keep the exact address.
+ */
+export function ipv6Net64(ip: string): string | null {
+  if (isIP(ip) !== 6 || /^::ffff:/i.test(ip)) return null;
+  let addr = ip.split("%")[0].toLowerCase();
+  const v4 = /(\d+\.\d+\.\d+\.\d+)$/.exec(addr);
+  if (v4) {
+    const o = v4[1].split(".").map(Number);
+    addr =
+      addr.slice(0, -v4[1].length) +
+      ((o[0] << 8) | o[1]).toString(16) +
+      ":" +
+      ((o[2] << 8) | o[3]).toString(16);
+  }
+  const [l, r] = addr.split("::");
+  const left = l ? l.split(":") : [];
+  const right = r === undefined ? null : r ? r.split(":") : [];
+  const groups =
+    right === null
+      ? left
+      : [...left, ...Array(8 - left.length - right.length).fill("0"), ...right];
+  return (
+    groups
+      .slice(0, 4)
+      .map((g) => parseInt(g, 16).toString(16))
+      .join(":") + "::/64"
+  );
+}
+
+/**
  * Client address from the proxy chain client → Cloudflare edge → DO ingress →
  * app (inferred from the recorded edge addresses; see C16). The peer is the
  * LAST X-Forwarded-For hop: DO's ingress appends it, so the client cannot

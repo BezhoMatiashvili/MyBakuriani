@@ -34,6 +34,7 @@ type ContentChangeRequest = {
   proposed_values: Record<string, unknown>;
   field_diff: Record<string, { before: unknown; after: unknown }>;
   created_at: string;
+  updated_at: string;
   request_kind: "content" | "food_discount" | "menu_item_discount";
   quoted_amount_gel?: number | null;
   quoted_duration_hours?: number | null;
@@ -737,7 +738,11 @@ function ContentChangeRequestsPanel({
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action, reason }),
+          body: JSON.stringify({
+            action,
+            reason,
+            expectedUpdatedAt: item.updated_at,
+          }),
         },
       );
       const payload = await response.json();

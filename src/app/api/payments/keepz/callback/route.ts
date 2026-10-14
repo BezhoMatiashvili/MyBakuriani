@@ -113,6 +113,13 @@ export async function POST(request: Request) {
   ) {
     return ok();
   }
+  // And at most 30 callback-driven checks per order per hour: Keepz sends a
+  // handful per order, while a replayed id would otherwise ask every 3 s.
+  if (
+    !(await checkRateLimit(`keepz-callback:payment:${orderId}`, 30, 3_600_000))
+  ) {
+    return ok();
+  }
 
   const claimed = Number(fields?.amount);
   if (

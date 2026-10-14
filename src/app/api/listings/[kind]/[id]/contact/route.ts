@@ -2,7 +2,11 @@ import { NextRequest, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { recordAnalyticsEvent } from "@/lib/analytics/events";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import {
+  checkNet64RateLimit,
+  checkRateLimit,
+  getClientIp,
+} from "@/lib/rateLimit";
 import { isUuid } from "@/lib/utils/uuid";
 import { normalizeE164Phone } from "@/lib/security";
 import { isTurnstileConfigured, verifyTurnstile } from "@/lib/turnstile";
@@ -89,7 +93,14 @@ export async function POST(
       8,
       60 * 60_000,
     )) &&
-    (await checkRateLimit(`listing-contact-all:${subject}`, 30, 60 * 60_000));
+    (await checkRateLimit(`listing-contact-all:${subject}`, 30, 60 * 60_000)) &&
+    (!!user ||
+      (await checkNet64RateLimit(
+        "listing-contact-all:ip",
+        ip,
+        30,
+        60 * 60_000,
+      )));
   if (!withinLimits) {
     return Response.json({ error: "rate_limited" }, { status: 429 });
   }

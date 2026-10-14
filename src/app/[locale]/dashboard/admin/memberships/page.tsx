@@ -6,6 +6,7 @@ import { BadgeCheck, Check, Clock3, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatPhone, formatPrice } from "@/lib/utils/format";
+import { isFacebookProfileUrl } from "@/lib/fb-profile-url";
 import type { PendingMembership } from "@/app/api/admin/memberships/route";
 import { Link } from "@/i18n/navigation";
 
@@ -153,7 +154,7 @@ export default function AdminMembershipsPage() {
                           {t("fbTierBadge")}
                         </span>
                       )}
-                      {item.fb_profile_url?.startsWith("https://") && (
+                      {isFacebookProfileUrl(item.fb_profile_url) && (
                         <a
                           href={item.fb_profile_url}
                           target="_blank"

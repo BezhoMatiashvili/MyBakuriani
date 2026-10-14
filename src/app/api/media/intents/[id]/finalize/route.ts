@@ -14,6 +14,23 @@ const QUARANTINE_BUCKET = "media-quarantine";
 const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_DIMENSION = 4096;
 
+const PNG_SIGNATURE = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
+
+/** JPEG, PNG or WebP by magic bytes (the formats this route accepts). */
+function isAcceptedImage(b: Buffer): boolean {
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) {
+    return true;
+  }
+  if (b.length >= 8 && b.subarray(0, 8).equals(PNG_SIGNATURE)) return true;
+  return (
+    b.length >= 12 &&
+    b.toString("latin1", 0, 4) === "RIFF" &&
+    b.toString("latin1", 8, 12) === "WEBP"
+  );
+}
+
 // The MyBakuriani logo watermark (brand-coloured, transparent background),
 // shared with the client uploader (public/watermark.png). Bundled into the
 // serverless function via next.config.ts outputFileTracingIncludes.
@@ -100,6 +117,12 @@ export async function POST(
   }
   try {
     const input = Buffer.from(await source.arrayBuffer());
+    // Only JPEG, PNG and WebP bytes reach a decoder. The quarantine bucket checks
+    // the declared type, not the bytes, and sharp would otherwise pick its loader
+    // (SVG included) from the content before the format check below.
+    if (!isAcceptedImage(input)) {
+      return Response.json({ error: "invalid_media" }, { status: 422 });
+    }
     // Apply EXIF orientation up front so width/height (and the watermark
     // placement below) reflect the pixels as they will actually be encoded.
     const rotated = await sharp(input, {

@@ -313,5 +313,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/((?!trpc|_next|_vercel|.*\\..*).*)",
+  // The second pattern skips dotted paths (static files). Every /api path runs
+  // the middleware anyway: a dotted dynamic segment (/api/x/a.b) would otherwise
+  // skip the Origin gate and the 11 MB body cap (middlewareClientMaxBodySize).
+  matcher: ["/api/:path*", "/((?!trpc|_next|_vercel|.*\\..*).*)"],
 };
