@@ -4,7 +4,11 @@ import path from "node:path";
 import sharp from "sharp";
 import { requireUser } from "@/lib/auth/require-user";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import {
+  checkNet64RateLimit,
+  checkRateLimit,
+  getClientIp,
+} from "@/lib/rateLimit";
 import { isUuid } from "@/lib/utils/uuid";
 
 export const runtime = "nodejs";
@@ -72,8 +76,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const ip = getClientIp(req);
   if (
-    !(await checkRateLimit(`media-finalize:${getClientIp(req)}`, 12, 60_000))
+    !(await checkRateLimit(`media-finalize:${ip}`, 12, 60_000)) ||
+    !(await checkNet64RateLimit("media-finalize", ip, 12, 60_000))
   ) {
     return Response.json({ error: "rate_limited" }, { status: 429 });
   }
@@ -102,6 +108,32 @@ export async function POST(
       { status: 409 },
     );
   }
+  // Claim the intent before any work: concurrent finalize calls of one intent
+  // would otherwise each publish an object (a service-role upload, outside the
+  // per-owner Storage budget). A failed attempt gives the claim back.
+  const { data: claimed } = await intentDb
+    .from("media_upload_intents")
+    .update({ status: "scanning" })
+    .eq("id", id)
+    .eq("owner_id", user.id)
+    .eq("status", "pending")
+    .is("finalized_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .select("id")
+    .maybeSingle();
+  if (!claimed) {
+    return Response.json(
+      { error: "invalid_or_expired_intent" },
+      { status: 409 },
+    );
+  }
+  const release = () =>
+    intentDb
+      .from("media_upload_intents")
+      .update({ status: "pending" })
+      .eq("id", id)
+      .eq("status", "scanning")
+      .is("finalized_at", null);
   const { data: source, error: downloadError } = await db.storage
     .from(QUARANTINE_BUCKET)
     .download(intent.quarantine_path);
@@ -113,6 +145,7 @@ export async function POST(
     source.size !== intent.expected_bytes
   ) {
     console.error("invalid quarantined media", downloadError);
+    await release();
     return Response.json({ error: "invalid_media" }, { status: 422 });
   }
   try {
@@ -121,6 +154,7 @@ export async function POST(
     // the declared type, not the bytes, and sharp would otherwise pick its loader
     // (SVG included) from the content before the format check below.
     if (!isAcceptedImage(input)) {
+      await release();
       return Response.json({ error: "invalid_media" }, { status: 422 });
     }
     // Apply EXIF orientation up front so width/height (and the watermark
@@ -139,6 +173,7 @@ export async function POST(
       metadata.height > MAX_DIMENSION ||
       !["jpeg", "png", "webp"].includes(metadata.format ?? "")
     ) {
+      await release();
       return Response.json({ error: "invalid_media" }, { status: 422 });
     }
     // Downscale to the same 2560px ceiling the client upload path already
@@ -194,6 +229,7 @@ export async function POST(
     const { error: finalizeError } = await intentDb
       .from("media_upload_intents")
       .update({
+        status: "approved",
         finalized_at: new Date().toISOString(),
         canonical_url: canonicalUrl,
         canonical_path: finalPath,
@@ -206,6 +242,7 @@ export async function POST(
     return Response.json({ url: canonicalUrl, path: finalPath });
   } catch (error) {
     console.error("media finalization failed", error);
+    await release();
     return Response.json({ error: "media_processing_failed" }, { status: 422 });
   }
 }

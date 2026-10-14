@@ -412,7 +412,7 @@ if (posture) {
     if (drift.length) fail(`C34: client privilege hygiene drifted: ${drift.join(", ")}`);
     else ok("C34: no client TRUNCATE/TRIGGER/REFERENCES/MAINTAIN, anon inserts nowhere, server-only tables take no client writes");
   }
-  // C5 storage (20261013150500 / 150600 / 150900): the per-owner upload budget trigger is enabled,
+  // C5 storage (20261013150500 / 150600 / 150900 / 151100): the upload budget and bucket type triggers are enabled,
   // only the two folder-pinned UPDATE policies remain, no storage policy is open to anon/PUBLIC, and
   // anon cannot list the public buckets (behavioural). A SELECT policy that reaches only authenticated is not seen
   // here: 20261013150600 checks a signed-in stranger at apply time only.
@@ -422,6 +422,8 @@ if (posture) {
     const problems = [];
     if (storage.budget_trigger_enabled !== true)
       problems.push("trigger enforce_storage_upload_budget is missing or disabled (apply 20261013150900)");
+    if (storage.mime_trigger_enabled !== true)
+      problems.push("trigger enforce_storage_object_mime is missing or disabled (apply 20261013151100)");
     const extraUpdate = onlyIn(storage.update_policies, ["avatars owner update", "landing-media admin update"]);
     if (extraUpdate.length)
       problems.push(`UPDATE policies beyond the two folder-pinned ones (a move refills the budget): ${extraUpdate.join(", ")}`);
@@ -440,7 +442,7 @@ if (posture) {
         if (res.status !== 200 || body !== "[]") problems.push(`anon can list ${bucket} (HTTP ${res.status}: ${body.slice(0, 80)})`);
       }
     if (problems.length) problems.forEach((p) => fail(`C5: ${p}`));
-    else ok("C5: upload budget trigger enabled, only folder-pinned UPDATE policies, nothing open to anon, public buckets not listable");
+    else ok("C5: upload budget and bucket type triggers enabled, only folder-pinned UPDATE policies, nothing open to anon, public buckets not listable");
   }
 }
 

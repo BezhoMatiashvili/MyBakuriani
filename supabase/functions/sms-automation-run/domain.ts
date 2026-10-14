@@ -91,8 +91,24 @@ export function tbilisiDate(offsetDays: number, now = Date.now()): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Owner-typed text gets what public._notice_text gives user-typed text in a
+// notification (C33): control, space, zero-width and bidi characters become one
+// space (the C24 class), a dot between two non-space characters becomes U+2024
+// and "://" becomes ":/ /", so a typed value never reaches a phone as a link.
+const FLATTEN =
+  /[\p{Cc}\s\u0001-\u0020\u007F-\u00A0\u00AD\u034F\u061C\u115F\u1160\u1680\u17B4\u17B5\u180E\u2000-\u200B\u200E\u200F\u2028-\u202F\u205F-\u206F\u2800\u3000\u3164\uFEFF\uFFA0\uFFF9-\uFFFC\u{E0001}\u{E0020}-\u{E007F}]+/gu;
+
+function plainText(value: string | null): string {
+  return (value ?? "")
+    .replace(FLATTEN, " ")
+    .trim()
+    .replace(/([^\s.])\.(?=[^\s.])/gu, "$1\u2024")
+    .split("://")
+    .join(":/ /");
+}
+
 function clampName(name: string | null): string {
-  const trimmed = (name ?? "").trim();
+  const trimmed = plainText(name);
   if (!trimmed) return GUEST_NAME_FALLBACK;
   return trimmed.length > GUEST_NAME_MAX
     ? trimmed.slice(0, GUEST_NAME_MAX)
@@ -101,7 +117,7 @@ function clampName(name: string | null): string {
 
 /** Owner-typed text as one line (no line breaks), cut to `max` characters. */
 function clampOneLine(value: string | null, max: number): string {
-  const oneLine = (value ?? "").replace(/[\p{Cc}\s]+/gu, " ").trim();
+  const oneLine = plainText(value);
   return Array.from(oneLine).slice(0, max).join("").trim();
 }
 
@@ -186,8 +202,8 @@ export function buildWinBack(
   rule: Rule,
   siteUrl: string,
 ): string {
-  const value = (rule.win_back_discount_value ?? "").trim();
-  const period = (rule.win_back_discount_period ?? "").trim();
+  const value = plainText(rule.win_back_discount_value);
+  const period = plainText(rule.win_back_discount_period);
   const link = c.property
     ? `${siteUrl}${propertyViewPath(c.property)}`
     : siteUrl;

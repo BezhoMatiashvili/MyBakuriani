@@ -350,6 +350,8 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     "notify_listing_pending",
     "respond_membership_request",
     "notify_cleaner_of_new_task",
+    // C18: the listing title in the price-drop SMS (20261013151200).
+    "sms_materialize_due_price_drop_events",
   ];
   const missing = [];
   for (const name of WRITERS) {
@@ -378,6 +380,70 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     );
   else
     ok(`C33: all ${WRITERS.length} notification writers pass user-typed text through public._notice_text`);
+}
+
+// ---------------------------------------------------------------------------
+// C5 — the storage type trigger checks client writes only: storage-api's
+// signed-upload test insert runs as the service role with the sign request's
+// own application/json type, so a body without the role test refuses every
+// createSignedUploadUrl (admin media uploads, media intents).
+// ---------------------------------------------------------------------------
+{
+  const migDir = "supabase/migrations";
+  const create = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:"?public"?\.)?"?enforce_storage_object_mime"?\s*\(/i;
+  const file = readdirSync(join(root, migDir))
+    .filter((f) => f.endsWith(".sql") && create.test(read(join(migDir, f)).replace(/--[^\n]*/g, "")))
+    .sort()
+    .at(-1);
+  const sql = file ? read(join(migDir, file)).replace(/--[^\n]*/g, "") : "";
+  const at = sql.search(create);
+  const tag = at < 0 ? null : /\bAS\s+\$(\w*)\$/i.exec(sql.slice(at));
+  const start = tag ? at + tag.index + tag[0].length : -1;
+  const body = start < 0 ? "" : sql.slice(start, sql.indexOf(`$${tag[1]}$`, start));
+  const roleTest = /current_setting\(\s*'role'/.test(body) && /request\.jwt\.claims/.test(body) && /\(\s*'anon'\s*,\s*'authenticated'\s*\)/.test(body);
+  if (!file) fail("C5: no migration defines public.enforce_storage_object_mime()");
+  else if (!roleTest) fail(`C5: ${file} defines enforce_storage_object_mime() without the client-role test (signed-upload URLs would fail)`);
+  else ok(`C5: the storage type trigger checks client (anon/authenticated) writes only (${file})`);
+}
+
+// ---------------------------------------------------------------------------
+// C25 — contact_events.visitor_phone (a visitor's private profiles.phone) is
+// server-only: the newest migration granting SELECT on contact_events to
+// authenticated revokes the table-wide grant and names a column list without
+// it, and every user-session read selects explicit granted columns (a `*` or
+// an ungranted column is "permission denied").
+// ---------------------------------------------------------------------------
+{
+  const migDir = "supabase/migrations";
+  const grantRe = /GRANT\s+SELECT\s*\(([^)]*)\)\s*ON\s+(?:TABLE\s+)?public\.contact_events\s+TO\s+authenticated/i;
+  const file = readdirSync(join(root, migDir))
+    .filter((f) => f.endsWith(".sql") && grantRe.test(read(join(migDir, f)).replace(/--[^\n]*/g, "")))
+    .sort()
+    .at(-1);
+  const sql = file ? read(join(migDir, file)).replace(/--[^\n]*/g, "") : "";
+  const granted = (grantRe.exec(sql)?.[1] ?? "").split(",").map((c) => c.trim()).filter(Boolean);
+  const revoked = /REVOKE\s+SELECT\s+ON\s+(?:TABLE\s+)?public\.contact_events\s+FROM\s+[^;]*\bauthenticated\b/i.test(sql);
+  const problems = [];
+  if (!file) problems.push("no migration grants a SELECT column list on public.contact_events to authenticated");
+  else {
+    if (!revoked) problems.push(`${file} must revoke the table-wide SELECT before the column grant (column grants add up)`);
+    if (granted.includes("visitor_phone")) problems.push(`${file} grants visitor_phone to authenticated`);
+  }
+  let reads = 0;
+  for (const f of srcFiles) {
+    const t = read(f);
+    if (/createServiceClient\(/.test(t)) continue;
+    for (const m of t.matchAll(/\.from\(\s*["']contact_events["']\s*\)/g)) {
+      reads++;
+      const sel = /^\s*\.select\(\s*["'`]([^"'`]*)["'`]/.exec(t.slice(m.index + m[0].length));
+      const cols = sel ? sel[1].split(",").map((c) => c.trim()).filter(Boolean) : [];
+      const bad = cols.filter((c) => !granted.includes(c));
+      if (!sel || !cols.length) problems.push(`${f}: a user-session contact_events query must start with .select("<granted columns>")`);
+      else if (bad.length) problems.push(`${f}: selects ${bad.join(", ")} from contact_events (not granted to authenticated)`);
+    }
+  }
+  if (problems.length) problems.forEach((p) => fail(`C25: ${p}`));
+  else ok(`C25: contact_events.visitor_phone is not client-readable; ${reads} user-session read(s) select granted columns only`);
 }
 
 // ---------------------------------------------------------------------------

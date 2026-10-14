@@ -393,6 +393,68 @@ Deno.test("win-back falls back when either owner field is empty", () => {
   }
 });
 
+// Owner-typed text never reaches a phone as a link (C18, C33): a dot between two
+// non-space characters becomes U+2024 and "://" becomes ":/ /", as
+// public._notice_text does for notifications. The links the texts build stay.
+Deno.test("owner-typed text in check-in and win-back texts is never a link", () => {
+  const LEADER = "\u2024";
+  const listing = `${SITE}/apartments/property-id`;
+  const checkIn = buildCheckIn(
+    {
+      ...candidate,
+      guest_name: "nino.ge",
+      property: candidate.property && {
+        ...candidate.property,
+        location_lat: null,
+        location_lng: null,
+        title: "evil.ge/x",
+        location: "https://evil.ge/y",
+        phone: "call evil.ge",
+      },
+    },
+    rule,
+    SITE,
+    true,
+  );
+  assertStringIncludes(checkIn, listing);
+  assertFalse(
+    /[^\s.]\.[^\s.]|:\/\//.test(checkIn.replace(listing, "")),
+    checkIn,
+  );
+  assertStringIncludes(checkIn, `nino${LEADER}ge`);
+  assertStringIncludes(checkIn, `evil${LEADER}ge/x`);
+  assertStringIncludes(checkIn, `https:/ /evil${LEADER}ge/y`);
+  assertStringIncludes(checkIn, `call evil${LEADER}ge`);
+  const winBack = buildWinBack(
+    candidate,
+    {
+      ...rule,
+      win_back_discount_value: "x.ge",
+      win_back_discount_period: "https://y.ge",
+    },
+    "https://example.com",
+  );
+  assertStringIncludes(winBack, `x${LEADER}ge`);
+  assertStringIncludes(winBack, `(https:/ /y${LEADER}ge)`);
+  assertStringIncludes(winBack, "https://example.com/apartments/property-id");
+});
+
+Deno.test("owner-typed text drops bidi and zero-width characters", () => {
+  const message = buildCheckIn(
+    {
+      ...candidate,
+      property: candidate.property && {
+        ...candidate.property,
+        title: "a\u202Eb\u200Bc",
+      },
+    },
+    rule,
+    SITE,
+    true,
+  );
+  assertStringIncludes(message, "— a b c.");
+});
+
 Deno.test("consent request asks plainly, offers accept or decline, carries only the link", () => {
   const link = `https://staging.mybakuriani.ge/sms-consent/${"A".repeat(43)}`;
   const message = buildConsentRequest(link);
