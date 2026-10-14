@@ -37,9 +37,9 @@ trap 'rm -f "$TMP"' EXIT
   printf '// Source of truth: supabase/migrations/*.sql applied to the live project.\n'
   printf '// Regenerate: npm run types:gen   (see scripts/gen-database-types.sh)\n'
   printf '// Hand-written overrides live in ./database.ts, never here.\n\n'
-  npx --yes supabase gen types typescript --project-id "$PROJECT_ID" --schema public
+  npx --yes supabase@2.120.0 gen types typescript --project-id "$PROJECT_ID" --schema public
 } >"$TMP"
-npx prettier --log-level warn --write "$TMP" >/dev/null
+npx --yes prettier@3.9.10 --log-level warn --write "$TMP" >/dev/null
 
 if [[ "${1:-}" == "--check" ]]; then
   if diff -q "$TARGET" "$TMP" >/dev/null; then
