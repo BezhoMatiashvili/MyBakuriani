@@ -240,9 +240,19 @@ export const ACCOUNT_QUESTION =
 const UUID =
   /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g;
 
-/** Replaces UUID path segments with ":id": a path can name another user. */
+// The segment after these roots is a capability: a guest's SMS-consent or
+// review link, a sign-up code, a secure invoice link, or the API route a
+// capability page calls. It is masked like an id, so it never reaches the log
+// line or the model.
+const CAPABILITY_PATH =
+  /^(\/(?:[a-z]{2}\/)?(?:sms-consent|review|join|api\/(?:sms-consent|reviews\/manual|invoices))\/)[^/]+/;
+
+/**
+ * Replaces UUID path segments with ":id" (a path can name another user) and a
+ * capability link's token with ":token".
+ */
 export function maskIds(path: string): string {
-  return path.replace(UUID, ":id");
+  return path.replace(UUID, ":id").replace(CAPABILITY_PATH, "$1:token");
 }
 
 /**

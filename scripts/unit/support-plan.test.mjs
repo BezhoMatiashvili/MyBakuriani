@@ -366,6 +366,84 @@ test("maskIds hides UUIDs in paths and element links", () => {
   assert.equal(element.href, "/dashboard/admin/clients/:id");
 });
 
+test("maskIds hides capability tokens in paths and element links", () => {
+  const consent = "Zq3vY8mPq1N0aB2cD4eF6gH8iJ0kL2mN4oP6qR8sT0u";
+  const review = "9f".repeat(32);
+  assert.equal(maskIds(`/sms-consent/${consent}`), "/sms-consent/:token");
+  assert.equal(maskIds(`/en/review/${review}`), "/en/review/:token");
+  assert.equal(maskIds("/join/summer-2026"), "/join/:token");
+  assert.equal(cleanPath(`/review/${review}?x=1`, 200), "/review/:token");
+  assert.equal(
+    maskIds("/blog/review-of-bakuriani"),
+    "/blog/review-of-bakuriani",
+  );
+  assert.equal(maskIds("/dashboard/guest/reviews"), "/dashboard/guest/reviews");
+  const [element] = normalizeElements([
+    {
+      id: "e1",
+      kind: "link",
+      label: "x",
+      href: `/sms-consent/${consent}`,
+    },
+  ]);
+  assert.equal(element.href, "/sms-consent/:token");
+});
+
+test("a capability token never survives the request parser", () => {
+  const consent = "Zq3vY8mPq1N0aB2cD4eF6gH8iJ0kL2mN4oP6qR8sT0u";
+  const review = "9f".repeat(32);
+  const invoice = "Ab".repeat(22);
+  const links = [
+    `/review/${review}`,
+    `/en/sms-consent/${consent}#x`,
+    "/join/summer-2026",
+    `/api/invoices/${invoice}`,
+    `/api/reviews/manual/${review}`,
+    `/api/sms-consent/${consent}`,
+  ];
+  const ask = parseSupportRequest({
+    mode: "ask",
+    path: `/sms-consent/${consent}?from=sms`,
+    message: "როგორ დავადასტურო?",
+  });
+  assert.equal(ask.path, "/sms-consent/:token");
+  const plan = parseSupportRequest({
+    mode: "plan",
+    path: `/ru/review/${review}`,
+    goal: "შეფასების დატოვება",
+    elements: links.map((href, i) => ({
+      id: `e${i + 1}`,
+      kind: "link",
+      label: "ბმული",
+      href,
+    })),
+  });
+  assert.equal(plan.path, "/ru/review/:token");
+  assert.deepEqual(
+    plan.elements.map((element) => element.href),
+    [
+      "/review/:token",
+      "/en/sms-consent/:token",
+      "/join/:token",
+      "/api/invoices/:token",
+      "/api/reviews/manual/:token",
+      "/api/sms-consent/:token",
+    ],
+  );
+  for (const parsed of [ask, plan]) {
+    const text = JSON.stringify(parsed);
+    for (const secret of [consent, review, invoice, "summer-2026"])
+      assert.equal(text.includes(secret), false);
+  }
+  assert.equal(maskIds("/sms-consent"), "/sms-consent");
+  assert.equal(maskIds("/reviews/abc"), "/reviews/abc");
+  assert.equal(maskIds("/api/invoices"), "/api/invoices");
+  assert.equal(
+    maskIds("/dashboard/admin/finances/invoices/abc"),
+    "/dashboard/admin/finances/invoices/abc",
+  );
+});
+
 test("parseSupportRequest accepts feedback with a ref and a rating only", () => {
   assert.deepEqual(
     parseSupportRequest({ mode: "feedback", ref: "ab12cd34ef", rating: "up" }),
