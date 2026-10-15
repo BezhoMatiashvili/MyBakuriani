@@ -2,7 +2,7 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/lib/types/database";
-import { timeoutFetch } from "@/lib/with-timeout";
+import { refusalAwareFetch, timeoutFetch } from "@/lib/with-timeout";
 
 // Bumped from 8_000: live traffic showed some requests succeeding at ~6-8s and
 // others timing out right at the old boundary, consistent with occasional
@@ -12,12 +12,13 @@ const SERVER_FETCH_TIMEOUT_MS = 9_500;
 
 export async function createClient() {
   const cookieStore = await cookies();
+  const auth = refusalAwareFetch(timeoutFetch(SERVER_FETCH_TIMEOUT_MS));
 
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      global: { fetch: timeoutFetch(SERVER_FETCH_TIMEOUT_MS) },
+      global: { fetch: auth.fetch },
       cookieOptions: {
         path: "/",
         sameSite: "lax",
@@ -28,6 +29,9 @@ export async function createClient() {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
+          // A refresh the hosted limiter refused is "try again later", not a
+          // sign-out: keep the browser's cookie (C8).
+          if (auth.dropsDeletion(cookiesToSet)) return;
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),

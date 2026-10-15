@@ -13,7 +13,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ kind: string; id: string }> },
 ) {
-  const { kind, id } = await params;
+  const { kind, id: rawId } = await params;
+  // One spelling of the id: isUuid and Postgres accept any letter case, but the
+  // limiter keys below are case-sensitive text (C22).
+  const id = rawId.toLowerCase();
   if (!isUuid(id) || (kind !== "property" && kind !== "service")) {
     return Response.json({ error: "not_found" }, { status: 404 });
   }

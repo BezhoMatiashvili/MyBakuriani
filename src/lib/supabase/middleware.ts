@@ -8,7 +8,11 @@ import {
   hasSupabaseAuthCookie,
   isAuthJarParseable,
 } from "@/lib/supabase/auth-cookies";
-import { isTransientAuthFailure, timeoutFetch } from "@/lib/with-timeout";
+import {
+  isTransientAuthFailure,
+  refusalAwareFetch,
+  timeoutFetch,
+} from "@/lib/with-timeout";
 
 const MIDDLEWARE_FETCH_TIMEOUT_MS = 5_000;
 
@@ -68,12 +72,13 @@ export async function updateSession(request: NextRequest) {
   // logout, one request later.
   const originalCookies = request.cookies.getAll();
   let sessionMutated = false;
+  const auth = refusalAwareFetch(timeoutFetch(MIDDLEWARE_FETCH_TIMEOUT_MS));
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      global: { fetch: timeoutFetch(MIDDLEWARE_FETCH_TIMEOUT_MS) },
+      global: { fetch: auth.fetch },
       cookieOptions: {
         path: "/",
         sameSite: "lax",
@@ -84,6 +89,9 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          // A refresh the hosted limiter refused is "try again later", not a
+          // sign-out: keep the browser's cookie (C8).
+          if (auth.dropsDeletion(cookiesToSet)) return;
           sessionMutated = true;
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),

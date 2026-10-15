@@ -212,10 +212,61 @@ export function isTransientAuthFailure(error: unknown): boolean {
   // Fetch-level failure, our own timeout abort, or any 5xx (incl. the plain
   // GoTrue 500 that isAuthRetryableFetchError misses).
   if (isRetryableAuthError(error)) return true;
+  if (!isAuthApiError(error)) return false;
+  // 429: the hosted per-address limiter refused the refresh. It says "try
+  // again later", nothing about the session (see `refusalAwareFetch`).
+  if (error.status === 429) return true;
   return (
-    isAuthApiError(error) &&
     error.status === 400 &&
     typeof error.code === "string" &&
     ROTATION_LOSER_CODES.has(error.code)
   );
+}
+
+/**
+ * Hosted Auth limits `/auth/v1/token` per source address, and every server-side
+ * refresh (middleware and server render) leaves from the app's one egress
+ * address, so a burst of requests carrying an expired cookie can empty the
+ * bucket for everyone. auth-js reads a refused refresh as a sign-out
+ * (`_removeSession`) and asks the cookie adapter to empty the auth cookie, so a
+ * drained bucket would delete returning users' sessions.
+ *
+ * This wrapper (a) remembers that a refresh was refused, so the cookie adapter
+ * can keep the browser's cookie (`dropsDeletion`), and (b) makes sure the
+ * refusal always reaches auth-js as its JSON `AuthApiError` 429, which
+ * `isTransientAuthFailure` recognizes: a gateway's plain-text 429 would become
+ * a status-less `AuthUnknownError`. Every other response passes through as it
+ * came, so nothing changes while Auth answers normally.
+ */
+export function refusalAwareFetch(base: typeof fetch): {
+  fetch: typeof fetch;
+  dropsDeletion: (cookies: { value: string }[]) => boolean;
+} {
+  let refused = false;
+  return {
+    fetch: async (input, init) => {
+      const res = await base(input, init);
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      if (res.status !== 429 || !url.includes("/auth/v1/token")) return res;
+      refused = true;
+      if ((res.headers.get("content-type") ?? "").includes("json")) return res;
+      return new Response(
+        JSON.stringify({
+          code: 429,
+          error_code: "over_request_rate_limit",
+          msg: "Request rate limit reached",
+        }),
+        { status: 429, headers: { "content-type": "application/json" } },
+      );
+    },
+    // The batch auth-js hands the cookie adapter after a refused refresh only
+    // empties cookies; the browser keeps its own and tries again later.
+    dropsDeletion: (cookies) =>
+      refused && cookies.length > 0 && cookies.every((c) => c.value === ""),
+  };
 }

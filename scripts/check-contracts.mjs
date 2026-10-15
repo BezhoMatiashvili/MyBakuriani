@@ -605,6 +605,55 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
+// C8 — a refused token refresh must not sign anyone out. Hosted Auth limits
+// /auth/v1/token per source address and the app refreshes every session from one
+// address; auth-js treats a refused (429) refresh as a sign-out and asks the
+// cookie adapter to empty the auth cookie. (a) isTransientAuthFailure treats a
+// 429 as transient; (b) the two server clients that read the user's cookie jar
+// (createClient(), updateSession()) wrap their fetch in refusalAwareFetch and
+// drop the deletion batch that follows a refusal before they write (the
+// middleware before it marks the session mutated); (c) no other src file builds
+// a cookie-reading server client.
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  if (!/error\.status\s*===\s*429/.test(read("src/lib/with-timeout.ts")))
+    problems.push("isTransientAuthFailure in src/lib/with-timeout.ts must treat a 429 AuthApiError as transient");
+  const guarded = [
+    ["src/lib/supabase/server.ts", /setAll\(cookiesToSet\)\s*\{[\s\S]{0,300}?auth\.dropsDeletion\(cookiesToSet\)\)\s*return;/],
+    ["src/lib/supabase/middleware.ts", /setAll\(cookiesToSet\)\s*\{[\s\S]{0,300}?auth\.dropsDeletion\(cookiesToSet\)\)\s*return;\s*sessionMutated\s*=\s*true;/],
+  ];
+  for (const [f, guard] of guarded) {
+    const t = read(f);
+    if (!/refusalAwareFetch\(\s*timeoutFetch\(/.test(t)) problems.push(`${f} must build its Supabase fetch with refusalAwareFetch(timeoutFetch(...))`);
+    if (!/global:\s*\{\s*fetch:\s*auth\.fetch\s*\}/.test(t)) problems.push(`${f} must hand auth.fetch to the cookie-reading client`);
+    if (!guard.test(t)) problems.push(`${f}: the cookie adapter's setAll must return early on auth.dropsDeletion(cookiesToSet)${f.endsWith("middleware.ts") ? " before sessionMutated = true" : ""}`);
+  }
+  const clients = srcFiles.filter((f) => /\bcreateServerClient\b/.test(read(f)) && !guarded.some(([g]) => g === f));
+  if (clients.length) problems.push(`${clients.join(", ")} build a server client outside the refusal-aware pair (a drained token bucket would delete its sessions)`);
+  if (problems.length) problems.forEach((p) => fail(`C8: ${p}`));
+  else ok("C8: a refused token refresh (429) is transient and createClient()/updateSession() keep the browser's cookie (refusalAwareFetch + dropsDeletion); no other server client reads the cookie jar");
+}
+
+// ---------------------------------------------------------------------------
+// C22 — the listing view/contact limiter keys embed the path id, which isUuid
+// and Postgres accept in any letter case; both routes lower-case it first so
+// every spelling shares one bucket.
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  for (const f of ["src/app/api/listings/[kind]/[id]/view/route.ts", "src/app/api/listings/[kind]/[id]/contact/route.ts"]) {
+    const t = read(f);
+    const lower = t.search(/const\s+id\s*=\s*rawId\.toLowerCase\(\)/);
+    const key = t.search(/checkRateLimit\(\s*`listing-(?:view|contact):/);
+    if (!/const\s*\{\s*kind\s*,\s*id:\s*rawId\s*\}\s*=\s*await params/.test(t) || lower < 0) problems.push(`${f} must read the path id as rawId and lower-case it (const id = rawId.toLowerCase())`);
+    else if (key >= 0 && key < lower) problems.push(`${f} builds its limiter key before lower-casing the id`);
+  }
+  if (problems.length) problems.forEach((p) => fail(`C22: ${p}`));
+  else ok("C22: the listing view and contact routes lower-case the path id before their limiter keys");
+}
+
+// ---------------------------------------------------------------------------
 // C31 — the rental posting gate's HINT is the token the create form matches:
 // the newest migration defining enforce_private_rental_membership() must raise
 // exactly RENTAL_MEMBERSHIP_REQUIRED_HINT from src/lib/membership/plans.ts.
