@@ -130,6 +130,16 @@ export async function PUT(
     )
     .select("active")
     .single();
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // The database holds the same cap under a per-listing lock (concurrent
+    // subscribes could all pass the count above): same answer as the check.
+    if (error.hint === "subscriber_limit_reached") {
+      return Response.json(
+        { error: "subscriber_limit_reached" },
+        { status: 409 },
+      );
+    }
+    return Response.json({ error: error.message }, { status: 500 });
+  }
   return Response.json({ subscribed: data.active });
 }

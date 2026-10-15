@@ -124,6 +124,36 @@ test.describe("Route protection - unauthenticated redirects", () => {
       expect(next).toBeTruthy();
     });
   }
+
+  // Next routes /%64ashboard as /dashboard, so the middleware tests the decoded
+  // path; a first segment that only starts with a framework prefix must not
+  // skip the middleware either (C8).
+  for (const route of [
+    "/%64ashboard/renter",
+    "/en/%64ashboard/renter",
+    "/%63reate/rental",
+  ]) {
+    test(`${route} gets the middleware's login redirect`, async ({
+      request,
+    }) => {
+      const res = await request.get(route, { maxRedirects: 0 });
+      expect(res.status()).toBe(307);
+      const location = new URL(res.headers()["location"], "http://localhost");
+      expect(location.pathname).toMatch(/\/auth\/login$/);
+      expect(location.searchParams.get("next")).toBeTruthy();
+    });
+  }
+
+  for (const route of [
+    "/trpc/dashboard/admin",
+    "/_vercel/dashboard/admin",
+    "/_nextx/dashboard/admin",
+  ]) {
+    test(`${route} runs the middleware`, async ({ request }) => {
+      const res = await request.get(route, { maxRedirects: 0 });
+      expect(res.headers()["content-security-policy"]).toBeTruthy();
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------

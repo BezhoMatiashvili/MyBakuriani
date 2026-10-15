@@ -471,13 +471,103 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
+// C33 — the class-3 e-mail cap counts under a lock on the cap's own key
+// (recipient, type, cabinet): without it concurrent notices each count before
+// the others commit and all pass. The wait is capped (lock_timeout 1 s, 1 ms once
+// the statement has run 2 s; set for the lock call only, then restored) so the
+// notification insert never nears the statement_timeout.
+// ---------------------------------------------------------------------------
+{
+  const migDir = "supabase/migrations";
+  const create = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:"?public"?\.)?"?email_enqueue_notification"?\s*\(/i;
+  const file = readdirSync(join(root, migDir))
+    .filter((f) => f.endsWith(".sql") && create.test(read(join(migDir, f)).replace(/--[^\n]*/g, "")))
+    .sort()
+    .at(-1);
+  const sql = file ? read(join(migDir, file)).replace(/--[^\n]*/g, "") : "";
+  const at = sql.search(create);
+  const tag = at < 0 ? null : /\bAS\s+\$(\w*)\$/i.exec(sql.slice(at));
+  const start = tag ? at + tag.index + tag[0].length : -1;
+  const body = start < 0 ? "" : sql.slice(start, sql.indexOf(`$${tag[1]}$`, start));
+  const setTimeout = body.search(
+    /set_config\(\s*'lock_timeout'\s*,\s*case\s+when\s+clock_timestamp\(\)\s*-\s*statement_timestamp\(\)\s*<\s*interval\s*'2 seconds'\s*then\s*'1s'\s*else\s*'1ms'\s*end\s*,\s*true\s*\)/i,
+  );
+  const lock = body.search(/pg_advisory_xact_lock\(\s*hashtextextended\(\s*'email-class3:'\s*\|\|\s*new\.user_id::text\s*\|\|\s*':'\s*\|\|\s*new\.type\s*\|\|\s*':'\s*\|\|\s*coalesce\(\s*new\.dashboard_scope/i);
+  const restore = body.search(/set_config\(\s*'lock_timeout'\s*,\s*v_lock_timeout\s*,\s*true\s*\)/i);
+  const count = body.search(/email_notification_priority\(new\.type\)\s*=\s*3\s+and\s+\(select\s+count\(\*\)/i);
+  const handler = body.search(/exception\s+when\s+others/i);
+  if (!file) fail("C33: no migration defines public.email_enqueue_notification()");
+  else if ([setTimeout, lock, restore, count].some((i) => i < 0) || !(setTimeout < lock && lock < restore && restore < count) || handler < count)
+    fail(`C33: ${file} counts class-3 e-mails without the capped per-key advisory lock first (concurrent notices overshoot the cap, or a lock wait can fail the notification insert)`);
+  else ok(`C33: the class-3 e-mail cap counts under a capped per-recipient/type/cabinet advisory lock (${file})`);
+}
+
+// ---------------------------------------------------------------------------
+// C18 / C48 — caps that must hold under concurrency count under an advisory
+// lock taken before the count: (a) the price-drop subscriber cap
+// (sale_price_alert_subscriber_cap) refuses at the route's own
+// MAX_SUBSCRIBERS_PER_LISTING with HINT subscriber_limit_reached, which the
+// route answers with 409; (b) auth_sms_code_reserve counts the per-IP and
+// site-wide caps under 'auth-sms-code-caps', taken after the number's lock.
+// ---------------------------------------------------------------------------
+{
+  const migDir = "supabase/migrations";
+  const files = readdirSync(join(root, migDir)).filter((f) => f.endsWith(".sql")).sort();
+  const noComments = (sql) => sql.replace(/--[^\n]*/g, "");
+  const bodyOf = (name) => {
+    const create = new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+(?:"?public"?\\.)?"?${name}"?\\s*\\(`, "i");
+    const file = files.filter((f) => create.test(noComments(read(join(migDir, f))))).at(-1);
+    if (!file) return { file: null, body: "", sql: "" };
+    const sql = noComments(read(join(migDir, file)));
+    const at = sql.search(create);
+    const tag = /\bAS\s+\$(\w*)\$/i.exec(sql.slice(at));
+    const start = tag ? at + tag.index + tag[0].length : -1;
+    return { file, sql, body: start < 0 ? "" : sql.slice(start, sql.indexOf(`$${tag[1]}$`, start)) };
+  };
+  const problems = [];
+
+  const route = read("src/app/api/listings/property/[propertyId]/price-drop-alert/route.ts");
+  const cap = Number(route.match(/MAX_SUBSCRIBERS_PER_LISTING\s*=\s*(\d+)/)?.[1]);
+  const pd = bodyOf("enforce_price_drop_subscriber_cap");
+  const pdLock = pd.body.search(/pg_advisory_xact_lock\(\s*hashtextextended\(\s*'price-drop-subscribers:'\s*\|\|\s*NEW\.property_id/i);
+  const pdCount = pd.body.search(/SELECT\s+count\(\*\)\s+FROM\s+public\.sale_price_alert_subscriptions/i);
+  const pdCap = Number(pd.body.match(/\)\s*>=\s*(\d+)\s+THEN/i)?.[1]);
+  const trigger = files.some((f) =>
+    /CREATE\s+TRIGGER\s+sale_price_alert_subscriber_cap\s+BEFORE\s+INSERT\s+OR\s+UPDATE\s+OF\s+active\s+ON\s+public\.sale_price_alert_subscriptions[\s\S]*?enforce_price_drop_subscriber_cap\(\)/i.test(noComments(read(join(migDir, f)))),
+  );
+  if (!pd.file) problems.push("no migration defines public.enforce_price_drop_subscriber_cap()");
+  else {
+    if (pdLock < 0 || pdCount < 0 || pdLock > pdCount) problems.push(`${pd.file} counts price-drop subscribers without the per-listing advisory lock first`);
+    if (!Number.isFinite(cap) || pdCap !== cap) problems.push(`the trigger caps at ${pdCap} but the route's MAX_SUBSCRIBERS_PER_LISTING is ${cap}`);
+    if (!/HINT\s*=\s*'subscriber_limit_reached'/i.test(pd.body)) problems.push(`${pd.file} must raise HINT 'subscriber_limit_reached'`);
+  }
+  if (!trigger) problems.push("no migration creates trigger sale_price_alert_subscriber_cap BEFORE INSERT OR UPDATE OF active");
+  if (!/error\.hint\s*===\s*"subscriber_limit_reached"[\s\S]{0,200}status:\s*409/.test(route))
+    problems.push("the price-drop route must answer the database's subscriber_limit_reached with 409");
+
+  const sms = bodyOf("auth_sms_code_reserve");
+  const phoneLock = sms.body.search(/pg_advisory_xact_lock\(\s*hashtextextended\(\s*'auth-sms-code:'\s*\|\|\s*p_phone/i);
+  const capsLock = sms.body.search(/pg_advisory_xact_lock\(\s*hashtextextended\(\s*'auth-sms-code-caps'/i);
+  const ipCount = sms.body.search(/WHERE\s+ip\s*=\s*v_ip/i);
+  const siteCount = sms.body.search(/WHERE\s+status\s*<>\s*'failed'\s+AND\s+created_at\s*>\s*now\(\)\s*-\s*interval\s*'24 hours'\)\s*>=\s*500/i);
+  if (!sms.file) problems.push("no migration defines public.auth_sms_code_reserve()");
+  else if ([phoneLock, capsLock, ipCount, siteCount].some((i) => i < 0) || !(phoneLock < capsLock && capsLock < ipCount && capsLock < siteCount))
+    problems.push(`${sms.file} must take 'auth-sms-code-caps' after the number's lock and before the per-IP and site-wide counts`);
+
+  if (problems.length) problems.forEach((p) => fail(`C18/C48: ${p}`));
+  else ok(`C18/C48: the price-drop subscriber cap (${cap}) and the phone-code IP/site caps count under their advisory locks (${pd.file}, ${sms.file})`);
+}
+
+// ---------------------------------------------------------------------------
 // C8 — a page is not protected by its layout: layouts and pages render in
 // parallel, so a layout's redirect() leaves the page's output in the response.
 // (a) A server file under src/app outside the API routes that reads with the
 // service role (@/lib/supabase/admin, getAdminStats) calls isAdminViewer()
 // before its first service-role read. (b) The middleware matcher skips a path
-// only for a dot in its last segment (static files), so a dotted locale
-// (/k.a/dashboard/admin) still gets the auth redirect.
+// only for a dot in its last segment (static files) or under /_next itself, so a
+// dotted locale (/k.a/dashboard/admin) or a first segment that merely starts with
+// trpc, _next or _vercel still gets the auth redirect. (c) Both protected-route
+// tests read the decoded path (Next routes /%64ashboard as /dashboard).
 // ---------------------------------------------------------------------------
 {
   const problems = [];
@@ -498,18 +588,20 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   const patterns = [...list.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => JSON.parse(`"${m[1]}"`));
   const page = patterns.find((p) => p.startsWith("/((?!"));
   const re = page ? new RegExp(`^${page}$`) : null;
-  const runs = ["/k.a/dashboard/admin", "/ka./dashboard/admin", "/en.x/create/rental", "/dashboard/admin", "/k.a/apartments"];
-  const skips = ["/favicon.ico", "/robots.txt", "/category-icons/a.svg", "/join/a.b", "/_next/static/x.js"];
+  const runs = ["/k.a/dashboard/admin", "/ka./dashboard/admin", "/en.x/create/rental", "/dashboard/admin", "/k.a/apartments", "/trpc/dashboard/admin", "/trpcx/sales/all", "/_vercel/dashboard/admin", "/_nextx/dashboard/admin"];
+  const skips = ["/favicon.ico", "/robots.txt", "/category-icons/a.svg", "/join/a.b", "/_next/static/x.js", "/_next/image", "/_next", "/_next/data/b/x.json"];
   if (!patterns.includes("/api/:path*")) problems.push('src/middleware.ts matcher must keep "/api/:path*"');
   if (!re) problems.push("could not read the page pattern of the middleware matcher");
   else {
     const missed = runs.filter((p) => !re.test(p));
     const ran = skips.filter((p) => re.test(p));
-    if (missed.length) problems.push(`the middleware matcher skips ${missed.join(", ")} (a dot outside the last segment must not skip it)`);
+    if (missed.length) problems.push(`the middleware matcher skips ${missed.join(", ")} (only a dotted last segment or /_next may skip it)`);
     if (ran.length) problems.push(`the middleware matcher runs for static files ${ran.join(", ")}`);
   }
+  if (!/stripLocalePrefix\(decodedPathname\(pathname\)\)/.test(mw)) problems.push("src/middleware.ts must test protected routes on stripLocalePrefix(decodedPathname(pathname))");
+  if (!/decodedPathname\(request\.nextUrl\.pathname\)/.test(read("src/lib/supabase/middleware.ts"))) problems.push("src/lib/supabase/middleware.ts must test protected routes on decodedPathname(request.nextUrl.pathname)");
   if (problems.length) problems.forEach((p) => fail(`C8: ${p}`));
-  else ok(`C8: ${gated} server page(s) reading with the service role check isAdminViewer() first; the middleware skips only dotted last segments`);
+  else ok(`C8: ${gated} server page(s) reading with the service role check isAdminViewer() first; the middleware skips only dotted last segments and /_next, and tests decoded paths`);
 }
 
 // ---------------------------------------------------------------------------

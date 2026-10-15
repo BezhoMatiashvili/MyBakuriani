@@ -2,7 +2,7 @@ import createIntlMiddleware from "next-intl/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { routing } from "./i18n/routing";
 import { hasSupabaseAuthCookie } from "@/lib/supabase/auth-cookies";
-import { updateSession } from "@/lib/supabase/middleware";
+import { decodedPathname, updateSession } from "@/lib/supabase/middleware";
 import { isAllowedMutationOrigin } from "@/lib/security";
 import { KEEPZ_ORIGINLESS_POST_PATHS } from "@/lib/payments/keepz/server-paths";
 import { EMAIL_ORIGINLESS_POST_PATHS } from "@/lib/email/server-paths";
@@ -282,8 +282,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // For protected routes, also run Supabase session check.
-  // Strip locale prefix to check the actual route
-  const pathnameWithoutLocale = stripLocalePrefix(pathname);
+  // Strip locale prefix to check the actual route (decoded: Next routes
+  // /%64ashboard as /dashboard)
+  const pathnameWithoutLocale = stripLocalePrefix(decodedPathname(pathname));
 
   const isProtected =
     pathnameWithoutLocale.startsWith("/create") ||
@@ -318,6 +319,9 @@ export const config = {
   // reach the [locale] pages without the auth redirect, the site lock and the
   // security headers. Every /api path runs the middleware anyway: a dotted
   // dynamic segment (/api/x/a.b) would otherwise skip the Origin gate and the
-  // 11 MB body cap (middlewareClientMaxBodySize).
-  matcher: ["/api/:path*", "/((?!trpc|_next|_vercel|.*\\.[^/]*$).*)"],
+  // 11 MB body cap (middlewareClientMaxBodySize). Of the framework paths only
+  // /_next itself is skipped: the old prefix test (?!trpc|_next|_vercel) also
+  // skipped /trpc/..., /_vercel/... and /_nextx/..., which reached the
+  // [locale] pages without the site lock, the CSP and the auth redirect.
+  matcher: ["/api/:path*", "/((?!_next(?:/|$)|.*\\.[^/]*$).*)"],
 };

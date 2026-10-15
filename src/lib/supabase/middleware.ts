@@ -12,6 +12,17 @@ import { isTransientAuthFailure, timeoutFetch } from "@/lib/with-timeout";
 
 const MIDDLEWARE_FETCH_TIMEOUT_MS = 5_000;
 
+// Next decodes percent-escapes when it routes (/%64ashboard renders
+// /dashboard), so the protected-route test reads the decoded path; a
+// malformed escape keeps the raw one.
+export function decodedPathname(pathname: string): string {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return pathname;
+  }
+}
+
 function getSafeNextPath(request: NextRequest) {
   const redirectTo = request.nextUrl.pathname + request.nextUrl.search;
   if (!redirectTo.startsWith("/") || redirectTo.startsWith("//")) {
@@ -91,7 +102,7 @@ export async function updateSession(request: NextRequest) {
       path.startsWith(`/${locale}/`) || path === `/${locale}`
         ? path.replace(`/${locale}`, "") || "/"
         : path,
-    request.nextUrl.pathname,
+    decodedPathname(request.nextUrl.pathname),
   );
 
   const isProtected =
