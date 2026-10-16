@@ -654,6 +654,47 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
+// C4 — a dated search must not scan calendar_blocks for the whole range. The
+// `search` function (service role) used to list every block in the range, any
+// owner's pending listings included, into one id=not.in.(...) URL; any signed-in
+// user can insert blocks, so the list was user-writable and the REST layer's URL
+// limit (about 650 ids) turned every dated search into a 500. The date path now
+// asks search_blocked_property_ids(p_from, p_to), which returns only PUBLIC
+// listings' ids and is service_role only.
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  const fn = read("supabase/functions/search/index.ts");
+  const from = fn.indexOf("Date availability exclusion");
+  const to = fn.indexOf("// Ordering:");
+  const dated = from >= 0 && to > from ? fn.slice(from, to) : "";
+  if (!dated) problems.push("could not find the date availability block of supabase/functions/search/index.ts");
+  else {
+    if (!/\.rpc\(\s*"search_blocked_property_ids"\s*,\s*\{\s*p_from:\s*check_in,\s*p_to:\s*check_out\s*\}/.test(dated))
+      problems.push("the dated search path must call rpc(\"search_blocked_property_ids\", { p_from: check_in, p_to: check_out })");
+    if (/calendar_blocks/.test(dated.replace(/\/\/[^\n]*/g, "")))
+      problems.push("the dated search path must not read calendar_blocks itself (an owner-writable id list in a URL)");
+  }
+  const migs = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .filter((f) => /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+public\.search_blocked_property_ids\s*\(/i.test(read(join("supabase/migrations", f))));
+  if (!migs.length) problems.push("no migration creates public.search_blocked_property_ids(date, date)");
+  else {
+    const body = read(join("supabase/migrations", migs[migs.length - 1])).replace(/--[^\n]*/g, "");
+    if (!/RETURNS\s+SETOF\s+uuid/i.test(body)) problems.push(`${migs[migs.length - 1]} must return SETOF uuid`);
+    if (!/JOIN\s+public\.public_properties\s+pp\s+ON\s+pp\.id\s*=\s*cb\.property_id/i.test(body)) problems.push(`${migs[migs.length - 1]} must join public_properties (public listings only)`);
+    if (!/SECURITY\s+INVOKER/i.test(body) && /SECURITY\s+DEFINER/i.test(body)) problems.push(`${migs[migs.length - 1]} must not be SECURITY DEFINER`);
+    if (!/SET\s+search_path\s+TO\s+''/i.test(body)) problems.push(`${migs[migs.length - 1]} must set search_path to ''`);
+    if (!/REVOKE\s+ALL\s+ON\s+FUNCTION\s+public\.search_blocked_property_ids\(date,\s*date\)\s+FROM\s+PUBLIC,\s*anon,\s*authenticated/i.test(body)) problems.push(`${migs[migs.length - 1]} must revoke EXECUTE from PUBLIC, anon and authenticated`);
+    if (!/GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.search_blocked_property_ids\(date,\s*date\)\s+TO\s+service_role/i.test(body)) problems.push(`${migs[migs.length - 1]} must grant EXECUTE to service_role`);
+    if (/GRANT\s+[^;]*search_blocked_property_ids[^;]*\bTO\b[^;]*\b(?:anon|authenticated|public)\b/i.test(body)) problems.push(`${migs[migs.length - 1]} must not grant EXECUTE to anon, authenticated or PUBLIC`);
+  }
+  if (problems.length) problems.forEach((p) => fail(`C4/search: ${p}`));
+  else ok(`C4/search: the dated search path asks search_blocked_property_ids (public listings only, service_role only, ${migs[migs.length - 1]}) and never scans calendar_blocks`);
+}
+
+// ---------------------------------------------------------------------------
 // C31 — the rental posting gate's HINT is the token the create form matches:
 // the newest migration defining enforce_private_rental_membership() must raise
 // exactly RENTAL_MEMBERSHIP_REQUIRED_HINT from src/lib/membership/plans.ts.

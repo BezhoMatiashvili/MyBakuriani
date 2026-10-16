@@ -8144,6 +8144,10 @@ export type Database = {
         Returns: Json;
       };
       schema_contract_snapshot: { Args: never; Returns: Json };
+      search_blocked_property_ids: {
+        Args: { p_from: string; p_to: string };
+        Returns: string[];
+      };
       security_posture_snapshot: { Args: never; Returns: Json };
       self_service_activate_menu_item_discount: {
         Args: {

@@ -307,30 +307,23 @@ serve(async (req) => {
 
     // Date availability exclusion — resolved BEFORE range/count are applied
     // below, so total/total_pages reflect only listings actually available
-    // for the requested dates instead of overstating them. Blocked property
-    // ids are resolved first, then excluded via not-in on the main query.
+    // for the requested dates instead of overstating them. The blocked ids are
+    // resolved by the database and only for PUBLIC listings (the main query
+    // reads public_properties, so no other id can matter): the list that goes
+    // into the not-in URL is bounded by the approved inventory. Reading every
+    // calendar_blocks row put an owner-writable number of ids (pending
+    // listings included) into that URL, and past about 650 the REST layer
+    // refuses it, which turned every dated search into a 500.
     if (check_in && check_out) {
-      // calendar_blocks holds one row per property per day, so a multi-day
-      // range can exceed PostgREST's default max-rows and get silently
-      // truncated — page through it explicitly so no blocked id is missed.
-      const blockedIds = new Set<string>();
-      const BLOCK_PAGE_SIZE = 1000;
-      for (let from = 0; ; from += BLOCK_PAGE_SIZE) {
-        const { data: blockedProps, error: blockedError } = await supabase
-          .from("calendar_blocks")
-          .select("property_id")
-          .gte("date", check_in)
-          .lt("date", check_out)
-          .in("status", ["booked", "blocked"])
-          .range(from, from + BLOCK_PAGE_SIZE - 1);
+      const { data: blockedIds, error: blockedError } = await supabase.rpc(
+        "search_blocked_property_ids",
+        { p_from: check_in, p_to: check_out },
+      );
 
-        if (blockedError) throw blockedError;
+      if (blockedError) throw blockedError;
 
-        for (const b of blockedProps ?? []) blockedIds.add(b.property_id);
-        if ((blockedProps?.length ?? 0) < BLOCK_PAGE_SIZE) break;
-      }
-      if (blockedIds.size > 0) {
-        dbQuery = dbQuery.not("id", "in", `(${[...blockedIds].join(",")})`);
+      if (blockedIds && blockedIds.length > 0) {
+        dbQuery = dbQuery.not("id", "in", `(${blockedIds.join(",")})`);
       }
     }
 
