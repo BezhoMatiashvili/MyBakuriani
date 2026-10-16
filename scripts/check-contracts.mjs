@@ -694,6 +694,30 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C4/search: the dated search path asks search_blocked_property_ids (public listings only, service_role only, ${migs[migs.length - 1]}) and never scans calendar_blocks`);
 }
 
+// C18 — a stored NaN coordinate must not end the daily SMS run (F-V5-R8-01). A
+// numeric NaN reaches sms-automation-run as the string "NaN": the pin accepts a
+// finite number only, one message that cannot be built is counted and skipped
+// (not thrown out of the run), and the database refuses a coordinate outside
+// -90..90 / -180..180 on properties and organizations (NaN sorts above both).
+{
+  const problems = [];
+  const domain = read("supabase/functions/sms-automation-run/domain.ts");
+  const index = read("supabase/functions/sms-automation-run/index.ts");
+  if (!/function pinCoordinate\(value: unknown\)[^{]*\{[^}]*Number\.isFinite\(value\)/.test(domain)) problems.push("domain.ts pinCoordinate must accept a finite number only");
+  if (/\.toFixed\(/.test(domain.replace(/function pinCoordinate[\s\S]*?\n\}\n/, ""))) problems.push("domain.ts calls toFixed outside pinCoordinate (a raw database numeric can be the string \"NaN\")");
+  if (!/build: \(\) => string[\s\S]{0,200}try \{\s*message = build\(\);\s*\} catch/.test(index)) problems.push("index.ts enqueue must build the message inside try/catch (one bad row ends the run for every owner after it)");
+  if (/enqueue\(\s*"[a-z_]+",\s*c,\s*build[A-Z]/.test(index)) problems.push("index.ts passes a built message to enqueue; pass a () => build…() thunk");
+  const migs = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
+  const sql = migs.map((f) => read(join("supabase/migrations", f))).join("\n");
+  for (const name of ["properties_location_lat_range", "properties_location_lng_range", "organizations_location_lat_range", "organizations_location_lng_range"]) {
+    const re = new RegExp(`ADD CONSTRAINT ${name}\\s+CHECK \\(location_l(?:at|ng) BETWEEN -(?:90|180) AND (?:90|180)\\)`);
+    if (!re.test(sql)) problems.push(`no migration adds ${name} (CHECK BETWEEN the coordinate range)`);
+    if (new RegExp(`DROP CONSTRAINT[^;]*${name}`).test(sql.replace(/--[^\n]*/g, ""))) problems.push(`a migration drops ${name}`);
+  }
+  if (problems.length) problems.forEach((p) => fail(`C18/pin: ${p}`));
+  else ok("C18/pin: the SMS pin takes finite numbers only, enqueue guards the message build, and coordinates are range-checked in the database");
+}
+
 // ---------------------------------------------------------------------------
 // C31 — the rental posting gate's HINT is the token the create form matches:
 // the newest migration defining enforce_private_rental_membership() must raise

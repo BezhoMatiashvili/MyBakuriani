@@ -121,9 +121,16 @@ function clampOneLine(value: string | null, max: number): string {
   return Array.from(oneLine).slice(0, max).join("").trim();
 }
 
-/** A pin to about a metre (5 decimals): the URL is the longest part of the text. */
-function pinCoordinate(value: number): number {
-  return Number(value.toFixed(5));
+/**
+ * A pin to about a metre (5 decimals): the URL is the longest part of the text.
+ * PostgREST sends a numeric NaN as the string "NaN", which an owner can store
+ * (no range check on the column before 20261016130000): anything that is not a
+ * finite number is no pin, and the text names the area instead.
+ */
+function pinCoordinate(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Number(value.toFixed(5))
+    : null;
 }
 
 /**
@@ -142,9 +149,9 @@ export function buildCheckIn(
   const listingLink = p && listingVisible
     ? `${siteUrl}${propertyViewPath(p)}`
     : null;
-  const pin = p && p.location_lat != null && p.location_lng != null
-    ? [p.location_lat, p.location_lng].map(pinCoordinate).join(",")
-    : null;
+  const lat = pinCoordinate(p?.location_lat);
+  const lng = pinCoordinate(p?.location_lng);
+  const pin = lat !== null && lng !== null ? `${lat},${lng}` : null;
   // The owner's exact pin, else the area as text: a zone's centre on a map
   // would read as the exact spot and send the guest to the wrong place.
   const location = pin

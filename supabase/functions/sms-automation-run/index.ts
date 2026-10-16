@@ -280,9 +280,24 @@ serve(async (req: Request) => {
       const enqueue = async (
         kind: AutomationKind,
         c: Candidate,
-        message: string,
+        build: () => string,
       ): Promise<boolean> => {
         if (remainingCapacity < 1) return false;
+        let message: string;
+        try {
+          message = build();
+        } catch (err) {
+          // One row that cannot be worded must not end the run (and the
+          // reminders of every owner after it): count it, log it, go on.
+          summary.failed += 1;
+          console.error("message build failed", {
+            kind,
+            source: c.source,
+            booking_id: c.booking_id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return false;
+        }
         const { data, error } = await db.rpc("sms_enqueue_automation", {
           p_sender_id: c.owner_id,
           p_recipient_id: c.recipient_id,
@@ -362,7 +377,7 @@ serve(async (req: Request) => {
           await enqueue(
             "check_in",
             c,
-            buildCheckIn(c, rule, siteUrl, listingVisible),
+            () => buildCheckIn(c, rule, siteUrl, listingVisible),
           );
         }
       }
@@ -386,7 +401,11 @@ serve(async (req: Request) => {
             .eq("booking_id", c.booking_id);
           if (reviewErr) throw reviewErr;
           if ((count ?? 0) > 0) continue; // already reviewed
-          await enqueue("review_request", c, buildReviewRequest(c, siteUrl));
+          await enqueue(
+            "review_request",
+            c,
+            () => buildReviewRequest(c, siteUrl),
+          );
         }
         for (
           const c of await scanManual(db, {
@@ -411,7 +430,7 @@ serve(async (req: Request) => {
           await enqueue(
             "review_request",
             c,
-            buildReviewRequest(c, siteUrl, String(token)),
+            () => buildReviewRequest(c, siteUrl, String(token)),
           );
         }
       }
@@ -444,7 +463,7 @@ serve(async (req: Request) => {
             .gt("check_in", day);
           if (rbErr) throw rbErr;
           if ((count ?? 0) > 0) continue; // guest already re-booked with this owner
-          await enqueue("win_back", c, buildWinBack(c, rule, siteUrl));
+          await enqueue("win_back", c, () => buildWinBack(c, rule, siteUrl));
         }
 
         // Manual twin of the re-booked-since skip. An offline guest has no id, so the
@@ -476,7 +495,7 @@ serve(async (req: Request) => {
             if (!reachable(c, true)) continue;
             const phone = toCanonicalGePhone(c.guest_phone);
             if (phone && rebooked.has(phone)) continue;
-            await enqueue("win_back", c, buildWinBack(c, rule, siteUrl));
+            await enqueue("win_back", c, () => buildWinBack(c, rule, siteUrl));
           }
         }
       }

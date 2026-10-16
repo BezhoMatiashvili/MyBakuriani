@@ -160,6 +160,40 @@ Deno.test("check-in text names a pin-less listing's area as text, never a zone p
   assertEquals(segments(message), 3);
 });
 
+// F-V5-R8-01: a numeric NaN reaches the function as the string "NaN" (PostgREST),
+// and its toFixed ended the whole daily run. A pin that is not a finite number
+// is no pin: the text names the area, like a pin-less listing's.
+Deno.test("check-in text treats a non-numeric pin as no pin", () => {
+  const withPin = (lat: unknown, lng: unknown) =>
+    buildCheckIn(
+      {
+        ...candidate,
+        property: candidate.property && {
+          ...candidate.property,
+          location_lat: lat as number,
+          location_lng: lng as number,
+        },
+      },
+      rule,
+      SITE,
+      true,
+    );
+  const noPin = withPin(null, null);
+  assertFalse(noPin.includes("maps.google.com"));
+  for (
+    const [lat, lng] of [
+      ["NaN", "NaN"],
+      ["NaN", 43.53],
+      [41.75, "NaN"],
+      [Number.NaN, Number.NaN],
+      ["41.75", "43.53"],
+    ]
+  ) {
+    assertEquals(withPin(lat, lng), noPin, `${String(lat)},${String(lng)}`);
+  }
+  assertStringIncludes(withPin(41.75, 43.53), "maps.google.com/?q=41.75,43.53");
+});
+
 Deno.test("check-in text links no listing the site does not show", () => {
   const message = buildCheckIn(candidate, rule, SITE, false);
   assertFalse(message.includes(SITE));
