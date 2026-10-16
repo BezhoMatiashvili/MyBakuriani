@@ -357,6 +357,7 @@
       "payments": "Card payments",
       "signupLinks": "Sign-up links",
       "adAnalytics": "Ad analytics",
+      "verifiedUsers": "Verified users",
       "smsControl": "SMS control"
     },
     "notifications": "{count} notifications",
@@ -4314,6 +4315,12 @@
       "smart_match_requests_INSERT": "Smart Match request",
       "smart_match_offers_INSERT": "Smart Match offer",
       "cleaning_tasks_INSERT": "Cleaning requested",
+      "user_groups_INSERT": "Group created",
+      "user_groups_UPDATE": "Group updated",
+      "user_groups_DELETE": "Group deleted",
+      "user_group_members_INSERT": "Added to a group",
+      "user_group_members_UPDATE": "Role in a group changed",
+      "user_group_members_DELETE": "Removed from a group",
       "cleaning_tasks_UPDATE": "Cleaning status updated"
     },
     "tables": {
@@ -4351,6 +4358,8 @@
       "blog_posts": "Blog post",
       "ads": "Ad",
       "broadcasts": "Broadcast",
+      "user_groups": "Payer group",
+      "user_group_members": "Group member",
       "project_updates": "Project update"
     },
     "fields": {
@@ -4373,6 +4382,11 @@
       "check_in": "Check-in",
       "check_out": "Check-out",
       "total_price": "Total price",
+      "verified_at": "Verified on",
+      "name": "Name",
+      "note": "Note",
+      "group_id": "Group",
+      "user_id": "User",
       "discount_percent": "Discount %"
     }
   },
@@ -6793,6 +6807,140 @@
       "queue": "Request queue",
       "fbProfile": "Facebook profile",
       "userActions": "Actions for this user"
+    }
+  },
+  "AdminVerifiedUsers": {
+    "title": "Verified users",
+    "subtitle": "Accounts verified by an administrator, and payer groups. Listing ownership is checked separately (“Verifications”).",
+    "tabsLabel": "Sections",
+    "tabs": {
+      "users": "Verified",
+      "groups": "Groups"
+    },
+    "roles": {
+      "payer": "Payer",
+      "member": "Member"
+    },
+    "pills": {
+      "verified": "Verified",
+      "unverified": "Not verified"
+    },
+    "noPhone": "No phone",
+    "deletedAccount": "Deleted account",
+    "idLabel": "ID: {code}",
+    "found": "{count} found",
+    "users": {
+      "searchPlaceholder": "Search: name or phone…",
+      "total": "{total} verified in total",
+      "verifyAction": "Verify a user",
+      "columns": {
+        "user": "User",
+        "verifiedAt": "Verified on",
+        "groups": "Groups"
+      },
+      "verifiedAtUnknown": "Date not recorded",
+      "moreGroups": "{count, plural, one {# more group} other {# more groups}}",
+      "removeAria": "Remove verification: {name}",
+      "empty": "No verified users yet.",
+      "emptySearch": "No verified users match this search."
+    },
+    "verify": {
+      "pickLabel": "User",
+      "pickHint": "Find the account by name or phone.",
+      "notice": "A verified badge will appear publicly on this user’s listings. The change reaches the site within a few minutes.",
+      "change": "Choose another user",
+      "done": "User verified",
+      "alreadyDone": "The user is already verified"
+    },
+    "remove": {
+      "notice": "The verified badge disappears from their listings within a few minutes. The user stays in their groups.",
+      "done": "Verification removed",
+      "alreadyDone": "Verification was already removed"
+    },
+    "groups": {
+      "searchPlaceholder": "Search: group, name, phone…",
+      "count": "{count, plural, one {# group} other {# groups}} in total",
+      "create": "Create group",
+      "empty": "No groups yet. Create a group to link one payer to the users they paid for.",
+      "emptySearch": "No groups match this search."
+    },
+    "card": {
+      "payer": "Payer",
+      "members": "Members: {count}",
+      "moreMembers": "{count, plural, one {# more member} other {# more members}}",
+      "note": "Note",
+      "showMore": "Show more",
+      "showLess": "Show less",
+      "financeLink": "View in Finances",
+      "editAria": "Edit group: {name}",
+      "deleteAria": "Delete group: {name}"
+    },
+    "form": {
+      "editTitle": "Edit group",
+      "name": "Name (only administrators see it)",
+      "namePlaceholder": "e.g. Summer 2026",
+      "counter": "{count}/{max}",
+      "payer": "Payer",
+      "payerHint": "Who paid on behalf of the others",
+      "payerChange": "Change",
+      "payerDeleted": "The payer’s account was deleted — choose a new payer.",
+      "members": "Members",
+      "membersHint": "The users they paid for",
+      "membersEmpty": "No members added yet.",
+      "memberRemoveAria": "Remove from group: {name}",
+      "memberRemove": "Remove",
+      "note": "Note (only administrators see it)",
+      "money": "Amounts are not stored here — see “Finances”.",
+      "submitCreate": "Create",
+      "discard": "Unsaved changes will be lost.",
+      "discardTitle": "Close without saving?",
+      "discardConfirm": "Discard changes",
+      "keepEditing": "Keep editing",
+      "created": "Group created: {name}",
+      "saved": "Group saved: {name}",
+      "announce": {
+        "added": "Added: {name} ({count}/{max})",
+        "removed": "Removed: {name} ({count}/{max})",
+        "movedToPayer": "Chosen as payer: {name}. Removed from the members.",
+        "payerChosen": "Payer: {name}"
+      }
+    },
+    "delete": {
+      "title": "Delete group",
+      "notice": "Only the group is deleted. Its people keep their verification.",
+      "done": "Group deleted: {name}"
+    },
+    "picker": {
+      "placeholder": "Name or phone…",
+      "hint": "At least {min} characters",
+      "loading": "Searching…",
+      "none": "Nothing found",
+      "noneHint": "An account appears in the search once its registration is completed.",
+      "count": "{count, plural, one {# result} other {# results}}",
+      "limitHint": "Showing the first {count}. Narrow the search.",
+      "alreadyVerified": "Already verified",
+      "alreadyAdded": "Already added",
+      "isPayer": "Already the payer",
+      "limitReached": "Limit reached"
+    },
+    "errors": {
+      "invalid_input": "The data is invalid.",
+      "invalid_id": "The group is not specified correctly.",
+      "name_required": "Enter the group name.",
+      "name_too_long": "The name is too long.",
+      "note_too_long": "The note is too long.",
+      "payer_required": "Choose the payer.",
+      "payer_in_members": "The payer cannot also be a member.",
+      "members_required": "Add at least one member.",
+      "too_many_members": "There are more members than the limit allows.",
+      "unknown_user": "A user was not found — the account may have been deleted.",
+      "not_found": "The group was not found — it may already be deleted.",
+      "forbidden": "Only an administrator can do this.",
+      "unauthenticated": "Your session has ended. Sign in again.",
+      "busy": "The server is busy — try again in a minute.",
+      "server_error": "Server error. Try again.",
+      "network": "Network error. Check your connection and try again.",
+      "uncertain": "The result is unknown — the list was refreshed. Check it before creating the group again."
     }
   },
   "AdminSettings": {

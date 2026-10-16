@@ -6213,6 +6213,108 @@ export type Database = {
           },
         ];
       };
+      user_group_members: {
+        Row: {
+          created_at: string;
+          group_id: string;
+          id: string;
+          role: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          group_id: string;
+          id?: string;
+          role?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          group_id?: string;
+          id?: string;
+          role?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_group_members_group_id_fkey";
+            columns: ["group_id"];
+            isOneToOne: false;
+            referencedRelation: "user_groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_group_members_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "admin_membership_overview_v";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "user_group_members_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_group_members_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      user_groups: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          name: string;
+          note: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name: string;
+          note?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name?: string;
+          note?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_groups_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "admin_membership_overview_v";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "user_groups_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_groups_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_subscriptions: {
         Row: {
           amount_paid: number | null;
@@ -7282,6 +7384,17 @@ export type Database = {
           visits_7d: number;
           weekly_visitors: number;
         }[];
+      };
+      admin_save_user_group: {
+        Args: {
+          p_admin_id: string;
+          p_group_id?: string;
+          p_member_ids: string[];
+          p_name: string;
+          p_note?: string;
+          p_payer_id: string;
+        };
+        Returns: Json;
       };
       admin_sms_finance_ledger: {
         Args: {

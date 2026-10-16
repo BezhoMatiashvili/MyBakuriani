@@ -208,15 +208,31 @@ test("the transport, entertainment and services cabinets never show it", async (
   });
   try {
     for (const cabinet of ["transport", "entertainment", "services"]) {
-      await page.goto(`/dashboard/${cabinet}/orders`);
-      expect(new URL(page.url()).pathname).toBe(`/dashboard/${cabinet}/orders`);
-      await expect(
-        page.getByRole("heading", { name: "შეკვეთები / შეკითხვები" }),
-      ).toBeVisible();
-      await expectLoaded(page);
-      await expect(page.getByText("ვაკანსიის განაცხადები")).toHaveCount(0);
-      await expect(page.getByText(APPLICANT)).toHaveCount(0);
-      await expect(page.locator("[data-cv-download]")).toHaveCount(0);
+      if (cabinet === "services") {
+        await page.goto(`/dashboard/${cabinet}/orders`);
+        expect(new URL(page.url()).pathname).toBe(
+          `/dashboard/${cabinet}/orders`,
+        );
+        await expect(
+          page.getByRole("heading", { name: "შეკვეთები / შეკითხვები" }),
+        ).toBeVisible();
+        await expectLoaded(page);
+        await expect(page.getByText("ვაკანსიის განაცხადები")).toHaveCount(0);
+        await expect(page.getByText(APPLICANT)).toHaveCount(0);
+        await expect(page.locator("[data-cv-download]")).toHaveCount(0);
+      } else {
+        // Transport and entertainment have no orders page (2026-10-16): no
+        // sidebar entry, and the route itself is gone.
+        await page.goto(`/dashboard/${cabinet}`);
+        await expect(
+          page.locator(`a[href$="/dashboard/${cabinet}/balance"]`).first(),
+        ).toBeVisible();
+        await expect(
+          page.locator(`a[href$="/dashboard/${cabinet}/orders"]`),
+        ).toHaveCount(0);
+        const response = await page.goto(`/dashboard/${cabinet}/orders`);
+        expect(response?.status()).toBe(404);
+      }
 
       await page.goto(`/dashboard/${cabinet}/notifications`);
       expect(new URL(page.url()).pathname).toBe(

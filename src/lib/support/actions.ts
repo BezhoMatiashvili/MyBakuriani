@@ -107,12 +107,7 @@ const BALANCE: readonly SupportCabinet[] = [
   "employment",
   "services",
 ];
-const ORDERS: readonly SupportCabinet[] = [
-  "entertainment",
-  "transport",
-  "employment",
-  "services",
-];
+const ORDERS: readonly SupportCabinet[] = ["employment", "services"];
 const SETTINGS: Partial<Record<SupportCabinet, string>> = {
   guest: "/dashboard/guest/profile",
   renter: "/dashboard/renter/profile",

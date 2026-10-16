@@ -2642,6 +2642,251 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok("C51: /recover and the password update sent once; changePassword proves the current password; the resend window is the sent state; token_hash links spent only on submit; the card writes through changePassword; no other password writer; pure modules bare");
 }
 
+// ---------------------------------------------------------------------------
+// C52 — admin verified users and payer groups (/dashboard/admin/verified-users): (a) user_groups and
+// user_group_members are created once, with RLS on, REVOKE ALL from PUBLIC/anon/authenticated, GRANT to service_role
+// only and the audit trigger, no policy, and no migration grants them to a client role or switches RLS off;
+// (a2) admin_save_user_group is a SECURITY DEFINER with an empty search_path, revoked from PUBLIC/anon/authenticated
+// where it is created, granted to service_role only and never to a client role; (b) the role CHECK = USER_GROUP_ROLES;
+// (c) every handler of the verified-users routes and of the verified toggle starts with the requireAdmin guard, a
+// writing handler runs under createServiceClient(guard.admin.userId) (the audit row names the admin) and the RPC gets
+// the session's admin id, never the body's; (d) the group tables and the RPC are named as strings only inside that API
+// directory and the generated types; (e) src/lib/user-groups.ts has no runtime import (check-db-contracts and
+// scripts/unit load it bare); (f) AdminVerifiedUsers is a dashboard namespace, DashboardSidebar.nav.verifiedUsers is
+// worded in every locale, both admin menus link the page, and the page file exists and imports no service-role client;
+// (g) profiles.is_verified is written only by the toggle route and verifications/moderate, and the toggle writes through
+// verificationPatch on a real transition only, behind an isUuid check; (h) no log line of those routes carries a
+// request body, name, note, search term, row or the raw error object; (i) no select("*"); (j) a <button> that can be
+// disabled does not interpolate a person's name (the support assistant's nudge reads a pressed disabled button's label).
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  const tables = ["user_groups", "user_group_members"];
+  const rpc = "admin_save_user_group";
+  const apiDir = "src/app/api/admin/verified-users";
+  const toggleRoute = "src/app/api/admin/clients/[id]/verified/route.ts";
+  const moderateRoute = "src/app/api/admin/verifications/moderate/route.ts";
+  const pureFile = "src/lib/user-groups.ts";
+  const serverFile = "src/lib/user-groups-server.ts";
+  const componentDir = "src/components/admin/verified-users";
+  const pageFile = "src/app/[locale]/dashboard/admin/verified-users/page.tsx";
+  const generatedTypes = join("src/lib/types", "database");
+  const sources = new Map();
+  const source = (f) => {
+    if (!sources.has(f)) {
+      if (!existsSync(join(root, f))) problems.push(`${f} is missing`);
+      sources.set(f, existsSync(join(root, f)) ? read(f) : "");
+    }
+    return sources.get(f);
+  };
+  // One left-to-right pass: a comment is dropped, a string is kept, so "//" in a URL string and "/**" inside a
+  // "//" comment cannot swallow code (a block-comment pass first would).
+  const asCode = (code) => code.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|`(?:[^`\\]|\\.)*`|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g, (m) => (m[0] === "/" ? " " : m));
+  // Comments never count in SQL: "-- GRANT ... TO anon" must neither fail nor pass.
+  const migrations = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .map((f) => [f, read(join("supabase/migrations", f)).replace(/\/\*[\s\S]*?\*\/|--[^\n]*|'(?:[^']|'')*'/g, (m) => (m[0] === "'" ? m : " "))]);
+  const grantsOn = (sql, name) => sql.match(new RegExp(`\\bGRANT\\b[^;]*\\bpublic\\.${name}\\b[^;]*;`, "gi")) ?? [];
+  const toClient = (grant) => /\bTO\b[^;]*\b(?:anon|authenticated|PUBLIC)\b/i.test(grant);
+
+  // (a) one creating migration per table, which also closes it off; no later policy, RLS-off or client grant.
+  for (const table of tables) {
+    const creators = migrations.filter(([, sql]) => new RegExp(`\\bCREATE TABLE (?:IF NOT EXISTS )?public\\.${table}\\b`, "i").test(sql));
+    if (creators.length !== 1) problems.push(`public.${table} must be created by exactly one migration (found ${creators.length})`);
+    else {
+      const [file, sql] = creators[0];
+      for (const [pattern, what] of [
+        [`ALTER TABLE public\\.${table} ENABLE ROW LEVEL SECURITY`, "ENABLE ROW LEVEL SECURITY"],
+        [`REVOKE ALL ON (?:TABLE )?public\\.${table}\\b[^;]*FROM PUBLIC, anon, authenticated`, "REVOKE ALL FROM PUBLIC, anon, authenticated"],
+        [`GRANT [A-Z, ]+ ON (?:TABLE )?public\\.${table} TO service_role\\s*;`, "GRANT to service_role only"],
+        [`CREATE TRIGGER trg_audit_row\\s+AFTER[^;]*\\bON public\\.${table}\\s+FOR EACH ROW EXECUTE FUNCTION public\\.audit_row_change\\(\\)`, "CREATE TRIGGER trg_audit_row (an admin's edit is audited)"],
+      ]) {
+        if (!new RegExp(pattern, "i").test(sql)) problems.push(`${file} must ${what} on public.${table}`);
+      }
+    }
+    for (const [file, sql] of migrations) {
+      if (new RegExp(`CREATE POLICY[^;]*\\bON public\\.${table}\\b`, "i").test(sql)) problems.push(`${file} adds a policy on public.${table} (service role only: no client path)`);
+      if (new RegExp(`ALTER TABLE (?:ONLY )?public\\.${table} (?:DISABLE|NO FORCE) ROW LEVEL SECURITY`, "i").test(sql)) problems.push(`${file} switches RLS off on public.${table}`);
+      if (grantsOn(sql, table).some(toClient)) problems.push(`${file} grants public.${table} to a client role`);
+    }
+  }
+
+  // (a2) the definer RPC: service_role only, search_path pinned, never granted to a client role.
+  const rpcHeader = new RegExp(`CREATE (?:OR REPLACE )?FUNCTION public\\.${rpc}\\(`, "i");
+  const rpcCreators = migrations.filter(([, sql]) => rpcHeader.test(sql));
+  if (!rpcCreators.length) problems.push(`no migration creates public.${rpc}`);
+  else {
+    const [first, firstSql] = rpcCreators[0];
+    if (!new RegExp(`REVOKE ALL ON FUNCTION public\\.${rpc}\\b[^;]*FROM PUBLIC, anon, authenticated`, "i").test(firstSql)) problems.push(`${first} must REVOKE ALL on public.${rpc} FROM PUBLIC, anon, authenticated`);
+    if (!new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${rpc}\\b[^;]*TO service_role\\s*;`, "i").test(firstSql)) problems.push(`${first} must GRANT EXECUTE on public.${rpc} TO service_role only`);
+    const [newest, newestSql] = rpcCreators.at(-1);
+    const head = newestSql.slice(newestSql.search(rpcHeader)).match(/^[\s\S]*?\bAS\s+\$[a-z_]*\$/i)?.[0] ?? "";
+    if (!/\bSECURITY DEFINER\b/i.test(head) || !/\bSET search_path\s*=\s*''/i.test(head)) problems.push(`${newest} must define public.${rpc} as SECURITY DEFINER with SET search_path = '' (the newest definition is the one that counts)`);
+  }
+  for (const [file, sql] of migrations) {
+    if (grantsOn(sql, rpc).some(toClient)) problems.push(`${file} grants public.${rpc} to a client role`);
+  }
+
+  // (b) the role CHECK equals USER_GROUP_ROLES (a role on one side only is a 400 or a 23514).
+  const pure = source(pureFile);
+  const tsRoles = [...(pure.match(/export const USER_GROUP_ROLES = \[([\s\S]*?)\]/)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  let dbRoles = null;
+  for (const [, sql] of [...migrations].reverse()) {
+    const at = sql.search(/CONSTRAINT user_group_members_role_check\s+CHECK\s*\(/i);
+    if (at < 0) continue;
+    const open = sql.indexOf("(", at);
+    let depth = 0;
+    for (let i = open; i < sql.length; i += 1) {
+      if (sql[i] === "(") depth += 1;
+      else if (sql[i] === ")" && --depth === 0) {
+        dbRoles = [...sql.slice(open + 1, i).matchAll(/'([^']+)'/g)].map((m) => m[1]);
+        break;
+      }
+    }
+    break;
+  }
+  if (!dbRoles || !tsRoles.length) problems.push(`could not read ${dbRoles ? "USER_GROUP_ROLES" : "user_group_members_role_check"}`);
+  else if (!setEq(new Set(dbRoles), new Set(tsRoles))) problems.push(`user_group_members_role_check [${dbRoles.join(", ")}] ≠ USER_GROUP_ROLES [${tsRoles.join(", ")}]`);
+
+  // (c) requireAdmin first in every handler; a writing handler runs under the admin's id.
+  const routeFiles = existsSync(join(root, apiDir)) ? [...walk(apiDir, [".ts"])].filter((f) => /(^|\/)route\.ts$/.test(f)) : [];
+  if (!routeFiles.length) problems.push(`no routes under ${apiDir}`);
+  const handlersOf = (code) => {
+    const found = [...code.matchAll(/export (?:async )?function (GET|POST|PUT|PATCH|DELETE)\s*\(/g)];
+    return found.map((m, i) => {
+      let depth = 0;
+      let at = m.index + m[0].length - 1;
+      for (; at < code.length; at += 1) {
+        if (code[at] === "(") depth += 1;
+        else if (code[at] === ")" && --depth === 0) break;
+      }
+      return { method: m[1], body: code.slice(code.indexOf("{", at) + 1, found[i + 1]?.index ?? code.length) };
+    });
+  };
+  const guardFirst = /^\s*const guard = await requireAdmin\(\);\s*if \(!guard\.ok\) return guard\.response;/;
+  let handlerCount = 0;
+  for (const file of [...routeFiles, toggleRoute]) {
+    const code = asCode(source(file));
+    const handlers = handlersOf(code);
+    if (!handlers.length) problems.push(`${file} exports no HTTP handler`);
+    for (const { method, body } of handlers) {
+      handlerCount += 1;
+      if (!guardFirst.test(body)) problems.push(`${file} ${method} must start with const guard = await requireAdmin(); if (!guard.ok) return guard.response;`);
+      const writes = method !== "GET" || /\.(?:insert|update|upsert|delete)\(|\.rpc\(/.test(body);
+      if (writes && !/createServiceClient\(\s*guard\.admin\.userId\s*\)/.test(body)) problems.push(`${file} ${method} writes without createServiceClient(guard.admin.userId) (the audit row would have no actor)`);
+    }
+    for (const call of code.match(new RegExp(`\\.rpc\\(\\s*"${rpc}"[\\s\\S]*?\\}\\s*\\)`, "g")) ?? []) {
+      if (!/\bp_admin_id:\s*guard\.admin\.userId\b/.test(call)) problems.push(`${file} calls ${rpc} without p_admin_id: guard.admin.userId (the session's admin, never the body's)`);
+    }
+  }
+
+  // (d) nothing else names the tables or the RPC as a string: only the admin API (and the generated types).
+  const named = new RegExp(`["'\`](?:${[...tables, rpc].join("|")})["'\`]`);
+  const strangers = srcFiles.filter((f) => !f.startsWith(`${apiDir}/`) && !f.startsWith(generatedTypes) && named.test(asCode(srcText.get(f))));
+  if (strangers.length) problems.push(`the group tables / ${rpc} are named outside ${apiDir}: ${strangers.join(", ")}`);
+
+  // (e) the pure module is loaded bare by check-db-contracts and scripts/unit.
+  if (/^\s*import\s+(?!type\b)|^\s*export\s+(?:\*|\{[^}]*\})\s+from\b/m.test(asCode(pure))) problems.push(`${pureFile} has a runtime import or re-export (it is loaded bare: use import type)`);
+
+  // (f) namespace, nav label, both menus, the page.
+  if (!/"AdminVerifiedUsers"/.test(source("src/i18n/namespaces.ts").match(/DASHBOARD_NAMESPACES = \[([\s\S]*?)\]/)?.[1] ?? "")) problems.push("AdminVerifiedUsers is missing from DASHBOARD_NAMESPACES (src/i18n/namespaces.ts)");
+  for (const locale of ["ka", "en", "ru"]) {
+    const messages = JSON.parse(source(`messages/${locale}.json`) || "{}");
+    if (typeof messages.DashboardSidebar?.nav?.verifiedUsers !== "string" || !messages.DashboardSidebar.nav.verifiedUsers.trim()) problems.push(`messages/${locale}.json lacks DashboardSidebar.nav.verifiedUsers (both admin menus use it)`);
+    if (!messages.AdminVerifiedUsers) problems.push(`messages/${locale}.json lacks the AdminVerifiedUsers namespace`);
+  }
+  for (const menu of ["src/components/layout/AdminSidebar.tsx", "src/components/layout/MobileBottomNav.tsx"]) {
+    if (!/labelKey:\s*"verifiedUsers"[\s\S]{0,80}href:\s*"\/dashboard\/admin\/verified-users"/.test(source(menu))) problems.push(`${menu} must list the page (labelKey "verifiedUsers", href /dashboard/admin/verified-users)`);
+  }
+  if (/@\/lib\/supabase\/admin|getAdminStats/.test(source(pageFile))) problems.push(`${pageFile} must not import the service-role client or getAdminStats (every figure comes from ${apiDir}; C8 stays n/a)`);
+
+  // (g) profiles.is_verified: two writers; the toggle stamps verified_at on a real transition only.
+  const isVerifiedWrite = /\.(?:update|upsert|insert)\(\s*(?:\[\s*)?\{[^}]*\bis_verified\b|\bverificationPatch\(/;
+  const writers = new Set([toggleRoute, moderateRoute]);
+  const rogue = srcFiles.filter((f) => !f.startsWith(generatedTypes) && f !== pureFile && !writers.has(f) && isVerifiedWrite.test(asCode(srcText.get(f))));
+  if (rogue.length) problems.push(`profiles.is_verified is written outside the two admin routes (${rogue.join(", ")}); extend this allow-list only on purpose`);
+  const toggle = asCode(source(toggleRoute));
+  if (!/\.update\(\s*verificationPatch\(/.test(toggle)) problems.push(`${toggleRoute} must write through verificationPatch (is_verified AND verified_at)`);
+  if (!/is_verified\.is\.null,is_verified\.eq\.false/.test(toggle) || !/\.eq\(\s*"is_verified",\s*true\s*\)/.test(toggle)) problems.push(`${toggleRoute} must update on a transition only (a repeat keeps the original verified_at)`);
+  if (!/\bisUuid\(/.test(toggle) || toggle.indexOf("isUuid(") > toggle.indexOf(".from(")) problems.push(`${toggleRoute} must reject a non-uuid id before the first query`);
+
+  // (h) + (i) the routes, the toggle and their helper: what may be logged, what may be selected.
+  const callArgs = (code, opener) => [...code.matchAll(opener)].map((m) => {
+    let depth = 1;
+    let i = m.index + m[0].length;
+    for (; i < code.length && depth > 0; i += 1) {
+      if (code[i] === "(") depth += 1;
+      else if (code[i] === ")") depth -= 1;
+    }
+    return code.slice(m.index + m[0].length, i - 1);
+  });
+  // String literals out, the ${…} expressions of template literals kept: only identifiers are tested.
+  const exprsOf = (args) => args.replace(/`((?:[^`\\]|\\.)*)`|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g, (_, template) => (template === undefined ? " " : [...template.matchAll(/\$\{([^}]*)\}/g)].map((m) => ` ${m[1]} `).join("")));
+  const unsafeLog = /(?<![.\w])(?:body|name|note|q|term|search|parsed|input|payerId|memberIds|display_name|details|data)(?!\w)|(?<![.\w])(?:error|readError|err)(?![\w.])/;
+  const selectsAll = /\.select\(\s*\)|\.select\(\s*(["'`])[^"'`]*\*[^"'`]*\1|\b[A-Z][A-Z_]*(?:SELECT|COLUMNS)\s*=\s*(["'`])[^"'`]*\*[^"'`]*\2/;
+  for (const file of [...routeFiles, toggleRoute, serverFile]) {
+    const code = asCode(source(file));
+    for (const args of callArgs(code, /console\.(?:error|warn|log|info|debug)\(/g)) {
+      const hit = exprsOf(args).match(unsafeLog)?.[0];
+      if (hit) problems.push(`${file} logs "${hit}" (log only a fixed label and the error's code, message and hint)`);
+    }
+    if (selectsAll.test(code)) problems.push(`${file} selects every column (name the columns; select("*") would also return a CHECK violation's row)`);
+  }
+
+  // (j) a <button>/<Button> the browser can disable (disabled, aria-disabled, or Button's loading) must not carry a
+  // person's name in its label or text: the support assistant's nudge reads it. A per-person control (remove X) stays
+  // enabled and shows aria-busy instead. Props passed down (ConfirmPanel's cancelLabel) are not followed.
+  const buttonsOf = (code) => {
+    const found = [];
+    for (const m of code.matchAll(/<(button|Button)(?=[\s/>])/g)) {
+      let depth = 0;
+      let quote = "";
+      let props = "";
+      let end = -1;
+      for (let i = m.index + m[0].length; i < code.length; i += 1) {
+        const c = code[i];
+        if (quote) {
+          if (c === "\\" && depth > 0) i += 1;
+          else if (c === quote) quote = "";
+        } else if (c === '"' || c === "'" || c === "`") {
+          quote = c;
+          if (depth === 0) props += " ";
+        } else if (c === "{") depth += 1;
+        else if (c === "}") {
+          depth -= 1;
+          if (depth === 0) props += " ";
+        } else if (c === ">" && depth === 0) {
+          end = i;
+          break;
+        } else if (depth === 0) props += c;
+      }
+      if (end < 0) continue;
+      const open = code.slice(m.index, end + 1);
+      const close = open.endsWith("/>") ? -1 : code.indexOf(`</${m[1]}>`, end);
+      found.push({ tag: m[1], open, props: ` ${props} `, children: close < 0 ? "" : code.slice(end + 1, close) });
+    }
+    return found;
+  };
+  const namesAPerson = /\bdisplay_name\b|\bname\s*:|\{\s*(?:[\w$]+\.)*name\s*\}|<UserIdentity\b/;
+  let buttonCount = 0;
+  let disableable = 0;
+  const componentFiles = existsSync(join(root, componentDir)) ? [...walk(componentDir, [".tsx"])] : [];
+  if (!componentFiles.length) problems.push(`no components under ${componentDir}`);
+  for (const file of componentFiles) {
+    for (const button of buttonsOf(asCode(source(file)))) {
+      buttonCount += 1;
+      const canDisable = /\s(?:disabled|aria-disabled)(?=[\s=/])/.test(button.props) || (button.tag === "Button" && /\sloading(?=[\s=/])/.test(button.props));
+      if (!canDisable) continue;
+      disableable += 1;
+      if (namesAPerson.test(button.open) || namesAPerson.test(button.children)) problems.push(`${file}: a button that can be disabled interpolates a person's name (${button.open.replace(/\s+/g, " ").slice(0, 90)}…); keep per-person buttons enabled and use aria-busy`);
+    }
+  }
+
+  if (problems.length) problems.forEach((p) => fail(`C52: ${p}`));
+  else ok(`C52: ${tables.length} group tables and ${rpc} service_role only (RLS on, audited, no policy); role CHECK = USER_GROUP_ROLES; ${handlerCount} handlers in ${routeFiles.length + 1} route files start with requireAdmin and write under the admin's id; tables named only by the admin API; is_verified written by 2 admin routes, the toggle stamps verified_at on a transition; no body/name/note logged, no select("*"); ${disableable} of ${buttonCount} buttons can be disabled and none interpolates a name; pure module bare; namespace, nav label and both menus wired`);
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);

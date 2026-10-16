@@ -43,10 +43,9 @@ const SHARED_MAP = `- /create "განცხადების დამატ
 const PUBLIC_SHARED_MAP = `- Header: "შესვლა" (sign in or register; /auth/login), "განცხადების დამატება" (add a listing; needs an account), the language switch, and once signed in "კაბინეტი" (the user's dashboard). On phones and tablets the header shows only "+" (add a listing) and the menu (☰): "შესვლა" and the category links are inside that menu.
 - Public pages: /pricing (prices), /faq, /contact, /blog, /bakuriani (resort guide).`;
 
-const SERVICE_MAP = (base: string, orders: string) =>
+const SERVICE_MAP = (base: string, orders?: string) =>
   `- ${base} "ჩემი კაბინეტი": the user's listings, "დაამატე სერვისი" (add a listing).
-- ${base}/orders ${orders}
-- ${base}/balance "ბალანსი და VIP": balance top-up, VIP / SUPER VIP, discount badge.
+${orders ? `- ${base}/orders ${orders}\n` : ""}- ${base}/balance "ბალანსი და VIP": balance top-up, VIP / SUPER VIP, discount badge.
 - ${base}/notifications "შეტყობინებები"; ${base}/parameters "პარამეტრები".`;
 
 const CABINET_MAPS: Record<SupportCabinet, string> = {
@@ -78,14 +77,8 @@ const CABINET_MAPS: Record<SupportCabinet, string> = {
   food: `- /dashboard/food "ჩემი კაბინეტი": restaurant stats.
 - /dashboard/food/orders "ჩემი მენიუ (PDF)": the PDF menu, the menu link, single dishes with prices; the menu file itself is changed in the restaurant's edit form.
 - /dashboard/food/balance "ბალანსი და VIP"; /dashboard/food/notifications; /dashboard/food/parameters.`,
-  entertainment: SERVICE_MAP(
-    "/dashboard/entertainment",
-    '"შეკვეთები": messages from customers.',
-  ),
-  transport: SERVICE_MAP(
-    "/dashboard/transport",
-    '"შეკვეთები": messages from customers.',
-  ),
+  entertainment: SERVICE_MAP("/dashboard/entertainment"),
+  transport: SERVICE_MAP("/dashboard/transport"),
   employment: SERVICE_MAP(
     "/dashboard/employment",
     '"CV-ები": job applications with CVs.',

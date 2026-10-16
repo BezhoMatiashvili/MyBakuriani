@@ -148,6 +148,7 @@ export const DASHBOARD_NAMESPACES = [
   "AdminSmsControl",
   "AdminStatusCards",
   "AdminStatuses",
+  "AdminVerifiedUsers",
   "Calendar",
   "CleanerDashboard",
   "CleanerParameters",

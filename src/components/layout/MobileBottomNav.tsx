@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import {
+  BadgeCheck,
   BarChart3,
   Bell,
   BookOpen,
@@ -34,7 +35,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toServiceSegment } from "@/lib/dashboard/serviceSegments";
+import {
+  hasOrdersPage,
+  toServiceSegment,
+} from "@/lib/dashboard/serviceSegments";
 import { MobileServiceSwitcherGrid } from "@/components/layout/MobileServiceSwitcherGrid";
 import { CopyUserIdButton } from "@/components/layout/CopyUserIdButton";
 import BottomSheet from "@/components/shared/BottomSheet";
@@ -77,7 +81,9 @@ const serviceItems = (role: string): RoleNavigation => {
   return {
     tabs: [
       { labelKey: "home", href: base, icon: LayoutGrid },
-      { labelKey: orderLabel, href: `${base}/orders`, icon: orderIcon },
+      ...(hasOrdersPage(segment)
+        ? [{ labelKey: orderLabel, href: `${base}/orders`, icon: orderIcon }]
+        : []),
       { labelKey: "balanceAndVip", href: `${base}/balance`, icon: Wallet },
     ],
     more: [
@@ -120,6 +126,11 @@ function getNavigation(role: string): RoleNavigation {
             labelKey: "companies",
             href: "/dashboard/admin/companies",
             icon: Building,
+          },
+          {
+            labelKey: "verifiedUsers",
+            href: "/dashboard/admin/verified-users",
+            icon: BadgeCheck,
           },
           {
             labelKey: "listings",

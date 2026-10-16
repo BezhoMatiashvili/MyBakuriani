@@ -723,4 +723,62 @@ if (posture) {
   else ok(`C50: SMS ledger CHECKs match, ${tables.length} tables and the SMS RPCs answer the service role only, a non-admin purchase is refused`);
 }
 
+// C52 — admin verified users and payer groups (migration 20261016100000). The role CHECK equals USER_GROUP_ROLES;
+// both group tables answer the service role and are refused to anon with a permission error (a 200, even with no
+// rows, would mean a client grant); admin_save_user_group refuses a non-admin actor with its FORBIDDEN token before
+// it writes anything (all six arguments are sent, so the call resolves whether or not p_group_id / p_note carry a
+// DEFAULT; the all-zero uuid is no profile) and is refused to anon the same way; and the posture snapshot shows no
+// client route to the RPC and RLS on for both tables. authenticated cannot be probed without a session, and making
+// one would write to the project: its denial is the static check-contracts C52 plus the posture lists below (C34).
+{
+  const { USER_GROUP_ROLES } = await import("../src/lib/user-groups.ts");
+  const tables = ["user_groups", "user_group_members"];
+  const rpc = "admin_save_user_group";
+  const token = "ADMIN_USER_GROUP_FORBIDDEN";
+  const nobody = "00000000-0000-0000-0000-000000000000";
+  const args = { p_admin_id: nobody, p_name: "x", p_payer_id: nobody, p_member_ids: [nobody], p_group_id: null, p_note: null };
+  const call = async (apikey, path, body) => {
+    const res = await fetch(`${url}/rest/v1/${path}`, {
+      method: body ? "POST" : "GET",
+      headers: { apikey, Authorization: `Bearer ${apikey}`, "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { status: res.status, text: await res.text() };
+  };
+  // A permission error (401/403 with SQLSTATE 42501), not just "not 200": a missing object answers 404.
+  const refusedToClient = (res) => [401, 403].includes(res.status) && res.text.includes('"code":"42501"');
+
+  const roles = checkList("user_group_members", "role");
+  if (!roles) fail("C52: user_group_members.role CHECK not found (migration 20261016100000)");
+  else compareSets("C52 user_group_members.role", roles, [...USER_GROUP_ROLES], "CHECK constraint", "USER_GROUP_ROLES");
+
+  const problems = [];
+  for (const table of tables) {
+    const res = await call(key, `${table}?select=id&limit=1`);
+    if (res.status !== 200) problems.push(`${table} is not readable by the service role (HTTP ${res.status}: ${res.text.slice(0, 120)}) — apply migration 20261016100000`);
+  }
+  const refused = await call(key, `rpc/${rpc}`, args);
+  if (refused.status !== 403 || !refused.text.includes(token)) problems.push(`${rpc} did not refuse a non-admin actor with ${token} (HTTP ${refused.status}: ${refused.text.slice(0, 120)})`);
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anon) warn("C52: NEXT_PUBLIC_SUPABASE_ANON_KEY not set — skipped the anon checks");
+  else {
+    for (const table of tables) {
+      const res = await call(anon, `${table}?select=id&limit=1`);
+      if (!refusedToClient(res)) problems.push(`anon was not refused on ${table} (HTTP ${res.status}: ${res.text.slice(0, 120)}); a 200 means a client grant`);
+    }
+    const res = await call(anon, `rpc/${rpc}`, args);
+    if (!refusedToClient(res) || res.text.includes(token)) problems.push(`anon was not refused on ${rpc} (HTTP ${res.status}: ${res.text.slice(0, 120)})`);
+  }
+  if (posture) {
+    const reachable = [["anon", posture.anon_definer_functions], ["PUBLIC", posture.public_definer_functions], ["authenticated", posture.authenticated_definer_functions]]
+      .filter(([, list]) => (list ?? []).some((f) => f.startsWith(`${rpc}(`)))
+      .map(([who]) => who);
+    if (reachable.length) problems.push(`${rpc} is executable by ${reachable.join(", ")} (service_role only, C34)`);
+    const noRls = (posture.rls_disabled_tables ?? []).filter((t) => tables.some((name) => String(t).endsWith(name)));
+    if (noRls.length) problems.push(`RLS is off on ${noRls.join(", ")}`);
+  }
+  if (problems.length) problems.forEach((p) => fail(`C52: ${p}`));
+  else ok(`C52: ${tables.length} group tables answer the service role and are refused to anon (42501), ${rpc} refuses a non-admin actor and is refused to anon, no client role reaches it, RLS is on`);
+}
+
 finish();

@@ -44,6 +44,10 @@ const sections: { titleKey: string; items: NavItem[] }[] = [
         href: "/dashboard/admin/clients",
       },
       {
+        labelKey: "verifiedUsers",
+        href: "/dashboard/admin/verified-users",
+      },
+      {
         labelKey: "listings",
         href: "/dashboard/admin/listings",
       },
