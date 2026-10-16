@@ -733,6 +733,25 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok("C15/ranges: smart_match_requests dates (2020..2100) and budgets are range-checked in the database");
 }
 
+// C45 — properties.amenities is NULL or an array of strings in the database
+// (F-V4-R9-01): list pages call string methods on every element, so one stored
+// [5] or {"toString":0} made /sales/all answer 500 and aborted `next build`.
+{
+  const sql = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort().map((f) => read(join("supabase/migrations", f))).join("\n");
+  const problems = [];
+  const fn = sql.match(/CREATE (?:OR REPLACE )?FUNCTION public\.jsonb_string_array_valid\(p jsonb\)[\s\S]*?\$\$;/)?.[0] ?? "";
+  if (!fn) problems.push("no migration creates public.jsonb_string_array_valid(jsonb)");
+  else {
+    if (!/IMMUTABLE/.test(fn) || !/SET search_path = ''/.test(fn)) problems.push("jsonb_string_array_valid must be IMMUTABLE with an empty search_path");
+    if (!/jsonb_typeof\(p\) <> 'array' THEN false/.test(fn) || !/jsonb_typeof\(e\) <> 'string'/.test(fn)) problems.push("jsonb_string_array_valid must refuse a non-array and any non-string element");
+  }
+  if (!/REVOKE ALL ON FUNCTION public\.jsonb_string_array_valid\(jsonb\) FROM PUBLIC, anon;/.test(sql) || !/GRANT EXECUTE ON FUNCTION public\.jsonb_string_array_valid\(jsonb\) TO authenticated, service_role;/.test(sql)) problems.push("jsonb_string_array_valid must be revoked from PUBLIC/anon and granted to authenticated, service_role (every writer of properties evaluates the CHECK)");
+  if (!/ADD CONSTRAINT properties_amenities_string_array CHECK \(public\.jsonb_string_array_valid\(amenities\)\)/.test(sql)) problems.push("no migration adds properties_amenities_string_array");
+  if (/DROP CONSTRAINT[^;]*properties_amenities_string_array/.test(sql.replace(/--[^\n]*/g, ""))) problems.push("a migration drops properties_amenities_string_array");
+  if (problems.length) problems.forEach((p) => fail(`C45/amenities: ${p}`));
+  else ok("C45/amenities: properties.amenities is NULL or an array of strings in the database (jsonb_string_array_valid + CHECK)");
+}
+
 // ---------------------------------------------------------------------------
 // C31 — the rental posting gate's HINT is the token the create form matches:
 // the newest migration defining enforce_private_rental_membership() must raise

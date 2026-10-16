@@ -7904,6 +7904,7 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      jsonb_string_array_valid: { Args: { p: Json }; Returns: boolean };
       keepz_apply_payment_status: {
         Args: {
           p_payment_id: string;
