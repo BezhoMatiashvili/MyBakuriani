@@ -707,6 +707,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (/\.toFixed\(/.test(domain.replace(/function pinCoordinate[\s\S]*?\n\}\n/, ""))) problems.push("domain.ts calls toFixed outside pinCoordinate (a raw database numeric can be the string \"NaN\")");
   if (!/build: \(\) => string[\s\S]{0,200}try \{\s*message = build\(\);\s*\} catch/.test(index)) problems.push("index.ts enqueue must build the message inside try/catch (one bad row ends the run for every owner after it)");
   if (/enqueue\(\s*"[a-z_]+",\s*c,\s*build[A-Z]/.test(index)) problems.push("index.ts passes a built message to enqueue; pass a () => build…() thunk");
+  if (!/if \(tokenErr\) \{[\s\S]{0,400}tokenErr\.code !== "42501"\) throw tokenErr;[\s\S]{0,200}continue;/.test(index)) problems.push("index.ts must skip a review-token refusal (42501: the booking stopped being eligible since the scan) instead of throwing out of the run");
   const migs = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
   const sql = migs.map((f) => read(join("supabase/migrations", f))).join("\n");
   for (const name of ["properties_location_lat_range", "properties_location_lng_range", "organizations_location_lat_range", "organizations_location_lng_range"]) {
@@ -716,6 +717,20 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   }
   if (problems.length) problems.forEach((p) => fail(`C18/pin: ${p}`));
   else ok("C18/pin: the SMS pin takes finite numbers only, enqueue guards the message build, and coordinates are range-checked in the database");
+}
+
+// C15 — a guest's Smart Match request dates and budgets are range-checked in
+// the database (F-V5-R9-01): 'infinity', a year past 5 million or a NaN budget
+// reached every renter who answered the request (a thrown RangeError took the
+// renter's whole sent-offers page down until the guest cancelled).
+{
+  const sql = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort().map((f) => read(join("supabase/migrations", f))).join("\n");
+  const problems = [];
+  if (!/ADD CONSTRAINT smart_match_requests_dates_range CHECK \(\s*\(check_in IS NULL OR check_in BETWEEN DATE '2020-01-01' AND DATE '2100-12-31'\)\s*AND \(check_out IS NULL OR check_out BETWEEN DATE '2020-01-01' AND DATE '2100-12-31'\)/.test(sql)) problems.push("no migration adds smart_match_requests_dates_range (check_in/check_out BETWEEN 2020-01-01 AND 2100-12-31)");
+  if (!/ADD CONSTRAINT smart_match_requests_budget_range CHECK \(\s*\(budget_min IS NULL OR budget_min BETWEEN 0 AND 99999999\.99\)\s*AND \(budget_max IS NULL OR budget_max BETWEEN 0 AND 99999999\.99\)/.test(sql)) problems.push("no migration adds smart_match_requests_budget_range (budgets BETWEEN 0 AND 99999999.99)");
+  if (/DROP CONSTRAINT[^;]*smart_match_requests_(?:dates|budget)_range/.test(sql.replace(/--[^\n]*/g, ""))) problems.push("a migration drops a smart_match_requests range check");
+  if (problems.length) problems.forEach((p) => fail(`C15/ranges: ${p}`));
+  else ok("C15/ranges: smart_match_requests dates (2020..2100) and budgets are range-checked in the database");
 }
 
 // ---------------------------------------------------------------------------

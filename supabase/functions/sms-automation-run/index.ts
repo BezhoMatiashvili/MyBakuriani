@@ -90,6 +90,7 @@ type SkipReason =
   | "no_consent"
   | "opted_out"
   | "already_queued"
+  | "not_eligible"
   | "no_credit"
   | "sale_only";
 
@@ -227,6 +228,7 @@ serve(async (req: Request) => {
         no_consent: 0,
         opted_out: 0,
         already_queued: 0,
+        not_eligible: 0,
         no_credit: 0,
         sale_only: 0,
       } as Record<SkipReason, number>,
@@ -426,7 +428,14 @@ serve(async (req: Request) => {
             "sms_create_manual_review_token",
             { p_owner_id: rule.user_id, p_manual_booking_id: c.booking_id },
           );
-          if (tokenErr) throw tokenErr;
+          if (tokenErr) {
+            // 42501: the booking stopped being review-eligible since the scan
+            // (cancelled, consent withdrawn, dates moved). That skips this one
+            // booking; any other error is still the run's.
+            if (tokenErr.code !== "42501") throw tokenErr;
+            skip("not_eligible", { booking_id: c.booking_id });
+            continue;
+          }
           await enqueue(
             "review_request",
             c,
