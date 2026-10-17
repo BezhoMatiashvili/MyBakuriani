@@ -1,6 +1,40 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { safeInternalPath, safeHttpsUrl, safeCsvCell } from "../../src/lib/security.ts";
+import {
+  safeInternalPath,
+  safeHttpsUrl,
+  safeCsvCell,
+  stripLocalePrefix,
+} from "../../src/lib/security.ts";
+
+const LOCALES = ["ka", "en", "ru"];
+
+test("stripLocalePrefix removes one leading locale so the router can add it back", () => {
+  assert.equal(stripLocalePrefix("/en/dashboard", LOCALES), "/dashboard");
+  assert.equal(
+    stripLocalePrefix("/ru/create/service?x=1", LOCALES),
+    "/create/service?x=1",
+  );
+  assert.equal(stripLocalePrefix("/en", LOCALES), "/");
+  assert.equal(stripLocalePrefix("/en/", LOCALES), "/");
+  assert.equal(stripLocalePrefix("/en?a=1", LOCALES), "/?a=1");
+  assert.equal(stripLocalePrefix("/en#top", LOCALES), "/#top");
+  assert.equal(stripLocalePrefix("/ka/dashboard", LOCALES), "/dashboard");
+  // only a whole segment counts, and only one is removed
+  assert.equal(stripLocalePrefix("/english/page", LOCALES), "/english/page");
+  assert.equal(stripLocalePrefix("/dashboard", LOCALES), "/dashboard");
+  assert.equal(stripLocalePrefix("/en/en/dashboard", LOCALES), "/en/dashboard");
+});
+
+test("stripLocalePrefix never turns a path into a protocol-relative URL", () => {
+  // safeInternalPath lets "/en//evil.example" through; without the prefix it
+  // would read "//evil.example", which the router treats as another origin.
+  assert.equal(safeInternalPath("/en//evil.example"), "/en//evil.example");
+  const stripped = stripLocalePrefix("/en//evil.example", LOCALES);
+  assert.equal(stripped, "/evil.example");
+  assert.equal(safeInternalPath(stripped), stripped);
+  assert.equal(stripLocalePrefix("/ru////x", LOCALES), "/x");
+});
 
 test("safeInternalPath accepts only same-origin absolute paths", () => {
   assert.equal(safeInternalPath("/dashboard/renter"), "/dashboard/renter");

@@ -286,7 +286,7 @@ export default function FoodParametersPage() {
               {
                 key: "newOrder" as const,
                 title: "ახალი შეკვეთა",
-                sub: "ვებ-შეტყობინება და SMS",
+                sub: "მხოლოდ ვებ-შეტყობინება",
               },
               {
                 key: "newReview" as const,

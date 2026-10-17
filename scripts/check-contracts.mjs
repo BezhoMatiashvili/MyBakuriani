@@ -1078,6 +1078,45 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
+// C18 — the food and transport cabinets show no SMS: no top-bar chip, no SMS
+// balance in the wallet card, no SMS packages and no "web notification & SMS"
+// wording (the owner's call 2026-10-17). Food has its own topbar, balance page
+// and parameters page, which must never mention SMS (any "sms" in them fails).
+// Transport shares ServiceTopbar, service/balance, ServiceDashboardClient and
+// service/parameters with entertainment, employment and services, so those four
+// ask src/lib/dashboard/cabinetSms.ts:showsSms (false for exactly food and
+// transport), and the other cabinets must keep their SMS.
+{
+  const problems = [];
+  if (!/const CABINETS_WITHOUT_SMS = \["food", "transport"\];/.test(read("src/lib/dashboard/cabinetSms.ts")))
+    problems.push("src/lib/dashboard/cabinetSms.ts must list exactly food and transport in CABINETS_WITHOUT_SMS");
+  const foodFiles = [
+    ...walk("src/app/[locale]/dashboard/food", [".ts", ".tsx"]),
+    "src/components/layout/FoodTopbar.tsx",
+    "src/components/layout/FoodSidebar.tsx",
+  ];
+  for (const f of foodFiles) if (/sms/i.test(read(f))) problems.push(`${f} mentions SMS (the food cabinet shows none)`);
+  if (!/showSms=\{showsSms\(serviceSegment\)\}/.test(read("src/components/layout/DashboardShell.tsx")))
+    problems.push("DashboardShell no longer passes showSms={showsSms(serviceSegment)} to ServiceTopbar");
+  if (!/\bshowSms\b/.test(read("src/components/layout/ServiceTopbar.tsx")))
+    problems.push("ServiceTopbar no longer takes showSms (transport would show the SMS chip)");
+  const balance = read("src/app/[locale]/dashboard/service/balance/page.tsx");
+  if (!/showsSms\(/.test(balance) || !balance.includes("SmsBalanceStat") || !balance.includes('"sms"'))
+    problems.push("service/balance must gate SmsBalanceStat and the sms packages on showsSms and keep both for the other cabinets");
+  const home = read("src/app/[locale]/dashboard/service/ServiceDashboardClient.tsx");
+  if (!/showsSms\(category\)/.test(home) || !home.includes('"stats.spent"') || !home.includes('"stats.spentVip"'))
+    problems.push("ServiceDashboardClient must use stats.spentVip for transport and keep stats.spent for the others");
+  const params = read("src/app/[locale]/dashboard/service/parameters/page.tsx");
+  if (!/showsSms\(/.test(params) || !params.includes('"channelWebSms"') || !params.includes('"channelWebOnly"'))
+    problems.push("service/parameters must use channelWebOnly for transport and keep channelWebSms for the others");
+  if (problems.length) problems.forEach((p) => fail(`C18/cabinets: ${p}`));
+  else
+    ok(
+      "C18/cabinets: food shows no SMS (topbar, balance page, parameters); transport is gated through showsSms in the shared topbar, balance page, home tile and parameters, and the other service cabinets keep SMS",
+    );
+}
+
+// ---------------------------------------------------------------------------
 // C36 — sign-up confirmation link. /auth/confirm is a client page (no route.ts
 // in that segment) that verifies only when its button is clicked: a mail
 // scanner's prefetch GET must not confirm an address, and /verify must count

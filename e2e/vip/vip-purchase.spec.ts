@@ -877,7 +877,8 @@ test("[B8] food balance page: VIP via package card, wallet updates", async ({ pa
 });
 
 // ---------------------------------------------------------------------------
-// SMS credits left, shown in the wallet card of every balance page
+// SMS credits left, shown in the wallet card of the renter, seller and service
+// balance pages (the food and transport pages show none)
 // ---------------------------------------------------------------------------
 
 function smsCount(page: Page) {
@@ -923,14 +924,27 @@ test("[SMS] renter balance page: SMS credits left, a package adds its SMS", asyn
   expect(data?.sms_remaining).toBe(added);
 });
 
-test("[SMS] food and transport balance pages show SMS credits left", async ({ page }) => {
+test("[SMS] food and transport balance pages have no SMS; entertainment still does", async ({ page }) => {
   await setSmsCredits(ids.svcOwner, 37);
   await loginPage(page, ids.svcOwner);
+  // The top-bar chip is `hidden sm:flex`: count it in the DOM, not its visibility.
+  const topbarSms = page.locator("header").getByText(/\bSMS\b/);
   for (const path of ["/dashboard/food/balance", "/dashboard/transport/balance"]) {
     await open(page, path);
-    await expect(smsCount(page)).toHaveText("37 კრედიტი");
-    await expect(page.getByTestId("sms-balance")).toBeInViewport({ ratio: 1 });
+    // Wallet and VIP cards are in, so the absences below are not vacuous.
+    await expect(walletHeader(page)).toBeVisible();
+    await expect(packageCard(page, "SUPER VIP")).toBeVisible();
+    await expect(page.getByTestId("sms-balance"), path).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /SMS/ }), path).toHaveCount(0);
+    await expect(topbarSms, path).toHaveCount(0);
   }
+  // Control: the shared service balance page still shows all three for the
+  // other cabinets, so an over-broad gate cannot pass unnoticed.
+  await open(page, "/dashboard/entertainment/balance");
+  await expect(smsCount(page)).toHaveText("37 კრედიტი");
+  await expect(page.getByTestId("sms-balance")).toBeInViewport({ ratio: 1 });
+  await expect(packageCard(page, "SMS პაკეტი")).toBeVisible();
+  await expect(topbarSms.first()).toBeAttached();
 });
 
 // ---------------------------------------------------------------------------

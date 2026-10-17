@@ -21,6 +21,7 @@ import {
   sellerLeadsScopeKey,
   type SellerLeadsChangedDetail,
 } from "@/lib/supabase/leads";
+import { showsSms } from "@/lib/dashboard/cabinetSms";
 import {
   toServiceSegment,
   SEGMENT_TO_ROLE_KEY,
@@ -849,11 +850,7 @@ export function DashboardShell({
             onSignOut={handleSignOut}
           />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <FoodTopbar
-              balance={balance}
-              smsRemaining={smsRemaining}
-              notificationCount={totalUnread}
-            />
+            <FoodTopbar balance={balance} notificationCount={totalUnread} />
             <main className="relative h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
               <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
                 {children}
@@ -891,6 +888,7 @@ export function DashboardShell({
             <ServiceTopbar
               balance={balance}
               smsRemaining={smsRemaining}
+              showSms={showsSms(serviceSegment)}
               notificationCount={totalUnread}
               basePath={serviceBasePath}
             />

@@ -19,6 +19,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import { roleHomePath } from "@/lib/cabinets";
 import { toCanonicalGePhone } from "@/lib/sms/phone";
 import { withRetry } from "@/lib/with-timeout";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
@@ -30,18 +31,6 @@ import {
   submitConsentChoices,
   type MarketingChoices,
 } from "@/components/consent/ConsentChoices";
-
-const ROLE_DASHBOARD: Record<string, string> = {
-  admin: "/dashboard/admin",
-  renter: "/dashboard/renter",
-  seller: "/dashboard/seller",
-  cleaner: "/dashboard/cleaner",
-  food: "/dashboard/food",
-  entertainment: "/dashboard/entertainment",
-  transport: "/dashboard/transport",
-  employment: "/dashboard/employment",
-  handyman: "/dashboard/services",
-};
 
 const KNOWN_AUTH_PROVIDERS = ["phone", "email", "google", "facebook"] as const;
 
@@ -169,8 +158,7 @@ export default function RegisterPage() {
         return;
       }
       if (profile) {
-        const path = ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest";
-        router.replace(path);
+        router.replace(roleHomePath(profile.role));
       } else {
         setCheckingProfile(false);
       }
@@ -237,11 +225,14 @@ export default function RegisterPage() {
     setStep(2);
   }
 
-  // Avatar upload + profiles insert/update-on-conflict + verify. Shared by
-  // every role's finish step (non-seller roles and all three seller
-  // sub-paths). Throws on failure; callers own loading/error state.
-  async function persistProfile() {
-    if (!selectedRole || !user) return;
+  // Avatar upload + profiles insert + read-back. Shared by every role's finish
+  // step (non-seller roles and all three seller sub-paths). Throws on failure;
+  // callers own loading/error state. Returns the role the profile actually
+  // has: a role is set once, here (the profiles_lock_role trigger refuses any
+  // later change from a user session), so when a profile already exists from
+  // an earlier attempt that role may differ from the tile chosen now.
+  async function persistProfile(): Promise<Enums<"user_role"> | null> {
+    if (!selectedRole || !user) return null;
 
     let uploadedAvatarUrl: string | null = null;
 
@@ -281,32 +272,19 @@ export default function RegisterPage() {
       .from("profiles")
       .insert(profilePayload);
 
-    if (insertError) {
-      const isConflict = insertError.code === "23505";
-      if (!isConflict) throw insertError;
-
-      // The row already exists from an earlier attempt of this same wizard, so its
-      // public fields already carry this payload. Re-apply only `role`: display_name,
-      // phone, bio and avatar_url are review-gated
-      // (prevent_unreviewed_public_content_update), and updating them from a browser
-      // session raises 42501 — which would turn a benign retry into a hard
-      // registration failure.
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ role: selectedRole })
-        .eq("id", user.id);
-
-      if (updateError) throw updateError;
-    }
+    // A 23505 means the row already exists from an earlier attempt of this same
+    // wizard (a retry after a lost answer, or Back from the seller step). Its
+    // fields already carry this payload, and its role cannot be changed from
+    // here: the profiles_lock_role trigger raises 42501 for any different role
+    // (and display_name, phone and avatar_url are review-gated too), so the
+    // read-back below decides what happens next instead of an UPDATE.
+    if (insertError && insertError.code !== "23505") throw insertError;
 
     const { data: savedProfile, error: verifyError } = await withRetry(() =>
       supabase.from("profiles").select("role").eq("id", user.id).single(),
     );
 
     if (verifyError) throw verifyError;
-    if (savedProfile?.role !== selectedRole) {
-      throw new Error(t("errors.roleUpdateFailed"));
-    }
 
     // Every finish path runs through here, so this is the one place consent is
     // recorded. A failure must not fail registration: the profile now exists
@@ -316,6 +294,27 @@ export default function RegisterPage() {
     } catch (consentError) {
       console.error("[register] consent could not be recorded", consentError);
     }
+
+    return savedProfile?.role ?? null;
+  }
+
+  // The account was registered earlier with another role, so this wizard run
+  // cannot give it the tile just chosen. Go to the cabinet it does have, as a
+  // reload of this page would (checkExistingProfile).
+  function openExistingCabinet(role: Enums<"user_role">) {
+    router.replace(roleHomePath(role));
+  }
+
+  // Only the membership RPC raises user-facing text (Georgian, SQLSTATE
+  // 22023 / P0002); every other failure here is a storage or database error
+  // whose raw message should not reach the screen.
+  function registerErrorText(err: unknown): string {
+    console.error("[register]", err);
+    const e = err as { code?: string; message?: string } | null;
+    if (e && (e.code === "22023" || e.code === "P0002") && e.message) {
+      return e.message;
+    }
+    return t("errors.generic");
   }
 
   async function handleRoleSubmit() {
@@ -332,10 +331,14 @@ export default function RegisterPage() {
     setLoading(true);
     setError(null);
     try {
-      await persistProfile();
+      const savedRole = await persistProfile();
+      if (savedRole && savedRole !== selectedRole) {
+        openExistingCabinet(savedRole);
+        return;
+      }
       router.push((await signupLinkDestination()) ?? "/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("errors.generic"));
+      setError(registerErrorText(err));
     } finally {
       setLoading(false);
     }
@@ -358,7 +361,11 @@ export default function RegisterPage() {
     setLoading(true);
     setError(null);
     try {
-      await persistProfile();
+      const savedRole = await persistProfile();
+      if (savedRole && savedRole !== "seller") {
+        openExistingCabinet(savedRole);
+        return;
+      }
 
       if (sellerKind === "individual") {
         router.push((await signupLinkDestination()) ?? "/");
@@ -373,7 +380,7 @@ export default function RegisterPage() {
         setRequestSent(true);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("errors.generic"));
+      setError(registerErrorText(err));
     } finally {
       setLoading(false);
     }

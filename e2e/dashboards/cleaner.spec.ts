@@ -500,7 +500,9 @@ test.describe("Cleaner Dashboard", () => {
 
     // Create and edit flows direct the cleaner back here instead of racing the
     // unique index or placing an impossible editorial request in the queue.
-    await cleanerPage.goto("/create/service");
+    // The cleaner cabinet's own link: it fixes the category to cleaning (the
+    // form no longer pre-selects a sphere for anyone who arrives without one).
+    await cleanerPage.goto("/create/service?category=cleaning");
     await expect(
       cleanerPage.getByTestId("existing-247-conflict"),
     ).toBeVisible();

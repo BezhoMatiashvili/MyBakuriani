@@ -26,6 +26,7 @@ import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicke
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
+import { showsSms } from "@/lib/dashboard/cabinetSms";
 import { CATEGORY_TO_CREATE_HREF } from "@/lib/dashboard/serviceSegments";
 import { isSuperVipActive } from "@/lib/utils/pricing";
 import { loadServiceData, type OwnerStats, type ServiceData } from "./loadData";
@@ -154,7 +155,7 @@ export default function ServiceDashboardClient({
         />
         <StatTile
           icon={<Wallet className="h-4 w-4" />}
-          label={tShared("stats.spent")}
+          label={tShared(showsSms(category) ? "stats.spent" : "stats.spentVip")}
           value={formatPrice(Number(stats?.spent ?? 0))}
           color="text-[#F97316]"
           bg="bg-[#FFF7ED]"

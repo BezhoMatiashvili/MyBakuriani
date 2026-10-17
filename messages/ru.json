@@ -2794,6 +2794,8 @@
     "experiencePlaceholder": "8 лет",
     "yearsSuffix": "лет",
     "serviceSphere": "Сфера услуг",
+    "chooseSphere": "Выберите сферу услуг",
+    "sphereLockedHint": "После публикации категорию может изменить только администратор.",
     "serviceTitle": "Заголовок",
     "titlePlaceholder": "Профессиональный клинер",
     "coverageZone": "Зона покрытия",
@@ -3459,6 +3461,7 @@
       "callsShort": "Звонки",
       "smartMatch": "Совпадения Smart Match",
       "spent": "Потрачено (VIP/SMS)",
+      "spentVip": "Потрачено (VIP)",
       "favorites": "Добавлено в избранное",
       "revenue": "Доход по календарю",
       "menuViews": "Просмотры меню"

@@ -29,6 +29,7 @@ import {
 import CardTopUpLauncher from "@/components/payments/CardTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
 import { isSuperVipActive } from "@/lib/utils/pricing";
+import { showsSms } from "@/lib/dashboard/cabinetSms";
 import { dashboardScopeForPath } from "@/lib/notifications/scopes";
 
 type Transaction = Tables<"transactions">;
@@ -41,9 +42,11 @@ export default function ServiceBalancePage() {
   const { user } = useAuth();
   const supabase = createClient();
   // Shared by the four service cabinets; vacancies are promoted with VIP and
-  // SUPER VIP only, so the employment cabinet does not offer the discount.
-  const isEmploymentCabinet =
-    dashboardScopeForPath(usePathname()) === "employment";
+  // SUPER VIP only, so the employment cabinet does not offer the discount, and
+  // transport has no SMS credits or packages (cabinetSms.ts).
+  const scope = dashboardScopeForPath(usePathname());
+  const isEmploymentCabinet = scope === "employment";
+  const showSms = showsSms(scope);
 
   const [balance, setBalance] = useState<Balance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -63,8 +66,10 @@ export default function ServiceBalancePage() {
   }>({ open: false, pkg: null });
 
   useEffect(() => {
-    void fetchPricingPackages(["vip", "sms"]).then(setPackages);
-  }, []);
+    void fetchPricingPackages(showSms ? ["vip", "sms"] : ["vip"]).then(
+      setPackages,
+    );
+  }, [showSms]);
 
   useEffect(() => {
     if (!user) return;
@@ -190,10 +195,12 @@ export default function ServiceBalancePage() {
               </p>
             )}
           </div>
-          <SmsBalanceStat
-            remaining={balance?.sms_remaining ?? 0}
-            loading={loading}
-          />
+          {showSms && (
+            <SmsBalanceStat
+              remaining={balance?.sms_remaining ?? 0}
+              loading={loading}
+            />
+          )}
         </div>
         <CardTopUpLauncher />
       </motion.div>

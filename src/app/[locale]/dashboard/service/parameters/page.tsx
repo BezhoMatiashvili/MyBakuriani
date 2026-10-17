@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Check, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -13,6 +14,8 @@ import type { Tables } from "@/lib/types/database";
 import { updateSelfServiceProfile } from "@/lib/self-service/client";
 import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
 import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
+import { showsSms } from "@/lib/dashboard/cabinetSms";
+import { dashboardScopeForPath } from "@/lib/notifications/scopes";
 
 interface NotifPrefs {
   newInquiry: boolean;
@@ -25,6 +28,8 @@ export default function ServiceParametersPage() {
   const tCreate = useTranslations("CreateShared");
   const { user } = useAuth();
   const supabase = createClient();
+  // Shared by the four service cabinets; transport has no SMS (cabinetSms.ts).
+  const showSms = showsSms(dashboardScopeForPath(usePathname()));
 
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -341,7 +346,7 @@ export default function ServiceParametersPage() {
               {
                 key: "newInquiry" as const,
                 title: tShared("notifNewRequest"),
-                sub: tShared("channelWebSms"),
+                sub: tShared(showSms ? "channelWebSms" : "channelWebOnly"),
               },
               {
                 key: "dailyReport" as const,

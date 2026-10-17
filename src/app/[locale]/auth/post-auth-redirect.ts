@@ -1,18 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/database";
 import { withRetry } from "@/lib/with-timeout";
-
-const ROLE_DASHBOARD: Record<string, string> = {
-  admin: "/dashboard/admin",
-  renter: "/dashboard/renter",
-  seller: "/dashboard/seller",
-  cleaner: "/dashboard/cleaner",
-  food: "/dashboard/food",
-  entertainment: "/dashboard/entertainment",
-  transport: "/dashboard/transport",
-  employment: "/dashboard/employment",
-  handyman: "/dashboard/services",
-};
+import { roleHomePath } from "@/lib/cabinets";
 
 /**
  * Where /auth/callback (OAuth, PKCE code, on the server) and the /auth/confirm
@@ -41,5 +30,5 @@ export async function postAuthRedirectPath(
   }
   if (!profile) return "/auth/register";
 
-  return next ?? ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest";
+  return next ?? roleHomePath(profile.role);
 }

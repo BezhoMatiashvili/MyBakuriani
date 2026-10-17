@@ -2,10 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import {
-  promotionPurchaseError,
-  purchaseReasonMessages,
-} from "@/lib/promotion-purchase";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -21,9 +17,7 @@ import VipInfoModal, {
   type VipInfoTier,
 } from "@/components/renter/VipInfoModal";
 import BalancePackageCard from "@/components/balance/BalancePackageCard";
-import SmsBalanceStat from "@/components/balance/SmsBalanceStat";
 import TransactionList from "@/components/balance/TransactionList";
-import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import CardTopUpLauncher from "@/components/payments/CardTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
@@ -43,12 +37,10 @@ export default function FoodBalancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [packages, setPackages] = useState<PricingPackage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [purchasing, setPurchasing] = useState<string | null>(null);
   const [vipModal, setVipModal] = useState<{
     open: boolean;
     tier: VipInfoTier;
   }>({ open: false, tier: "super-vip" });
-  const [confirmPkg, setConfirmPkg] = useState<PricingPackage | null>(null);
   // Every food listing of the owner, newest first: maybeSingle() errored for
   // owners with two restaurants, which left the VIP picker empty.
   const [restaurants, setRestaurants] = useState<Service[]>([]);
@@ -64,7 +56,7 @@ export default function FoodBalancePage() {
       .order("created_at", { ascending: false });
 
   useEffect(() => {
-    fetchPricingPackages(["vip", "sms"]).then(setPackages);
+    fetchPricingPackages(["vip"]).then(setPackages);
   }, []);
 
   useEffect(() => {
@@ -96,41 +88,6 @@ export default function FoodBalancePage() {
     // wallet is refetched explicitly after each purchase instead.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
-
-  async function handlePurchase(pkg: PricingPackage) {
-    if (!user) throw new Error(tShared("genericRetry"));
-    setPurchasing(pkg.id);
-    try {
-      const { error } = await supabase.functions.invoke("purchase-vip", {
-        body: { package_id: pkg.id, quantity: 1 },
-      });
-      if (error) {
-        throw await promotionPurchaseError(error, {
-          vipConflict: tShared("superVipBlocksVip"),
-          network: tShared("purchaseNetworkError"),
-          generic: tShared("genericRetry"),
-          reasons: purchaseReasonMessages(tShared),
-        });
-      }
-      const [balRes, txRes] = await Promise.all([
-        supabase
-          .from("balances")
-          .select("*")
-          .eq("user_id", user.id)
-          .maybeSingle(),
-        supabase
-          .from("transactions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(10),
-      ]);
-      if (balRes.data) setBalance(balRes.data);
-      if (txRes.data) setTransactions(txRes.data);
-    } finally {
-      setPurchasing(null);
-    }
-  }
 
   // Restaurants make no discounts (C21): the shared discount package is not
   // offered here.
@@ -171,10 +128,6 @@ export default function FoodBalancePage() {
               </p>
             )}
           </div>
-          <SmsBalanceStat
-            remaining={balance?.sms_remaining ?? 0}
-            loading={loading}
-          />
         </div>
         <CardTopUpLauncher />
       </motion.div>
@@ -193,8 +146,8 @@ export default function FoodBalancePage() {
           visiblePackages.map((pkg) => {
             const display = getPackageDisplay(pkg, locale);
             const tier = inferVipInfoTier(pkg);
-            // Every package needs a restaurant, SMS too. A failed read must
-            // not claim there is none.
+            // Every package needs a restaurant. A failed read must not claim
+            // there is none.
             const noListings =
               !loading && !listingsFailed && restaurants.length === 0;
             const standardVipAvailable =
@@ -224,15 +177,9 @@ export default function FoodBalancePage() {
                         ? undefined
                         : tShared("noVipEligibleListings")
                 }
-                purchasing={purchasing === pkg.id}
+                purchasing={false}
                 onHowItWorks={() => setVipModal({ open: true, tier })}
-                onActivate={() => {
-                  if (pkg.category === "vip") {
-                    setPickerPkg(pkg);
-                    return;
-                  }
-                  setConfirmPkg(pkg);
-                }}
+                onActivate={() => setPickerPkg(pkg)}
               />
             );
           })
@@ -303,42 +250,6 @@ export default function FoodBalancePage() {
           if (balRes.data) setBalance(balRes.data);
           if (txRes.data) setTransactions(txRes.data);
         }}
-      />
-
-      <ConfirmPaymentModal
-        isOpen={!!confirmPkg}
-        onClose={() => setConfirmPkg(null)}
-        onConfirm={async () => {
-          if (confirmPkg) await handlePurchase(confirmPkg);
-        }}
-        title={confirmPkg?.name ?? ""}
-        description={confirmPkg ? packageDescription(confirmPkg, locale) : ""}
-        priceLabel={confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""}
-        balance={loading ? undefined : (balance?.amount ?? 0)}
-        amount={confirmPkg?.amount_gel}
-        cardPayment={
-          confirmPkg
-            ? {
-                resume: {
-                  kind: "purchase-vip",
-                  body: { package_id: confirmPkg.id, quantity: 1 },
-                },
-              }
-            : undefined
-        }
-        validity={
-          confirmPkg?.category === "sms"
-            ? tShared("purchaseTerms.smsNoExpiry")
-            : undefined
-        }
-        conditions={
-          confirmPkg?.category === "sms"
-            ? [
-                tShared("purchaseTerms.smsCredits"),
-                tShared("purchaseTerms.smsConsent"),
-              ]
-            : undefined
-        }
       />
     </div>
   );

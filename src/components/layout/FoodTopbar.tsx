@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { Home, MessageSquare, Plus, Search } from "lucide-react";
+import { Home, Plus, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -9,7 +9,6 @@ import { DashboardNotificationBell } from "@/components/layout/DashboardNotifica
 
 interface FoodTopbarProps {
   balance: number;
-  smsRemaining: number;
   /** Unread notifications across all cabinets, shown on the header bell until it loads. */
   notificationCount?: number;
   searchPlaceholder?: string;
@@ -17,7 +16,6 @@ interface FoodTopbarProps {
 
 export function FoodTopbar({
   balance,
-  smsRemaining,
   notificationCount = 0,
   searchPlaceholder,
 }: FoodTopbarProps) {
@@ -58,17 +56,6 @@ export function FoodTopbar({
               <Plus className="h-4 w-4" strokeWidth={2.4} />
             </span>
           </Link>
-
-          <div className="hidden h-[44px] items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold sm:flex">
-            <MessageSquare
-              className="h-[15px] w-[15px] text-[#2563EB]"
-              strokeWidth={2.4}
-            />
-            <span>
-              <span className="text-[#0F172A]">{smsRemaining}</span>
-              <span className="text-[#94A3B8]">{t("topbar.smsSuffix")}</span>
-            </span>
-          </div>
 
           <LanguageSelector className="px-2.5 sm:px-3.5" />
           {/* One bell for every cabinet the user holds, at every breakpoint. */}

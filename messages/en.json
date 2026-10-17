@@ -2794,6 +2794,8 @@
     "experiencePlaceholder": "8 years",
     "yearsSuffix": "years",
     "serviceSphere": "Service sphere",
+    "chooseSphere": "Choose a service sphere",
+    "sphereLockedHint": "Only an administrator can change the category after publishing.",
     "serviceTitle": "Title",
     "titlePlaceholder": "Professional cleaner",
     "coverageZone": "Coverage zone",
@@ -3459,6 +3461,7 @@
       "callsShort": "Calls",
       "smartMatch": "Smart Match matches",
       "spent": "Spent (VIP/SMS)",
+      "spentVip": "Spent (VIP)",
       "favorites": "Added to favorites",
       "revenue": "Calendar revenue",
       "menuViews": "Menu views"

@@ -163,6 +163,7 @@ Promotion
 Money and SMS
 - "ბალანსის შევსება" (top up) is on every "ბალანსი და VIP" page. The balance is topped up by bank card only (no bank transfer, cash or other method); card details are entered on Keepz's payment page, never on MyBakuriani. Max 2000 ₾ per card payment. The balance updates after Keepz confirms the payment, usually within about 10 minutes.
 - SMS packages add credits; one message costs 1 credit even when it is split into several SMS. "SMS ცენტრი" sends automatic texts to guests: a check-in reminder the day before, a review request the day after check-out, a win-back invitation 90 days later.
+- Restaurants and the transport cabinet have no SMS in their dashboard: their "ბალანსი და VIP" page has no SMS balance and no SMS packages, and their dashboard top bar has no SMS counter. If a restaurant or transport owner asks about SMS credits or packages, say they are not available in that cabinet (the renter, seller, entertainment, employment and services cabinets keep theirs).
 
 Guests and bookings
 - Smart Match: a guest creates a request ("ახალი მოთხოვნა": zone, dates, optionally guests and budget); owners with an active rental answer with offers on "შეთავაზების გაგზავნა". Max 5 open requests and 10 new ones per 24 hours.

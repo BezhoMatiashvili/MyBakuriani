@@ -34,12 +34,18 @@ export function hasOrdersPage(segment: string): boolean {
   return segment !== "transport" && segment !== "entertainment";
 }
 
-/** `services.category` value -> the create-listing form for that category. */
+/**
+ * `services.category` value -> the create-listing form for that category.
+ * The handyman link fixes the category on the shared service form
+ * (`createServiceHref("handyman")` in `src/lib/service-spheres.ts`; kept as a
+ * literal so this module stays import-free; `service-spheres.test.mjs` pins
+ * them together), so Cleaning is not offered and nothing is preselected.
+ */
 export const CATEGORY_TO_CREATE_HREF: Record<string, string> = {
   employment: "/create/employment",
   transport: "/create/transport",
   entertainment: "/create/entertainment",
-  handyman: "/create/service",
+  handyman: "/create/service?category=handyman",
 };
 
 /**

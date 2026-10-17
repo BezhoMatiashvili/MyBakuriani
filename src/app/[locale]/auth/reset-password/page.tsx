@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { withRetry } from "@/lib/with-timeout";
+import { roleHomePath } from "@/lib/cabinets";
 import {
   MIN_PASSWORD_LENGTH,
   passwordChangeErrorKey,
@@ -23,18 +24,6 @@ const RESET_ERROR_KEYS = new Set([
   "weakPassword",
   "leakedPassword",
 ]);
-
-const ROLE_DASHBOARD: Record<string, string> = {
-  admin: "/dashboard/admin",
-  renter: "/dashboard/renter",
-  seller: "/dashboard/seller",
-  cleaner: "/dashboard/cleaner",
-  food: "/dashboard/food",
-  entertainment: "/dashboard/entertainment",
-  transport: "/dashboard/transport",
-  employment: "/dashboard/employment",
-  handyman: "/dashboard/services",
-};
 
 export default function ResetPasswordPage() {
   const t = useTranslations("AuthResetPassword");
@@ -101,10 +90,14 @@ export default function ResetPasswordPage() {
             .eq("id", user.id)
             .maybeSingle(),
         );
-        const target =
-          !profErr && profile
-            ? (ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest")
-            : "/dashboard/guest";
+        // An account with no profile never finished /auth/register, so that is
+        // where it goes. A failed read proves nothing about that and keeps the
+        // safe landing.
+        const target = profErr
+          ? "/dashboard/guest"
+          : profile
+            ? roleHomePath(profile.role)
+            : "/auth/register";
         router.refresh();
         router.push(target);
       }

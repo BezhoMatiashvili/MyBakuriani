@@ -29,6 +29,7 @@ import {
   updateSelfServiceProfile,
 } from "@/lib/self-service/client";
 import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
+import { createServiceHref } from "@/lib/service-spheres";
 
 type FormValues = {
   firstName: string;
@@ -629,7 +630,7 @@ export default function CleanerParametersPage() {
               {t("workingHoursEmptyDescription")}
             </p>
             <Link
-              href="/create/service"
+              href={createServiceHref("cleaning")}
               className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#2563EB] px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] lg:min-h-0"
             >
               {t("createCleaningService")}

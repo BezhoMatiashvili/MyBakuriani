@@ -2794,6 +2794,8 @@
     "experiencePlaceholder": "8 წელი",
     "yearsSuffix": "წელი",
     "serviceSphere": "მომსახურების სფერო",
+    "chooseSphere": "აირჩიეთ მომსახურების სფერო",
+    "sphereLockedHint": "კატეგორიის შეცვლა გამოქვეყნების შემდეგ მხოლოდ ადმინისტრატორს შეუძლია.",
     "serviceTitle": "სათაური",
     "titlePlaceholder": "პროფესიონალი დამლაგებელი",
     "coverageZone": "დაფარვის ზონა",
@@ -3459,6 +3461,7 @@
       "callsShort": "ზარები",
       "smartMatch": "Smart Match დამთხვევები",
       "spent": "დახარჯული (VIP/SMS)",
+      "spentVip": "დახარჯული (VIP)",
       "favorites": "რჩეულში დამატება",
       "revenue": "კალენდრის შემოსავალი",
       "menuViews": "მენიუს ნახვები"

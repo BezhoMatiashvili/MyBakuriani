@@ -12,13 +12,15 @@ import { Button } from "@/components/ui/button";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
 import { isPhoneAuthEnabled } from "@/lib/auth/phone";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { safeInternalPath } from "@/lib/security";
+import { safeInternalPath, stripLocalePrefix } from "@/lib/security";
+import { routing } from "@/i18n/routing";
 import {
   SIGNUP_LINK_METADATA_KEY,
   readSignupLinkCookie,
 } from "@/lib/signup-links";
 import { createClient } from "@/lib/supabase/client";
 import { withRetry, isRetryableAuthError } from "@/lib/with-timeout";
+import { roleHomePath } from "@/lib/cabinets";
 
 // A network-level failure (including a timeoutFetch abort) or a 5xx from
 // GoTrue means "couldn't tell", not "wrong credentials" — worth a distinct,
@@ -42,18 +44,6 @@ const CONFIRM_REDIRECT_URL = SITE_URL ? `${SITE_URL}/auth/confirm` : undefined;
 // GoTrue sends one email per address per minute; waiting that long here keeps
 // the resend button from running into its 429.
 const RESEND_COOLDOWN_SECONDS = 60;
-
-const ROLE_DASHBOARD: Record<string, string> = {
-  admin: "/dashboard/admin",
-  renter: "/dashboard/renter",
-  seller: "/dashboard/seller",
-  cleaner: "/dashboard/cleaner",
-  food: "/dashboard/food",
-  entertainment: "/dashboard/entertainment",
-  transport: "/dashboard/transport",
-  employment: "/dashboard/employment",
-  handyman: "/dashboard/services",
-};
 
 type AuthMode = "login" | "register";
 // Phone (SMS code, C48) is one flow for sign-in and sign-up; email keeps its
@@ -127,8 +117,11 @@ export default function LoginPage() {
       router.push("/auth/register");
       return;
     }
+    // The middleware's `next` carries the locale prefix; the router adds it back.
     const next = safeNextPath(searchParams.get("next"));
-    const target = next || (ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest");
+    const target =
+      (next && safeNextPath(stripLocalePrefix(next, routing.locales))) ||
+      roleHomePath(profile.role);
     // Re-render server components against the just-committed auth cookie so the
     // force-dynamic dashboard sees the session on the first navigation (no
     // bounce back to login that would force a second click).

@@ -10,6 +10,8 @@ import { DashboardNotificationBell } from "@/components/layout/DashboardNotifica
 interface ServiceTopbarProps {
   balance: number;
   smsRemaining: number;
+  /** False for a cabinet without SMS (transport, see cabinetSms.ts): no SMS chip. */
+  showSms?: boolean;
   /** Unread notifications across all cabinets, shown on the header bell until it loads. */
   notificationCount?: number;
   searchPlaceholder?: string;
@@ -20,6 +22,7 @@ interface ServiceTopbarProps {
 export function ServiceTopbar({
   balance,
   smsRemaining,
+  showSms = true,
   notificationCount = 0,
   searchPlaceholder,
   basePath,
@@ -62,16 +65,18 @@ export function ServiceTopbar({
             </span>
           </Link>
 
-          <div className="hidden h-[44px] items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold sm:flex">
-            <MessageSquare
-              className="h-[15px] w-[15px] text-[#2563EB]"
-              strokeWidth={2.4}
-            />
-            <span>
-              <span className="text-[#0F172A]">{smsRemaining}</span>
-              <span className="text-[#94A3B8]">{t("topbar.smsSuffix")}</span>
-            </span>
-          </div>
+          {showSms && (
+            <div className="hidden h-[44px] items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold sm:flex">
+              <MessageSquare
+                className="h-[15px] w-[15px] text-[#2563EB]"
+                strokeWidth={2.4}
+              />
+              <span>
+                <span className="text-[#0F172A]">{smsRemaining}</span>
+                <span className="text-[#94A3B8]">{t("topbar.smsSuffix")}</span>
+              </span>
+            </div>
+          )}
 
           <LanguageSelector className="px-2.5 sm:px-3.5" />
           {/* One bell for every cabinet the user holds, at every breakpoint. */}

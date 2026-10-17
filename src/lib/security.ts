@@ -51,6 +51,29 @@ export function safeInternalPath(value: unknown): string | null {
   return value;
 }
 
+/**
+ * Drops one leading locale segment (`/en/dashboard` -> `/dashboard`).
+ * The middleware sends a signed-out visitor to `/<locale>/auth/login?next=<path
+ * they asked for>` with that path's locale prefix included, while next-intl's
+ * router prefixes the current locale onto whatever it is given, so pushing
+ * `next` as it is lands on `/en/en/dashboard` (404). Pass `routing.locales`.
+ */
+export function stripLocalePrefix(
+  path: string,
+  locales: readonly string[],
+): string {
+  for (const locale of locales) {
+    if (!path.startsWith(`/${locale}`)) continue;
+    const rest = path.slice(locale.length + 1);
+    if (rest === "") return "/";
+    // Never a leading `//`: `/en//evil.example` must not become a
+    // protocol-relative URL (an off-site redirect) once the prefix is gone.
+    if (rest[0] === "/") return `/${rest.replace(/^\/+/, "")}`;
+    if (rest[0] === "?" || rest[0] === "#") return `/${rest}`;
+  }
+  return path;
+}
+
 export function safeHttpsUrl(value: unknown): string | null {
   if (typeof value !== "string" || CONTROL_OR_BACKSLASH.test(value))
     return null;

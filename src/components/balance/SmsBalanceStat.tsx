@@ -7,7 +7,8 @@ import { smsCreditsWord } from "@/lib/pricing-packages";
 
 /**
  * SMS credits left (`balances.sms_remaining`), shown beside the ₾ amount in
- * the wallet card of every balance page. SMS packages bought there credit this
+ * the wallet card of the renter, seller and service-cabinet balance pages (not
+ * food, not transport: cabinetSms.ts). SMS packages bought there credit this
  * column, and each page refetches `balances` after a purchase.
  */
 export default function SmsBalanceStat({
