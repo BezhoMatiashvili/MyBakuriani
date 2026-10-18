@@ -90,6 +90,7 @@ type SkipReason =
   | "no_consent"
   | "opted_out"
   | "already_queued"
+  | "not_eligible"
   | "no_credit"
   | "sale_only";
 
@@ -101,10 +102,38 @@ type SbClient = ReturnType<typeof createServiceClient>;
 // string would filter the TOP-LEVEL table and silently do nothing useful here.
 const RENTAL_ONLY = "is_for_sale.eq.false,is_for_sale.is.null";
 const PROPERTY_EMBED =
-  "property:property_id!inner(id, type, is_for_sale, location_lat, location_lng, phone, check_in_time)";
+  "property:property_id!inner(id, type, is_for_sale, location_lat, location_lng, location, phone, check_in_time, title)";
 
 function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
+// The listings among these candidates that public_properties serves. C31 hides a
+// rental whose owner's membership lapsed, so a link to it would open a 404. A
+// failed lookup only drops the links: the check-in still goes out.
+async function publicPropertyIds(
+  db: SbClient,
+  candidates: Candidate[],
+): Promise<Set<string>> {
+  const ids = [
+    ...new Set(
+      candidates
+        .map((c) => c.property?.id)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+  if (ids.length === 0) return new Set();
+  const { data, error } = await db
+    .from("public_properties")
+    .select("id")
+    .in("id", ids);
+  if (error) {
+    console.error(
+      JSON.stringify({ public_properties_lookup_failed: error.message }),
+    );
+    return new Set();
+  }
+  return new Set(((data as { id: string }[] | null) ?? []).map((r) => r.id));
 }
 
 serve(async (req: Request) => {
@@ -199,6 +228,7 @@ serve(async (req: Request) => {
         no_consent: 0,
         opted_out: 0,
         already_queued: 0,
+        not_eligible: 0,
         no_credit: 0,
         sale_only: 0,
       } as Record<SkipReason, number>,
@@ -252,9 +282,24 @@ serve(async (req: Request) => {
       const enqueue = async (
         kind: AutomationKind,
         c: Candidate,
-        message: string,
+        build: () => string,
       ): Promise<boolean> => {
         if (remainingCapacity < 1) return false;
+        let message: string;
+        try {
+          message = build();
+        } catch (err) {
+          // One row that cannot be worded must not end the run (and the
+          // reminders of every owner after it): count it, log it, go on.
+          summary.failed += 1;
+          console.error("message build failed", {
+            kind,
+            source: c.source,
+            booking_id: c.booking_id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return false;
+        }
         const { data, error } = await db.rpc("sms_enqueue_automation", {
           p_sender_id: c.owner_id,
           p_recipient_id: c.recipient_id,
@@ -314,26 +359,28 @@ serve(async (req: Request) => {
       // T1 ignores marketing_consent - it is transactional, not marketing (spec §2).
       if (rule.check_in_reminder_enabled) {
         const tomorrow = tbilisiDate(1);
-        for (
-          const c of await scanPlatform(db, {
+        const checkIns = [
+          ...await scanPlatform(db, {
             owner_id: rule.user_id,
             dateCol: "check_in",
             date: tomorrow,
             statuses: ["confirmed"],
-          })
-        ) {
-          if (!reachable(c, false)) continue;
-          await enqueue("check_in", c, buildCheckIn(c, rule));
-        }
-        for (
-          const c of await scanManual(db, {
+          }),
+          ...await scanManual(db, {
             owner_id: rule.user_id,
             dateCol: "check_in",
             date: tomorrow,
-          })
-        ) {
+          }),
+        ];
+        const visible = await publicPropertyIds(db, checkIns);
+        for (const c of checkIns) {
           if (!reachable(c, false)) continue;
-          await enqueue("check_in", c, buildCheckIn(c, rule));
+          const listingVisible = !!c.property && visible.has(c.property.id);
+          await enqueue(
+            "check_in",
+            c,
+            () => buildCheckIn(c, rule, siteUrl, listingVisible),
+          );
         }
       }
 
@@ -356,7 +403,11 @@ serve(async (req: Request) => {
             .eq("booking_id", c.booking_id);
           if (reviewErr) throw reviewErr;
           if ((count ?? 0) > 0) continue; // already reviewed
-          await enqueue("review_request", c, buildReviewRequest(c, siteUrl));
+          await enqueue(
+            "review_request",
+            c,
+            () => buildReviewRequest(c, siteUrl),
+          );
         }
         for (
           const c of await scanManual(db, {
@@ -377,11 +428,18 @@ serve(async (req: Request) => {
             "sms_create_manual_review_token",
             { p_owner_id: rule.user_id, p_manual_booking_id: c.booking_id },
           );
-          if (tokenErr) throw tokenErr;
+          if (tokenErr) {
+            // 42501: the booking stopped being review-eligible since the scan
+            // (cancelled, consent withdrawn, dates moved). That skips this one
+            // booking; any other error is still the run's.
+            if (tokenErr.code !== "42501") throw tokenErr;
+            skip("not_eligible", { booking_id: c.booking_id });
+            continue;
+          }
           await enqueue(
             "review_request",
             c,
-            buildReviewRequest(c, siteUrl, String(token)),
+            () => buildReviewRequest(c, siteUrl, String(token)),
           );
         }
       }
@@ -414,7 +472,7 @@ serve(async (req: Request) => {
             .gt("check_in", day);
           if (rbErr) throw rbErr;
           if ((count ?? 0) > 0) continue; // guest already re-booked with this owner
-          await enqueue("win_back", c, buildWinBack(c, rule, siteUrl));
+          await enqueue("win_back", c, () => buildWinBack(c, rule, siteUrl));
         }
 
         // Manual twin of the re-booked-since skip. An offline guest has no id, so the
@@ -446,7 +504,7 @@ serve(async (req: Request) => {
             if (!reachable(c, true)) continue;
             const phone = toCanonicalGePhone(c.guest_phone);
             if (phone && rebooked.has(phone)) continue;
-            await enqueue("win_back", c, buildWinBack(c, rule, siteUrl));
+            await enqueue("win_back", c, () => buildWinBack(c, rule, siteUrl));
           }
         }
       }

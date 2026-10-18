@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
 import Image from "next/image";
-import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Clock,
   BadgeCheck,
   ChevronRight,
+  Eye,
   Languages,
   MapPin,
   Share2,
@@ -16,10 +15,13 @@ import {
 import { useTranslations } from "next-intl";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
-import { shareListing } from "@/lib/share";
+import { ShareMenu } from "@/components/shared/ShareMenu";
 import { formatPrice } from "@/lib/utils/format";
+import { enterUp } from "@/lib/utils/enterAnimation";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
+import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import {
   optionKeyFor,
@@ -28,10 +30,16 @@ import {
 } from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
+import {
+  previewContactPhone,
+  previewContactWhatsapp,
+} from "@/lib/utils/preview-contact";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
   has_whatsapp?: boolean;
+  /** Ownership badge (C39); absent on base-table preview reads. */
+  ownership_verified?: boolean;
 };
 
 interface Props {
@@ -39,12 +47,6 @@ interface Props {
   isMock?: boolean;
   isPending?: boolean;
 }
-
-const fadeIn = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
-};
 
 export default function ServiceDetailClient({
   service,
@@ -88,33 +90,36 @@ export default function ServiceDetailClient({
     return years ? t("experienceYears", { count: Number(years[1]) }) : value;
   })();
   const owner = service.profiles;
+  // The listing's own profile photo (/create/service stores it as photos[0],
+  // the /services card shows it); the account avatar is only the fallback.
+  const profilePhoto = service.photos?.[0] ?? owner?.avatar_url ?? null;
+  const providerName =
+    service.provider_name ?? owner?.display_name ?? t("providerFallback");
   const categoryLabel = tCard.has(`categories.${service.category}`)
     ? tCard(`categories.${service.category}`)
     : service.category;
 
-  useEffect(() => {
-    if (isMock) return;
-    void fetch(`/api/listings/service/${service.id}/view`, { method: "POST" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [service.id, isMock]);
+  const views = useListingViewCount(
+    "service",
+    service.id,
+    service.views_count,
+    !isMock,
+  );
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
       {/* Breadcrumb */}
-      <motion.nav
-        {...fadeIn}
+      <nav
+        style={enterUp()}
         className="mb-4 flex items-center gap-1.5 text-[12px] text-[#94A3B8]"
       >
         <span>{t("breadcrumbRoot")}</span>
         <ChevronRight className="h-3.5 w-3.5" />
         <span className="text-[#64748B]">{categoryLabel}</span>
-      </motion.nav>
+      </nav>
 
-      <motion.div
-        {...fadeIn}
-        className="mb-6 flex items-center justify-between"
-      >
+      <div style={enterUp()} className="mb-6 flex items-center justify-between">
         <button
           type="button"
           onClick={() => router.back()}
@@ -123,47 +128,35 @@ export default function ServiceDetailClient({
           <ArrowLeft className="h-4 w-4" />
           {tShared("back")}
         </button>
-        <button
-          type="button"
-          onClick={() =>
-            shareListing(service.title, {
-              copied: tShare("copied"),
-              error: tShare("error"),
-            })
-          }
-          aria-label={tShare("label")}
-          className="flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3.5 py-2 text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
-        >
+        <ShareMenu className="flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3.5 py-2 text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC]">
           <Share2 className="h-4 w-4" />
           {tShare("label")}
-        </button>
-      </motion.div>
+        </ShareMenu>
+      </div>
 
       {/* Title */}
-      <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
+      <div style={enterUp(0.15)}>
         <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[36px] sm:leading-[44px]">
           {service.title}
         </h1>
         <div className="mt-3 flex flex-wrap items-center gap-4 text-[14px] text-[#64748B]">
-          <span className="flex items-center gap-2 font-medium">
-            <span className="relative size-7 shrink-0 overflow-hidden rounded-full bg-[#F8FAFC]">
-              {owner?.avatar_url ? (
+          <span className="flex items-center gap-3 font-medium">
+            <span className="relative size-12 shrink-0 overflow-hidden rounded-full border border-[#E2E8F0] bg-[#F8FAFC]">
+              {profilePhoto ? (
                 <Image
-                  src={owner.avatar_url}
-                  alt={owner.display_name ?? ""}
+                  src={profilePhoto}
+                  alt={providerName}
                   fill
-                  sizes="28px"
+                  sizes="48px"
                   className="object-cover"
                 />
               ) : (
-                <span className="flex size-full items-center justify-center text-[12px] font-bold text-[#94A3B8]">
+                <span className="flex size-full items-center justify-center text-[16px] font-bold text-[#94A3B8]">
                   {owner?.display_name?.charAt(0) ?? t("providerInitial")}
                 </span>
               )}
             </span>
-            {service.provider_name ??
-              owner?.display_name ??
-              t("providerFallback")}
+            {providerName}
             {owner?.is_verified && (
               <BadgeCheck className="h-4 w-4 text-[#2563EB]" />
             )}
@@ -173,29 +166,31 @@ export default function ServiceDetailClient({
               {optionLabel("serviceSpheres", service.service_field)}
             </span>
           )}
+          <span className="flex items-center gap-1.5 font-medium">
+            <Eye className="h-4 w-4" />
+            {tShared("views", { count: views })}
+          </span>
         </div>
-      </motion.div>
+        {service.ownership_verified === true && (
+          <OwnershipVerifiedBadge variant="detail" className="mt-3" />
+        )}
+      </div>
 
       {/* Description */}
       {service.description && (
-        <motion.div
-          {...fadeIn}
-          transition={{ duration: 0.4, delay: 0.2 }}
-          className="mt-8"
-        >
+        <div style={enterUp(0.2)} className="mt-8">
           <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
             {t("about")}
           </h2>
           <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
             {service.description}
           </p>
-        </motion.div>
+        </div>
       )}
 
       {/* Stats grid */}
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.25 }}
+      <div
+        style={enterUp(0.25)}
         className="mt-8 grid grid-cols-2 gap-4 rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC] p-6 sm:grid-cols-4"
       >
         <div className="flex flex-col gap-1">
@@ -251,13 +246,12 @@ export default function ServiceDetailClient({
             </span>
           </div>
         )}
-      </motion.div>
+      </div>
 
       {/* Verified specialist callout */}
       {owner?.is_verified && (
-        <motion.div
-          {...fadeIn}
-          transition={{ duration: 0.4, delay: 0.3 }}
+        <div
+          style={enterUp(0.3)}
           className="mt-6 flex items-start gap-4 rounded-[20px] border border-[#DBEAFE] bg-[#F0F7FF] p-6"
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2563EB] text-white">
@@ -271,14 +265,13 @@ export default function ServiceDetailClient({
               {t("verifiedBody")}
             </p>
           </div>
-        </motion.div>
+        </div>
       )}
 
       {/* Price + CTA row */}
-      <motion.div
+      <div
+        style={enterUp(0.35)}
         id="contact-sidebar"
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.35 }}
         className="mt-8 flex flex-col items-stretch justify-between gap-4 rounded-[20px] border border-[#E2E8F0] bg-white p-6 sm:flex-row sm:items-center"
       >
         {service.price != null && (
@@ -301,18 +294,18 @@ export default function ServiceDetailClient({
         <div className="flex items-center gap-3">
           <WhatsAppButton
             hasWhatsApp={service.has_whatsapp ?? false}
-            whatsapp={null}
+            whatsapp={previewContactWhatsapp(service)}
             serviceId={service.id}
           />
           <CallButton
-            phone={null}
+            phone={previewContactPhone(service)}
             className="flex-1 px-8 sm:flex-none"
             label={tCard("call")}
             alwaysShowLabel
             serviceId={service.id}
           />
         </div>
-      </motion.div>
+      </div>
 
       {service.price != null && (
         <MobileStickyCTA

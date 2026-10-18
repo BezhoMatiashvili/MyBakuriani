@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { useRouter } from "@/i18n/navigation";
 import Image from "next/image";
-import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Clock,
   Users,
   CheckCircle2,
+  Eye,
   ImageIcon,
   Star,
   ShieldCheck,
@@ -17,11 +17,16 @@ import {
 import { useTranslations } from "next-intl";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
-import { shareListing } from "@/lib/share";
+import { ShareMenu } from "@/components/shared/ShareMenu";
 import { formatPrice } from "@/lib/utils/format";
+import { enterUp } from "@/lib/utils/enterAnimation";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
+import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
+import ServiceLocationMap from "@/components/detail/ServiceLocationMap";
+import { parseServiceCoords } from "@/lib/maps/serviceCoords";
 import {
   optionKeyFor,
   priceUnitPathFor,
@@ -29,10 +34,16 @@ import {
 } from "@/lib/constants/listing-options";
 import type { Tables } from "@/lib/types/database";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
+import {
+  previewContactPhone,
+  previewContactWhatsapp,
+} from "@/lib/utils/preview-contact";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
   has_whatsapp?: boolean;
+  /** Ownership badge (C39); absent on base-table preview reads. */
+  ownership_verified?: boolean;
 };
 
 interface Props {
@@ -40,12 +51,6 @@ interface Props {
   isMock?: boolean;
   isPending?: boolean;
 }
-
-const fadeIn = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
-};
 
 export default function EntertainmentDetailClient({
   service,
@@ -55,7 +60,6 @@ export default function EntertainmentDetailClient({
   const router = useRouter();
   const t = useTranslations("EntertainmentDetail");
   const tShared = useTranslations("Shared");
-  const tShare = useTranslations("ShareListing");
   const tCard = useTranslations("ServiceCard");
   const tOpts = useTranslations("ListingOptions");
   // Translates a stored DB option value; falls through to the raw value for
@@ -65,6 +69,10 @@ export default function EntertainmentDetailClient({
     return key ? tOpts(`${group}.${key}`) : value;
   };
   const priceUnitPath = priceUnitPathFor(service.price_unit);
+  const pin = useMemo(
+    () => parseServiceCoords(service.coords),
+    [service.coords],
+  );
   const discountActive = isDiscountActive(
     service.discount_percent,
     service.discount_expires_at,
@@ -82,20 +90,18 @@ export default function EntertainmentDetailClient({
   const photos = service.photos ?? [];
   const mainPhoto = photos[0];
 
-  useEffect(() => {
-    if (isMock) return;
-    void fetch(`/api/listings/service/${service.id}/view`, { method: "POST" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [service.id, isMock]);
+  const views = useListingViewCount(
+    "service",
+    service.id,
+    service.views_count,
+    !isMock,
+  );
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
       {/* Hero photo with floating back button */}
-      <motion.div
-        {...fadeIn}
-        className="relative aspect-[16/9] w-full overflow-hidden rounded-[24px] bg-[#F8FAFC]"
-      >
+      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-[24px] bg-[#F8FAFC]">
         {mainPhoto && (
           <Image
             src={mainPhoto}
@@ -114,19 +120,9 @@ export default function EntertainmentDetailClient({
           <ArrowLeft className="h-4 w-4" />
           {tShared("back")}
         </button>
-        <button
-          type="button"
-          onClick={() =>
-            shareListing(service.title, {
-              copied: tShare("copied"),
-              error: tShare("error"),
-            })
-          }
-          aria-label={tShare("label")}
-          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#1E293B] shadow-sm backdrop-blur transition-colors hover:bg-white"
-        >
+        <ShareMenu className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#1E293B] shadow-sm backdrop-blur transition-colors hover:bg-white">
           <Share2 className="h-[18px] w-[18px]" />
-        </button>
+        </ShareMenu>
         {photos.length > 0 && (
           <button
             type="button"
@@ -136,14 +132,10 @@ export default function EntertainmentDetailClient({
             {t("photoGallery", { count: photos.length })}
           </button>
         )}
-      </motion.div>
+      </div>
 
       {/* Category + title */}
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.15 }}
-        className="mt-6"
-      >
+      <div style={enterUp(0.15)} className="mt-6">
         <div className="mb-2 text-[12px] font-bold uppercase tracking-[1px] text-[#2563EB]">
           {[
             optionLabel("entertainmentTypes", service.activity_type),
@@ -171,29 +163,31 @@ export default function EntertainmentDetailClient({
               className="font-medium"
             />
           )}
+          <span className="flex items-center gap-1.5 font-medium">
+            <Eye className="h-4 w-4" />
+            {tShared("views", { count: views })}
+          </span>
         </div>
-      </motion.div>
+        {service.ownership_verified === true && (
+          <OwnershipVerifiedBadge variant="detail" className="mt-3" />
+        )}
+      </div>
 
       {/* What to expect / description */}
       {service.description && (
-        <motion.div
-          {...fadeIn}
-          transition={{ duration: 0.4, delay: 0.2 }}
-          className="mt-8"
-        >
+        <div style={enterUp(0.2)} className="mt-8">
           <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
             {t("whatWeOffer")}
           </h2>
           <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
             {service.description}
           </p>
-        </motion.div>
+        </div>
       )}
 
       {/* Stats grid — four separate cards */}
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.25 }}
+      <div
+        style={enterUp(0.25)}
         className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4"
       >
         {service.duration && (
@@ -240,13 +234,12 @@ export default function EntertainmentDetailClient({
             </span>
           </div>
         )}
-      </motion.div>
+      </div>
 
       {/* Safety & conditions */}
       {service.safety_notes && (
-        <motion.div
-          {...fadeIn}
-          transition={{ duration: 0.4, delay: 0.3 }}
+        <div
+          style={enterUp(0.3)}
           className="mt-6 flex items-start gap-3 rounded-[16px] border border-[#DBEAFE] bg-[#EFF6FF] p-5"
         >
           <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#DBEAFE] text-[#2563EB]">
@@ -260,14 +253,24 @@ export default function EntertainmentDetailClient({
               {service.safety_notes}
             </p>
           </div>
-        </motion.div>
+        </div>
+      )}
+
+      {pin && (
+        <div style={enterUp(0.33)} className="mt-8">
+          <ServiceLocationMap
+            id={service.id}
+            title={service.title}
+            coords={pin}
+            photo={service.photos?.[0]}
+          />
+        </div>
       )}
 
       {/* Price + CTA row */}
-      <motion.div
+      <div
+        style={enterUp(0.35)}
         id="contact-sidebar"
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.35 }}
         className="mt-8 flex flex-col items-stretch justify-between gap-4 rounded-[20px] border border-[#E2E8F0] bg-white p-6 sm:flex-row sm:items-center"
       >
         <div>
@@ -293,17 +296,17 @@ export default function EntertainmentDetailClient({
         <div className="flex items-center gap-3">
           <WhatsAppButton
             hasWhatsApp={service.has_whatsapp ?? false}
-            whatsapp={null}
+            whatsapp={previewContactWhatsapp(service)}
             serviceId={service.id}
           />
           <CallButton
-            phone={null}
+            phone={previewContactPhone(service)}
             className="flex-1 px-8 sm:flex-none"
             label={t("callOrBook")}
             serviceId={service.id}
           />
         </div>
-      </motion.div>
+      </div>
 
       {service.price != null && (
         <MobileStickyCTA

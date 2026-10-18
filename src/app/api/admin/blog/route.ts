@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
 
@@ -63,5 +64,8 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
+  // The home page's blog rail and /blog read this table (ISR): show the new
+  // post on the next request instead of after the revalidate window.
+  revalidatePath("/", "layout");
   return Response.json({ post: data });
 }

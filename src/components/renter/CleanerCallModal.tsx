@@ -184,7 +184,10 @@ export default function CleanerCallModal({
                   <h2 className="text-[16px] font-black text-[#0F172A]">
                     {t("title")}
                   </h2>
-                  <p className="text-[12px] font-semibold text-[#64748B]">
+                  <p
+                    data-jev-private
+                    className="text-[12px] font-semibold text-[#64748B]"
+                  >
                     {cleaner.name}
                   </p>
                   <p className="text-[11px] font-medium text-[#94A3B8]">
@@ -213,7 +216,12 @@ export default function CleanerCallModal({
                 <Field label={tShared("defaultProperty")}>
                   <select
                     value={propertyId}
-                    onChange={(e) => setPropertyId(e.target.value)}
+                    onChange={(e) => {
+                      // The address follows the apartment: an address typed for
+                      // the previous one must not be sent with the next.
+                      if (propertyId) setAddressEdited(false);
+                      setPropertyId(e.target.value);
+                    }}
                     className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                   >
                     <option value="">{tShared("selectProperty")}</option>
@@ -267,7 +275,7 @@ export default function CleanerCallModal({
                       className="h-12 lg:h-[42px]"
                     />
                   </Field>
-                  <Field label={tShared("time")}>
+                  <Field label={t("startTime")}>
                     <TimeField
                       value={time}
                       onChange={(value) => {
@@ -313,6 +321,9 @@ export default function CleanerCallModal({
                     placeholder={t("address")}
                     className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                   />
+                  <p className="mt-1.5 text-[11px] font-medium leading-4 text-[#64748B]">
+                    {t("addressHint")}
+                  </p>
                 </Field>
 
                 <Field label={tShared("note")}>
@@ -324,6 +335,10 @@ export default function CleanerCallModal({
                     className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
                   />
                 </Field>
+
+                <p className="text-[11px] font-medium leading-4 text-[#64748B]">
+                  {t("sharedWithCleaner")}
+                </p>
               </div>
 
               {error && (

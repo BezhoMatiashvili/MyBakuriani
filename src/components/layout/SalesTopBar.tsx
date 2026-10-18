@@ -79,9 +79,9 @@ export function SalesTopBar() {
           <Image
             src="/logo.png"
             alt="MyBakuriani"
-            width={300}
-            height={199}
-            className="h-12 w-auto"
+            width={124}
+            height={50}
+            className="h-9 w-auto sm:h-12"
           />
         </Link>
 

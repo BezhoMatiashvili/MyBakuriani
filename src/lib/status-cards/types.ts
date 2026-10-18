@@ -29,6 +29,7 @@ export type StatusIcon =
   // Weather-condition icons — auto-assigned to the live weather card from
   // WeatherAPI conditions (see src/lib/weather/weatherapi.ts).
   | "sun"
+  | "moon"
   | "cloudSun"
   | "cloudRain"
   | "cloudSnow"
@@ -46,6 +47,7 @@ export const STATUS_ICONS: StatusIcon[] = [
   "video",
   "camera",
   "sun",
+  "moon",
   "cloudSun",
   "cloudRain",
   "cloudSnow",
@@ -59,6 +61,10 @@ export type StatusCardItem = {
   value?: LocalizedText | null;
   status: StatusKind;
   url?: string | null;
+  // Live-only, never stored (the admin API rebuilds items without them): the
+  // weather card's forecast rows carry the day's condition icon and wording.
+  icon?: StatusIcon;
+  detail?: LocalizedText | null;
 };
 
 export type StatusCard = {
@@ -73,6 +79,10 @@ export type StatusCard = {
   expandable: boolean;
   active: boolean;
   items: StatusCardItem[];
+  // ISO time an admin last changed (or confirmed) this card, stamped by the
+  // admin API (src/lib/status-cards/updated-at.ts). Absent on cards saved
+  // before it existed and on DEFAULT_STATUS_CARDS: no date is shown then.
+  updatedAt?: string | null;
 };
 
 // Caps enforced by the admin API to keep the document sane.
@@ -107,7 +117,8 @@ export function pickLocalized(
 // Cards whose closed-card face should preview its item names (e.g. "დიდველი,
 // კოხტა…") instead of staying blank until expanded. Deliberately excludes
 // "road" (already sets its own live drive-time subValue via withLiveRoad) and
-// "weather" (has no items).
+// "weather" (its items are live forecast days, and its face already carries
+// the live reading).
 const ITEM_SUBTITLE_CARD_IDS = new Set(["lifts", "cameras"]);
 const ITEM_SUBTITLE_MAX_NAMES = 2;
 const ITEM_SUBTITLE_LOCALES: StatusLocale[] = ["ka", "en", "ru"];
@@ -219,7 +230,7 @@ export const DEFAULT_STATUS_CARDS: StatusCard[] = [
     id: "cameras",
     icon: "video",
     label: { ka: "კამერები", en: "Cameras", ru: "Камеры" },
-    value: { ka: "2 ლოკაცია", en: "2 locations", ru: "2 локации" },
+    value: { ka: "1 ლოკაცია", en: "1 location", ru: "1 локация" },
     redDot: true,
     expandable: true,
     active: true,
@@ -231,13 +242,6 @@ export const DEFAULT_STATUS_CARDS: StatusCard[] = [
           en: "Central Square",
           ru: "Центральная площадь",
         },
-        value: null,
-        status: "none",
-        url: null,
-      },
-      {
-        id: "cam-kokhta",
-        label: { ka: "კოხტა გორა", en: "Kokhta Gora", ru: "Кохта Гора" },
         value: null,
         status: "none",
         url: null,

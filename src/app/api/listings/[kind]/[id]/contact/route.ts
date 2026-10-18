@@ -1,29 +1,76 @@
-import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextRequest, after } from "next/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { recordAnalyticsEvent } from "@/lib/analytics/events";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import {
+  checkNet64RateLimit,
+  checkRateLimit,
+  getClientIp,
+} from "@/lib/rateLimit";
 import { isUuid } from "@/lib/utils/uuid";
 import { normalizeE164Phone } from "@/lib/security";
 import { isTurnstileConfigured, verifyTurnstile } from "@/lib/turnstile";
 
 export const runtime = "nodejs";
 
-type ContactRequest = { turnstile_token?: string; device_id?: string };
+type ContactRequest = {
+  turnstile_token?: string;
+  device_id?: string;
+  /** Which button asked (C49): CallButton "call", WhatsAppButton "whatsapp". */
+  channel?: string;
+};
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ kind: string; id: string }> },
 ) {
-  const { kind, id } = await params;
+  const { kind, id: rawId } = await params;
+  // One spelling of the id: isUuid and Postgres accept any letter case, but the
+  // limiter keys below are case-sensitive text (C22).
+  const id = rawId.toLowerCase();
   if (!isUuid(id) || (kind !== "property" && kind !== "service")) {
     return Response.json({ error: "not_found" }, { status: 404 });
   }
+  // The listing lookup does not depend on who is asking, so it starts now and
+  // runs while the auth check and both rate-limit round trips are awaited
+  // (each a Singapore->Tokyo hop) instead of after them. The .catch only marks
+  // the promise handled for the early 429/403 returns; awaiting it below still
+  // throws exactly as the inline query used to.
+  const db = createServiceClient();
+  type ContactRow = {
+    phone: string | null;
+    whatsapp: string | null;
+    profiles: { phone: string | null } | null;
+  };
+  const lookup = Promise.resolve(
+    kind === "property"
+      ? db
+          .from("properties")
+          .select("phone, whatsapp, profiles!properties_owner_id_fkey(phone)")
+          .eq("id", id)
+          .eq("status", "active")
+          .maybeSingle()
+      : db
+          .from("services")
+          .select("phone, whatsapp, profiles!services_owner_id_fkey(phone)")
+          .eq("id", id)
+          .eq("status", "active")
+          .maybeSingle(),
+  );
+  lookup.catch(() => {});
+  // C31: a rental whose owner holds no active seasonal membership is hidden
+  // from the public, and so is its number. public_properties is the one
+  // definition of "publicly visible", so the check reads it, in parallel.
+  const shown =
+    kind === "property"
+      ? Promise.resolve(
+          db.from("public_properties").select("id").eq("id", id).maybeSingle(),
+        )
+      : null;
+  shown?.catch(() => {});
   const body = (await req.json().catch(() => null)) as ContactRequest | null;
   const ip = getClientIp(req);
-  const client = await createClient();
-  const {
-    data: { user },
-  } = await client.auth.getUser();
+  const user = await getCurrentUser();
   const device =
     typeof body?.device_id === "string" &&
     /^[A-Za-z0-9_-]{16,128}$/.test(body.device_id)
@@ -49,7 +96,14 @@ export async function POST(
       8,
       60 * 60_000,
     )) &&
-    (await checkRateLimit(`listing-contact-all:${subject}`, 30, 60 * 60_000));
+    (await checkRateLimit(`listing-contact-all:${subject}`, 30, 60 * 60_000)) &&
+    (!!user ||
+      (await checkNet64RateLimit(
+        "listing-contact-all:ip",
+        ip,
+        30,
+        60 * 60_000,
+      )));
   if (!withinLimits) {
     return Response.json({ error: "rate_limited" }, { status: 429 });
   }
@@ -63,36 +117,9 @@ export async function POST(
   ) {
     return Response.json({ error: "verification_required" }, { status: 403 });
   }
-  const db = createServiceClient();
-  type ContactRow = {
-    phone: string | null;
-    whatsapp: string | null;
-    profiles: { phone: string | null } | null;
-  };
-  let row: ContactRow | null = null;
-  let lookupError: { code?: string; message?: string } | null = null;
-
-  if (kind === "property") {
-    const { data, error } = await db
-      .from("properties")
-      .select(
-        "phone, whatsapp, profiles!properties_owner_id_fkey(phone)",
-      )
-      .eq("id", id)
-      .eq("status", "active")
-      .maybeSingle();
-    row = data as ContactRow | null;
-    lookupError = error;
-  } else {
-    const { data, error } = await db
-      .from("services")
-      .select("phone, whatsapp, profiles!services_owner_id_fkey(phone)")
-      .eq("id", id)
-      .eq("status", "active")
-      .maybeSingle();
-    row = data as ContactRow | null;
-    lookupError = error;
-  }
+  const { data, error } = await lookup;
+  const row = data as ContactRow | null;
+  const lookupError: { code?: string; message?: string } | null = error;
 
   if (lookupError) {
     console.error("Listing contact lookup failed", {
@@ -103,25 +130,56 @@ export async function POST(
     return Response.json({ error: "lookup_failed" }, { status: 500 });
   }
   if (!row) return Response.json({ error: "not_found" }, { status: 404 });
+  if (shown) {
+    const { data: visible, error: shownError } = await shown;
+    if (shownError) {
+      console.error("Listing contact visibility lookup failed", {
+        kind,
+        id,
+        code: shownError.code,
+      });
+      return Response.json({ error: "lookup_failed" }, { status: 500 });
+    }
+    if (!visible) return Response.json({ error: "not_found" }, { status: 404 });
+  }
   // This table is intentionally service-write-only.  It records the reveal,
   // not the revealed value, and makes rate-limit/audit investigations possible.
-  await (
-    db.from as unknown as (table: "contact_reveal_events") => {
-      insert(value: Record<string, unknown>): PromiseLike<unknown>;
+  // Its result was never checked, so it runs after the response is sent
+  // rather than holding the number back for another round trip (C22: reveal
+  // counts in listing analytics become eventual by a few milliseconds).
+  // The channel splits reveals into the admin analytics' calls and messages
+  // (C49); older clients send none, so the column stays nullable.
+  const channel =
+    body?.channel === "call" || body?.channel === "whatsapp"
+      ? body.channel
+      : null;
+  after(async () => {
+    await (
+      db.from as unknown as (table: "contact_reveal_events") => {
+        insert(value: Record<string, unknown>): PromiseLike<unknown>;
+      }
+    )("contact_reveal_events").insert({
+      listing_id: id,
+      listing_type: kind,
+      account_id: user?.id ?? null,
+      device_id: user ? null : device,
+      client_ip: ip,
+      channel,
+    });
+    if (channel) {
+      await recordAnalyticsEvent(req, {
+        name: channel === "call" ? "call" : "message",
+        entityType: kind,
+        entityId: id,
+        userId: user?.id ?? null,
+      });
     }
-  )("contact_reveal_events").insert({
-    listing_id: id,
-    listing_type: kind,
-    account_id: user?.id ?? null,
-    device_id: user ? null : device,
-    client_ip: ip,
   });
   // This is the only public contact representation: a deliberate detail
   // lookup, individually rate-limited and never part of list/search payloads.
   return Response.json({
     phone:
-      normalizeE164Phone(row.phone) ??
-      normalizeE164Phone(row.profiles?.phone),
+      normalizeE164Phone(row.phone) ?? normalizeE164Phone(row.profiles?.phone),
     whatsapp: normalizeE164Phone(row.whatsapp),
   });
 }

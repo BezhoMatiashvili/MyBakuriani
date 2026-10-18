@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadGuestData } from "./loadData";
 import GuestDashboardClient from "./GuestDashboardClient";
 
+// `?smartMatch=new` is read by GuestDashboardClient (C41, C43).
 export default async function GuestDashboardPage() {
   const user = await getCurrentUser();
   if (!user) {

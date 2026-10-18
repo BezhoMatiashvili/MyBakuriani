@@ -1,16 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
 import { ArrowRight, ChevronDown, Eye, Plus, Star } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { trackAnalyticsEvent } from "@/lib/analytics/track-client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice } from "@/lib/utils/format";
+import { formatNumber, formatPrice } from "@/lib/utils/format";
+import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
+import { priceUnitPathFor } from "@/lib/constants/listing-options";
+import { propertyViewUrl, serviceViewUrl } from "@/lib/utils/listingUrls";
 import NewRequestModal, {
   type NewRequestPayload,
+  type NewRequestPrefill,
 } from "@/components/guest/NewRequestModal";
 import GuestOffersModal, {
   type GuestOffer,
@@ -18,10 +24,22 @@ import GuestOffersModal, {
 import type { Tables } from "@/lib/types/database";
 import { isStale } from "@/lib/smart-match/match";
 import { safeInternalPath } from "@/lib/security";
+import {
+  SMART_MATCH_NEW_PARAM,
+  SMART_MATCH_NEW_VALUE,
+} from "@/lib/signup-links";
+import {
+  SMART_MATCH_PREFILL,
+  parseSmartMatchPrefill,
+} from "@/lib/support/actions";
 import MyRequestCard from "@/components/guest/MyRequestCard";
-import { loadGuestData, type GuestData, type MyRequest } from "./loadData";
-
-type Property = Tables<"properties">;
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
+import {
+  loadGuestData,
+  type GuestData,
+  type MyRequest,
+  type RecentListing,
+} from "./loadData";
 
 /** How many "recently viewed" cards show before the user expands the section. */
 const COLLAPSED_COUNT = 3;
@@ -47,16 +65,61 @@ export default function GuestDashboardClient({
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(
     initial.profile,
   );
-  const [recent, setRecent] = useState<Property[]>(initial.recent);
+  const [recent, setRecent] = useState<RecentListing[]>(initial.recent);
   const [offers, setOffers] = useState<GuestOffer[]>(initial.offers);
   const [reviewRequests, setReviewRequests] = useState<
     Tables<"notifications">[]
   >(initial.reviewRequests);
   const [requests, setRequests] = useState<MyRequest[]>(initial.requests);
+  // The guest's own smart_match_requests ids, so the realtime handler below can
+  // tell an offer on one of them apart from an offer anywhere else on the
+  // platform (guest_id lives on smart_match_requests, not on the offer row, so
+  // the postgres_changes subscription itself can't filter on it). Seeded from
+  // both `requests` and `offers` since `requests` is capped at the 20 newest
+  // (loadGuestData's dashboard query), while `offers` (unlimited) can still
+  // reference an older one; the effect below backfills the rest on mount.
+  const requestIdsRef = useRef<Set<string>>(
+    new Set([
+      ...initial.requests.map((r) => r.id),
+      ...initial.offers.map((o) => o.requestId),
+    ]),
+  );
+  // False until the backfill effect below resolves. The synchronous seed
+  // above only covers the 20-newest requests/their offers, and the realtime
+  // subscription goes live before the backfill query for older ids resolves
+  // — while not ready, treat every event as relevant (matching the old
+  // always-refetch behavior) instead of dropping it against an incomplete set.
+  const requestIdsReadyRef = useRef(false);
 
   const [newRequestOpen, setNewRequestOpen] = useState(false);
+  const [newRequestPrefill, setNewRequestPrefill] =
+    useState<NewRequestPrefill>();
   const [offersOpen, setOffersOpen] = useState(false);
   const [recentExpanded, setRecentExpanded] = useState(false);
+
+  // `?smartMatch=new` (an admin sign-up link's destination, C41; the support
+  // assistant's Smart Match button, C43, which may add zone/dates/guests/
+  // budget). Read on the client so a second press on this same page opens
+  // the form again. It only opens the form: the guest sends it.
+  const searchParams = useSearchParams();
+  const openNewRequest =
+    searchParams.get(SMART_MATCH_NEW_PARAM) === SMART_MATCH_NEW_VALUE;
+  useEffect(() => {
+    if (!openNewRequest) return;
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Tbilisi",
+    }).format(new Date());
+    const url = new URL(window.location.href);
+    setNewRequestPrefill(
+      parseSmartMatchPrefill((name) => url.searchParams.get(name), today),
+    );
+    setNewRequestOpen(true);
+    // Drop the params so a reload or Back doesn't reopen it.
+    url.searchParams.delete(SMART_MATCH_NEW_PARAM);
+    for (const name of Object.values(SMART_MATCH_PREFILL))
+      url.searchParams.delete(name);
+    window.history.replaceState(null, "", url);
+  }, [openNewRequest]);
 
   const pendingOffers = offers.filter((o) => o.status === "pending");
   const newOfferCount = pendingOffers.length;
@@ -71,10 +134,39 @@ export default function GuestDashboardClient({
     setOffers(data.offers);
     setReviewRequests(data.reviewRequests);
     setRequests(data.requests);
+    // Merge, don't replace: a reseed racing a just-created request (this tab
+    // or another) must not drop its id — request ids only ever accumulate.
+    requestIdsRef.current = new Set([
+      ...requestIdsRef.current,
+      ...data.requests.map((r) => r.id),
+      ...data.offers.map((o) => o.requestId),
+    ]);
   }, []);
 
   useEffect(() => {
-    // Realtime: refresh offers when new ones land
+    // Backfill requestIdsRef with ALL of the guest's request ids, not just the
+    // 20 newest `requests`/`offers` above can see — otherwise an offer on an
+    // older request would be silently dropped by the realtime filter below.
+    // Indexed via idx_smart_match_guest.
+    supabase
+      .from("smart_match_requests")
+      .select("id")
+      .eq("guest_id", userId)
+      .then(({ data }) => {
+        if (data) {
+          requestIdsRef.current = new Set([
+            ...requestIdsRef.current,
+            ...data.map((r) => r.id),
+          ]);
+        }
+        requestIdsReadyRef.current = true;
+      });
+
+    // Realtime: refresh offers when new ones land. The subscription itself
+    // can't filter on guest_id (it lives on smart_match_requests, not on this
+    // table), so we check the event's request_id against the guest's own
+    // request ids before refetching — otherwise every guest's tab would
+    // refetch on any offer platform-wide.
     const channel = supabase
       .channel("guest-dashboard-offers")
       .on(
@@ -84,8 +176,17 @@ export default function GuestDashboardClient({
           schema: "public",
           table: "smart_match_offers",
         },
-        () => {
-          loadGuestData(supabase, userId).then(apply);
+        (payload) => {
+          const requestId =
+            (payload.new as { request_id?: string } | null)?.request_id ??
+            (payload.old as { request_id?: string } | null)?.request_id;
+          if (
+            requestId &&
+            (!requestIdsReadyRef.current ||
+              requestIdsRef.current.has(requestId))
+          ) {
+            loadGuestData(supabase, userId).then(apply);
+          }
         },
       )
       .subscribe();
@@ -104,19 +205,30 @@ export default function GuestDashboardClient({
     // Create the request. A DB trigger (notify_owners_of_smart_match_request)
     // fans out notifications to every matching renter server-side, so there is no
     // fragile client-side fan-out here.
-    const { error } = await supabase.from("smart_match_requests").insert({
-      guest_id: userId,
-      check_in: payload.checkIn,
-      check_out: payload.checkOut,
-      guests_count: payload.guestsCount ?? null,
-      budget_min: payload.budgetMin ?? null,
-      budget_max: payload.budgetMax ?? null,
-      zone: zoneValue,
-      status: "active",
-    });
+    const { data, error } = await supabase
+      .from("smart_match_requests")
+      .insert({
+        guest_id: userId,
+        check_in: payload.checkIn,
+        check_out: payload.checkOut,
+        guests_count: payload.guestsCount ?? null,
+        budget_min: payload.budgetMin ?? null,
+        budget_max: payload.budgetMax ?? null,
+        zone: zoneValue,
+        status: "active",
+      })
+      .select("id")
+      .single();
     // Throw so NewRequestModal stays open and shows the failure instead of
     // closing with apparent success.
     if (error) throw error;
+    // Cache the new request id right away so an offer landing on it isn't
+    // ignored by the realtime handler above while the reload below is in flight.
+    if (data) {
+      requestIdsRef.current.add(data.id);
+      // Admin analytics "Smart Match requests" (C49).
+      trackAnalyticsEvent("smart_match_request", data.id);
+    }
     // Surface the new request immediately in "My Requests". The realtime channel
     // only listens on smart_match_offers, so a fresh request wouldn't otherwise
     // appear until an offer lands.
@@ -327,65 +439,35 @@ export default function GuestDashboardClient({
           )}
         </div>
 
-        <div
-          className={`mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 ${
-            recentExpanded ? "max-h-[560px] overflow-y-auto pr-1" : ""
-          }`}
-        >
-          {loading
-            ? Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-[260px] rounded-[20px]" />
-              ))
-            : visibleRecent.map((p) => (
-                <Link
-                  key={p.id}
-                  href={
-                    p.is_for_sale ? `/sales/${p.id}` : `/apartments/${p.id}`
-                  }
-                  className="group flex flex-col overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-[0px_12px_24px_rgba(15,23,42,0.08)]"
-                >
-                  <div className="relative h-[150px] w-full overflow-hidden bg-[#F1F5F9]">
-                    {(p.photos ?? [])[0] && (
-                      <Image
-                        src={(p.photos ?? [])[0]}
-                        alt={p.title}
-                        fill
-                        sizes="400px"
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    )}
-                    {p.is_vip && (
-                      <span className="absolute left-3 top-3 rounded-md bg-[#F97316] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
-                        VIP
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-1 flex-col gap-1.5 p-4">
-                    <h3 className="truncate text-[14px] font-extrabold text-[#0F172A]">
-                      {p.title}
-                    </h3>
-                    <p className="flex items-center gap-1 text-[12px] text-[#94A3B8]">
-                      <Eye className="h-3 w-3" />
-                      {t("views", { count: p.views_count ?? 0 })}
-                    </p>
-                    <div className="mt-auto flex items-baseline gap-1 pt-2">
-                      <span className="text-[16px] font-black text-[#0F172A]">
-                        {formatPrice(Number(p.price_per_night ?? 0))}
-                      </span>
-                      <span className="text-[11px] font-medium text-[#94A3B8]">
-                        {t("perNight")}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-        </div>
+        {!loading && recent.length === 0 ? (
+          <p className="mt-4 rounded-[20px] border border-[#EEF1F4] bg-[#FAFBFC] px-5 py-8 text-center text-[13px] font-medium text-[#94A3B8]">
+            {t("recentEmpty")}
+          </p>
+        ) : (
+          <div
+            className={`mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 ${
+              recentExpanded ? "max-h-[560px] overflow-y-auto pr-1" : ""
+            }`}
+          >
+            {loading
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-[260px] rounded-[20px]" />
+                ))
+              : visibleRecent.map((entry) => (
+                  <RecentListingCard
+                    key={`${entry.kind}:${entry.listing.id}`}
+                    entry={entry}
+                  />
+                ))}
+          </div>
+        )}
       </motion.section>
 
       <NewRequestModal
         isOpen={newRequestOpen}
         onClose={() => setNewRequestOpen(false)}
         onSubmit={handleSubmitNewRequest}
+        initial={newRequestPrefill}
       />
       <GuestOffersModal
         isOpen={offersOpen}
@@ -394,5 +476,112 @@ export default function GuestDashboardClient({
         onDecline={handleDeclineOffer}
       />
     </div>
+  );
+}
+
+function RecentListingCard({ entry }: { entry: RecentListing }) {
+  const t = useTranslations("GuestDashboard");
+  const tOpts = useTranslations("ListingOptions");
+  const l = entry.listing;
+  // Canonical detail routes: hotel → /hotels, sale → /sales, food → /food …
+  const href =
+    entry.kind === "property"
+      ? propertyViewUrl(entry.listing)
+      : serviceViewUrl(entry.listing);
+  const photo = (l.photos ?? [])[0];
+  const isSale =
+    entry.kind === "property" && Boolean(entry.listing.is_for_sale);
+  const base =
+    entry.kind === "property"
+      ? Number(
+          (isSale ? entry.listing.sale_price : entry.listing.price_per_night) ??
+            0,
+        )
+      : entry.listing.price != null
+        ? Number(entry.listing.price)
+        : null;
+  // C10 via the shared helpers (sales too, as SalePropertyCard does). C21: a
+  // food listing's own discount is never applied; food discounts live per
+  // menu item.
+  const discounted =
+    !(entry.kind === "service" && entry.listing.category === "food") &&
+    isDiscountActive(l.discount_percent, l.discount_expires_at);
+  const price =
+    base != null && discounted
+      ? applyDiscount(base, l.discount_percent, l.discount_expires_at)
+      : base;
+  // Sale prices are entered and stored in USD, so they render with "$" like
+  // the sale cards do.
+  const money = (n: number) =>
+    isSale ? `$${formatNumber(n)}` : formatPrice(n);
+  const unitPath =
+    entry.kind === "service"
+      ? priceUnitPathFor(entry.listing.price_unit)
+      : null;
+  const unit =
+    entry.kind === "property"
+      ? isSale
+        ? null
+        : t("perNight")
+      : entry.listing.price_unit
+        ? `/${unitPath ? tOpts(unitPath) : entry.listing.price_unit}`
+        : null;
+
+  return (
+    <Link
+      href={href}
+      data-testid="recent-listing"
+      className="group flex flex-col overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-[0px_12px_24px_rgba(15,23,42,0.08)]"
+    >
+      <div className="relative h-[150px] w-full overflow-hidden bg-[#F1F5F9]">
+        {photo && (
+          <Image
+            src={photo}
+            alt={l.title}
+            fill
+            sizes="400px"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        )}
+        {/* The public views' VIP flags are already expiry-aware. */}
+        {(l.is_super_vip || l.is_vip) && (
+          <span className="absolute left-3 top-3 rounded-md bg-[#F97316] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+            {l.is_super_vip ? "SUPER VIP" : "VIP"}
+          </span>
+        )}
+        {l.ownership_verified && (
+          <OwnershipVerifiedBadge
+            variant="card"
+            className="absolute bottom-3 right-3"
+          />
+        )}
+      </div>
+      <div className="flex flex-1 flex-col gap-1.5 p-4">
+        <h3 className="truncate text-[14px] font-extrabold text-[#0F172A]">
+          {l.title}
+        </h3>
+        <p className="flex items-center gap-1 text-[12px] text-[#94A3B8]">
+          <Eye className="h-3 w-3" />
+          {t("views", { count: l.views_count ?? 0 })}
+        </p>
+        {price != null && (
+          <div className="mt-auto flex items-baseline gap-1 pt-2">
+            {discounted && base != null && (
+              <span className="text-[11px] font-medium text-[#94A3B8] line-through">
+                {money(base)}
+              </span>
+            )}
+            <span className="text-[16px] font-black text-[#0F172A]">
+              {money(price)}
+            </span>
+            {unit && (
+              <span className="text-[11px] font-medium text-[#94A3B8]">
+                {unit}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </Link>
   );
 }

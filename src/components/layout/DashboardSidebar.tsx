@@ -198,7 +198,7 @@ export function DashboardSidebar({
           </AvatarFallback>
         </Avatar>
         {!collapsed && (
-          <div className="min-w-0 flex-1">
+          <div data-jev-private className="min-w-0 flex-1">
             <p className="truncate text-sm font-extrabold text-[#0F172A]">
               {userName}
             </p>

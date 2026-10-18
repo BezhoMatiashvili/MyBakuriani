@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import {
-  Star,
   MapPin,
   Megaphone,
   Sparkles,
@@ -18,23 +17,36 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils/format";
+import { propertyViewUrl } from "@/lib/utils/listingUrls";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import NewRequestModal, {
   type NewRequestPayload,
 } from "@/components/guest/NewRequestModal";
 import type { Tables } from "@/lib/types/database";
 
-type Property = Tables<"properties">;
-type Owner = Pick<
-  Tables<"profiles">,
-  "id" | "display_name" | "avatar_url" | "rating" | "phone"
+// Read from `public_properties`: base `properties` and `profiles` are
+// RLS-hidden from everyone but the owner. Null = the listing is not public
+// (e.g. its owner's membership lapsed, C31), so there is no page to open.
+type Property = Pick<
+  Tables<"public_properties">,
+  | "id"
+  | "type"
+  | "is_for_sale"
+  | "title"
+  | "photos"
+  | "location"
+  | "price_per_night"
+  | "is_vip"
+  | "profile_display_name"
 >;
+
+const OFFER_LISTING_COLUMNS =
+  "id, type, is_for_sale, title, photos, location, price_per_night, is_vip, profile_display_name";
 
 interface OfferView {
   offerId: string;
   requestId: string;
-  property: Property;
-  owner: Owner | null;
+  property: Property | null;
   checkIn: string | null;
   checkOut: string | null;
   offeredPrice: number;
@@ -53,79 +65,91 @@ export default function GuestBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("all");
   const [modalOpen, setModalOpen] = useState(false);
+  // The guest's own smart_match_requests ids, so the realtime handler below can
+  // tell an offer on one of them apart from an offer anywhere else on the
+  // platform (guest_id lives on smart_match_requests, not on the offer row, so
+  // the postgres_changes subscription itself can't filter on it).
+  const requestIdsRef = useRef<Set<string>>(new Set());
+  // False until fetchRequestIds()'s first pass resolves. The realtime
+  // subscription below goes live immediately (synchronously, on the same
+  // tick), so an offer event can arrive before that id set is populated —
+  // while not ready, treat every event as relevant (matching the old
+  // always-refetch behavior) instead of dropping it against an empty Set.
+  const requestIdsReadyRef = useRef(false);
 
   useEffect(() => {
     if (!user) return;
     let active = true;
 
+    async function fetchRequestIds() {
+      const { data } = await supabase
+        .from("smart_match_requests")
+        .select("id")
+        .eq("guest_id", user!.id);
+      // Merge, don't replace: a reseed racing a just-created request (from
+      // submitNewRequest below) must not drop its id.
+      if (active && data) {
+        requestIdsRef.current = new Set([
+          ...requestIdsRef.current,
+          ...data.map((r) => r.id),
+        ]);
+      }
+      if (active) requestIdsReadyRef.current = true;
+    }
+
     async function fetchData() {
       const { data } = await supabase
         .from("smart_match_offers")
         .select(
-          "*, smart_match_requests!inner(id, guest_id, check_in, check_out), properties(*)",
+          "*, smart_match_requests!inner(id, guest_id, check_in, check_out)",
         )
         .eq("smart_match_requests.guest_id", user!.id)
+        // A withdrawn offer must not stay visible (same rule as loadGuestData).
+        .neq("status", "cancelled")
         .order("created_at", { ascending: false });
 
       if (!data || data.length === 0) {
-        if (active) setLoading(false);
+        if (active) {
+          if (data) setOffers([]);
+          setLoading(false);
+        }
         return;
       }
 
-      const ownerIds = Array.from(
-        new Set(
-          data
-            .map(
-              (r) =>
-                (r as unknown as { properties: { owner_id: string | null } })
-                  .properties?.owner_id,
-            )
-            .filter((id): id is string => !!id),
-        ),
+      const listingIds = [...new Set(data.map((r) => r.property_id))];
+      const { data: listings } = await supabase
+        .from("public_properties")
+        .select(OFFER_LISTING_COLUMNS)
+        .in("id", listingIds);
+      const listingById = new Map(
+        ((listings as Property[] | null) ?? []).map((p) => [p.id, p]),
       );
 
-      const { data: ownerData } =
-        ownerIds.length > 0
-          ? await supabase
-              .from("profiles")
-              .select("id, display_name, avatar_url, rating, phone")
-              .in("id", ownerIds)
-          : { data: [] as Owner[] };
-
-      const ownerMap = new Map(
-        ((ownerData as Owner[]) ?? []).map((o) => [o.id, o]),
-      );
-
-      const rows: OfferView[] = data
-        .map((r) => {
-          const row = r as unknown as {
+      const rows: OfferView[] = data.map((r) => {
+        const row = r as unknown as {
+          id: string;
+          property_id: string;
+          offered_price: number;
+          status: "pending" | "declined" | "accepted";
+          created_at: string | null;
+          smart_match_requests: {
             id: string;
-            offered_price: number;
-            status: "pending" | "declined" | "accepted";
-            created_at: string | null;
-            smart_match_requests: {
-              id: string;
-              check_in: string | null;
-              check_out: string | null;
-            };
-            properties: Property;
+            check_in: string | null;
+            check_out: string | null;
           };
-          const p = row.properties;
-          if (!p) return null;
-          return {
-            offerId: row.id,
-            requestId: row.smart_match_requests.id,
-            property: p,
-            owner: p.owner_id ? (ownerMap.get(p.owner_id) ?? null) : null,
-            checkIn: row.smart_match_requests.check_in,
-            checkOut: row.smart_match_requests.check_out,
-            offeredPrice: Number(row.offered_price),
-            status: row.status,
-            isNew: row.status === "pending",
-            createdAt: row.created_at,
-          } satisfies OfferView;
-        })
-        .filter((o): o is OfferView => o !== null);
+        };
+        return {
+          offerId: row.id,
+          requestId: row.smart_match_requests.id,
+          property: listingById.get(row.property_id) ?? null,
+          checkIn: row.smart_match_requests.check_in,
+          checkOut: row.smart_match_requests.check_out,
+          offeredPrice: Number(row.offered_price),
+          status: row.status,
+          isNew: row.status === "pending",
+          createdAt: row.created_at,
+        } satisfies OfferView;
+      });
 
       if (active) {
         setOffers(rows);
@@ -136,24 +160,41 @@ export default function GuestBookingsPage() {
       const pendingIds = rows
         .filter((o) => o.status === "pending")
         .map((o) => o.offerId);
+      // Only rows not yet marked: an UPDATE of an already-seen row still emits a
+      // realtime event, which the channel below answers with another
+      // fetchData() — so re-marking every pending offer looped forever.
       if (pendingIds.length > 0) {
         await supabase
           .from("smart_match_offers")
           .update({ guest_seen: true })
-          .in("id", pendingIds);
+          .in("id", pendingIds)
+          .eq("guest_seen", false);
       }
     }
     fetchData();
+    fetchRequestIds();
 
-    // Live: new/updated offers for this guest arrive over websocket. RLS scopes
-    // smart_match_offers to the guest's own requests, so we refetch on any change.
+    // Live: new/updated offers for this guest arrive over websocket. The
+    // subscription itself can't filter on guest_id (it lives on
+    // smart_match_requests, not on this table), so we check the event's
+    // request_id against the guest's own request ids before refetching —
+    // otherwise every guest's tab would refetch on any offer platform-wide.
     const channel = supabase
       .channel("guest-bookings-offers")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "smart_match_offers" },
-        () => {
-          fetchData();
+        (payload) => {
+          const requestId =
+            (payload.new as { request_id?: string } | null)?.request_id ??
+            (payload.old as { request_id?: string } | null)?.request_id;
+          if (
+            requestId &&
+            (!requestIdsReadyRef.current ||
+              requestIdsRef.current.has(requestId))
+          ) {
+            fetchData();
+          }
         },
       )
       .subscribe();
@@ -180,17 +221,24 @@ export default function GuestBookingsPage() {
     // Create the request. A DB trigger (notify_owners_of_smart_match_request)
     // fans out notifications to every matching renter server-side, so there is no
     // fragile client-side fan-out here.
-    const { error } = await supabase.from("smart_match_requests").insert({
-      guest_id: user.id,
-      check_in: p.checkIn,
-      check_out: p.checkOut,
-      guests_count: p.guestsCount ?? null,
-      budget_min: p.budgetMin ?? null,
-      budget_max: p.budgetMax ?? null,
-      zone: zoneValue,
-      status: "active",
-    });
+    const { data, error } = await supabase
+      .from("smart_match_requests")
+      .insert({
+        guest_id: user.id,
+        check_in: p.checkIn,
+        check_out: p.checkOut,
+        guests_count: p.guestsCount ?? null,
+        budget_min: p.budgetMin ?? null,
+        budget_max: p.budgetMax ?? null,
+        zone: zoneValue,
+        status: "active",
+      })
+      .select("id")
+      .single();
     if (error) throw error;
+    // Cache the new request id right away so an offer landing on it isn't
+    // ignored by the realtime handler above while waiting on a refetch.
+    if (data) requestIdsRef.current.add(data.id);
   }
 
   async function declineOffer(offerId: string) {
@@ -296,14 +344,14 @@ function OfferCard({
   onDecline: () => void;
 }) {
   const t = useTranslations("GuestBookings");
-  const ownerName = offer.owner?.display_name ?? t("defaultOwner");
+  const ownerName = offer.property?.profile_display_name ?? t("defaultOwner");
   const initials = ownerName
     .split(" ")
     .map((n) => n[0])
     .join("")
     .slice(0, 2);
-  const photo = (offer.property.photos ?? [])[0] ?? null;
-  const listingPrice = Number(offer.property.price_per_night ?? 0);
+  const photo = (offer.property?.photos ?? [])[0] ?? null;
+  const listingPrice = Number(offer.property?.price_per_night ?? 0);
   const isCheaper = offer.offeredPrice < listingPrice && listingPrice > 0;
 
   return (
@@ -320,18 +368,6 @@ function OfferCard({
           </p>
           <p className="flex items-center gap-1.5 text-[11px] font-medium text-[#64748B]">
             <span>{t("ownerRole")}</span>
-            {offer.owner?.rating != null && (
-              <>
-                <span className="text-[#CBD5E1]">·</span>
-                <span className="inline-flex items-center gap-0.5">
-                  <Star
-                    className="h-3 w-3 text-[#F59E0B]"
-                    fill="currentColor"
-                  />
-                  {Number(offer.owner.rating).toFixed(1)}
-                </span>
-              </>
-            )}
           </p>
         </div>
         {offer.isNew && (
@@ -351,23 +387,29 @@ function OfferCard({
           {photo && (
             <Image
               src={photo}
-              alt={offer.property.title}
+              alt={offer.property?.title ?? ""}
               fill
               sizes="140px"
               className="object-cover"
             />
           )}
-          {offer.property.is_vip && (
+          {offer.property?.is_vip && (
             <span className="absolute left-2 top-2 rounded-md bg-[#F97316] px-2 py-0.5 text-[9px] font-black uppercase text-white">
               VIP
             </span>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[15px] font-extrabold text-[#0F172A]">
-            {offer.property.title}
-          </h3>
-          {offer.property.location && (
+          {offer.property ? (
+            <h3 className="truncate text-[15px] font-extrabold text-[#0F172A]">
+              {offer.property.title}
+            </h3>
+          ) : (
+            <p className="text-[13px] font-medium text-[#64748B]">
+              {t("listingUnavailable")}
+            </p>
+          )}
+          {offer.property?.location && (
             <p className="mt-1 flex items-center gap-1 text-[12px] text-[#64748B]">
               <MapPin className="h-3.5 w-3.5" />
               {offer.property.location}
@@ -406,17 +448,18 @@ function OfferCard({
                   {t("decline")}
                 </button>
               )}
-              <Link
-                href={
-                  offer.property.is_for_sale
-                    ? `/sales/${offer.property.id}`
-                    : `/apartments/${offer.property.id}`
-                }
-                className="inline-flex h-10 items-center gap-1 rounded-xl bg-[#2563EB] px-4 text-[12px] font-bold text-white hover:bg-[#1D4ED8]"
-              >
-                {t("viewDetails")}
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+              {offer.property?.id && (
+                <Link
+                  href={propertyViewUrl({
+                    ...offer.property,
+                    id: offer.property.id,
+                  })}
+                  className="inline-flex h-10 items-center gap-1 rounded-xl bg-[#2563EB] px-4 text-[12px] font-bold text-white hover:bg-[#1D4ED8]"
+                >
+                  {t("viewDetails")}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              )}
             </div>
           </div>
         </div>

@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { Info, Send, ChevronDown, X } from "lucide-react";
 import NumberField from "@/components/shared/NumberField";
+import { Link } from "@/i18n/navigation";
+import { MEMBERSHIP_PARAM } from "@/lib/support/actions";
 
 export interface SmartMatchRequestItem {
   id: string;
@@ -26,6 +28,9 @@ export interface OwnerProperty {
   id: string;
   title: string;
   price: number;
+  /** Not public (no active membership, C31): the database refuses offers
+   *  from it, since the guest would open a 404. */
+  hidden: boolean;
 }
 
 interface SmartMatchRequestsModalProps {
@@ -150,8 +155,11 @@ function RequestCard({
   const t = useTranslations("SmartMatchModal");
   const isHighMatch = request.matchPercent >= 90;
 
+  // The first listing that can be offered; when none can, the first hidden one
+  // so the picker reads "— needs membership" instead of rendering blank (Send
+  // stays disabled: selectedProperty skips hidden listings).
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>(
-    ownerProperties[0]?.id ?? "",
+    (ownerProperties.find((p) => !p.hidden) ?? ownerProperties[0])?.id ?? "",
   );
   const [customPrice, setCustomPrice] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
@@ -167,8 +175,9 @@ function RequestCard({
       : "border-[#FED7AA]";
 
   const selectedProperty = ownerProperties.find(
-    (p) => p.id === selectedPropertyId,
+    (p) => p.id === selectedPropertyId && !p.hidden,
   );
+  const hasHidden = ownerProperties.some((p) => p.hidden);
 
   // Reset custom price when property changes
   useEffect(() => {
@@ -307,8 +316,10 @@ function RequestCard({
                     <option value="">{t("noPropertyOption")}</option>
                   )}
                   {ownerProperties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title} ({p.price}₾)
+                    <option key={p.id} value={p.id} disabled={p.hidden}>
+                      {p.hidden
+                        ? t("hiddenPropertyOption", { title: p.title })
+                        : `${p.title} (${p.price}₾)`}
                     </option>
                   ))}
                 </select>
@@ -333,6 +344,17 @@ function RequestCard({
                 {submitting ? t("sending") : t("sendOffer")}
               </button>
             </div>
+            {hasHidden && (
+              <p className="mt-2 text-[11px] font-medium text-[#64748B]">
+                {t("hiddenPropertyHint")}{" "}
+                <Link
+                  href={`/dashboard/renter?${MEMBERSHIP_PARAM}=1`}
+                  className="font-bold text-[#2563EB] hover:underline"
+                >
+                  {t("hiddenPropertyLink")}
+                </Link>
+              </p>
+            )}
           </div>
         </form>
       )}

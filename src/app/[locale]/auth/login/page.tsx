@@ -1,18 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Link, useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { isAuthApiError } from "@supabase/supabase-js";
-import PhoneInput from "@/components/forms/PhoneInput";
+import PhoneOtpForm from "@/components/auth/PhoneOtpForm";
 import { Button } from "@/components/ui/button";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/password";
+import { isPhoneAuthEnabled } from "@/lib/auth/phone";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { safeInternalPath, stripLocalePrefix } from "@/lib/security";
+import { routing } from "@/i18n/routing";
+import {
+  SIGNUP_LINK_METADATA_KEY,
+  readSignupLinkCookie,
+} from "@/lib/signup-links";
 import { createClient } from "@/lib/supabase/client";
 import { withRetry, isRetryableAuthError } from "@/lib/with-timeout";
+import { roleHomePath } from "@/lib/cabinets";
 
 // A network-level failure (including a timeoutFetch abort) or a 5xx from
 // GoTrue means "couldn't tell", not "wrong credentials" — worth a distinct,
@@ -21,51 +29,77 @@ function isTransientAuthError(err: unknown) {
   return isRetryableAuthError(err);
 }
 
-// Mirrors the callback route's/middleware's guard: only allow same-origin,
-// absolute paths. Reject protocol-relative (`//host`) and backslash-prefixed
-// forms (`/\host`) that some browsers treat as external.
+// Same guard as the OAuth callback route. A hand-rolled `//` / `/\` check is
+// not enough: the URL parser strips tabs/newlines, so `/\t/evil.com` becomes
+// the protocol-relative `//evil.com` inside router.push.
 function safeNextPath(raw: string | null): string | null {
-  if (!raw) return null;
-  if (!raw.startsWith("/")) return null;
-  if (raw.startsWith("//") || raw.startsWith("/\\")) return null;
-  return raw;
+  return safeInternalPath(raw);
 }
 
-const ROLE_DASHBOARD: Record<string, string> = {
-  admin: "/dashboard/admin",
-  renter: "/dashboard/renter",
-  seller: "/dashboard/seller",
-  cleaner: "/dashboard/cleaner",
-  food: "/dashboard/food",
-  entertainment: "/dashboard/entertainment",
-  transport: "/dashboard/transport",
-  employment: "/dashboard/employment",
-  handyman: "/dashboard/services",
-};
+// Confirmation links return to /auth/confirm on the canonical origin (inlined
+// at build), never on whatever host served this page.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+const CONFIRM_REDIRECT_URL = SITE_URL ? `${SITE_URL}/auth/confirm` : undefined;
 
-type AuthTab = "email" | "phone";
+// GoTrue sends one email per address per minute; waiting that long here keeps
+// the resend button from running into its 429.
+const RESEND_COOLDOWN_SECONDS = 60;
+
 type AuthMode = "login" | "register";
+// Phone (SMS code, C48) is one flow for sign-in and sign-up; email keeps its
+// own sign-in / register toggle.
+type AuthMethod = "phone" | "email";
 
 export default function LoginPage() {
   const t = useTranslations("AuthLogin");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signInWithOtp, verifyOtp, signUp, signInWithPassword } = useAuth();
+  const { signInWithPassword, signInWithPhone, verifyPhoneOtp } = useAuth();
+  const phoneEnabled = isPhoneAuthEnabled();
+  // An expired e-mail link lands here with ?error=invalid_link: that notice
+  // belongs to the e-mail form, so open on it.
+  const [method, setMethod] = useState<AuthMethod>(() =>
+    phoneEnabled && searchParams.get("error") !== "invalid_link"
+      ? "phone"
+      : "email",
+  );
 
-  const [tab, setTab] = useState<AuthTab>("email");
-  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  // ?mode=register opens the sign-up form (admin sign-up links, C41). The auth
+  // layout is force-dynamic, so the server render sees the same params.
+  const [authMode, setAuthMode] = useState<AuthMode>(() =>
+    searchParams.get("mode") === "register" ? "register" : "login",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [step, setStep] = useState<1 | 2>(1);
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+  // The address still waiting for its confirmation link (after sign-up, or a
+  // sign-in refused as email_not_confirmed); it enables the resend action.
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resending, setResending] = useState(false);
+  const [resendNotice, setResendNotice] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
 
-  const fullPhone = `+995${phone}`;
+  useEffect(() => {
+    // /auth/confirm and /auth/callback land an expired or used email link here.
+    if (searchParams.get("error") === "invalid_link") {
+      setError(t("errors.linkExpired"));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   async function redirectAfterAuth(userId: string) {
     const supabase = createClient();
@@ -83,8 +117,11 @@ export default function LoginPage() {
       router.push("/auth/register");
       return;
     }
+    // The middleware's `next` carries the locale prefix; the router adds it back.
     const next = safeNextPath(searchParams.get("next"));
-    const target = next || (ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest");
+    const target =
+      (next && safeNextPath(stripLocalePrefix(next, routing.locales))) ||
+      roleHomePath(profile.role);
     // Re-render server components against the just-committed auth cookie so the
     // force-dynamic dashboard sees the session on the first navigation (no
     // bounce back to login that would force a second click).
@@ -92,42 +129,31 @@ export default function LoginPage() {
     router.push(target);
   }
 
-  async function handleSendOtp() {
-    if (phone.length !== 9) {
-      setError(t("errors.invalidPhone"));
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      await signInWithOtp(fullPhone);
-      setStep(2);
-    } catch (err) {
-      setError(
-        isTransientAuthError(err) ? t("errors.timeout") : t("errors.generic"),
-      );
-    } finally {
-      setLoading(false);
-    }
+  // A new number becomes a new account; an admin sign-up link's code rides
+  // along in user_metadata exactly as on the email sign-up (C41).
+  async function sendPhoneCode(phone: string) {
+    const signupLink = readSignupLinkCookie(document.cookie);
+    await signInWithPhone(
+      phone,
+      signupLink ? { [SIGNUP_LINK_METADATA_KEY]: signupLink } : undefined,
+    );
   }
 
-  async function handleVerifyOtp() {
-    if (otp.length !== 6) {
-      setError(t("errors.invalidOtp"));
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await verifyOtp(fullPhone, otp);
-      if (data?.user) await redirectAfterAuth(data.user.id);
-    } catch (err) {
-      setError(
-        isTransientAuthError(err) ? t("errors.timeout") : t("errors.wrongCode"),
-      );
-    } finally {
-      setLoading(false);
-    }
+  async function verifyPhoneCode(phone: string, code: string) {
+    const data = await verifyPhoneOtp(phone, code);
+    if (data?.user) await redirectAfterAuth(data.user.id);
+  }
+
+  async function signInWithGoogle() {
+    setOauthError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    // signInWithOAuth resolves rather than throws when the provider is
+    // disabled on the project — without this the button just does nothing.
+    if (error) setOauthError(t("errors.generic"));
   }
 
   async function handleEmailLogin(form: HTMLFormElement) {
@@ -146,15 +172,24 @@ export default function LoginPage() {
     }
     setLoading(true);
     setError(null);
+    setPendingEmail(null);
+    setResendNotice(null);
     try {
       const data = await signInWithPassword(submittedEmail, submittedPassword);
       if (data?.user) await redirectAfterAuth(data.user.id);
     } catch (err) {
-      setError(
-        isTransientAuthError(err)
-          ? t("errors.timeout")
-          : t("errors.wrongCredentials"),
-      );
+      if (isAuthApiError(err) && err.code === "email_not_confirmed") {
+        // GoTrue only says this after the password matched, so naming it
+        // tells nothing to someone guessing addresses.
+        setPendingEmail(submittedEmail);
+        setError(t("errors.emailNotConfirmed"));
+      } else {
+        setError(
+          isTransientAuthError(err)
+            ? t("errors.timeout")
+            : t("errors.wrongCredentials"),
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -186,22 +221,45 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await signUp(submittedEmail, submittedPassword);
+      // Called directly rather than through useAuth().signUp, which takes no
+      // options: the confirmation link must come back to /auth/confirm.
+      // An admin sign-up link's code rides along in user_metadata, so the
+      // wizard still finds it when the link is opened in another browser (C41).
+      // One call, no retry (as on /recover, C51): when the answer to a send
+      // that worked is lost, a retry runs into GoTrue's one-email-a-minute 429
+      // or mails a second link that kills the first.
+      const supabase = createClient();
+      const signupLink = readSignupLinkCookie(document.cookie);
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: submittedEmail,
+        password: submittedPassword,
+        options: {
+          emailRedirectTo: CONFIRM_REDIRECT_URL,
+          ...(signupLink
+            ? { data: { [SIGNUP_LINK_METADATA_KEY]: signupLink } }
+            : {}),
+        },
+      });
+      if (signUpError) throw signUpError;
       if (data?.user && !data.user.identities?.length) {
-        // Supabase deliberately returns an obfuscated user for an existing
-        // address. Preserve that protection instead of turning it into an
-        // account-enumeration oracle.
-        setSuccessMessage(t("confirmationLinkSent"));
+        // The address already has a confirmed account (password or Google).
+        // With "Confirm email" on, GoTrue answers with this masked user and
+        // mails nothing, so "link sent" here left people waiting for a mail
+        // that never comes. The empty identities tell any caller anyway
+        // (that is how this branch knows), so say it.
+        showAlreadyRegistered();
         return;
       }
       if (data?.session && data.user) await redirectAfterAuth(data.user.id);
-      else if (!data?.session) setSuccessMessage(t("confirmationLinkSent"));
+      else if (!data?.session) showConfirmationSent(submittedEmail);
     } catch (err) {
       if (isAuthApiError(err) && err.code === "user_already_exists") {
-        // Only reachable when "Confirm email" is disabled — with it enabled,
-        // Supabase returns the obfuscated-user branch above instead of an
-        // error, to avoid an account-enumeration oracle.
-        setError(t("errors.emailTaken"));
+        // The same case with "Confirm email" off (prod today).
+        showAlreadyRegistered();
+      } else if (isAuthApiError(err) && err.status === 429) {
+        // An unconfirmed address signing up again within GoTrue's
+        // one-email-a-minute window.
+        setError(t("errors.tooManyRequests"));
       } else if (isTransientAuthError(err)) {
         setError(t("errors.timeout"));
       } else {
@@ -212,18 +270,83 @@ export default function LoginPage() {
     }
   }
 
-  function switchTab(t: AuthTab) {
-    setTab(t);
-    setError(null);
-    setSuccessMessage(null);
+  // An address that already has an account: back to sign-in with the address
+  // kept, where "forgot password" and Google are.
+  function showAlreadyRegistered() {
+    switchMode("login");
+    setError(t("errors.emailTaken"));
   }
+
+  // The "check your email" state once GoTrue has mailed a link (a new address,
+  // or one not confirmed yet), so resend starts cooling down.
+  function showConfirmationSent(address: string) {
+    setPendingEmail(address);
+    setResendNotice(null);
+    setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    setSuccessMessage(t("confirmationLinkSent"));
+  }
+
+  async function resendConfirmation() {
+    if (!pendingEmail || resending || resendCooldown > 0) return;
+    setResending(true);
+    setResendNotice(null);
+    try {
+      const { error: resendError } = await createClient().auth.resend({
+        type: "signup",
+        email: pendingEmail,
+        options: { emailRedirectTo: CONFIRM_REDIRECT_URL },
+      });
+      // Like forgot-password: only a rate limit or a transient failure is
+      // reported. Anything else reads as sent, so the button cannot tell
+      // which addresses exist or are already confirmed.
+      if (isAuthApiError(resendError) && resendError.status === 429) {
+        setResendNotice({ ok: false, text: t("errors.tooManyRequests") });
+      } else if (resendError && isTransientAuthError(resendError)) {
+        setResendNotice({ ok: false, text: t("errors.timeout") });
+        return;
+      } else {
+        setResendNotice({ ok: true, text: t("confirmationResent") });
+      }
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    } finally {
+      setResending(false);
+    }
+  }
+
   function switchMode(m: AuthMode) {
     setAuthMode(m);
     setError(null);
     setSuccessMessage(null);
+    setPendingEmail(null);
+    setResendNotice(null);
     setPassword("");
     setConfirmPassword("");
   }
+
+  const resendControl = pendingEmail ? (
+    <div className="space-y-1 text-center">
+      <p className="text-xs text-[#94A3B8]">{t("confirmationNotReceived")}</p>
+      <button
+        type="button"
+        onClick={() => void resendConfirmation()}
+        disabled={resending || resendCooldown > 0}
+        className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-brand-accent hover:underline disabled:cursor-not-allowed disabled:text-[#94A3B8] disabled:no-underline lg:min-h-0"
+      >
+        {resending && <Loader2 className="size-3 animate-spin" />}
+        {resendCooldown > 0
+          ? t("resendConfirmationIn", { seconds: resendCooldown })
+          : t("resendConfirmation")}
+      </button>
+      {resendNotice && (
+        <p
+          role="status"
+          className={`text-xs ${resendNotice.ok ? "text-green-700" : "text-[#EF4444]"}`}
+        >
+          {resendNotice.text}
+        </p>
+      )}
+    </div>
+  ) : null;
 
   return (
     <div className="flex min-h-[calc(100dvh-160px)] items-center justify-center px-4 py-12">
@@ -245,26 +368,41 @@ export default function LoginPage() {
           </h1>
         </div>
 
-        <div className="flex rounded-xl bg-[#F8FAFC] p-1">
-          <button
-            type="button"
-            onClick={() => switchTab("email")}
-            className={`min-h-11 flex-1 rounded-lg py-2.5 text-sm font-medium transition-all lg:min-h-0 ${tab === "email" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
-          >
-            {t("emailTab")}
-          </button>
-          <button
-            type="button"
-            onClick={() => switchTab("phone")}
-            className={`min-h-11 flex-1 rounded-lg py-2.5 text-sm font-medium transition-all lg:min-h-0 ${tab === "phone" ? "bg-white text-[#1E293B] shadow-[0px_1px_3px_rgba(0,0,0,0.05)]" : "text-[#94A3B8]"}`}
-          >
-            {t("phoneTab")}
-          </button>
-        </div>
-
         <div className="rounded-[24px] border bg-white p-10 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.08)]">
+          {phoneEnabled && (
+            <div className="mb-6 flex border-b border-[#E2E8F0]">
+              {(["phone", "email"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={method === m}
+                  onClick={() => {
+                    setMethod(m);
+                    setError(null);
+                  }}
+                  className={`-mb-px min-h-11 flex-1 border-b-2 pb-2 text-sm font-semibold transition-colors lg:min-h-0 ${method === m ? "border-brand-accent text-[#1E293B]" : "border-transparent text-[#94A3B8]"}`}
+                >
+                  {m === "phone" ? t("phoneTab") : t("emailTab")}
+                </button>
+              ))}
+            </div>
+          )}
           <AnimatePresence mode="wait">
-            {tab === "email" ? (
+            {method === "phone" ? (
+              <motion.div
+                key="phone"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+              >
+                <PhoneOtpForm
+                  idPrefix="auth"
+                  onSend={sendPhoneCode}
+                  onVerify={verifyPhoneCode}
+                  hint={t("phoneHint")}
+                />
+              </motion.div>
+            ) : (
               <motion.div
                 key={`email-${authMode}`}
                 initial={{ opacity: 0, x: -20 }}
@@ -289,8 +427,11 @@ export default function LoginPage() {
                   </button>
                 </div>
                 {successMessage ? (
-                  <div className="rounded-lg bg-green-50 p-4 text-center text-sm text-green-700">
-                    {successMessage}
+                  <div className="space-y-3">
+                    <div className="rounded-lg bg-green-50 p-4 text-center text-sm text-green-700">
+                      {successMessage}
+                    </div>
+                    {resendControl}
                   </div>
                 ) : (
                   <>
@@ -397,6 +538,7 @@ export default function LoginPage() {
                       {error && (
                         <p className="text-xs text-[#EF4444]">{error}</p>
                       )}
+                      {resendControl}
                       <Button
                         type="submit"
                         disabled={loading}
@@ -412,173 +554,46 @@ export default function LoginPage() {
                   </>
                 )}
               </motion.div>
-            ) : step === 1 ? (
-              <motion.div
-                key="phone"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="space-y-4"
-              >
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const supabase = createClient();
-                    await supabase.auth.signInWithOAuth({
-                      provider: "google",
-                      options: {
-                        redirectTo: `${window.location.origin}/auth/callback`,
-                      },
-                    });
-                  }}
-                  className="flex min-h-11 w-full items-center justify-center gap-3 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC] lg:min-h-0"
-                >
-                  <svg
-                    className="size-4"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fill="#4285F4"
-                      d="M22.5 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.22-4.74 3.22-8.07z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.99.66-2.26 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.12A6.98 6.98 0 0 1 5.47 12c0-.74.13-1.46.37-2.12V7.04H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.96l3.66-2.84z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.48c1.61 0 3.06.55 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84C6.71 7.41 9.14 5.48 12 5.48z"
-                    />
-                  </svg>
-                  {t("continueWithGoogle")}
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const supabase = createClient();
-                    await supabase.auth.signInWithOAuth({
-                      provider: "facebook",
-                      options: {
-                        redirectTo: `${window.location.origin}/auth/callback`,
-                      },
-                    });
-                  }}
-                  className="flex min-h-11 w-full items-center justify-center gap-3 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC] lg:min-h-0"
-                >
-                  <svg
-                    className="size-4"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fill="#1877F2"
-                      d="M24 12a12 12 0 1 0-13.88 11.85v-8.39H7.08V12h3.04V9.36c0-3 1.79-4.67 4.53-4.67 1.31 0 2.68.24 2.68.24v2.95h-1.51c-1.49 0-1.95.93-1.95 1.87V12h3.32l-.53 3.47h-2.79v8.39A12 12 0 0 0 24 12z"
-                    />
-                  </svg>
-                  {t("continueWithFacebook")}
-                </button>
-                <div className="relative flex items-center py-1">
-                  <div className="flex-grow border-t border-[#E2E8F0]" />
-                  <span className="mx-3 text-[11px] font-medium uppercase text-[#94A3B8]">
-                    {t("or")}
-                  </span>
-                  <div className="flex-grow border-t border-[#E2E8F0]" />
-                </div>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSendOtp();
-                  }}
-                  noValidate
-                  className="space-y-4"
-                >
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      {t("phoneLabel")}
-                    </label>
-                    <PhoneInput
-                      value={phone}
-                      onChange={setPhone}
-                      error={error}
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    disabled={loading || phone.length < 9}
-                    className="min-h-11 w-full lg:min-h-0"
-                    size="lg"
-                  >
-                    {loading && (
-                      <Loader2 className="mr-2 size-4 animate-spin" />
-                    )}
-                    {t("getSmsCode")}
-                  </Button>
-                </form>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="otp"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-6"
-              >
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleVerifyOtp();
-                  }}
-                  noValidate
-                  className="space-y-6"
-                >
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      {t("otpLabel")}
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={otp}
-                      onChange={(e) =>
-                        setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                      }
-                      placeholder="000000"
-                      className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:ring-2 focus:ring-[#DBEAFE]/50"
-                    />
-                    {error && <p className="text-xs text-[#EF4444]">{error}</p>}
-                  </div>
-                  <Button
-                    type="submit"
-                    disabled={loading || otp.length < 6}
-                    className="min-h-11 w-full lg:min-h-0"
-                    size="lg"
-                  >
-                    {loading && (
-                      <Loader2 className="mr-2 size-4 animate-spin" />
-                    )}
-                    {t("verify")}
-                  </Button>
-                </form>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep(1);
-                    setOtp("");
-                    setError(null);
-                  }}
-                  className="w-full text-center text-sm text-[#94A3B8]"
-                >
-                  {t("changeNumber")}
-                </button>
-              </motion.div>
             )}
           </AnimatePresence>
+        </div>
+
+        <div className="space-y-3">
+          <div className="relative flex items-center">
+            <div className="flex-grow border-t border-[#E2E8F0]" />
+            <span className="mx-3 text-[11px] font-medium uppercase text-[#94A3B8]">
+              {t("or")}
+            </span>
+            <div className="flex-grow border-t border-[#E2E8F0]" />
+          </div>
+          <button
+            type="button"
+            onClick={() => void signInWithGoogle()}
+            className="flex min-h-11 w-full items-center justify-center gap-3 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-medium text-[#1E293B] transition-colors hover:bg-[#F8FAFC] lg:min-h-0"
+          >
+            <svg className="size-4" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="#4285F4"
+                d="M22.5 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.22-4.74 3.22-8.07z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.99.66-2.26 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.12A6.98 6.98 0 0 1 5.47 12c0-.74.13-1.46.37-2.12V7.04H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.96l3.66-2.84z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.48c1.61 0 3.06.55 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84C6.71 7.41 9.14 5.48 12 5.48z"
+              />
+            </svg>
+            {t("continueWithGoogle")}
+          </button>
+          {oauthError && (
+            <p className="text-center text-xs text-[#EF4444]">{oauthError}</p>
+          )}
         </div>
 
         <p className="text-center text-xs text-[#94A3B8]">

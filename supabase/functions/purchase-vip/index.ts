@@ -6,28 +6,46 @@ import {
   jsonResponse,
   requireUser,
 } from "../_shared/guards.ts";
-
-type PurchaseType =
-  "vip_boost" | "super_vip" | "sms_package" | "discount_badge";
-
-const VALID_TYPES: readonly PurchaseType[] = [
-  "vip_boost",
-  "super_vip",
-  "sms_package",
-  "discount_badge",
-];
+import { isPaymentFailure } from "../_shared/payment-failure.ts";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type UserCtx = Awaited<ReturnType<typeof requireUser>>;
 
+/**
+ * A user-actionable purchase outcome. `reason` is a stable ASCII token the
+ * client maps to localized copy; `message` stays the Georgian text that older
+ * clients render as-is.
+ */
+class PurchaseError extends ApiError {
+  reason: string;
+  constructor(message: string, reason: string, status = 400) {
+    super(message, status, "BAD_REQUEST");
+    this.reason = reason;
+  }
+}
+
+// purchase_package tags every user-facing RAISE with one of these HINTs.
+const RPC_REASON_STATUS: Record<string, number> = {
+  insufficient_balance: 400,
+  invalid_quantity: 400,
+  invalid_discount_percent: 400,
+  invalid_target: 400,
+  package_unavailable: 400,
+  not_owner: 403,
+};
+
 // These are intentional, user-actionable purchase outcomes. Keep the rest of
 // the database error surface private (errorResponse's default behaviour).
-function userSafePurchaseError(error: { message?: string }) {
+function userSafePurchaseError(error: { message?: string; hint?: string }) {
   const message = error.message ?? "";
   if (message.includes("vip_tier_conflict")) {
-    return new ApiError("vip_tier_conflict", 409, "BAD_REQUEST");
+    return new PurchaseError("vip_tier_conflict", "vip_tier_conflict", 409);
+  }
+  const hint = error.hint ?? "";
+  if (Object.hasOwn(RPC_REASON_STATUS, hint)) {
+    return new PurchaseError(message, hint, RPC_REASON_STATUS[hint]);
   }
   if (
     message.includes("არასაკმარისი ბალანსი") ||
@@ -46,6 +64,13 @@ function userSafePurchaseError(error: { message?: string }) {
     return new ApiError(
       "A seasonal membership is already active.",
       409,
+      "BAD_REQUEST",
+    );
+  }
+  if (message.includes("MEMBERSHIP_FB_PROFILE_REQUIRED")) {
+    return new ApiError(
+      "A Facebook profile link is required for this membership tier.",
+      400,
       "BAD_REQUEST",
     );
   }
@@ -73,6 +98,8 @@ serve(async (req) => {
   // Hoisted so the catch block can notify the user of a failed payment.
   let ctx: UserCtx | undefined;
   let dashboardScope: string | null = null;
+  // Set only when a charge RPC reports a real payment failure.
+  let paymentFailed = false;
 
   try {
     ctx = await requireUser(req);
@@ -101,11 +128,20 @@ serve(async (req) => {
         .eq("owner_id", user.id)
         .maybeSingle();
       switch (data?.category) {
-        case "food": dashboardScope = "food"; break;
-        case "cleaning": dashboardScope = "cleaner"; break;
-        case "employment": case "transport": case "entertainment":
-          dashboardScope = data.category; break;
-        case "handyman": dashboardScope = "services"; break;
+        case "food":
+          dashboardScope = "food";
+          break;
+        case "cleaning":
+          dashboardScope = "cleaner";
+          break;
+        case "employment":
+        case "transport":
+        case "entertainment":
+          dashboardScope = data.category;
+          break;
+        case "handyman":
+          dashboardScope = "services";
+          break;
       }
     }
 
@@ -114,13 +150,13 @@ serve(async (req) => {
     // and admin-added packages flow through without function changes.
     if (package_id) {
       if (!UUID_RE.test(package_id)) {
-        throw new Error("არასწორი package_id");
+        throw new PurchaseError("არასწორი package_id", "package_unavailable");
       }
       const quantity = Number.isFinite(Number(body.quantity))
         ? Number(body.quantity)
         : 1;
       if (!Number.isInteger(quantity) || quantity < 1 || quantity > 365) {
-        throw new Error("არასწორი რაოდენობა");
+        throw new PurchaseError("არასწორი რაოდენობა", "invalid_quantity");
       }
 
       const discount_percent = Number.isFinite(Number(body.discount_percent))
@@ -132,7 +168,10 @@ serve(async (req) => {
           discount_percent < 1 ||
           discount_percent > 90)
       ) {
-        throw new Error("არასწორი ფასდაკლების პროცენტი");
+        throw new PurchaseError(
+          "არასწორი ფასდაკლების პროცენტი",
+          "invalid_discount_percent",
+        );
       }
 
       // Renter membership has a stricter lifecycle than every other package:
@@ -147,9 +186,7 @@ serve(async (req) => {
       if (packageError) throw packageError;
 
       const packageMeta = selectedPackage?.meta as
-        | Record<string, unknown>
-        | null
-        | undefined;
+        Record<string, unknown> | null | undefined;
       const isRenterMembership =
         selectedPackage?.category === "subscription" &&
         packageMeta?.subscription_scope === "renter";
@@ -162,14 +199,39 @@ serve(async (req) => {
             "BAD_REQUEST",
           );
         }
+        // FB-group-VIP is self-declared: 30 ₾ instead of 60 ₾ in exchange for a
+        // link the admin can open to check the claim (mirrored by
+        // purchase_renter_membership's own https-only guard).
+        const fb_profile_url =
+          typeof body.fb_profile_url === "string"
+            ? body.fb_profile_url.trim()
+            : "";
+        if (
+          packageMeta?.price_tier === "fb_group_vip" &&
+          (fb_profile_url.length > 300 || !/^https:\/\//i.test(fb_profile_url))
+        ) {
+          // Same message the RPC's own MEMBERSHIP_FB_PROFILE_REQUIRED guard
+          // maps to below — PaymentModal.tsx matches on this exact English
+          // text (EDGE_ERROR_KEYS), same convention as the other membership
+          // outcomes (already-pending/already-active/unavailable).
+          throw new ApiError(
+            "A Facebook profile link is required for this membership tier.",
+            400,
+            "BAD_REQUEST",
+          );
+        }
         const { data, error } = await supabase.rpc(
           "purchase_renter_membership",
           {
             p_user_id: user.id,
             p_package_id: package_id,
+            p_fb_profile_url: fb_profile_url || null,
           },
         );
-        if (error) throw userSafePurchaseError(error);
+        if (error) {
+          paymentFailed = isPaymentFailure(error);
+          throw userSafePurchaseError(error);
+        }
         return jsonResponse({ data }, 200, cors);
       }
 
@@ -181,41 +243,24 @@ serve(async (req) => {
         p_quantity: quantity,
         p_discount_percent: discount_percent,
       });
-      if (error) throw userSafePurchaseError(error);
+      if (error) {
+        paymentFailed = isPaymentFailure(error);
+        throw userSafePurchaseError(error);
+      }
       return jsonResponse({ data }, 200, cors);
     }
 
-    // Legacy path: fall back to the original hardcoded-type RPC so any
-    // unmigrated callers keep working during rollout.
-    const purchase_type = body.purchase_type as string | undefined;
-    const days = Number.isFinite(Number(body.days)) ? Number(body.days) : 1;
-
-    if (
-      !purchase_type ||
-      !VALID_TYPES.includes(purchase_type as PurchaseType)
-    ) {
-      throw new Error("არასწორი შეძენის ტიპი");
-    }
-
-    if (!Number.isInteger(days) || days < 1 || days > 365) {
-      throw new Error("არასწორი დღეების რაოდენობა");
-    }
-
-    const { data, error } = await supabase.rpc("purchase_vip", {
-      p_user_id: user.id,
-      p_purchase_type: purchase_type,
-      p_property_id: property_id ?? null,
-      p_days: days,
-      p_service_id: service_id ?? null,
-    });
-
-    if (error) throw userSafePurchaseError(error);
-
-    return jsonResponse({ data }, 200, cors);
+    // The legacy `purchase_type` path (purchase_vip RPC) is retired: it used
+    // hardcoded prices that ignored admin pricing/is_enabled, and its discount
+    // branch never set discount_expires_at, so a 1 ₾ badge never expired. Every
+    // client sends package_id.
+    throw new ApiError("არასწორი შეძენის ტიპი", 400, "BAD_REQUEST");
   } catch (err) {
-    // Best-effort failure notification. Skipped when auth itself failed
-    // (no user/client). Swallow any insert error so the real error surfaces.
-    if (ctx?.user?.id) {
+    // Best-effort failure notification, only for a charge that really failed:
+    // payment_failed is also emailed, so validation, auth and not-found errors
+    // get the HTTP response alone. Swallow any insert error so the real error
+    // surfaces.
+    if (ctx?.user?.id && paymentFailed) {
       try {
         await ctx.supabase.from("notifications").insert({
           user_id: ctx.user.id,
@@ -224,7 +269,7 @@ serve(async (req) => {
           message:
             err instanceof Error && err.message === "vip_tier_conflict"
               ? "სტანდარტული VIP მიუწვდომელია, სანამ SUPER VIP აქტიურია."
-              : err instanceof Error
+              : err instanceof ApiError
                 ? err.message
                 : "სცადეთ თავიდან.",
           action_url: "/dashboard",
@@ -234,6 +279,13 @@ serve(async (req) => {
       } catch (_) {
         // ignore
       }
+    }
+    if (err instanceof PurchaseError) {
+      return jsonResponse(
+        { error: err.message, code: err.code, reason: err.reason },
+        err.status,
+        cors,
+      );
     }
     return errorResponse(err, cors);
   }

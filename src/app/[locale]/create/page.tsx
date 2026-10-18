@@ -41,18 +41,13 @@ export default function CreatePage() {
           </p>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-3 lg:mt-7 lg:grid-cols-3 lg:gap-4">
+        <div className="mt-6 grid grid-cols-2 gap-3 lg:mt-7 lg:grid-cols-4 lg:gap-4">
           {CATEGORIES.map((cat, i) => (
             <motion.div
               key={cat.href}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04, duration: 0.25 }}
-              className={
-                i === CATEGORIES.length - 1
-                  ? "col-span-2 lg:col-span-1 lg:col-start-2"
-                  : undefined
-              }
             >
               <Link
                 href={cat.href}

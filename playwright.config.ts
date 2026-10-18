@@ -41,6 +41,56 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
 
+    // Seeds WITHOUT the paired teardown. `setup` declares `teardown: "teardown"`,
+    // so running it alone seeds and then immediately deletes everything - use
+    // this when you need seeded data to persist for a standalone sweep
+    // (scripts/responsive-audit.mjs), then run `teardown-only` afterwards.
+    {
+      name: "seed-only",
+      testMatch: /global-setup\.ts/,
+    },
+    {
+      name: "teardown-only",
+      testMatch: /global-teardown\.ts/,
+    },
+
+    // VIP / SUPER VIP / discount purchase flows against the real purchase-vip
+    // edge function. vip-seed runs first (paired with vip-teardown, like
+    // setup/teardown above); each viewport project owns its own users
+    // (e2e/vip/vip-fixtures.ts), so the two can run side by side.
+    {
+      name: "vip-seed",
+      testMatch: /vip\/vip\.setup\.ts/,
+      teardown: "vip-teardown",
+    },
+    { name: "vip-teardown", testMatch: /vip\/vip\.teardown\.ts/ },
+    {
+      name: "vip-desktop",
+      testMatch: /vip\/.+\.spec\.ts/,
+      dependencies: ["vip-seed"],
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: "vip-mobile",
+      testMatch: /vip\/.+\.spec\.ts/,
+      dependencies: ["vip-seed"],
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+
+    // Card geometry — listing cards must stay the same size regardless of how
+    // much content each one carries. Sets its own viewports per test.
+    {
+      name: "ui",
+      testMatch: /ui\/.+\.spec\.ts/,
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+
     // Auth flows
     {
       name: "auth",
@@ -81,6 +131,14 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
 
+    // /create/service: the sphere the owner picks decides the category
+    {
+      name: "service-sphere",
+      testMatch: /dashboards\/service-sphere\.spec\.ts/,
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+
     // Food provider tests
     {
       name: "food",
@@ -102,6 +160,15 @@ export default defineConfig({
     {
       name: "dashboard-notifications",
       testMatch: /dashboards\/notifications\.spec\.ts/,
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+
+    // The header bell lists every cabinet's notifications, so it spans several
+    // dashboards and gets its own project (serial: it shares one user's rows).
+    {
+      name: "multi-role-bell",
+      testMatch: /dashboards\/multi-role-bell\.spec\.ts/,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"] },
     },

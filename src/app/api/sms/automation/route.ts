@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { canUseSmsCenter } from "@/lib/sms/sender-access";
@@ -37,9 +38,7 @@ function normalizeDiscountText(value: unknown, max: number): string | null {
 
 async function requireSender() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     return { ok: false as const, status: 401, error: "unauthenticated" };
   }
@@ -89,7 +88,11 @@ async function updateRules(req: NextRequest) {
     "win_back_discount_value",
     "win_back_discount_period",
   ]);
-  if (Object.keys(body).some((key) => !allowedKeys.has(key as keyof AutomationRules))) {
+  if (
+    Object.keys(body).some(
+      (key) => !allowedKeys.has(key as keyof AutomationRules),
+    )
+  ) {
     return Response.json({ error: "unknown_rule_key" }, { status: 400 });
   }
 
@@ -109,13 +112,20 @@ async function updateRules(req: NextRequest) {
   }
   try {
     if ("win_back_discount_value" in body) {
-      payload.win_back_discount_value = normalizeDiscountText(body.win_back_discount_value, 10);
+      payload.win_back_discount_value = normalizeDiscountText(
+        body.win_back_discount_value,
+        10,
+      );
     }
     if ("win_back_discount_period" in body) {
-      payload.win_back_discount_period = normalizeDiscountText(body.win_back_discount_period, 30);
+      payload.win_back_discount_period = normalizeDiscountText(
+        body.win_back_discount_period,
+        30,
+      );
     }
   } catch (error) {
-    const code = error instanceof RangeError ? "rule_too_long" : "invalid_rule_value";
+    const code =
+      error instanceof RangeError ? "rule_too_long" : "invalid_rule_value";
     return Response.json({ error: code }, { status: 400 });
   }
 

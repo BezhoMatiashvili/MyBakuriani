@@ -78,3 +78,111 @@ export function serviceEditUrl(s: ServiceLike): string {
   const base = SERVICE_CREATE_FORM[s.category] ?? "/create/service";
   return `${base}?edit=${s.id}`;
 }
+
+/**
+ * Owner page for ownership verification (C39) with one listing preselected.
+ * `created` marks the redirect right after a create form saved the listing;
+ * `next` is the cabinet the page's "later" button returns to (the page
+ * validates it before navigating).
+ */
+export function ownershipVerificationUrl(
+  kind: "property" | "service",
+  id: string,
+  opts?: { created?: boolean; next?: string },
+): string {
+  const created = opts?.created ? "&created=1" : "";
+  const next = opts?.next ? `&next=${encodeURIComponent(opts.next)}` : "";
+  return `/dashboard/account/ownership?listing=${kind}:${id}${created}${next}`;
+}
+
+// ---------------------------------------------------------------------------
+// Shared with the SEO/share layer. Both helpers below are deliberately pure and
+// free of `@/` imports so `scripts/unit/*.test.mjs` can import this module
+// directly under `node --test` type-stripping (see C29).
+// ---------------------------------------------------------------------------
+
+/**
+ * Prefixes a locale-less path with its locale segment under
+ * `localePrefix: "as-needed"` — the default locale (ka) has NO prefix, every
+ * other locale does. `routing.defaultLocale` is passed in rather than imported
+ * so this module stays alias-free.
+ *
+ * This rule previously existed only inline inside `buildListingMetadata`; it is
+ * extracted here because the client-side share sheet must build exactly the
+ * same canonical URL the crawler is served, or a shared link would redirect.
+ */
+export function localizedPath(
+  path: string,
+  locale: string,
+  defaultLocale: string,
+): string {
+  return locale === defaultLocale ? path : `/${locale}${path}`;
+}
+
+/** Which listing table a public detail path reads from. */
+export type OgCardKind = "property" | "service";
+
+const OG_CARD_KIND_BY_SEGMENT: Record<string, OgCardKind> = {
+  apartments: "property",
+  hotels: "property",
+  sales: "property",
+  food: "service",
+  services: "service",
+  entertainment: "service",
+  transport: "service",
+  employment: "service",
+};
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Inverse of `propertyViewUrl` / `serviceViewUrl`: maps a public detail path
+ * (`/apartments/<uuid>`) to the OG-card route's `{ kind, id }`.
+ *
+ * Returning `{kind,id}` from the path is what lets `buildListingMetadata` point
+ * at the composed card with ZERO call-site changes across all 16 public +
+ * preview routes — the `/preview/*` twins pass the public path too, so they
+ * resolve identically.
+ *
+ * Non-listing paths (`/blog/<id>`) and mock/demo ids (non-UUID) return `null`,
+ * which makes the caller fall back to the raw photos.
+ */
+export function ogCardTargetForPath(
+  path: string,
+): { kind: OgCardKind; id: string } | null {
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length !== 2) return null;
+  const kind = OG_CARD_KIND_BY_SEGMENT[parts[0]];
+  if (!kind) return null;
+  const id = parts[1];
+  if (!UUID_RE.test(id)) return null;
+  return { kind, id };
+}
+
+/**
+ * Bump whenever the card's bytes change shape. Facebook, WhatsApp and the
+ * Cloudflare edge all cache og:image by URL, so without a new URL they keep
+ * serving the old card (v2: PNG -> JPEG, 2026-09-25).
+ */
+const OG_CARD_VERSION = "2";
+
+/**
+ * The canonical query string of the OG card URL. The card renderer
+ * (api/og/listing/[kind]/[id]) imports this to build its canonical cache key,
+ * so the key it accepts and the URL emitted here are equal by construction — a
+ * param reorder or addition here can never leave real crawlers chasing a 308.
+ */
+export function ogCardSearch(story: boolean): string {
+  return `?v=${OG_CARD_VERSION}${story ? "&format=story" : ""}`;
+}
+
+/** Absolute URL of the composed Open Graph card for a public detail path. */
+export function ogCardUrlForPath(
+  path: string,
+  format?: "story",
+): string | null {
+  const target = ogCardTargetForPath(path);
+  if (!target) return null;
+  return `/api/og/listing/${target.kind}/${target.id}${ogCardSearch(format === "story")}`;
+}

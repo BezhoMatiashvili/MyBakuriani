@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/server";
+import { liftsCardFromStatus } from "./lifts";
 import {
   DEFAULT_STATUS_CARDS,
   withItemNameSubtitles,
@@ -48,4 +49,8 @@ const getStatusCardsCached = unstable_cache(
   { revalidate: 60 },
 );
 
-export const getStatusCards = cache(getStatusCardsCached);
+// The lifts card's count and texts follow its lifts' statuses (./lifts.ts).
+// Applied outside the cache, so an entry cached before this rule still gets it.
+export const getStatusCards = cache(async (): Promise<StatusCard[]> =>
+  (await getStatusCardsCached()).map(liftsCardFromStatus),
+);

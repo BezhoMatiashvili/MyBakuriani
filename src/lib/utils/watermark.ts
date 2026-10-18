@@ -124,9 +124,9 @@ async function compose(
     const wmW = Math.max(60, Math.round(targetW * opts.widthRatio));
     const ratio = wm.naturalHeight / wm.naturalWidth || 0.2;
     const wmH = Math.round(wmW * ratio);
-    const pad = Math.max(12, Math.round(targetW * 0.025));
-    const x = targetW - wmW - pad;
-    const y = targetH - wmH - pad;
+    // Centred, not in a corner: a corner logo is removed by a simple crop.
+    const x = Math.round((targetW - wmW) / 2);
+    const y = Math.round((targetH - wmH) / 2);
     ctx.globalAlpha = opts.opacity;
     ctx.drawImage(wm, x, y, wmW, wmH);
     ctx.globalAlpha = 1;
@@ -182,6 +182,63 @@ export async function watermarkFile(
   } catch (err) {
     console.warn("[watermark] returning original file:", err);
     return file;
+  }
+}
+
+/**
+ * Re-encodes an image as a JPEG at most `maxEdge` px on its longest side
+ * (shrink-only, no watermark). Drawing through a canvas drops the file's
+ * metadata, EXIF and GPS included, which is why the ownership-document picker
+ * (C39) sends ID and registry-extract photos through it. Returns the original
+ * file on any failure; the caller re-checks size and type afterwards.
+ */
+export async function downscaleImageFile(
+  file: File,
+  maxEdge = 2560,
+): Promise<File> {
+  let bitmap: ImageBitmap | null = null;
+  try {
+    let source: CanvasImageSource;
+    let width: number;
+    let height: number;
+    try {
+      bitmap = await createImageBitmap(file, {
+        imageOrientation: "from-image",
+      });
+      source = bitmap;
+      width = bitmap.width;
+      height = bitmap.height;
+    } catch {
+      const img = await loadImage(await fileToDataUrl(file));
+      source = img;
+      width = img.naturalWidth;
+      height = img.naturalHeight;
+    }
+    if (!width || !height) return file;
+
+    const scale = Math.min(1, maxEdge / Math.max(width, height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    // JPEG has no alpha: paint transparent areas white rather than black.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", 0.9);
+    });
+    if (!blob) return file;
+    return new File([blob], swapExt(file.name, "jpg"), {
+      type: "image/jpeg",
+    });
+  } catch (err) {
+    console.warn("[downscale] returning original file:", err);
+    return file;
+  } finally {
+    bitmap?.close();
   }
 }
 

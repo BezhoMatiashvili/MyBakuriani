@@ -6,6 +6,7 @@ import { isBannerTone } from "@/lib/banners";
 import {
   isBannerPlacement,
   legacyKindForPlacement,
+  placementRequiresMedia,
 } from "@/lib/banner-placements";
 import { isTimeoutError } from "@/lib/with-timeout";
 import { safeHttpsUrl, safeInternalPath } from "@/lib/security";
@@ -82,6 +83,14 @@ export async function POST(req: NextRequest) {
     (body.video_poster_url?.trim() && !videoPosterUrl)
   ) {
     return Response.json({ error: "invalid URL" }, { status: 400 });
+  }
+  // The public loader skips a media-first creative without media, so saving
+  // one would only look like it worked.
+  if (placementRequiresMedia(body.placement) && !imageUrl && !videoUrl) {
+    return Response.json(
+      { error: "image or video required", code: "media_required" },
+      { status: 400 },
+    );
   }
 
   if (

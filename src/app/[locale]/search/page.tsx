@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import { buildPageMetadata } from "@/lib/seo";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
-import { getStatusCards } from "@/lib/status-cards/server";
+import { getLiveStatusCards } from "@/lib/status-cards/live";
+import { DETAIL_AUX_TIMEOUT_MS } from "@/lib/with-timeout";
 import SearchPageClient from "./SearchPageClient";
+import { firstPhotoOnly } from "@/lib/utils/photos";
 
 export async function generateMetadata({
   params,
@@ -13,10 +16,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  return {
+  return buildPageMetadata({
+    locale,
+    path: "/search",
     title: t("search"),
     description: t("searchDesc"),
-  };
+    noindex: true,
+  });
 }
 
 interface SearchPageProps {
@@ -40,11 +46,13 @@ interface SearchPageProps {
 }
 
 const PROPERTY_TYPES = [
+  "flat",
   "apartment",
   "cottage",
   "hotel",
   "studio",
   "villa",
+  "house",
   "land",
 ] as const;
 type PropertyType = (typeof PROPERTY_TYPES)[number];
@@ -79,7 +87,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   // (already dynamic), so there's no need for the cookie-bound client's auth cost.
   const supabase = createPublicClient();
 
-  let query = supabase.from("public_properties").select("*");
+  // Only the columns SearchPageClient reads, including those its offline
+  // fallback filter uses (keep in sync with SearchListing there).
+  let query = supabase
+    .from("public_properties")
+    .select(
+      "id, created_at, title, description, location, cadastral_code, photos, price_per_night, sale_price, capacity, rooms, bathrooms, area_sqm, type, amenities, is_vip, is_super_vip, discount_percent, discount_expires_at, is_for_sale, house_rules, ownership_verified",
+    );
 
   // Apply mode filter server-side so initial data matches
   if (params.mode === "sale") {
@@ -120,11 +134,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     query = query.contains("amenities", [amenity]);
   }
   if (parseBoolean(params.verified_only)) {
-    query = query.eq("profile_is_verified", true);
+    query = query.eq("ownership_verified", true);
   }
 
+  // This page renders per request, so the live-card reads get the short
+  // secondary-read budget: a slow provider falls back to the admin card instead
+  // of holding the results.
   const [statusCards, { data: properties }] = await Promise.all([
-    getStatusCards(),
+    getLiveStatusCards(DETAIL_AUX_TIMEOUT_MS),
     query
       .order("is_super_vip", { ascending: false })
       .order("is_vip", { ascending: false })
@@ -134,7 +151,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   return (
     <SearchPageClient
-      initialProperties={properties ?? []}
+      initialProperties={(properties ?? []).map(firstPhotoOnly)}
       statusCards={statusCards}
       initialLocation={params.location ?? ""}
       initialCheckIn={params.check_in ?? ""}

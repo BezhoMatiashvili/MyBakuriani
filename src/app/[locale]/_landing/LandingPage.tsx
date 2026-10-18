@@ -16,6 +16,7 @@ import dynamic from "next/dynamic";
 
 import {
   SearchBox,
+  useIsMobileSearchLayout,
   type SearchFilters,
   type ActiveDropdown,
 } from "@/components/search/SearchBox";
@@ -24,16 +25,23 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import { RentBuyToggle } from "@/components/search/RentBuyToggle";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import SaleLandingBody from "./SaleLandingBody";
+import type { SaleResearchContent } from "@/lib/sale-research";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 
-const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
-      <SkierLoader variant="inline" />
-    </div>
-  ),
-});
+const BakurianiMap = dynamic(
+  () =>
+    import("@/components/maps/BakurianiMap").then((mod) =>
+      mod.canvasReady.then(() => mod),
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
+        <SkierLoader variant="inline" />
+      </div>
+    ),
+  },
+);
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import PropertyCard from "@/components/cards/PropertyCard";
 import ServiceCard from "@/components/cards/ServiceCard";
@@ -41,31 +49,41 @@ import EmploymentCard from "@/components/cards/EmploymentCard";
 import HotOffersCarousel from "@/components/cards/HotOffersCarousel";
 import { cn } from "@/lib/utils";
 import { isDiscountActive } from "@/lib/utils/pricing";
-import type { Tables } from "@/lib/types/database";
+import { HERO_NOISE_BACKGROUND } from "@/lib/utils/heroTexture";
+import { describeSalary, type SalaryDescriptor } from "@/lib/employment/salary";
+import type {
+  LandingBlogPost,
+  LandingHotel,
+  LandingProperty,
+  LandingSaleProperty,
+  LandingService,
+} from "./columns";
 import BannerSlotView from "@/components/banners/BannerSlotView";
 import type { BannerCreative } from "@/lib/banner-creative";
+import { useLiveSlotCreatives } from "@/lib/banner-slots-client";
 import type { Zone } from "@/lib/zones/types";
 import HomeStatusCards from "@/components/landing/HomeStatusCards";
 import { AddListingButton } from "@/components/shared/AddListingButton";
 import type { StatusCard } from "@/lib/status-cards/types";
 import { MobileRail } from "@/components/shared/MobileRail";
+import HomeBlogCarousel from "./HomeBlogCarousel";
 
-type PublicService = Tables<"services"> & {
-  has_whatsapp?: boolean;
-  best_active_menu_item_discount_percent?: number | null;
-};
+type PublicService = LandingService;
 
 interface LandingPageProps {
   zones: Zone[];
   statusCards: StatusCard[];
-  hotOffers?: Tables<"properties">[];
-  hotels?: Tables<"properties">[];
-  saleProperties?: Tables<"properties">[];
-  vipProperties?: Tables<"properties">[];
+  hotOffers?: LandingProperty[];
+  hotels?: LandingHotel[];
+  saleProperties?: LandingSaleProperty[];
+  vipProperties?: LandingProperty[];
+  superVipProperties?: LandingSaleProperty[];
   services?: PublicService[];
-  blogPosts?: Tables<"blog_posts">[];
+  superVipServices?: PublicService[];
+  blogPosts?: LandingBlogPost[];
   bannerCreatives?: BannerCreative[];
   pricePerSqmByZone?: Record<string, number | null>;
+  saleResearch?: SaleResearchContent;
 }
 
 const MONTH_KEYS = [
@@ -83,7 +101,262 @@ const MONTH_KEYS = [
   "december",
 ] as const;
 
+/** HotOffersCarousel card from a public_properties row. */
+function toCarouselCard(p: LandingProperty) {
+  return {
+    id: p.id,
+    title: p.title,
+    location: p.location,
+    photos: p.photos ?? [],
+    pricePerNight: p.price_per_night ? Number(p.price_per_night) : null,
+    salePrice: p.sale_price ? Number(p.sale_price) : null,
+    rating: null as number | null,
+    capacity: p.capacity,
+    rooms: p.rooms,
+    isVip: p.is_vip ?? false,
+    isSuperVip: p.is_super_vip ?? false,
+    discountPercent: p.discount_percent ?? 0,
+    discountExpiresAt: p.discount_expires_at ?? null,
+    createdAt: p.created_at,
+    isForSale: p.is_for_sale ?? false,
+    distanceToSlopeM: p.distance_to_slope_m,
+    isOwnershipVerified: p.ownership_verified ?? false,
+  };
+}
+
+/** Landing ServiceCard props from a public_services row. */
+function toLandingServiceCard(s: PublicService) {
+  // Transport-only extras (type/seats/route) — scoped to transport so other
+  // categories' cards stay unchanged.
+  const isTransport = s.category === "transport";
+  const isFood = s.category === "food";
+  const isEmployment = s.category === "employment";
+  return {
+    id: s.id,
+    title: s.title,
+    category: s.category,
+    location: s.location,
+    photos: s.photos ?? [],
+    price: s.price ? Number(s.price) : null,
+    priceUnit: s.price_unit,
+    discountPercent: isFood
+      ? (s.best_active_menu_item_discount_percent ?? 0)
+      : (s.discount_percent ?? 0),
+    discountExpiresAt: isFood ? null : (s.discount_expires_at ?? null),
+    createdAt: s.created_at,
+    isVip: s.is_vip ?? false,
+    isSuperVip: s.is_super_vip ?? false,
+    schedule: s.schedule,
+    operatingHours: s.operating_hours,
+    phone: null,
+    hasWhatsapp: s.has_whatsapp ?? false,
+    providerName: null,
+    experienceYears: null,
+    availabilityStatus: null,
+    isOwnershipVerified: s.ownership_verified ?? false,
+    ...(isTransport
+      ? {
+          vehicleCapacity: s.vehicle_capacity,
+          transportType: s.transport_type,
+          vehicleMake: s.vehicle_make,
+          route: s.route,
+          routes: s.routes,
+        }
+      : {}),
+    // Employment-only, like the transport extras: the vacancy card shows the
+    // salary (or the salary type) instead of a second copy of the location.
+    ...(isEmployment ? { salary: describeSalary(s) } : {}),
+  };
+}
+
 // ─── Component ───────────────────────────────────────────────────────────
+
+// Owns the search dropdown state, so opening a dropdown re-renders the hero
+// alone, not every listing card below it.
+function LandingHero({
+  mode,
+  onModeChange,
+  zones,
+  statusCards,
+  mapProperties,
+}: {
+  mode: "rent" | "sale";
+  onModeChange: (next: "rent" | "sale") => void;
+  zones: Zone[];
+  statusCards: StatusCard[];
+  mapProperties: MapProperty[];
+}) {
+  const t = useTranslations("Landing");
+  const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
+  const dropdownPortalRef = useRef<HTMLDivElement>(null);
+  const filtersPortalRef = useRef<HTMLDivElement>(null);
+  const filtersBoundaryRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const isMobileSearchLayout = useIsMobileSearchLayout();
+
+  // One BakurianiMap call site for both layouts. The desktop filters dropdown
+  // shows it as a fixed-width rail beside the controls; the filters bottom sheet
+  // shows it full width under them.
+  //
+  // `previewUntilExpanded` is load-bearing for the sheet, not decoration. An
+  // interactive Mapbox canvas carries `touch-action: none` from mapbox-gl's own
+  // stylesheet, so a finger landing on it cannot scroll the sheet behind it. The
+  // component's built-in preview already avoids that — but only up to 767px,
+  // while the sheet itself runs to 1023px, which would leave iPad-portrait users
+  // with a dead 240px band mid-sheet. This keeps the preview at every sheet width;
+  // the real map opens in its own overlay, where it owns the whole viewport.
+  const renderFiltersMap = (placement: "desktop" | "sheet") => (
+    <BakurianiMap
+      className={
+        placement === "desktop"
+          ? "min-h-[400px] w-[280px] shrink-0 self-stretch"
+          : "h-[240px] w-full rounded-2xl border border-[#E2E8F0]"
+      }
+      embedded
+      expandable
+      previewUntilExpanded={placement === "sheet"}
+      properties={mapProperties}
+      onPropertyClick={(id) => router.push(`/apartments/${id}`)}
+      zones={zones}
+    />
+  );
+
+  const handleSearch = useCallback(
+    (sf: SearchFilters) => {
+      const params = buildRentSearchParams(sf, mode);
+      router.push(`/search?${params.toString()}`);
+    },
+    [mode, router],
+  );
+
+  return (
+    <section
+      data-testid="homepage-hero"
+      className={cn(
+        "relative flex items-start justify-center px-4 pb-0 pt-10 md:pb-14 lg:pb-0 lg:pt-16",
+        activeDropdown
+          ? "overflow-visible"
+          : "overflow-visible md:overflow-hidden lg:overflow-visible",
+      )}
+      style={{
+        background:
+          "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
+      }}
+    >
+      {/* Subtle texture overlay. Inline SVG noise, not a remote photo: the
+          previous Unsplash background cost a third-party DNS+TLS+image fetch
+          on the hero's critical path for a layer at 3% opacity — visually
+          indistinguishable from procedural noise. */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: HERO_NOISE_BACKGROUND,
+          mixBlendMode: "overlay",
+        }}
+      />
+      <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
+        {/* No entrance fade on the h1: it is the LCP element, and a 0.5 s
+            opacity animation delays LCP by as much (C40). */}
+        <div>
+          <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
+            {t("trustedGuide")}{" "}
+            <span className="text-[#38BDF8]">{t("inBakuriani")}</span>
+          </h1>
+        </div>
+
+        <div className="mt-[34px] flex justify-center sm:mt-6">
+          <RentBuyToggle
+            value={mode}
+            onChange={onModeChange}
+            phoneLayout="landing-compact"
+          />
+        </div>
+
+        <div className="relative mt-6">
+          <SearchBox
+            onSearch={handleSearch}
+            className="shadow-[var(--shadow-search)]"
+            dropdownPortalRef={dropdownPortalRef}
+            filtersPortalRef={filtersPortalRef}
+            filtersBoundaryRef={filtersBoundaryRef}
+            onActiveDropdownChange={setActiveDropdown}
+            phoneLayout="landing-compact"
+            showGuests
+            zones={zones}
+            filtersMapSlot={renderFiltersMap("sheet")}
+          />
+
+          {/* Floating dropdown panel — absolute so it doesn't expand the blue hero.
+              Permanently mounted (visibility toggled via CSS) so the portal target
+              exists the instant the panel opens, instead of flashing a mapless
+              fallback for a frame first. */}
+          <div
+            ref={filtersBoundaryRef}
+            className={cn(
+              "absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
+              activeDropdown === "filters"
+                ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:flex"
+                : "hidden",
+            )}
+          >
+            <div ref={filtersPortalRef} className="min-w-0 flex-1" />
+            {/* Unmounted (not just `lg:` hidden) below the breakpoint: this
+                container is `display:none` on phones, and a Mapbox instance that
+                initialises at zero size stays blank forever. The phone layout
+                gets the same map inside the filters sheet instead — see
+                `filtersMapSlot` on SearchBox above. */}
+            {activeDropdown === "filters" &&
+              !isMobileSearchLayout &&
+              renderFiltersMap("desktop")}
+          </div>
+          {activeDropdown === "calendar" ? (
+            <div className="absolute left-0 right-0 top-full z-50 mt-2 hidden grid-cols-[1fr_auto] gap-4 lg:grid">
+              <div ref={dropdownPortalRef} className="min-w-0" />
+              <div className="flex w-full flex-col gap-3 lg:w-[240px]">
+                {/* Camera card */}
+                <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[var(--shadow-dark-card)]">
+                  <div className="flex flex-col gap-1">
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
+                      <span className="size-2 rounded-full bg-[#EF4444]" />
+                      {t("cameras")}
+                    </span>
+                    <span className="flex items-center gap-2 text-[18px] font-black leading-[28px] text-white">
+                      {t("cameraLocations")}
+                      <Video className="size-[18px] text-[#CBD5E1]" />
+                    </span>
+                  </div>
+                </div>
+                {/* Coupon button */}
+                <button
+                  type="button"
+                  className="flex h-[52px] items-center justify-center rounded-[16px] border-2 border-[#E8612D] bg-[#FFF7ED] text-[14px] font-bold text-[#E8612D] transition-colors hover:bg-[#FFEDD5]"
+                >
+                  {t("getCoupon")}
+                </button>
+                {/* Discount toggle */}
+                <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
+                  <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
+                    <Flame className="hidden h-3.5 w-3.5 sm:block" />
+                    <span className="hidden sm:inline">
+                      {t("discountsOnly")}
+                    </span>
+                    <span className="text-[14px] font-black sm:hidden">%</span>
+                  </span>
+                  <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">
+                    <span className="absolute right-0.5 size-[16px] rounded-full bg-white shadow-sm" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Rental status cards — weather / lifts / road / cameras */}
+        <HomeStatusCards cards={statusCards} />
+      </div>
+    </section>
+  );
+}
 
 export default function LandingPage({
   zones,
@@ -92,22 +365,26 @@ export default function LandingPage({
   hotels: serverHotels,
   saleProperties: serverSaleProperties,
   vipProperties: serverVipProperties,
+  superVipProperties: serverSuperVipProperties,
   services: serverServices,
+  superVipServices: serverSuperVipServices,
   blogPosts: serverBlogPosts,
-  bannerCreatives = [],
+  bannerCreatives: serverBannerCreatives = [],
   pricePerSqmByZone,
+  saleResearch,
 }: LandingPageProps) {
   const t = useTranslations("Landing");
+  // The ISR HTML's creatives until the shared store answers: a cached home
+  // page from before an admin's save must not hide a new ad (C47).
+  const bannerCreatives = useLiveSlotCreatives(serverBannerCreatives);
   const [mode, setMode] = useState<"rent" | "sale">("rent");
-  const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const [hotOffersDiscountOnly, setHotOffersDiscountOnly] = useState(false);
-  const dropdownPortalRef = useRef<HTMLDivElement>(null);
-  const filtersPortalRef = useRef<HTMLDivElement>(null);
-  const filtersBoundaryRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
   const { setListingMode } = useHomeListingMode();
+  // The "recommended services" heading belongs to the editorial cards. A paid
+  // home-promo ad alone is drawn on only its share of page views (C47), so it
+  // gets no heading that would sit empty the rest of the time.
   const hasHomePromo = bannerCreatives.some(
-    (creative) => creative.placement === "home_promo",
+    (creative) => creative.placement === "home_promo" && !creative.sponsored,
   );
 
   useEffect(() => {
@@ -135,14 +412,6 @@ export default function LandingPage({
       }));
   }, [serverHotOffers, serverHotels]);
 
-  const handleSearch = useCallback(
-    (sf: SearchFilters) => {
-      const params = buildRentSearchParams(sf, mode);
-      router.push(`/search?${params.toString()}`);
-    },
-    [mode, router],
-  );
-
   // Use server data if available, otherwise fall back to mock
   const hasServerData = serverHotOffers && serverHotOffers.length > 0;
 
@@ -164,30 +433,32 @@ export default function LandingPage({
         createdAt: p.created_at,
         isForSale: p.is_for_sale ?? false,
         distanceToSlopeM: p.distance_to_slope_m,
+        isOwnershipVerified: p.ownership_verified ?? false,
       }))
     : [];
 
   const vipPropertyCards = useMemo(
-    () =>
-      (serverVipProperties ?? []).map((p) => ({
-        id: p.id,
-        title: p.title,
-        location: p.location,
-        photos: p.photos ?? [],
-        pricePerNight: p.price_per_night ? Number(p.price_per_night) : null,
-        salePrice: p.sale_price ? Number(p.sale_price) : null,
-        rating: null as number | null,
-        capacity: p.capacity,
-        rooms: p.rooms,
-        isVip: p.is_vip ?? false,
-        isSuperVip: p.is_super_vip ?? false,
-        discountPercent: p.discount_percent ?? 0,
-        discountExpiresAt: p.discount_expires_at ?? null,
-        createdAt: p.created_at,
-        isForSale: p.is_for_sale ?? false,
-        distanceToSlopeM: p.distance_to_slope_m,
-      })),
+    () => (serverVipProperties ?? []).map(toCarouselCard),
     [serverVipProperties],
+  );
+
+  // Main-page VIP section (2026 price list §2.3): rentals in this carousel,
+  // services in the rail below it, sales in SaleLandingBody. SUPER VIP first,
+  // then VIP: the server's order, kept here.
+  const superVipPropertyCards = useMemo(
+    () =>
+      (serverSuperVipProperties ?? [])
+        .filter((p) => !p.is_for_sale)
+        .map(toCarouselCard),
+    [serverSuperVipProperties],
+  );
+  const superVipSaleProperties = useMemo(
+    () => (serverSuperVipProperties ?? []).filter((p) => p.is_for_sale),
+    [serverSuperVipProperties],
+  );
+  const superVipServiceCards = useMemo(
+    () => (serverSuperVipServices ?? []).map(toLandingServiceCard),
+    [serverSuperVipServices],
   );
 
   const filteredVipProperties = useMemo(
@@ -200,43 +471,21 @@ export default function LandingPage({
     [vipPropertyCards, hotOffersDiscountOnly],
   );
 
-  const hotelCards =
-    serverHotels && serverHotels.length > 0
-      ? serverHotels.map((p) => ({
-          id: p.id,
-          title: p.title,
-          location: p.location,
-          photos: p.photos ?? [],
-          pricePerNight: p.price_per_night ? Number(p.price_per_night) : null,
-          salePrice: null as number | null,
-          rating: null as number | null,
-          capacity: p.capacity,
-          rooms: p.rooms,
-          isVip: p.is_vip ?? false,
-          isSuperVip: p.is_super_vip ?? false,
-          discountPercent: p.discount_percent ?? 0,
-          discountExpiresAt: p.discount_expires_at ?? null,
-          createdAt: p.created_at,
-          isForSale: false,
-          isHotel: true as const,
-          hotelStars: p.hotel_stars ?? undefined,
-          numericRating: p.numeric_rating ?? undefined,
-          isB2BPartner: p.is_b2b_partner ?? false,
-          roomType: p.room_type ?? undefined,
-          amenities: p.location,
-        }))
-      : [];
-
-  // Group server services by category
-  const servicesByCategory = (category: string) => {
+  // Group server services by category (a row may span several)
+  const servicesByCategory = (...categories: string[]) => {
     if (serverServices && serverServices.length > 0) {
-      // Transport-only extras (type/seats/route) — scoped to transport so other
-      // categories' cards stay unchanged.
-      const isTransport = category === "transport";
-      const isFood = category === "food";
+      const isFood = categories.includes("food");
       return serverServices
-        .filter((s) => s.category === category)
+        .filter((s) => categories.includes(s.category))
         .sort((a, b) => {
+          // SUPER VIP → VIP → active discount → newest (2026 price list: the
+          // discount badge buys no priority over the paid VIP tiers).
+          if (Boolean(a.is_super_vip) !== Boolean(b.is_super_vip)) {
+            return a.is_super_vip ? -1 : 1;
+          }
+          if (Boolean(a.is_vip) !== Boolean(b.is_vip)) {
+            return a.is_vip ? -1 : 1;
+          }
           const aDiscount = isFood
             ? isDiscountActive(a.best_active_menu_item_discount_percent, null)
             : isDiscountActive(a.discount_percent, a.discount_expires_at);
@@ -244,46 +493,13 @@ export default function LandingPage({
             ? isDiscountActive(b.best_active_menu_item_discount_percent, null)
             : isDiscountActive(b.discount_percent, b.discount_expires_at);
           if (aDiscount !== bDiscount) return aDiscount ? -1 : 1;
-          if (Boolean(a.is_vip) !== Boolean(b.is_vip)) {
-            return a.is_vip ? -1 : 1;
-          }
           return (
             new Date(b.created_at ?? 0).getTime() -
             new Date(a.created_at ?? 0).getTime()
           );
         })
         .slice(0, 4)
-        .map((s) => ({
-          id: s.id,
-          title: s.title,
-          category: s.category,
-          location: s.location,
-          photos: s.photos ?? [],
-          price: s.price ? Number(s.price) : null,
-          priceUnit: s.price_unit,
-          discountPercent: isFood
-            ? (s.best_active_menu_item_discount_percent ?? 0)
-            : (s.discount_percent ?? 0),
-          discountExpiresAt: isFood ? null : (s.discount_expires_at ?? null),
-          createdAt: s.created_at,
-          isVip: s.is_vip ?? false,
-          schedule: s.schedule,
-          operatingHours: s.operating_hours,
-          phone: null,
-          hasWhatsapp: s.has_whatsapp ?? false,
-          providerName: null,
-          experienceYears: null,
-          availabilityStatus: null,
-          ...(isTransport
-            ? {
-                vehicleCapacity: s.vehicle_capacity,
-                transportType: s.transport_type,
-                vehicleMake: s.vehicle_make,
-                route: s.route,
-                routes: s.routes,
-              }
-            : {}),
-        }));
+        .map(toLandingServiceCard);
     }
     return [];
   };
@@ -292,6 +508,7 @@ export default function LandingPage({
     serverBlogPosts && serverBlogPosts.length > 0
       ? serverBlogPosts.map((bp) => ({
           id: bp.id,
+          slug: bp.slug,
           title: bp.title,
           excerpt: bp.excerpt ?? "",
           image: bp.image_url ?? "/placeholder-property.jpg",
@@ -310,7 +527,9 @@ export default function LandingPage({
         mode={mode}
         onModeChange={setMode}
         saleProperties={serverSaleProperties}
+        superVipProperties={superVipSaleProperties}
         pricePerSqmByZone={pricePerSqmByZone}
+        saleResearch={saleResearch}
         zones={zones}
         bannerCreatives={bannerCreatives}
       />
@@ -320,144 +539,77 @@ export default function LandingPage({
   return (
     <div className="flex flex-col">
       {/* ═══ 1. Hero Section ═══ */}
-      <section
-        data-testid="homepage-hero"
-        className={cn(
-          "relative flex items-start justify-center px-4 pb-0 pt-10 md:pb-14 lg:pb-0 lg:pt-16",
-          activeDropdown
-            ? "overflow-visible"
-            : "overflow-visible md:overflow-hidden lg:overflow-visible",
-        )}
-        style={{
-          background:
-            "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
-        }}
-      >
-        {/* Subtle texture overlay. Inline SVG noise, not a remote photo: the
-            previous Unsplash background cost a third-party DNS+TLS+image fetch
-            on the hero's critical path for a layer at 3% opacity — visually
-            indistinguishable from procedural noise. */}
+      <LandingHero
+        mode={mode}
+        onModeChange={setMode}
+        zones={zones}
+        statusCards={statusCards}
+        mapProperties={mapProperties}
+      />
+
+      {/* Reserve the status cards' overhang below the hero in document flow
+          (HomeStatusCards: -72px on phones, -42px from sm), so the next
+          section's own padding is the gap under the cards. At md the hero's
+          pb-14 already holds them. */}
+      {statusCards.length > 0 && (
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E\")",
-            mixBlendMode: "overlay",
-          }}
+          aria-hidden="true"
+          className="h-[72px] sm:h-[42px] md:h-0 lg:h-[42px]"
         />
-        <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
-          <ScrollReveal>
-            <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
-              {t("trustedGuide")}{" "}
-              <span className="text-[#38BDF8]">{t("inBakuriani")}</span>
-            </h1>
-          </ScrollReveal>
-
-          <div className="mt-[34px] flex justify-center sm:mt-6">
-            <RentBuyToggle
-              value={mode}
-              onChange={setMode}
-              phoneLayout="landing-compact"
-            />
-          </div>
-
-          <div className="relative mt-6">
-            <SearchBox
-              onSearch={handleSearch}
-              className="shadow-[var(--shadow-search)]"
-              dropdownPortalRef={dropdownPortalRef}
-              filtersPortalRef={filtersPortalRef}
-              filtersBoundaryRef={filtersBoundaryRef}
-              onActiveDropdownChange={setActiveDropdown}
-              phoneLayout="landing-compact"
-              zones={zones}
-            />
-
-            {/* Floating dropdown panel — absolute so it doesn't expand the blue hero.
-                Permanently mounted (visibility toggled via CSS) so the portal target
-                exists the instant the panel opens, instead of flashing a mapless
-                fallback for a frame first. */}
-            <div
-              ref={filtersBoundaryRef}
-              className={cn(
-                "absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
-                activeDropdown === "filters"
-                  ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:flex"
-                  : "hidden",
-              )}
-            >
-              <div ref={filtersPortalRef} className="min-w-0 flex-1" />
-              {activeDropdown === "filters" && (
-                <BakurianiMap
-                  className="min-h-[400px] w-[280px] shrink-0 self-stretch"
-                  embedded
-                  expandable
-                  properties={mapProperties}
-                  onPropertyClick={(id) => router.push(`/apartments/${id}`)}
-                  zones={zones}
-                />
-              )}
-            </div>
-            {activeDropdown === "calendar" ? (
-              <div className="absolute left-0 right-0 top-full z-50 mt-2 hidden grid-cols-[1fr_auto] gap-4 lg:grid">
-                <div ref={dropdownPortalRef} className="min-w-0" />
-                <div className="flex w-full flex-col gap-3 lg:w-[240px]">
-                  {/* Camera card */}
-                  <div className="flex items-center rounded-[16px] border border-white/5 bg-[#222A3B] px-5 py-5 shadow-[var(--shadow-dark-card)]">
-                    <div className="flex flex-col gap-1">
-                      <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                        <span className="size-2 rounded-full bg-[#EF4444]" />
-                        {t("cameras")}
-                      </span>
-                      <span className="flex items-center gap-2 text-[18px] font-black leading-[28px] text-white">
-                        {t("cameraLocations")}
-                        <Video className="size-[18px] text-[#CBD5E1]" />
-                      </span>
-                    </div>
-                  </div>
-                  {/* Coupon button */}
-                  <button
-                    type="button"
-                    className="flex h-[52px] items-center justify-center rounded-[16px] border-2 border-[#E8612D] bg-[#FFF7ED] text-[14px] font-bold text-[#E8612D] transition-colors hover:bg-[#FFEDD5]"
-                  >
-                    {t("getCoupon")}
-                  </button>
-                  {/* Discount toggle */}
-                  <div className="flex items-center justify-between rounded-[16px] border border-[#FFEDD5] bg-[#FFF7ED] px-4 py-3">
-                    <span className="flex items-center gap-1.5 text-[12px] font-bold text-[#F97316]">
-                      <Flame className="hidden h-3.5 w-3.5 sm:block" />
-                      <span className="hidden sm:inline">
-                        {t("discountsOnly")}
-                      </span>
-                      <span className="text-[14px] font-black sm:hidden">
-                        %
-                      </span>
-                    </span>
-                    <div className="relative inline-flex h-[20px] w-[40px] cursor-pointer items-center rounded-full bg-[#F97316]">
-                      <span className="absolute right-0.5 size-[16px] rounded-full bg-white shadow-sm" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Rental status cards — weather / lifts / road / cameras */}
-          <HomeStatusCards cards={statusCards} />
-        </div>
-      </section>
-
-      {/* Reserve the phone-only status-card overhang in document flow. */}
-      <div aria-hidden="true" className="h-[72px] sm:hidden" />
+      )}
 
       {/* ═══ 2.5 Verified-listings info banner (admin-managed) ═══ */}
       <BannerSlotView
         placement="home_top_strip"
         creatives={bannerCreatives}
-        className="mt-[70px] sm:mt-[84px]"
+        className="mt-[70px] sm:mt-[42px] md:mt-[84px] lg:mt-[42px]"
       />
 
       <BannerSlotView placement="home_hero" creatives={bannerCreatives} />
+
+      {/* ═══ 2.5 VIP — main-page section (2026 price list §2.3) ═══ */}
+      {(superVipPropertyCards.length > 0 ||
+        superVipServiceCards.length > 0) && (
+        <section className="mx-auto w-full max-w-[1160px] px-4 pt-[52px] sm:pt-8 lg:pt-10">
+          <ScrollReveal>
+            <div className="mb-6 min-w-0">
+              <h2
+                data-testid="homepage-super-vip-heading"
+                className="text-[17px] font-black leading-[22px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]"
+              >
+                {t("superVipTitle")}
+              </h2>
+              <p className="mt-1 text-[12px] font-medium leading-[17px] text-[#64748B] lg:text-[13px] lg:leading-[20px]">
+                {t("superVipSubtitle")}
+              </p>
+            </div>
+          </ScrollReveal>
+          {superVipPropertyCards.length > 0 && (
+            <ScrollReveal>
+              <HotOffersCarousel properties={superVipPropertyCards} />
+            </ScrollReveal>
+          )}
+          {superVipServiceCards.length > 0 && (
+            <div className={superVipPropertyCards.length > 0 ? "mt-6" : ""}>
+              <MobileRail
+                desktopClassName="lg:gap-6 lg:pb-0"
+                desktopItemClassName="lg:w-[340px]"
+                desktopArrows
+              >
+                {superVipServiceCards.map((card, i) => (
+                  <ScrollReveal
+                    key={card.id}
+                    delay={i * 0.08}
+                    className="h-full"
+                  >
+                    <ServiceCard {...card} />
+                  </ScrollReveal>
+                ))}
+              </MobileRail>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ═══ 3. Hot Offers — VIP / Super VIP Carousel ═══ */}
       {vipPropertyCards.length > 0 && (
@@ -573,17 +725,6 @@ export default function LandingPage({
         showAddButton
       />
 
-      {/* ═══ 5. Hotels Section ═══ */}
-      <PropertySection
-        title={t("hotels")}
-        subtitle={t("hotelsSubtitle")}
-        properties={hotelCards}
-        href="/hotels"
-        muted
-        showDiscountToggle
-        showAddButton
-      />
-
       {/* ═══ 5.5 Recommended services (admin-managed) ═══ */}
       {hasHomePromo && (
         <section
@@ -601,6 +742,10 @@ export default function LandingPage({
           />
         </section>
       )}
+      {/* Renders nothing without a paid ad (or the admin's preview of one). */}
+      {!hasHomePromo && (
+        <BannerSlotView placement="home_promo" creatives={bannerCreatives} />
+      )}
 
       {/* ═══ 6. Transport Section ═══ */}
       <ServiceSection
@@ -617,7 +762,7 @@ export default function LandingPage({
       <ServiceSection
         title={t("servicesAndHandymen")}
         subtitle={t("servicesSubtitle")}
-        cards={servicesByCategory("handyman")}
+        cards={servicesByCategory("handyman", "cleaning")}
         href="/services"
         showAddButton
         cardVariant="avatar"
@@ -640,7 +785,6 @@ export default function LandingPage({
         subtitle={t("foodSubtitle")}
         cards={servicesByCategory("food")}
         href="/food"
-        showDiscountToggle
         showAddButton
       />
 
@@ -666,10 +810,7 @@ export default function LandingPage({
               </Link>
             </div>
           </ScrollReveal>
-          <MobileRail
-            desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:items-stretch lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none"
-            desktopItemClassName="lg:h-full lg:w-auto lg:snap-none"
-          >
+          <HomeBlogCarousel label={t("blogAndNews")}>
             {blogItems.map((post, i) => {
               const chipPalette = [
                 { bg: "#DBEAFE", fg: "#1D4ED8", label: t("blogChips.news") },
@@ -689,7 +830,7 @@ export default function LandingPage({
               return (
                 <ScrollReveal key={post.id} delay={i * 0.1} className="h-full">
                   <Link
-                    href={`/blog/${post.id}`}
+                    href={`/blog/${post.slug}`}
                     data-home-blog-card
                     className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[var(--shadow-card-hover)]"
                   >
@@ -714,7 +855,7 @@ export default function LandingPage({
                       <time className="text-[11px] font-medium text-[#94A3B8]">
                         {post.date}
                       </time>
-                      <h3 className="mt-1 text-[17px] font-black leading-[21px] text-[#1E293B]">
+                      <h3 className="mt-1 line-clamp-2 min-h-[42px] text-[17px] font-black leading-[21px] text-[#1E293B]">
                         {post.title}
                       </h3>
                       <p className="mt-2 text-[13px] leading-[21px] text-[#64748B] line-clamp-2">
@@ -725,7 +866,7 @@ export default function LandingPage({
                 </ScrollReveal>
               );
             })}
-          </MobileRail>
+          </HomeBlogCarousel>
         </div>
       </section>
 
@@ -777,6 +918,7 @@ function ServiceSection({
     discountExpiresAt: string | null;
     createdAt: string | null;
     isVip: boolean;
+    isSuperVip?: boolean;
     schedule?: string | null;
     operatingHours?: string | null;
     phone?: string | null;
@@ -789,6 +931,7 @@ function ServiceSection({
     vehicleMake?: string | null;
     route?: string | null;
     routes?: string[] | null;
+    isOwnershipVerified?: boolean;
   }>;
   href: string;
   muted?: boolean;
@@ -908,9 +1051,9 @@ function EmploymentSection({
     id: string;
     title: string;
     location: string | null;
-    price: number | null;
-    priceUnit: string | null;
+    salary?: SalaryDescriptor;
     createdAt: string | null;
+    isOwnershipVerified?: boolean;
   }>;
   href: string;
 }) {
@@ -967,16 +1110,13 @@ function EmploymentSection({
                 id={card.id}
                 title={card.title}
                 employer={card.location}
-                location={card.location}
-                salaryLabel={
-                  card.price != null
-                    ? `${card.price} ₾${card.priceUnit ? ` / ${card.priceUnit}` : ""}`
-                    : null
-                }
+                location={null}
+                salary={card.salary}
                 scheduleLabel={availabilities[i % availabilities.length]}
                 badge={i === 0 ? "vip" : null}
                 createdAt={card.createdAt}
                 highlighted={i === 0}
+                isOwnershipVerified={card.isOwnershipVerified ?? false}
               />
             </ScrollReveal>
           ))}
@@ -1020,6 +1160,7 @@ function PropertySection({
     roomType?: string;
     amenities?: string;
     distanceToSlopeM?: number | null;
+    isOwnershipVerified?: boolean;
   }>;
   href: string;
   muted?: boolean;

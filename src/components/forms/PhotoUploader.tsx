@@ -15,6 +15,8 @@ import Image from "next/image";
 import { Camera, Loader2, Star, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { watermarkFile } from "@/lib/utils/watermark";
+import { convertHeicToJpeg, isHeicFile } from "@/lib/utils/heic";
+import { parseStorageObjectUrl } from "@/lib/utils/photos";
 import { createUploadClient } from "@/lib/supabase/client";
 import {
   DndContext,
@@ -48,27 +50,6 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 type UploadResult =
   | { ok: true; url: string }
   | { ok: false; reason: "too_large" | "convert" | "upload" };
-
-/** iPhones default to HEIC/HEIF; the MIME is often empty, so check the name too. */
-function isHeicFile(file: File): boolean {
-  return /image\/hei[cf]/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
-}
-
-/** Browser-only HEIC→JPEG conversion. Dynamically imported to stay out of the main bundle. */
-async function convertHeicToJpeg(file: File): Promise<File> {
-  const heic2any = (await import("heic2any")).default;
-  const converted = await heic2any({
-    blob: file,
-    toType: "image/jpeg",
-    quality: 0.9,
-  });
-  const blob = Array.isArray(converted) ? converted[0] : converted;
-  const renamed = file.name.replace(/\.(heic|heif)$/i, ".jpg");
-  const name = renamed.toLowerCase().endsWith(".jpg")
-    ? renamed
-    : `${renamed}.jpg`;
-  return new File([blob], name, { type: "image/jpeg" });
-}
 
 interface PhotoUploaderProps {
   photos: string[];
@@ -487,11 +468,30 @@ export default function PhotoUploader({
     [processFiles],
   );
 
+  // Best-effort delete of the underlying Storage object for a removed photo.
+  // Fire-and-forget: a failed delete must never block the remove action, and
+  // a stale cross-origin URL (left over from a past Supabase project
+  // migration) can't be deleted from this project's bucket anyway, so it's
+  // skipped rather than risk touching the wrong object.
+  const deleteStorageObject = useCallback(
+    (url: string) => {
+      const parsed = parseStorageObjectUrl(url);
+      if (!parsed?.sameOrigin) return;
+      getUploadClient()
+        .storage.from(parsed.bucket)
+        .remove([parsed.path])
+        .catch(() => {});
+    },
+    [getUploadClient],
+  );
+
   const handleRemove = useCallback(
     (index: number) => {
+      const removed = photos[index];
       onPhotosChange(photos.filter((_, i) => i !== index));
+      if (removed) deleteStorageObject(removed);
     },
-    [photos, onPhotosChange],
+    [photos, onPhotosChange, deleteStorageObject],
   );
 
   // Move the chosen photo to the front so every photos[0] reader shows it as

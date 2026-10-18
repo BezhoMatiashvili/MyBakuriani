@@ -8,12 +8,19 @@ import type { BannerKind } from "@/lib/banners";
  * (paid B2B) carry a `placement` column whose values come from here.
  */
 export type BannerRenderStyle =
-  "strip" | "leaderboard" | "promo-card" | "in-grid" | "sidebar" | "sticky";
+  | "strip"
+  | "leaderboard"
+  | "promo-card"
+  | "in-grid"
+  | "sidebar"
+  | "sticky"
+  | "mobile-strip";
 
 export type BannerSurface = "site" | "home" | "listing" | "detail" | "blog";
 
 export type BannerPlacement =
   | "header_strip"
+  | "mobile_strip"
   | "footer_leaderboard"
   | "sticky_bottom"
   | "home_hero"
@@ -47,16 +54,18 @@ export type PlacementSpec = {
 };
 
 /**
- * Styles that draw a single creative.  When several target the same placement
- * only the first (by sort_order) is shown — the rest wait for rotation, which
- * is not built yet.  `strip` and `promo-card` stack every match instead, which
- * is what the pre-placement InfoBanners/PromoBanners did.
+ * Styles that draw a single creative per page view. Which one is the media
+ * plan's rotation (C47, src/lib/banner-slots-client.ts:useSlotRotation): paid
+ * ads by share of voice, editorial banners in the share nobody bought.
+ * `strip` and `promo-card` stack every editorial match instead (what the
+ * pre-placement InfoBanners/PromoBanners did) plus at most one paid ad.
  */
 const SINGLE_CREATIVE_STYLES: BannerRenderStyle[] = [
   "leaderboard",
   "in-grid",
   "sidebar",
   "sticky",
+  "mobile-strip",
 ];
 
 export const BANNER_PLACEMENTS: PlacementSpec[] = [
@@ -65,15 +74,26 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "strip",
     surface: "site",
     aspect: "—",
-    description: "გამოჩნდება ყველა გვერდზე, ნავიგაციის ზემოთ",
+    description: "გამოჩნდება ყველა გვერდზე, გვერდის თავში, ნავიგაციის ქვემოთ",
     legacyKind: "info",
+  },
+  {
+    // The rate card's "მობილური — ზოლი" (C47): phones only, drawn after mount
+    // when the screen is narrower than 768 px.
+    id: "mobile_strip",
+    renderStyle: "mobile-strip",
+    surface: "site",
+    aspect: "320×100",
+    description:
+      "მხოლოდ ტელეფონზე (კომპიუტერზე არ ჩანს): ყველა გვერდზე, ნავიგაციის ქვემოთ, ეკრანის სიგანის ზოლი",
+    legacyKind: "promo",
   },
   {
     id: "footer_leaderboard",
     renderStyle: "leaderboard",
     surface: "site",
     aspect: "1160×180",
-    description: "გამოჩნდება ყველა გვერდზე, ფუტერის თავზე",
+    description: "გამოჩნდება ყველა გვერდის ბოლოში, ფუტერის თავზე",
     legacyKind: "promo",
   },
   {
@@ -82,7 +102,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     surface: "site",
     aspect: "—",
     description:
-      "გამოჩნდება ყველა გვერდზე, ეკრანის ბოლოში მიმაგრებული ზოლის სახით",
+      "გამოჩნდება ყველა გვერდზე, ეკრანის ბოლოში მიმაგრებული ზოლის სახით; ვიზიტორს შეუძლია მისი დახურვა",
     legacyKind: "sticky_news",
   },
   {
@@ -90,7 +110,8 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "leaderboard",
     surface: "home",
     aspect: "1160×180",
-    description: "მთავარი გვერდის თავზე, დიდი ბანერი",
+    description:
+      "მთავარი გვერდი: დიდი ბანერი საძიებო ბლოკისა და სტატუს-ბარათების ქვემოთ, ზედა ინფო ზოლის შემდეგ (არა გვერდის თავში — ჩანს ოდნავ ჩამოსქროლვისას)",
     legacyKind: "promo",
   },
   {
@@ -98,7 +119,8 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "strip",
     surface: "home",
     aspect: "—",
-    description: "მთავარი გვერდი, ჰედერის ქვემოთ",
+    description:
+      "მთავარი გვერდი: საძიებო ბლოკისა და სტატუს-ბარათების ქვემოთ, ჰერო ბანერის თავზე (ჩანს ოდნავ ჩამოსქროლვისას)",
     legacyKind: "info",
   },
   {
@@ -106,7 +128,8 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "promo-card",
     surface: "home",
     aspect: "320×180",
-    description: "მთავარი გვერდის პრომო ბლოკი",
+    description:
+      "მთავარი გვერდი (მხოლოდ „გაქირავება“ რეჟიმში): ბლოკი „რეკომენდებული სერვისები“, „განთავსების ობიექტები“ სექციის ქვემოთ",
     legacyKind: "promo",
   },
   {
@@ -114,7 +137,8 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "promo-card",
     surface: "home",
     aspect: "320×180",
-    description: "მთავარი გვერდი, კონტენტის სექციებს შორის",
+    description:
+      "მთავარი გვერდი (მხოლოდ „გაქირავება“ რეჟიმში): სექციებს „ცხელი შეთავაზებები“ და „განთავსების ობიექტები“ შორის",
     legacyKind: "promo",
   },
   {
@@ -123,7 +147,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     surface: "listing",
     aspect: "1160×180",
     description:
-      "განცხადებების გვერდებზე (ბინები, სასტუმროები, გაყიდვები, კვება და სხვ.), ბადის თავზე",
+      "კატალოგის გვერდებზე (ბინები, სასტუმროები, გაყიდვები, კვება, სერვისები, გართობა, ტრანსპორტი, დასაქმება, ძიება, ბლოგი), ბადის თავზე; ცარიელ სიაზე არ ჩანს",
     legacyKind: "promo",
   },
   {
@@ -131,7 +155,8 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "in-grid",
     surface: "listing",
     aspect: "1×1",
-    description: "იგივე გვერდები, ბადეში, განცხადებების ბარათებს შორის",
+    description:
+      "იგივე კატალოგის გვერდები, ბადეში: ყოველი მე-8 ბარათის შემდეგ (გვერდზე მაქსიმუმ 2; 8-ზე ნაკლებ განცხადებაზე — ბოლოში)",
     legacyKind: "promo",
   },
   {
@@ -140,7 +165,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     surface: "detail",
     aspect: "320×400",
     description:
-      "დეტალურ გვერდებზე (ბინა, სასტუმრო, გაყიდვა, კვება, სამუშაო) — გვერდითი პანელი",
+      "დეტალურ გვერდებზე (ბინა, სასტუმრო, გაყიდვა, კვება, სამუშაო) — გვერდითი სვეტი (ტელეფონზე გვერდის ქვედა ნაწილში)",
     legacyKind: "promo",
   },
   {
@@ -148,7 +173,7 @@ export const BANNER_PLACEMENTS: PlacementSpec[] = [
     renderStyle: "promo-card",
     surface: "blog",
     aspect: "320×180",
-    description: "ბლოგის სტატიის ტექსტში",
+    description: "ბლოგის სტატიის გვერდზე, სტატიის ტექსტის ბოლოს",
     legacyKind: "promo",
   },
 ];
@@ -183,6 +208,165 @@ export function placementsForSurface(surface: BannerSurface): PlacementSpec[] {
 
 export function rendersSingleCreative(style: BannerRenderStyle): boolean {
   return SINGLE_CREATIVE_STYLES.includes(style);
+}
+
+/**
+ * Styles that draw nothing without an image or a video. `strip`, `sticky` and
+ * `promo-card` are text-driven and render fine without media.
+ */
+const MEDIA_FIRST_STYLES: BannerRenderStyle[] = [
+  "leaderboard",
+  "sidebar",
+  "in-grid",
+  "mobile-strip",
+];
+
+export function placementRequiresMedia(placement: unknown): boolean {
+  const spec = getPlacementSpec(placement);
+  return spec != null && MEDIA_FIRST_STYLES.includes(spec.renderStyle);
+}
+
+/**
+ * The fields that decide whether a creative reaches visitors. Structural on
+ * purpose (BannerCreative satisfies it) so this module stays free of runtime
+ * imports and scripts/unit can load it bare.
+ */
+export type SlotCandidate = {
+  id: string;
+  placement: string;
+  sortOrder: number;
+  sponsored: boolean;
+  startAt: string | null;
+  endAt: string | null;
+  createdAt: string | null;
+  imageUrl: string | null;
+  videoUrl: string | null;
+  /** Ads only (C47): the booked share of voice; missing = the whole slot. */
+  sovPercent?: number | null;
+};
+
+/**
+ * C47: the sponsored grid card is sold by rotation and a listing page shows up
+ * to two of them (src/lib/ad-rotation.ts ROTATION_PLACEMENTS and
+ * MAX_SPONSORED_PER_PAGE; scripts/unit/ad-rotation.test.mjs keeps them equal).
+ * Repeated here because this module must stay free of runtime imports.
+ */
+const ROTATION_SLOT_PLACEMENTS: Record<string, number> = { listing_grid: 2 };
+
+function instant(value: string | null): number | null {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+export function isInSchedule(c: SlotCandidate, now: number): boolean {
+  const start = instant(c.startAt);
+  const end = instant(c.endAt);
+  return (start == null || start <= now) && (end == null || end >= now);
+}
+
+/**
+ * Render order inside a placement: sort order, then paid ahead of editorial
+ * (ads are all sortOrder 0, so an editorial banner would otherwise win a
+ * single-creative slot against a paid ad), then newest first, then id so the
+ * order never depends on how the database happened to return the rows.
+ */
+export function compareSlotCandidates(
+  a: SlotCandidate,
+  b: SlotCandidate,
+): number {
+  if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+  if (a.sponsored !== b.sponsored) return a.sponsored ? -1 : 1;
+  const ca = instant(a.createdAt) ?? 0;
+  const cb = instant(b.createdAt) ?? 0;
+  if (ca !== cb) return cb - ca;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/**
+ * What visitors get, in render order: enabled creatives (the caller has
+ * already dropped disabled banners and paused ads) that are inside their
+ * schedule, sit on a known placement, and have media where the placement
+ * needs it. The public loader and both admin pages call this, so the admin's
+ * "shown / not shown" can never disagree with the site.
+ */
+export function selectLiveCreatives<T extends SlotCandidate>(
+  creatives: T[],
+  now: number,
+): T[] {
+  return creatives
+    .filter(
+      (c) =>
+        getPlacementSpec(c.placement) != null &&
+        isInSchedule(c, now) &&
+        (!placementRequiresMedia(c.placement) ||
+          c.imageUrl != null ||
+          c.videoUrl != null),
+    )
+    .sort(compareSlotCandidates);
+}
+
+export type SlotState =
+  "live" | "scheduled" | "expired" | "needs_media" | "hidden";
+
+/**
+ * Why an enabled creative is or is not on the site. `live` is
+ * selectLiveCreatives() over every enabled creative of both tables. In a
+ * single-creative placement every paid ad is `live`: it rotates by its share
+ * of voice (C47). An editorial banner there is house fill — `hidden` when the
+ * live ads already book the whole slot, or when another banner is ahead of it.
+ */
+export function slotState(
+  c: SlotCandidate,
+  live: SlotCandidate[],
+  now: number,
+): SlotState {
+  const start = instant(c.startAt);
+  const end = instant(c.endAt);
+  if (end != null && end < now) return "expired";
+  if (start != null && start > now) return "scheduled";
+  if (placementRequiresMedia(c.placement) && !c.imageUrl && !c.videoUrl) {
+    return "needs_media";
+  }
+  const spec = getPlacementSpec(c.placement);
+  if (spec && rendersSingleCreative(spec.renderStyle) && !c.sponsored) {
+    const { housePositions, house } = slotFill(c.placement, live);
+    const rank = house.findIndex((x) => x.id === c.id);
+    if (rank === -1 || rank >= housePositions) return "hidden";
+  }
+  return "live";
+}
+
+/**
+ * A single-creative placement's live creatives: the paid ads, the editorial
+ * banners in order, and how many of those banners can show — the unsold share
+ * of a SOV slot (none once the ads book 100 %), or the grid card's positions
+ * the booked ads leave free.
+ */
+function slotFill<T extends SlotCandidate>(placement: string, live: T[]) {
+  const inSlot = live.filter((x) => x.placement === placement);
+  const ads = inSlot.filter((x) => x.sponsored);
+  const rotationPositions = ROTATION_SLOT_PLACEMENTS[placement];
+  const housePositions =
+    rotationPositions !== undefined
+      ? Math.max(0, rotationPositions - ads.length)
+      : ads.reduce((sum, ad) => sum + (ad.sovPercent ?? 100), 0) >= 100
+        ? 0
+        : 1;
+  return { ads, house: inSlot.filter((x) => !x.sponsored), housePositions };
+}
+
+/**
+ * What keeps an editorial banner out of a single-creative placement, for the
+ * "hidden" hint: the first live ad when the ads leave no room, else the
+ * editorial banner ahead of it.
+ */
+export function slotHolder<T extends SlotCandidate>(
+  placement: string,
+  live: T[],
+): T | null {
+  const { ads, house, housePositions } = slotFill(placement, live);
+  return (housePositions === 0 ? ads[0] : house[0]) ?? null;
 }
 
 /** `landing_banners.kind` value to write alongside a given placement. */

@@ -434,7 +434,12 @@ export const MOCK_FEATURED_SALES: MockFeaturedCard[] = [
 const MOCK_PROPERTY_PATTERN = /^(prop|hotel|apt|sale)-\d+$|^featured-[a-z]+$/;
 
 export function isMockPropertyId(id: string): boolean {
-  return MOCK_PROPERTY_PATTERN.test(id);
+  // Demo data is for local development only. In a production build (staging and
+  // prod included) a mock id must 404 like any unknown id; otherwise
+  // /apartments/prop-1 serves a 200 page that Google can index (C40).
+  return (
+    process.env.NODE_ENV !== "production" && MOCK_PROPERTY_PATTERN.test(id)
+  );
 }
 
 type PropertyWithProfile = Tables<"properties"> & {
@@ -456,6 +461,7 @@ function buildMockProperty(
     bathrooms: null,
     check_in_time: "14:00:00",
     cadastral_code: null,
+    cadastral_code_public: true,
     capacity: source.capacity,
     cleaning_fee: null,
     completion_year: null,
@@ -469,6 +475,7 @@ function buildMockProperty(
     developer: null,
     discount_percent: source.discountPercent,
     distance_to_slope_m: null,
+    hotel_rooms: [],
     hotel_stars: hotel?.hotelStars ?? null,
     house_rules: null,
     id: source.id,
@@ -527,6 +534,7 @@ function buildMockSaleProperty(
     area_sqm: source.area,
     bathrooms: source.rooms,
     cadastral_code: "01.16.21.479.481",
+    cadastral_code_public: true,
     capacity: source.rooms * 2,
     check_in_time: "14:00:00",
     cleaning_fee: null,
@@ -541,6 +549,7 @@ function buildMockSaleProperty(
     developer: "CRYSTAL RESORT (BLOCK D)",
     discount_percent: 0,
     distance_to_slope_m: null,
+    hotel_rooms: [],
     hotel_stars: null,
     house_rules: null,
     id: source.id,
@@ -584,7 +593,17 @@ function buildMockSaleProperty(
       bio: null,
       created_at: epoch,
       display_name: "გიორგი მაშულაშვილი",
+      // Kept self-consistent with the profiles_derive_marketing_opt_out
+      // trigger: marketing_opt_out is NOT (marketing_sms_consent ?? false).
+      marketing_sms_consent: true,
       marketing_opt_out: false,
+      marketing_email_consent: null,
+      marketing_whatsapp_consent: null,
+      push_consent: null,
+      terms_accepted_at: epoch,
+      terms_version: "2026-09-09",
+      privacy_accepted_at: epoch,
+      privacy_version: "2026-09-09",
       id: "mock-owner",
       is_verified: true,
       notification_prefs: null,

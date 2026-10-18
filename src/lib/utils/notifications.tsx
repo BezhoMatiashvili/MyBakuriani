@@ -52,6 +52,9 @@ export function iconForType(type: string): NotificationIconKey {
     // Admin work queues: something is waiting on a moderator.
     case "admin_listing_pending":
     case "admin_content_change_pending":
+    case "admin_ownership_pending":
+    // C50: the uBill SMS balance is at or under the admin's threshold.
+    case "admin_sms_balance_low":
       return "warning";
     case "admin_sms_pending":
     case "admin_company_pending":

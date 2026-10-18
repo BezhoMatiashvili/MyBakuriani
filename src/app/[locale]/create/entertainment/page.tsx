@@ -57,6 +57,7 @@ const ACTIVITY_CATEGORIES = [
   { value: "buggies", dbLabel: "ბურანები" },
   { value: "quad_bikes", dbLabel: "კვადროციკლები" },
   { value: "buggy", dbLabel: "ბაგი" },
+  { value: "sport_school", dbLabel: "სპორტსკოლა" },
   { value: "other", dbLabel: "სხვა" },
 ] as const;
 
@@ -383,6 +384,7 @@ function CreateEntertainmentPageInner() {
 
       if (editId) {
         await submitContentChange("service", editId, payload);
+        router.push("/dashboard/entertainment");
       } else {
         const { error: insertError } = await supabase
           .from("services")
@@ -390,9 +392,8 @@ function CreateEntertainmentPageInner() {
           .insert({ ...payload, owner_id: user.id, status: "pending" } as any);
 
         if (insertError) throw insertError;
+        router.push("/dashboard/entertainment");
       }
-
-      router.push("/dashboard/entertainment");
     } catch (err) {
       setError(
         isContentChangeError(err)

@@ -7,7 +7,6 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import {
   Home,
-  Building2,
   Bus,
   Briefcase,
   Wrench,
@@ -19,19 +18,27 @@ import {
   ChevronRight,
   LogOut,
   Wallet,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddListingButton } from "@/components/shared/AddListingButton";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { roleHomePath } from "@/lib/cabinets";
 import { useNotifications } from "@/lib/hooks/useNotifications";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 
+// Apartments and hotels share one entry, "ბინები" (owner's PDF 2026-10-06):
+// /apartments lists hotels too. /hotels still exists and lights this entry up.
 const navItemKeys = [
-  { key: "apartments" as const, href: "/apartments", icon: Home },
-  { key: "hotels" as const, href: "/hotels", icon: Building2 },
+  {
+    key: "apartments" as const,
+    href: "/apartments",
+    icon: Home,
+    alsoActive: ["/hotels"],
+  },
   { key: "transport" as const, href: "/transport", icon: Bus },
   { key: "employment" as const, href: "/employment", icon: Briefcase },
   { key: "services" as const, href: "/services", icon: Wrench },
@@ -72,13 +79,16 @@ export function Navbar() {
   const [profile, setProfile] = useState<{
     display_name: string;
     avatar_url: string | null;
+    role: string;
   } | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [smsRemaining, setSmsRemaining] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) {
       setProfile(null);
       setBalance(null);
+      setSmsRemaining(null);
       return;
     }
     let cancelled = false;
@@ -87,18 +97,21 @@ export function Navbar() {
       const [profileRes, balanceRes] = await Promise.all([
         supabase
           .from("profiles")
-          .select("display_name, avatar_url")
+          .select("display_name, avatar_url, role")
           .eq("id", user!.id)
           .single(),
         supabase
           .from("balances")
-          .select("amount")
+          .select("amount, sms_remaining")
           .eq("user_id", user!.id)
           .single(),
       ]);
       if (cancelled) return;
       if (profileRes.data) setProfile(profileRes.data);
-      if (balanceRes.data) setBalance(Number(balanceRes.data.amount));
+      if (balanceRes.data) {
+        setBalance(Number(balanceRes.data.amount));
+        setSmsRemaining(Number(balanceRes.data.sms_remaining));
+      }
     }
 
     const deferFetch = () => {
@@ -122,6 +135,10 @@ export function Navbar() {
       clearTimeout(timeoutId);
     };
   }, [user]);
+
+  // Straight to the user's cabinet once the role is known; /dashboard would
+  // only redirect there after a full dashboard layout render.
+  const dashboardHref = profile ? roleHomePath(profile.role) : "/dashboard";
 
   // The public bell is intentionally cross-cabinet, so it always opens the
   // aggregate inbox rather than whichever cabinet happens to be primary.
@@ -226,10 +243,10 @@ export function Navbar() {
           <Image
             src="/logo.png"
             alt="MyBakuriani"
-            width={300}
-            height={199}
+            width={124}
+            height={50}
             priority
-            className="h-10 w-auto lg:h-12"
+            className="h-8 w-auto sm:h-10 lg:h-12"
           />
         </Link>
 
@@ -251,7 +268,7 @@ export function Navbar() {
               dashboard layout (auth + the dashboard_layout_data RPC) server-side
               on every public page view, for a link most visitors never click. */}
           {user && (
-            <Link href="/dashboard" prefetch={false}>
+            <Link href={dashboardHref} prefetch={false}>
               <Button
                 variant="outline"
                 className="gap-1.5 rounded-xl border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-bold leading-5 text-[#334155]"
@@ -262,6 +279,13 @@ export function Navbar() {
                 <ChevronRight className="size-4 text-[#94A3B8]" />
               </Button>
             </Link>
+          )}
+          {user && (
+            <div className="flex h-8 shrink-0 items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-[13px] font-bold leading-5 text-[#334155]">
+              <MessageSquare className="size-4" />
+              {smsRemaining !== null ? smsRemaining : "..."}
+              {t("smsSuffix")}
+            </div>
           )}
           {user && (
             <NotificationBell
@@ -292,7 +316,7 @@ export function Navbar() {
           )}
           {user && (
             <Link
-              href="/dashboard"
+              href={dashboardHref}
               prefetch={false}
               aria-label={t("profile")}
               className="flex size-11 items-center justify-center overflow-hidden rounded-full border-2 border-[#DBEAFE] bg-[#F8FAFC] transition-colors hover:bg-[#EFF6FF] lg:size-10"
@@ -352,8 +376,9 @@ export function Navbar() {
           <div className="mx-auto flex h-[94px] max-w-[1160px] items-center justify-center gap-6 px-4 lg:gap-[60px] xl:gap-[104px]">
             {navItemKeys.map((item) => {
               const Icon = item.icon;
-              const isActive =
-                pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const isActive = [item.href, ...(item.alsoActive ?? [])].some(
+                (href) => pathname === href || pathname.startsWith(`${href}/`),
+              );
               return (
                 <Link
                   key={item.href}
@@ -450,8 +475,19 @@ export function Navbar() {
                       {balance !== null ? `${balance.toFixed(2)} ₾` : "..."}
                     </span>
                   </div>
+                  <div className="flex items-center justify-between rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-[13px] font-bold leading-5 text-[#334155]">
+                    <span className="flex items-center gap-2">
+                      <MessageSquare className="size-4 text-[#64748B]" />
+                      {t("smsSuffix").trim()}
+                    </span>
+                    <span
+                      className={smsRemaining !== null ? "" : "text-[#94A3B8]"}
+                    >
+                      {smsRemaining !== null ? smsRemaining : "..."}
+                    </span>
+                  </div>
                   <Link
-                    href="/dashboard"
+                    href={dashboardHref}
                     prefetch={false}
                     onClick={() => setMobileOpen(false)}
                   >

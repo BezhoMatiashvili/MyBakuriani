@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useId } from "react";
+import { flushSync } from "react-dom";
 import {
   Search,
   ChevronDown,
@@ -76,11 +77,13 @@ export interface SaleSearchFilters {
   roiMin: number | null; // 5 | 8 | 10 | null
   constructionStatus: string | null; // "completed" | "under_construction" | null
   renovationStatus: string | null; // "black_frame" | "white_frame" | "furnished" | null
+  keyword: string;
 }
 
 type SaleTab = "search" | "appraise";
 
 type SaleActiveDropdown =
+  | "location"
   | "type"
   | "rooms"
   | "filters"
@@ -123,12 +126,14 @@ interface SaleSearchBoxProps {
 // translation keys at render time.
 
 const PROPERTY_TYPES = [
+  { value: "flat", labelKey: "typeFlat" },
   { value: "apartment", labelKey: "typeApartment" },
-  { value: "studio", labelKey: "typeStudio" },
-  { value: "villa", labelKey: "typeVilla" },
-  { value: "land", labelKey: "typeLand" },
-  { value: "cottage", labelKey: "typeCottage" },
   { value: "hotel", labelKey: "typeHotel" },
+  { value: "cottage", labelKey: "typeCottage" },
+  { value: "villa", labelKey: "typeVilla" },
+  { value: "house", labelKey: "typeHouse" },
+  { value: "studio", labelKey: "typeStudio" },
+  { value: "land", labelKey: "typeLand" },
 ];
 
 const ROOM_OPTIONS = [1, 2, 3, 4] as const;
@@ -188,7 +193,6 @@ const RENOVATION_OPTIONS: Array<{ value: string | null; labelKey: string }> = [
 const PRICE_MIN = 0;
 const PRICE_MAX = 1_000_000;
 const PRICE_STEP = 5_000;
-const DEFAULT_PRICE_MIN = 30_000;
 const DEFAULT_PRICE_MAX = 500_000;
 
 const AREA_MIN = 0;
@@ -220,15 +224,22 @@ export function SaleSearchBox({
 }: SaleSearchBoxProps) {
   const t = useTranslations("SaleSearchBox");
   const tZones = useTranslations("Zones");
+  // Keyword strings are the rental box's own, so both boxes read the same.
+  const tSearch = useTranslations("SearchBox");
   // Tabs
   const [tab, setTab] = useState<SaleTab>("search");
 
   // Existing filter state
+  // Zone name_ka ("" = any) — the listing's address as stored in
+  // properties.location; /sales/all matches it with `?location=`.
+  const [location, setLocation] = useState("");
   const [propertyType, setPropertyType] = useState("");
   const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
   const [priceMin, setPriceMin] = useState<string>("");
   const [priceMax, setPriceMax] = useState<string>("");
   const [cadastralCode, setCadastralCode] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const keywordInputId = useId();
   const [rooms, setRooms] = useState<number[]>([]);
   const [areaMin, setAreaMin] = useState(DEFAULT_AREA_MIN);
   const [areaMax, setAreaMax] = useState(DEFAULT_AREA_MAX);
@@ -393,13 +404,13 @@ export function SaleSearchBox({
     setActiveDropdown(null);
   }, [mobileFilterDraft]);
 
-  const priceMinNum = priceMin ? Number(priceMin) || DEFAULT_PRICE_MIN : 0;
+  const priceMinNum = priceMin ? Number(priceMin) : PRICE_MIN;
   const priceMaxNum = priceMax
     ? Number(priceMax) || DEFAULT_PRICE_MAX
     : PRICE_MAX;
   const mobileDraftPriceMin = mobileFilterDraft?.priceMin
-    ? Number(mobileFilterDraft.priceMin) || DEFAULT_PRICE_MIN
-    : 0;
+    ? Number(mobileFilterDraft.priceMin)
+    : PRICE_MIN;
   const mobileDraftPriceMax = mobileFilterDraft?.priceMax
     ? Number(mobileFilterDraft.priceMax) || DEFAULT_PRICE_MAX
     : PRICE_MAX;
@@ -411,10 +422,12 @@ export function SaleSearchBox({
       setAppraisalResult(null);
       try {
         const supabase = createClient();
+        // The `properties` base table only returns the viewer's own rows (RLS),
+        // so every zone came back empty. `public_properties` is the public,
+        // active-only view the landing zone cards already aggregate from.
         const { data, error } = await supabase
-          .from("properties")
+          .from("public_properties")
           .select("sale_price, area_sqm, location_lat, location_lng")
-          .eq("status", "active")
           .eq("is_for_sale", true)
           .not("sale_price", "is", null);
 
@@ -501,7 +514,7 @@ export function SaleSearchBox({
     const resolvedAreaMax = areaBucket ? bucketRange.max : areaMax;
 
     onSearch({
-      location: "",
+      location,
       propertyType,
       propertyTypes,
       priceMin: priceMinNum,
@@ -515,9 +528,13 @@ export function SaleSearchBox({
       roiMin,
       constructionStatus,
       renovationStatus,
+      keyword,
     });
   };
 
+  const locationLabel = location
+    ? zoneDisplayName(zones, tZones, location)
+    : t("anyOption");
   const selectedType = PROPERTY_TYPES.find((o) => o.value === propertyType);
   const propertyTypeLabel = selectedType
     ? t(selectedType.labelKey)
@@ -575,7 +592,7 @@ export function SaleSearchBox({
       )}
     >
       {/* ═══ Tab row ═══ */}
-      <div className="mb-4 flex items-center gap-6 border-b border-[#F1F5F9] px-2">
+      <div className="mb-4 flex items-end gap-6 border-b border-[#F1F5F9] px-2">
         <TabButton
           active={tab === "search"}
           onClick={() => {
@@ -594,12 +611,43 @@ export function SaleSearchBox({
         >
           {t("tabSellAppraise")}
         </TabButton>
+        {/* Desktop keyword field: here, not in the pill below, where it would
+            squeeze the price inputs (see the quick-filter row's comment). */}
+        {tab === "search" && (
+          <div className="relative ml-auto hidden w-[260px] pb-1.5 lg:block">
+            <Search className="pointer-events-none absolute left-4 top-[calc(50%-3px)] size-4 -translate-y-1/2 text-[#94A3B8]" />
+            <input
+              type="text"
+              placeholder={tSearch("keywordSearchShort")}
+              aria-label={tSearch("keywordSearch")}
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              className="h-[45.5px] w-full rounded-full border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-5 text-[13px] font-medium text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#16A34A] focus:bg-white"
+            />
+          </div>
+        )}
       </div>
 
       {tab === "search" ? (
         <>
           {/* ═══ Mobile: stacked ═══ */}
           <div className="grid grid-cols-1 gap-3 lg:hidden">
+            <MobileField
+              label={t("locationZone")}
+              value={locationLabel}
+              onClick={() => toggleDropdown("location")}
+              open={activeDropdown === "location"}
+            >
+              <ZoneList
+                value={location}
+                zones={zones}
+                onSelect={(v) => {
+                  setLocation(v);
+                  setActiveDropdown(null);
+                }}
+              />
+            </MobileField>
+
             <MobileField
               label={t("fieldType")}
               value={propertyTypeLabel}
@@ -670,6 +718,26 @@ export function SaleSearchBox({
                 })}
               </div>
             </MobileField>
+
+            <div>
+              <label
+                htmlFor={keywordInputId}
+                className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]"
+              >
+                {tSearch("keywordSearch")}
+              </label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]" />
+                <input
+                  id={keywordInputId}
+                  type="text"
+                  placeholder={tSearch("keywordSearchShort")}
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  className="h-11 w-full rounded-lg border border-[#E2E8F0] bg-white pl-9 pr-3 text-base text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#16A34A]"
+                />
+              </div>
+            </div>
 
             <div className="flex gap-2">
               <button
@@ -866,7 +934,27 @@ export function SaleSearchBox({
 
           {/* ═══ Investment quick-filter row (ROI / Area / Status / Renovation) ═══ */}
           {showInvestmentFilters && (
-            <div className="mt-4 hidden grid-cols-4 gap-4 lg:grid">
+            // Location lives here on desktop, not in the pill: a fourth pill
+            // field squeezed the price inputs to ~18px at 1280px.
+            <div className="mt-4 hidden grid-cols-5 gap-4 lg:grid">
+              <QuickSelect
+                label={t("locationZone")}
+                value={locationLabel}
+                active={activeDropdown === "location"}
+                onToggle={() => toggleDropdown("location")}
+              >
+                <div className="p-1">
+                  <ZoneList
+                    value={location}
+                    zones={zones}
+                    onSelect={(v) => {
+                      setLocation(v);
+                      setActiveDropdown(null);
+                    }}
+                  />
+                </div>
+              </QuickSelect>
+
               <QuickSelect
                 label={t("quickRoi")}
                 value={roiLabel}
@@ -1379,6 +1467,45 @@ function TypeList({
   );
 }
 
+function ZoneList({
+  value,
+  onSelect,
+  zones,
+}: {
+  value: string;
+  onSelect: (v: string) => void;
+  zones: Zone[];
+}) {
+  const t = useTranslations("SaleSearchBox");
+  const tZones = useTranslations("Zones");
+  const options = [
+    { value: "", label: t("anyOption") },
+    ...zones.map((z) => ({
+      value: z.name_ka,
+      label: zoneDisplayName(zones, tZones, z.name_ka),
+    })),
+  ];
+  return (
+    <ul className="flex max-h-[320px] flex-col overflow-y-auto">
+      {options.map((option) => (
+        <li key={option.value || "any"}>
+          <button
+            type="button"
+            onClick={() => onSelect(option.value)}
+            className={cn(
+              "flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-[14px] font-bold text-[#1E293B] hover:bg-[#F8FAFC]",
+              value === option.value && "bg-[#F0FDF4] text-[#16A34A]",
+            )}
+          >
+            {option.label}
+            {value === option.value && <Check className="size-4" />}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 // ─── Appraisal pane ────────────────────────────────────────────────────
 
 function AppraisalPane({
@@ -1575,6 +1702,88 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 // ─── Advanced filters panel + range sliders ───────────────────────────
 
+// Min/max box under a range slider: shows the formatted value and edits the
+// raw number on focus. In-range values apply while typing (the thumb follows);
+// anything else is clamped to [min, max] on blur or Enter.
+function RangeBoundInput({
+  label,
+  value,
+  display,
+  min,
+  max,
+  side,
+  onChange,
+  focusClassName,
+  testId,
+}: {
+  label: string;
+  value: number;
+  display: string;
+  min: number;
+  max: number;
+  /** An emptied box falls back to its open end: `min` for "min", `max` for "max". */
+  side: "min" | "max";
+  onChange: (v: number) => void;
+  focusClassName: string;
+  testId: string;
+}) {
+  const id = useId();
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const commit = () => {
+    if (draft === null) return;
+    const typed = draft === "" ? (side === "min" ? min : max) : Number(draft);
+    const next = Math.min(max, Math.max(min, typed));
+    // Focusing and leaving must not turn an unset bound into an active filter.
+    if (next !== value) onChange(next);
+    setDraft(null);
+  };
+
+  return (
+    <label
+      htmlFor={id}
+      className={cn(
+        "flex h-[41px] min-w-0 flex-1 cursor-text items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4 transition-colors",
+        focusClassName,
+      )}
+    >
+      <span className="shrink-0 text-[11px] font-bold text-[#94A3B8]">
+        {label}
+      </span>
+      <input
+        id={id}
+        type="text"
+        inputMode="numeric"
+        data-testid={testId}
+        value={draft ?? display}
+        onFocus={(e) => {
+          // Swap the formatted text for the raw number now, then select it,
+          // so whatever is typed next replaces the whole value.
+          flushSync(() => setDraft(String(value)));
+          e.currentTarget.select();
+        }}
+        onChange={(e) => {
+          const raw = e.target.value.replace(/\D/g, "");
+          setDraft(raw);
+          const typed = Number(raw);
+          if (raw && typed >= min && typed <= max && typed !== value) {
+            onChange(typed);
+          }
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          // Apply the value instead of submitting the whole search form.
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+        }}
+        className="w-full min-w-0 bg-transparent text-right text-[13px] font-extrabold text-[#0F172A] outline-none"
+      />
+    </label>
+  );
+}
+
 function PriceRangePanel({
   priceMin,
   priceMax,
@@ -1624,22 +1833,28 @@ function PriceRangePanel({
         />
       </div>
       <div className="mt-5 flex gap-3">
-        <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-          <span className="text-[11px] font-bold text-[#94A3B8]">
-            {t("minLabel")}
-          </span>
-          <span className="text-[13px] font-extrabold text-[#0F172A]">
-            {formatUsd(priceMin)}
-          </span>
-        </div>
-        <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-          <span className="text-[11px] font-bold text-[#94A3B8]">
-            {t("maxLabel")}
-          </span>
-          <span className="text-[13px] font-extrabold text-[#0F172A]">
-            {formatUsd(priceMax)}
-          </span>
-        </div>
+        <RangeBoundInput
+          label={t("minLabel")}
+          value={priceMin}
+          display={formatUsd(priceMin)}
+          min={PRICE_MIN}
+          max={priceMax - 1}
+          side="min"
+          onChange={onChangeMin}
+          focusClassName="focus-within:border-[#16A34A]"
+          testId="sale-filter-price-min"
+        />
+        <RangeBoundInput
+          label={t("maxLabel")}
+          value={priceMax}
+          display={formatUsd(priceMax)}
+          min={priceMin + 1}
+          max={PRICE_MAX}
+          side="max"
+          onChange={onChangeMax}
+          focusClassName="focus-within:border-[#16A34A]"
+          testId="sale-filter-price-max"
+        />
       </div>
     </div>
   );
@@ -2046,24 +2261,32 @@ function AreaRangePanel({
         />
       </div>
       <div className="mt-5 flex gap-3">
-        <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-          <span className="text-[11px] font-bold text-[#94A3B8]">
-            {t("minLabel")}
-          </span>
-          <span className="text-[13px] font-extrabold text-[#0F172A]">
-            {t("sqmValue", { value: areaMin })}
-          </span>
-        </div>
-        <div className="flex h-[41px] flex-1 items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-4">
-          <span className="text-[11px] font-bold text-[#94A3B8]">
-            {t("maxLabel")}
-          </span>
-          <span className="text-[13px] font-extrabold text-[#0F172A]">
-            {areaMax === AREA_MAX_SLIDER
+        <RangeBoundInput
+          label={t("minLabel")}
+          value={areaMin}
+          display={t("sqmValue", { value: areaMin })}
+          min={AREA_MIN}
+          max={areaMax - 1}
+          side="min"
+          onChange={onChangeMin}
+          focusClassName="focus-within:border-[#1E419A]"
+          testId="sale-filter-area-min"
+        />
+        <RangeBoundInput
+          label={t("maxLabel")}
+          value={areaMax}
+          display={
+            areaMax === AREA_MAX_SLIDER
               ? t("sqmValuePlus", { value: areaMax })
-              : t("sqmValue", { value: areaMax })}
-          </span>
-        </div>
+              : t("sqmValue", { value: areaMax })
+          }
+          min={areaMin + 1}
+          max={AREA_MAX_SLIDER}
+          side="max"
+          onChange={onChangeMax}
+          focusClassName="focus-within:border-[#1E419A]"
+          testId="sale-filter-area-max"
+        />
       </div>
     </div>
   );

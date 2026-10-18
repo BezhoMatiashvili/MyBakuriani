@@ -1,8 +1,9 @@
 "use client";
 
-import { Clock } from "lucide-react";
+import { Clock, Sparkles } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { LISTING_PILL } from "@/components/shared/listingPill";
 import {
   formatRelativeGe,
   isListingNewlyAdded,
@@ -44,16 +45,18 @@ export function NewlyAddedBadge({
   const t = useTranslations("Shared");
   if (!isListingNewlyAdded(createdAt)) return null;
 
+  // Built like the green "verified" card pill (icon + text, px-3, 12 px icon,
+  // 6 px gap at 11 px). Icon and gap are in em so a caller's smaller phone
+  // text (the /food grid's 8 px) shrinks them too; truncation happens on the
+  // label, since an ellipsis on the flex parent does not show beside the icon.
   return (
     <span
       data-newly-added
       suppressHydrationWarning
-      className={cn(
-        "inline-flex items-center rounded-full bg-[#22C55E] px-2.5 py-1 text-[9px] font-bold leading-none text-white shadow-[0px_1px_2px_rgba(0,0,0,0.12)]",
-        className,
-      )}
+      className={cn(LISTING_PILL, "gap-[0.55em] bg-[#2563EB] px-3", className)}
     >
-      {t("newlyAdded")}
+      <Sparkles aria-hidden className="size-[1.1em] shrink-0" />
+      <span className="min-w-0 truncate">{t("newlyAdded")}</span>
     </span>
   );
 }

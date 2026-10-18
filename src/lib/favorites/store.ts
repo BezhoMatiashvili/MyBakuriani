@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { trackAnalyticsEvent } from "@/lib/analytics/track-client";
 
 type Listener = () => void;
 
@@ -138,6 +139,8 @@ export function setFavorite(
       // unique index is authoritative; reconcile only that specific outcome.
       if (error && error.code !== "23505") throw error;
       setFavoriteLocal(target, true);
+      // Admin analytics "saves" (C49): only a row this call created.
+      if (!error) trackAnalyticsEvent("save", target.id);
       return;
     }
 

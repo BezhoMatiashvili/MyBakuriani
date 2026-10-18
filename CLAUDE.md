@@ -50,12 +50,12 @@ Define success criteria. Loop until verified.
 - **React**: 19.1 with Server Components
 - **Styling**: Tailwind CSS 4 + shadcn/ui (New York style, Slate base, CSS variables)
 - **Database**: Supabase (PostgreSQL) with RLS policies
-- **Auth**: Supabase Phone OTP (+995 Georgian numbers) via `@supabase/ssr` 0.9
+- **Auth**: Supabase email + password, Google OAuth and phone (SMS code) via `@supabase/ssr` 0.9. Phone sign-in came back 2026-10-06 on staging only: Supabase's Send SMS hook calls the `auth-send-sms` edge function, which texts the code through uBill, and the UI shows only with `NEXT_PUBLIC_PHONE_AUTH_ENABLED=true` (C48). Facebook was removed 2026-09-22
 - **Backend**: Supabase Edge Functions (Deno)
 - **Storage**: Supabase Storage (`property-photos` bucket)
-- **Maps**: Mapbox GL JS (`mapbox-gl` npm package, `light-v11` style; `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, a public "pk." token safe for client exposure). Same provider as the Directions API used for the landing road badge. Default attribution control must stay enabled (Mapbox ToS requirement for any rendered map).
+- **Maps**: Mapbox GL JS (`mapbox-gl` npm package, `light-v11` style; `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, a public "pk." token safe for client exposure). Default attribution control must stay enabled (Mapbox ToS requirement for any rendered map).
 - **Weather**: WeatherAPI.com (server-only key; free-tier attribution required — rendered in `Footer`)
-- **Routing**: FOSSGIS OSRM (`routing.openstreetmap.de/routed-car`, no API key) for the landing road badge, called server-side only. FOSSGIS terms require an app-identifying User-Agent plus ODbL attribution + a `fixthemap` link — both rendered in `Footer`
+- **Routing**: Mapbox Directions API, `driving-traffic` profile — replaced the keyless FOSSGIS OSRM fetch that ran here before 2026-09. Server-side (secret `MAPBOX_ACCESS_TOKEN`) for the landing road badge's fixed Tbilisi→Bakuriani estimate (`src/lib/road-condition/server.ts`). Client-side (public `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`) for the personalized, geolocation-based road card (`src/lib/maps/directions.ts`). Listing detail maps only link to Google Maps directions ("Google Maps-ში გახსნა", since 2026-10-13, C38)
 - **Animations**: Framer Motion 12
 - **Font**: Noto Sans Georgian (Google Fonts)
 - **Deployment**: DigitalOcean App Platform (`mybakuriani-prod` on `main`, `mybakuriani-staging` on `staging`, both Singapore/SGP1) + Supabase Cloud
@@ -72,7 +72,9 @@ Premium real estate rental/sales + services marketplace for Bakuriani ski resort
 - Dev: `npm run dev` (uses Turbopack)
 - Build: `npm run build`
 - Lint: `npm run lint`
-- Generate DB types: `npx supabase gen types typescript --project-id YOUR_PROJECT_ID > src/lib/types/database.ts`
+- Generate DB types: `npm run types:gen` (writes `src/lib/types/database.generated.ts`; never hand-edit it — overrides go in `database.ts`). `npm run types:check` diffs without writing
+- Contract checks: `npm run check:contracts` (repo-only, also in `prebuild`) and `npm run check:db-contracts` (against the project in `.env.local`)
+- Unit tests: `npm test` (pure domain modules under `scripts/unit/`, plus config/auth suites)
 
 ### Testing — ALWAYS use localhost
 
@@ -123,7 +125,7 @@ guest, renter, seller, cleaner, food, entertainment, transport, employment, hand
 1. ~~Project setup (Next.js + deps)~~ — DONE
 2. ~~Shared components (Navbar, Footer, cards, forms)~~ — DONE
 3. ~~Public pages (landing, listings, detail pages, search)~~ — DONE
-4. ~~Auth (phone OTP login, registration)~~ — DONE
+4. ~~Auth (email/password + Google OAuth login, registration)~~ — DONE
 5. ~~Listing creation forms (multi-step, category-specific)~~ — DONE
 6. ~~Dashboards (guest, renter, seller, cleaner, service, food, admin)~~ — DONE
 7. ~~Edge functions (search, smart-match, bookings, balance, admin)~~ — DONE (9 functions deployed)
@@ -132,7 +134,7 @@ guest, renter, seller, cleaner, food, entertainment, transport, employment, hand
 ### What's Built
 
 **Public pages**: landing, apartments, hotels, sales, food, services, entertainment, transport, employment, blog, FAQ, contact, terms, search
-**Auth**: login (phone OTP), register, callback
+**Auth**: login (email/password + Google OAuth), register, callback
 **Create forms**: rental, sale, food, service, entertainment, transport, employment
 **Dashboards**: guest (bookings/profile/reviews), renter (calendar/balance/listings/smart-match/profile), seller (listings), cleaner (schedule/earnings), food (orders), service (orders), admin (KPIs/verifications/clients/listings/analytics/settings)
 **Components**: booking (sidebar/calendar/date-picker), cards (property/review/service/skeleton/smart-match/stat), detail (photo gallery), forms (listing/phone-input/photo-uploader), layout (navbar/footer/dashboard-sidebar/mobile-bottom-nav), search (filter-panel/rent-buy-toggle), maps (BakurianiMap with Google Maps + fallback), shared (bottom-sheet/modal/scroll-reveal)
@@ -173,29 +175,20 @@ SUPABASE_SERVICE_ROLE_KEY
 NEXT_PUBLIC_SITE_URL
 ```
 
-## Memory bank (always-loaded)
+## Contracts (always-loaded)
 
-@memory-bank/INDEX.md
-@memory-bank/contracts.md
+@docs/contracts.md
 
-The two imports above load every session: the project map + where "truth" lives,
-and the cross-cutting contracts (string-keyed / generated / wire couplings a
-call-graph tool can't see). Area detail (`memory-bank/areas/*.md`) and the symbol
-inventory (`memory-bank/generated/symbols.md`) are **read on demand** — they are
-plain links, not `@import`, so they don't bloat every session.
+The import above loads the cross-cutting contracts every session: string-keyed /
+generated / wire couplings a call-graph tool can't see. `scripts/check-contracts.mjs`
+and `scripts/check-db-contracts.mjs` enforce the mechanically comparable ones (C29).
 
 ### Standing rules
 
-- **Pre-modification ritual** (before editing any symbol): open the matching
-  `memory-bank/areas/<area>.md`, scan `contracts.md` for that symbol, then grep the
-  symbol repo-wide (string-keyed couplings won't show as imports). Full steps in
-  `INDEX.md`.
-- **Keep memory in sync in the SAME session:** if a change touches a participant of
-  any contract, update that `contracts.md` section (and the area file if its blast
-  radius changed) in the same session as the code change. If you add/rename/remove
-  exported symbols, regenerate the inventory: `python3 scripts/gen_code_map.py`.
-- **Validate anchors:** run `python3 scripts/gen_code_map.py --check` after editing
-  anything under `memory-bank/`; fix dangling anchors before finishing.
+- **Before editing a symbol:** scan `docs/contracts.md` for it, then grep it
+  repo-wide (string-keyed couplings won't show as imports).
+- **Keep contracts in sync in the SAME session:** if a change touches a participant
+  of any contract, update that section in the same session as the code change.
 - **Never `git commit` without asking the user.**
 
 ## Multi-session coordination

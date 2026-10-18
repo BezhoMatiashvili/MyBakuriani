@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import { safeInternalPath } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
+
+// The lock page answers 200 for every URL while the site is locked, so without
+// this Google could index it as the home page. middleware adds the same
+// directive as an X-Robots-Tag header (C40).
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function SiteLockedPage({
   searchParams,

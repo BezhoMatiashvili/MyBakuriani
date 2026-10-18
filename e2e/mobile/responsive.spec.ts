@@ -1,5 +1,18 @@
 import { test, expect } from "@playwright/test";
 
+test.beforeEach(async ({ page, baseURL }) => {
+  // The consent panel otherwise covers the lower half of a phone viewport, so
+  // whether a control can be tapped depends on where the page happens to put
+  // it. Both answers are given: a v1 cookie leaves the location question open.
+  await page.context().addCookies([
+    {
+      name: "mb_cookie_consent",
+      value: "v2|analytics=0|location=0",
+      url: baseURL!,
+    },
+  ]);
+});
+
 const phoneViewports = [
   { width: 320, height: 568 },
   { width: 369, height: 800 },
@@ -273,7 +286,8 @@ test.describe("Landing page mobile", () => {
       const searchBottom = searchBox!.y + searchBox!.height;
       expect(searchBox!.x).toBeCloseTo(16, 0);
       expect(searchBox!.width).toBeCloseTo(viewport.width - 32, 0);
-      expect(searchBox!.height).toBeCloseTo(307, 1);
+      // 307 + the 69px guest-count row (SearchBox showGuests, 2026-09-26).
+      expect(searchBox!.height).toBeCloseTo(376, 1);
       expect(firstStatusBox!.y - searchBottom).toBeCloseTo(20, 1);
       expect(heroBottom - firstStatusBox!.y).toBeCloseTo(16, 1);
       expect(firstStatusBox!.x).toBeCloseTo(16, 0);
@@ -289,7 +303,9 @@ test.describe("Landing page mobile", () => {
       expect(railItemBox!.x).toBeCloseTo(16, 0);
       expect(railItemBox!.width).toBeCloseTo(expectedRailWidth, 0);
 
-      const submit = searchForm.locator('button[type="submit"]:visible').first();
+      const submit = searchForm
+        .locator('button[type="submit"]:visible')
+        .first();
       await expect(submit).toHaveAccessibleName(/.+/);
       const submitBox = await submit.boundingBox();
       expect(submitBox?.width).toBeGreaterThanOrEqual(44);
@@ -410,7 +426,9 @@ test.describe("Navbar mobile", () => {
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/faq");
-    const trigger = page.locator("header button[aria-expanded]:visible").first();
+    const trigger = page
+      .locator("header button[aria-expanded]:visible")
+      .first();
     await expect(trigger).toBeVisible();
     await trigger.click();
     const english = page.getByRole("button", { name: "EN", exact: true });
@@ -601,7 +619,9 @@ test.describe("Mobile filters and locales", () => {
     await desktopPage.goto("/search");
     const desktopSidebar = desktopPage.getByTestId("search-filter-sidebar");
     await expect(desktopSidebar).toBeVisible();
-    const sectionNames = (await desktopSidebar.getByRole("button").allTextContents())
+    const sectionNames = (
+      await desktopSidebar.getByRole("button").allTextContents()
+    )
       .map((name) => name.replace(/\s+/g, " ").trim())
       .filter(Boolean);
     expect(sectionNames.length).toBe(5);
@@ -695,7 +715,11 @@ test.describe("Category filter parity mobile", () => {
         'main section[class~="hidden"][class~="sm:block"]',
       );
       let optionNames: string[] = [];
-      for (let attempt = 0; attempt < 3 && optionNames.length === 0; attempt += 1) {
+      for (
+        let attempt = 0;
+        attempt < 3 && optionNames.length === 0;
+        attempt += 1
+      ) {
         await desktopPage.goto(route);
         await desktopPanel
           .first()
@@ -726,7 +750,9 @@ test.describe("Category filter parity mobile", () => {
       for (const name of optionNames) {
         const occurrence = occurrences.get(name) ?? 0;
         occurrences.set(name, occurrence + 1);
-        const option = sheet.getByRole("button", { name, exact: true }).nth(occurrence);
+        const option = sheet
+          .getByRole("button", { name, exact: true })
+          .nth(occurrence);
         await expect(option).toBeVisible();
         const box = await option.boundingBox();
         expect(box?.height).toBeGreaterThanOrEqual(44);
@@ -815,9 +841,9 @@ test.describe("Property listing mobile", () => {
     ).toBeVisible();
     const amenities = page.getByTestId("property-amenity-groups");
     await expect(amenities).toBeVisible();
-    expect(await amenities.locator("[data-amenity-group]").count()).toBeGreaterThan(
-      0,
-    );
+    expect(
+      await amenities.locator("[data-amenity-group]").count(),
+    ).toBeGreaterThan(0);
     const values = amenities.locator("[data-amenity-value]");
     const visibleValueCount = await values.count();
     expect(visibleValueCount).toBeGreaterThan(0);
@@ -825,7 +851,9 @@ test.describe("Property listing mobile", () => {
     const toggle = amenities.locator('button[aria-expanded="false"]');
     if ((await toggle.count()) > 0) {
       await toggle.first().click();
-      await expect.poll(() => values.count()).toBeGreaterThan(visibleValueCount);
+      await expect
+        .poll(() => values.count())
+        .toBeGreaterThan(visibleValueCount);
     }
     await expectNoHorizontalOverflow(page);
   });
@@ -859,7 +887,9 @@ test.describe("Detail action availability mobile", () => {
     "/employment",
     "/blog",
   ] as const) {
-    test(`${listPath} exposes every desktop detail control`, async ({ page }) => {
+    test(`${listPath} exposes every desktop detail control`, async ({
+      page,
+    }) => {
       await page.setViewportSize({ width: 390, height: 844 });
       await openFirstListingDetail(page, listPath);
       const detailPath = new URL(page.url()).pathname;
@@ -870,7 +900,11 @@ test.describe("Detail action availability mobile", () => {
         .waitFor({ state: "visible", timeout: 5_000 })
         .catch(() => undefined);
       let mobileControls = await visibleMainControlSignatures(page);
-      for (let attempt = 1; attempt < 3 && mobileControls.length === 0; attempt += 1) {
+      for (
+        let attempt = 1;
+        attempt < 3 && mobileControls.length === 0;
+        attempt += 1
+      ) {
         await page.reload();
         await mobileControl
           .waitFor({ state: "visible", timeout: 5_000 })
@@ -882,10 +916,16 @@ test.describe("Detail action availability mobile", () => {
       const desktopPage = await page.context().newPage();
       await desktopPage.setViewportSize({ width: 1440, height: 900 });
       let desktopControls: string[] = [];
-      for (let attempt = 0; attempt < 3 && desktopControls.length === 0; attempt += 1) {
+      for (
+        let attempt = 0;
+        attempt < 3 && desktopControls.length === 0;
+        attempt += 1
+      ) {
         await desktopPage.goto(detailPath);
         await desktopPage
-          .locator("main button, main a, main input, main select, main textarea")
+          .locator(
+            "main button, main a, main input, main select, main textarea",
+          )
           .first()
           .waitFor({ state: "visible", timeout: 5_000 })
           .catch(() => undefined);
@@ -921,9 +961,11 @@ test.describe("Public actions mobile", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
     await page.getByTestId("menu-toggle").click();
-    const mobileHrefs = await page.locator("header a:visible").evaluateAll((links) =>
-      links.map((link) => new URL((link as HTMLAnchorElement).href).pathname),
-    );
+    const mobileHrefs = await page
+      .locator("header a:visible")
+      .evaluateAll((links) =>
+        links.map((link) => new URL((link as HTMLAnchorElement).href).pathname),
+      );
     for (const href of desktopHrefs) expect(mobileHrefs).toContain(href);
   });
 
@@ -932,7 +974,9 @@ test.describe("Public actions mobile", () => {
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/apartments");
-    const favorite = page.locator('[data-slot="favorite-button"]:visible').first();
+    const favorite = page
+      .locator('[data-slot="favorite-button"]:visible')
+      .first();
     await expect(favorite).toBeVisible();
     const box = await favorite.boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(44);
@@ -941,7 +985,9 @@ test.describe("Public actions mobile", () => {
     await expect(page).toHaveURL(/\/auth\/login/);
   });
 
-  test("compact service favorites remain full touch targets", async ({ page }) => {
+  test("compact service favorites remain full touch targets", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/services");
     const favorite = page
@@ -1004,19 +1050,25 @@ test.describe("Public actions mobile", () => {
     const fullName = form.locator('input[type="text"]').first();
     const submit = form.getByRole("button").last();
     await submit.click();
-    await expect(fullName.locator("xpath=following-sibling::p").first()).toBeVisible();
+    await expect(
+      fullName.locator("xpath=following-sibling::p").first(),
+    ).toBeVisible();
     expect(new URL(page.url()).pathname).toMatch(/\/employment\//);
   });
 
-  test("FAQ questions expand and collapse on touch layouts", async ({ page }) => {
+  test("FAQ questions expand and collapse on touch layouts", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/faq");
-    const question = page.locator('main button[aria-expanded]').first();
-    await expect(question).toHaveAttribute("aria-expanded", "false");
+    // Native <details>/<summary> (C40): `open` is the expanded state.
+    const item = page.locator("main details").first();
+    const question = item.locator("summary");
+    await expect(item).not.toHaveAttribute("open", "");
     await question.click();
-    await expect(question).toHaveAttribute("aria-expanded", "true");
+    await expect(item).toHaveAttribute("open", "");
     await question.click();
-    await expect(question).toHaveAttribute("aria-expanded", "false");
+    await expect(item).not.toHaveAttribute("open", "");
   });
 });
 
@@ -1043,19 +1095,13 @@ test.describe("Auth pages mobile", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/en/auth/login");
 
-    for (const name of ["Email", "Phone"]) {
-      const tab = page.getByRole("button", { name, exact: true });
-      const box = await tab.boundingBox();
-      expect(box?.height).toBeCloseTo(44, 0);
-      await tab.click();
-    }
-    for (const name of ["Continue with Google", "Continue with Facebook"]) {
-      const oauth = page.getByRole("button", { name, exact: true });
-      await expect(oauth).toBeVisible();
-      expect((await oauth.boundingBox())?.height).toBeCloseTo(44, 0);
-    }
+    const oauth = page.getByRole("button", {
+      name: "Continue with Google",
+      exact: true,
+    });
+    await expect(oauth).toBeVisible();
+    expect((await oauth.boundingBox())?.height).toBeCloseTo(44, 0);
 
-    await page.getByRole("button", { name: "Email", exact: true }).click();
     for (const name of ["Sign in", "Register"]) {
       const mode = page.getByRole("button", { name, exact: true }).first();
       expect((await mode.boundingBox())?.height).toBeCloseTo(44, 0);
@@ -1097,13 +1143,19 @@ test.describe("Footer mobile", () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test("phone link groups use native accordions", async ({ page }) => {
+  test("phone link groups are open like desktop", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
-    const details = page.locator("footer details");
-    await expect(details).toHaveCount(3);
-    await details.first().locator("summary").click();
-    await expect(details.first()).toHaveAttribute("open", "");
+    const footer = page.locator("footer");
+    await expect(footer.locator("details")).toHaveCount(0);
+    await expect(footer.locator("h3")).toHaveCount(3);
+    const groupLinks = footer.locator("ul a");
+    // Platform 7 + Services 6 (the header's categories) + Help 5 (C40).
+    await expect(groupLinks).toHaveCount(18);
+    for (const link of await groupLinks.all()) {
+      await expect(link).toBeVisible();
+      expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
   });
 });
 

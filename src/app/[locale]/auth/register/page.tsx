@@ -15,26 +15,24 @@ import {
   Check,
   type LucideIcon,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import { roleHomePath } from "@/lib/cabinets";
+import { toCanonicalGePhone } from "@/lib/sms/phone";
 import { withRetry } from "@/lib/with-timeout";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import {
+  ConsentChoices,
+  NO_MARKETING,
+  submitConsentChoices,
+  type MarketingChoices,
+} from "@/components/consent/ConsentChoices";
 
-const ROLE_DASHBOARD: Record<string, string> = {
-  admin: "/dashboard/admin",
-  renter: "/dashboard/renter",
-  seller: "/dashboard/seller",
-  cleaner: "/dashboard/cleaner",
-  food: "/dashboard/food",
-  entertainment: "/dashboard/entertainment",
-  transport: "/dashboard/transport",
-  employment: "/dashboard/employment",
-  handyman: "/dashboard/services",
-};
+const KNOWN_AUTH_PROVIDERS = ["phone", "email", "google", "facebook"] as const;
 
 const ROLES: {
   value: Enums<"user_role">;
@@ -55,6 +53,23 @@ const ROLES: {
   { value: "handyman", iconSrc: "/category-icons/handyman.svg" },
 ];
 
+// Where an admin sign-up link sends this new account (C41), or null for the
+// home page. Asked only once the profile exists, and never fails registration.
+// The company and agent seller paths keep their own required next step.
+async function signupLinkDestination(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/signup-links/resolve", {
+      method: "POST",
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { destination?: string | null };
+    return body.destination ?? null;
+  } catch {
+    return null;
+  }
+}
+
 type SellerOrg = {
   id: string;
   brand_name: string;
@@ -64,13 +79,15 @@ type SellerOrg = {
 
 export default function RegisterPage() {
   const t = useTranslations("AuthRegister");
+  const tc = useTranslations("ConsentGate");
+  const tShared = useTranslations("Shared");
+  const locale = useLocale();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const supabase = createClient();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [displayName, setDisplayName] = useState("");
-  const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [selectedRole, setSelectedRole] = useState<Enums<"user_role"> | null>(
@@ -80,6 +97,26 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [checkingProfile, setCheckingProfile] = useState(true);
+
+  // Consent is answered on step 1 but can only be RECORDED after persistProfile
+  // creates the profiles row (self_service_record_consent needs it). Marketing
+  // channels start unchecked: Direct Marketing Policy v2 section 3.3.
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
+  const [marketing, setMarketing] = useState<MarketingChoices>(NO_MARKETING);
+
+  // Surface which sign-in method landed the user here. Someone who already
+  // registered via phone but this time authenticated via Google/Facebook/email
+  // (or vice versa) gets a brand-new, unlinked auth identity with no matching
+  // `profiles` row and lands on this wizard from scratch — naming the current
+  // method helps them recognize the mismatch and go back to `/auth/login`
+  // instead of completing a duplicate registration.
+  const authProvider = user?.app_metadata?.provider;
+  const providerLabel =
+    authProvider &&
+    (KNOWN_AUTH_PROVIDERS as readonly string[]).includes(authProvider)
+      ? t(`providers.${authProvider}`)
+      : null;
 
   // Step 3 — seller sub-path (individual / register a company / link as agent)
   const [sellerKind, setSellerKind] = useState<
@@ -121,8 +158,7 @@ export default function RegisterPage() {
         return;
       }
       if (profile) {
-        const path = ROLE_DASHBOARD[profile.role] ?? "/dashboard/guest";
-        router.replace(path);
+        router.replace(roleHomePath(profile.role));
       } else {
         setCheckingProfile(false);
       }
@@ -184,15 +220,19 @@ export default function RegisterPage() {
       setError(t("errors.enterName"));
       return;
     }
+    if (!acceptTerms || !acceptPrivacy) return;
     setError(null);
     setStep(2);
   }
 
-  // Avatar upload + profiles insert/update-on-conflict + verify. Shared by
-  // every role's finish step (non-seller roles and all three seller
-  // sub-paths). Throws on failure; callers own loading/error state.
-  async function persistProfile() {
-    if (!selectedRole || !user) return;
+  // Avatar upload + profiles insert + read-back. Shared by every role's finish
+  // step (non-seller roles and all three seller sub-paths). Throws on failure;
+  // callers own loading/error state. Returns the role the profile actually
+  // has: a role is set once, here (the profiles_lock_role trigger refuses any
+  // later change from a user session), so when a profile already exists from
+  // an earlier attempt that role may differ from the tile chosen now.
+  async function persistProfile(): Promise<Enums<"user_role"> | null> {
+    if (!selectedRole || !user) return null;
 
     let uploadedAvatarUrl: string | null = null;
 
@@ -207,6 +247,7 @@ export default function RegisterPage() {
         .upload(path, avatarFile, {
           upsert: true,
           contentType: avatarFile.type,
+          cacheControl: "31536000",
         });
       if (uploadError) throw uploadError;
 
@@ -218,9 +259,10 @@ export default function RegisterPage() {
 
     const profilePayload = {
       id: user.id,
-      phone: user.phone?.trim() ? user.phone.trim() : null,
+      // Auth stores a phone sign-up's number as "9955XXXXXXXX"; profiles keep
+      // the "+995…" form every SMS path reads (C48).
+      phone: toCanonicalGePhone(user.phone),
       display_name: displayName.trim(),
-      bio: bio.trim() || null,
       avatar_url: uploadedAvatarUrl,
       role: selectedRole,
     };
@@ -230,32 +272,49 @@ export default function RegisterPage() {
       .from("profiles")
       .insert(profilePayload);
 
-    if (insertError) {
-      const isConflict = insertError.code === "23505";
-      if (!isConflict) throw insertError;
-
-      // The row already exists from an earlier attempt of this same wizard, so its
-      // public fields already carry this payload. Re-apply only `role`: display_name,
-      // phone, bio and avatar_url are review-gated
-      // (prevent_unreviewed_public_content_update), and updating them from a browser
-      // session raises 42501 — which would turn a benign retry into a hard
-      // registration failure.
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ role: selectedRole })
-        .eq("id", user.id);
-
-      if (updateError) throw updateError;
-    }
+    // A 23505 means the row already exists from an earlier attempt of this same
+    // wizard (a retry after a lost answer, or Back from the seller step). Its
+    // fields already carry this payload, and its role cannot be changed from
+    // here: the profiles_lock_role trigger raises 42501 for any different role
+    // (and display_name, phone and avatar_url are review-gated too), so the
+    // read-back below decides what happens next instead of an UPDATE.
+    if (insertError && insertError.code !== "23505") throw insertError;
 
     const { data: savedProfile, error: verifyError } = await withRetry(() =>
       supabase.from("profiles").select("role").eq("id", user.id).single(),
     );
 
     if (verifyError) throw verifyError;
-    if (savedProfile?.role !== selectedRole) {
-      throw new Error(t("errors.roleUpdateFailed"));
+
+    // Every finish path runs through here, so this is the one place consent is
+    // recorded. A failure must not fail registration: the profile now exists
+    // without terms_accepted_at, so ConsentGate re-asks on the next navigation.
+    try {
+      await submitConsentChoices("registration_gate", marketing);
+    } catch (consentError) {
+      console.error("[register] consent could not be recorded", consentError);
     }
+
+    return savedProfile?.role ?? null;
+  }
+
+  // The account was registered earlier with another role, so this wizard run
+  // cannot give it the tile just chosen. Go to the cabinet it does have, as a
+  // reload of this page would (checkExistingProfile).
+  function openExistingCabinet(role: Enums<"user_role">) {
+    router.replace(roleHomePath(role));
+  }
+
+  // Only the membership RPC raises user-facing text (Georgian, SQLSTATE
+  // 22023 / P0002); every other failure here is a storage or database error
+  // whose raw message should not reach the screen.
+  function registerErrorText(err: unknown): string {
+    console.error("[register]", err);
+    const e = err as { code?: string; message?: string } | null;
+    if (e && (e.code === "22023" || e.code === "P0002") && e.message) {
+      return e.message;
+    }
+    return t("errors.generic");
   }
 
   async function handleRoleSubmit() {
@@ -272,10 +331,14 @@ export default function RegisterPage() {
     setLoading(true);
     setError(null);
     try {
-      await persistProfile();
-      router.push("/");
+      const savedRole = await persistProfile();
+      if (savedRole && savedRole !== selectedRole) {
+        openExistingCabinet(savedRole);
+        return;
+      }
+      router.push((await signupLinkDestination()) ?? "/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("errors.generic"));
+      setError(registerErrorText(err));
     } finally {
       setLoading(false);
     }
@@ -298,10 +361,14 @@ export default function RegisterPage() {
     setLoading(true);
     setError(null);
     try {
-      await persistProfile();
+      const savedRole = await persistProfile();
+      if (savedRole && savedRole !== "seller") {
+        openExistingCabinet(savedRole);
+        return;
+      }
 
       if (sellerKind === "individual") {
-        router.push("/");
+        router.push((await signupLinkDestination()) ?? "/");
       } else if (sellerKind === "company") {
         router.push("/dashboard/seller/organizations/new");
       } else if (sellerKind === "agent" && selectedOrg) {
@@ -313,7 +380,7 @@ export default function RegisterPage() {
         setRequestSent(true);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("errors.generic"));
+      setError(registerErrorText(err));
     } finally {
       setLoading(false);
     }
@@ -368,6 +435,27 @@ export default function RegisterPage() {
                 exit={{ opacity: 0, x: 20 }}
                 className="space-y-6"
               >
+                {providerLabel && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left">
+                    <p className="text-sm font-bold text-amber-900">
+                      {t("existingAccount.title")}
+                    </p>
+                    <p className="mt-1 text-[13px] font-medium leading-relaxed text-amber-800">
+                      {t("existingAccount.body")}
+                    </p>
+                    <p className="mt-2 text-[13px] font-bold text-amber-900">
+                      {t("existingAccount.currentMethod", {
+                        provider: providerLabel,
+                      })}
+                    </p>
+                    <Link
+                      href="/auth/login"
+                      className="mt-2 inline-block text-[13px] font-bold text-brand-accent hover:underline"
+                    >
+                      {t("existingAccount.loginLink")}
+                    </Link>
+                  </div>
+                )}
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -417,25 +505,37 @@ export default function RegisterPage() {
                     />
                   </div>
 
-                  {/* Bio */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      {t("bioLabel")}
-                    </label>
-                    <textarea
-                      value={bio}
-                      onChange={(e) => setBio(e.target.value)}
-                      placeholder={t("bioPlaceholder")}
-                      rows={3}
-                      className="w-full resize-none rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:ring-2 focus:ring-[#DBEAFE]/50"
-                    />
-                  </div>
+                  <ConsentChoices
+                    labels={{
+                      terms: tc("terms"),
+                      termsLink: tc("termsLink"),
+                      privacy: tc("privacy"),
+                      privacyLink: tc("privacyLink"),
+                      marketingTitle: tc("marketingTitle"),
+                      marketingPolicyLink: tc("marketingPolicyLink"),
+                      channelSms: tc("channelSms"),
+                      channelEmail: tc("channelEmail"),
+                      channelWhatsapp: tc("channelWhatsapp"),
+                      channelPush: tc("channelPush"),
+                      marketingNote: tc("marketingNote"),
+                      back: tShared("back"),
+                    }}
+                    locale={locale}
+                    terms={acceptTerms}
+                    privacy={acceptPrivacy}
+                    marketing={marketing}
+                    onTermsChange={setAcceptTerms}
+                    onPrivacyChange={setAcceptPrivacy}
+                    onMarketingChange={setMarketing}
+                  />
 
                   {error && <p className="text-sm text-[#EF4444]">{error}</p>}
 
                   <Button
                     type="submit"
-                    disabled={!displayName.trim()}
+                    disabled={
+                      !displayName.trim() || !acceptTerms || !acceptPrivacy
+                    }
                     className="min-h-11 w-full lg:min-h-0"
                     size="lg"
                   >

@@ -1,0 +1,36 @@
+# MyBakuriani
+
+> MyBakuriani (mybakuriani.ge) is a marketplace and local guide for Bakuriani, a ski and mountain resort in Samtskhe-Javakheti, Georgia. Owners list apartments, cottages and hotels to rent by the day or to buy; local businesses list restaurants, transfers, entertainment, services and jobs. Pages are in Georgian (the default, no URL prefix), English (/en) and Russian (/ru).
+
+Listings are written by their owners and each one has a single canonical page. The home page shows weather, road and ski-lift status when they are available.
+
+## Resort guide
+
+- [Bakuriani guide](https://mybakuriani.ge/en/bakuriani): the season, the areas, the road from Tbilisi and where to stay
+- [Getting to Bakuriani](https://mybakuriani.ge/en/bakuriani/getting-there): by car, private transfer or minibus
+- [Ski lifts](https://mybakuriani.ge/en/bakuriani/ski-lifts): Didveli, Kokhta and Mitarbi, and where to check opening dates
+- [Didveli / Crystal](https://mybakuriani.ge/en/bakuriani/didveli): the area close to the slopes
+- [Kokhta / Mitarbi](https://mybakuriani.ge/en/bakuriani/kokhta): the premium area with the new cable cars
+- [Bakuriani centre](https://mybakuriani.ge/en/bakuriani/centri): restaurants, entertainment and the central park
+- [25-ianebi](https://mybakuriani.ge/en/bakuriani/25ianebi): the area of affordable apartments
+
+## Where to stay
+
+- [Apartments and cottages](https://mybakuriani.ge/en/apartments): daily rentals
+- [Hotels](https://mybakuriani.ge/en/hotels)
+- [Property for sale](https://mybakuriani.ge/en/sales): apartments, cottages and land
+
+## Local services
+
+- [Restaurants and cafés](https://mybakuriani.ge/en/food)
+- [Transfers and taxi](https://mybakuriani.ge/en/transport)
+- [Skiing and entertainment](https://mybakuriani.ge/en/entertainment)
+- [Services](https://mybakuriani.ge/en/services)
+- [Jobs](https://mybakuriani.ge/en/employment)
+
+## Optional
+
+- [Blog](https://mybakuriani.ge/en/blog)
+- [FAQ](https://mybakuriani.ge/en/faq)
+- [Price list for listing owners](https://mybakuriani.ge/en/pricing)
+- [Contact](https://mybakuriani.ge/en/contact)

@@ -8,7 +8,11 @@ import {
   getCachedPublicService,
   getCachedPublicCvCount,
 } from "@/lib/data/getCachedPublicListing";
-import { buildListingMetadata } from "@/lib/seo";
+import { pickDescription } from "@/lib/seo/description";
+import { buildListingMetadata, redirectToCanonicalListing } from "@/lib/seo";
+import { serviceViewUrl } from "@/lib/utils/listingUrls";
+import ListingBreadcrumbs from "@/components/seo/ListingBreadcrumbs";
+import RelatedListings from "@/components/seo/RelatedListings";
 import EmploymentDetailClient from "./EmploymentDetailClient";
 
 interface Props {
@@ -36,17 +40,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "Metadata" });
   // Cached public listing only — the cookie-aware metadata fallback lives on
   // the /preview route. A miss (pending/blocked/deleted) gets the not-found title.
+  // A transient error rethrows, as in the page body, instead of being cached as
+  // a not-found title.
   const data = isMockServiceId(id)
     ? getMockService(id)
-    : await getCachedPublicService(id).catch(() => null);
+    : await getCachedPublicService(id).catch((err: unknown) => {
+        unstable_rethrow(err);
+        throw err;
+      });
 
   if (!data) {
     return { title: t("detail.employmentNotFound") };
   }
 
-  const title = t("detail.employmentTitle", { title: data.title });
-  const description =
-    data.description ?? t("detail.employmentDesc", { title: data.title });
+  // The page's H1 is the position (EmploymentDetailClient); `title` is the
+  // employer, so the <title> follows the H1.
+  const heading = data.position?.trim() || data.title;
+  const title = t("detail.employmentTitle", { title: heading });
+  const description = pickDescription(
+    data.description,
+    t("detail.employmentDesc", { title: heading }),
+  );
 
   return {
     title,
@@ -62,7 +76,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function EmploymentDetailPage({ params }: Props) {
-  const { id } = await params;
+  const { locale, id } = await params;
 
   // Mock ids are non-UUID, so the cached fetch below would return null for
   // them; branch explicitly to keep demo listings rendering.
@@ -79,6 +93,14 @@ export default async function EmploymentDetailPage({ params }: Props) {
     );
   }
 
+  // Start the extra read alongside the listing rather than after it: it used to
+  // be a second serial round-trip wave. The `.catch()` marks the promise ITSELF
+  // as handled (the derived promise it returns is what `void` discards), so an
+  // early notFound() unwind can't surface an unhandled rejection. It is still
+  // awaited below and still rejects, so a real failure stays loud.
+  const applicationsPromise = getCachedPublicCvCount(id);
+  void applicationsPromise.catch(() => {});
+
   // Cached public (active) service — zero DB round-trip on a cache hit. A
   // transient miss-time error rethrows so this render fails (uncached) instead
   // of caching a 404 of a live listing for the next 60s.
@@ -94,14 +116,33 @@ export default async function EmploymentDetailPage({ params }: Props) {
     notFound();
   }
 
-  const applicationsCount = await getCachedPublicCvCount(id);
+  redirectToCanonicalListing(
+    `/employment/${id}`,
+    serviceViewUrl(cached),
+    locale,
+  );
+
+  const applicationsCount = await applicationsPromise;
 
   return (
-    <EmploymentDetailClient
-      service={cached}
-      isMock={false}
-      applicationsCount={applicationsCount}
-      isPending={false}
-    />
+    <>
+      <ListingBreadcrumbs
+        locale={locale}
+        kind="employment"
+        title={cached.title}
+        path={`/employment/${id}`}
+      />
+      <EmploymentDetailClient
+        service={cached}
+        isMock={false}
+        applicationsCount={applicationsCount}
+        isPending={false}
+      />
+      <RelatedListings
+        locale={locale}
+        kind="employment"
+        excludeId={id}
+      />
+    </>
   );
 }

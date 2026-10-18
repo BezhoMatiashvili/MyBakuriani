@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { ArrowRight, Flame, Plus } from "lucide-react";
 import { Link } from "@/i18n/navigation";
@@ -21,27 +21,42 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import { cn } from "@/lib/utils";
 import { formatNumber } from "@/lib/utils/format";
+import { HERO_NOISE_BACKGROUND } from "@/lib/utils/heroTexture";
 import { isDiscountActive } from "@/lib/utils/pricing";
-import type { Tables } from "@/lib/types/database";
+import type { LandingSaleProperty } from "./columns";
 import { useHomeListingMode } from "@/components/layout/HomeListingModeContext";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { ZoneIcon } from "@/lib/zones/icon";
 import { MobileRail } from "@/components/shared/MobileRail";
+import { SALE_ZONE_PRICES_HIDDEN } from "@/lib/features";
+import {
+  resolveSaleResearch,
+  type SaleResearchContent,
+} from "@/lib/sale-research";
 
-const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
-      <SkierLoader variant="inline" />
-    </div>
-  ),
-});
+const BakurianiMap = dynamic(
+  () =>
+    import("@/components/maps/BakurianiMap").then((mod) =>
+      mod.canvasReady.then(() => mod),
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center bg-[#F8FAFC]">
+        <SkierLoader variant="inline" />
+      </div>
+    ),
+  },
+);
 
 interface SaleLandingBodyProps {
   mode: "rent" | "sale";
   onModeChange: (mode: "rent" | "sale") => void;
-  saleProperties?: Tables<"properties">[];
+  saleProperties?: LandingSaleProperty[];
+  superVipProperties?: LandingSaleProperty[];
   pricePerSqmByZone?: Record<string, number | null>;
+  // The admin's edits of the research section (src/lib/sale-research.ts).
+  saleResearch?: SaleResearchContent;
   zones: Zone[];
   bannerCreatives?: BannerCreative[];
 }
@@ -66,7 +81,7 @@ function renderZoneIcon(icon: string, zoneSlug: string, isLast: boolean) {
 const GEL_TO_USD = 1 / 2.7;
 
 const ZONE_CARD_ROW_CLASS =
-  "scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0";
+  "scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:gap-4 sm:overflow-visible sm:px-0";
 
 function toUsd(gel: number | null | undefined): number {
   if (!gel) return 0;
@@ -82,17 +97,48 @@ function estimatedRoi(id: string): number {
   return 9 + (hash % 9); // 9–17%
 }
 
+/** SalePropertyCard props from a public_properties sale row. */
+function toSaleCard(p: LandingSaleProperty) {
+  return {
+    id: p.id,
+    title: p.title,
+    location: p.location,
+    photos: Array.isArray(p.photos) ? (p.photos as string[]) : [],
+    priceUsd: toUsd(p.sale_price ? Number(p.sale_price) : null),
+    type: p.type,
+    area: p.area_sqm ?? null,
+    rooms: p.rooms,
+    // estimatedRoi is synthetic (derived from the id), so nulling
+    // roi_percent in the DB does not suppress it — a bare plot has no
+    // rental yield, so skip it here.
+    roi: p.type === "land" ? undefined : estimatedRoi(p.id),
+    constructionStatus: p.construction_status ?? null,
+    constructionProgressPercent: p.construction_progress_percent ?? null,
+    discountPercent: p.discount_percent ?? 0,
+    discountExpiresAt: p.discount_expires_at ?? null,
+    // public_properties already masks an expired VIP as false.
+    isVip: p.is_vip ?? false,
+    isSuperVip: p.is_super_vip ?? false,
+    createdAt: p.created_at,
+    paymentOptions: readPaymentOptions(p.house_rules),
+    isOwnershipVerified: p.ownership_verified ?? false,
+  };
+}
+
 // ─── Component ──────────────────────────────────────────────────────────
 
 export default function SaleLandingBody({
   mode,
   onModeChange,
   saleProperties,
+  superVipProperties,
   pricePerSqmByZone,
+  saleResearch,
   zones,
   bannerCreatives = [],
 }: SaleLandingBodyProps) {
   const t = useTranslations("Landing");
+  const locale = useLocale();
   const tZones = useTranslations("Zones");
   const router = useRouter();
   const { setListingMode } = useHomeListingMode();
@@ -101,6 +147,12 @@ export default function SaleLandingBody({
     if (avg == null || !Number.isFinite(avg)) return "—";
     return t("sale.pricePerSqm", { price: formatNumber(avg) });
   };
+
+  // Research section: the admin's text or figure where set, else the catalog
+  // text / built-in figure (src/lib/sale-research.ts).
+  const research = resolveSaleResearch(saleResearch, locale, (key) =>
+    t(`sale.${key}`),
+  );
 
   useEffect(() => {
     setListingMode(mode);
@@ -129,37 +181,23 @@ export default function SaleLandingBody({
       if (sf.constructionStatus)
         params.set("construction", sf.constructionStatus);
       if (sf.renovationStatus) params.set("renovation", sf.renovationStatus);
+      if (sf.keyword.trim()) params.set("q", sf.keyword.trim());
       router.push(`/sales/all?${params.toString()}`);
     },
     [router],
   );
 
   // Build card data — prefer DB, fall back to mocks.
-  const saleCards = useMemo(() => {
-    if (saleProperties && saleProperties.length > 0) {
-      return saleProperties.map((p) => ({
-        id: p.id,
-        title: p.title,
-        location: p.location,
-        photos: Array.isArray(p.photos) ? (p.photos as string[]) : [],
-        priceUsd: toUsd(p.sale_price ? Number(p.sale_price) : null),
-        type: p.type,
-        area: p.area_sqm ?? null,
-        rooms: p.rooms,
-        // estimatedRoi is synthetic (derived from the id), so nulling
-        // roi_percent in the DB does not suppress it — a bare plot has no
-        // rental yield, so skip it here.
-        roi: p.type === "land" ? undefined : estimatedRoi(p.id),
-        constructionStatus: p.construction_status ?? null,
-        constructionProgressPercent: p.construction_progress_percent ?? null,
-        discountPercent: p.discount_percent ?? 0,
-        discountExpiresAt: p.discount_expires_at ?? null,
-        createdAt: p.created_at,
-        paymentOptions: readPaymentOptions(p.house_rules),
-      }));
-    }
-    return [];
-  }, [saleProperties]);
+  const saleCards = useMemo(
+    () => (saleProperties ?? []).map(toSaleCard),
+    [saleProperties],
+  );
+  // Main-page VIP section (2026 price list §2.3) — sale listings, SUPER VIP
+  // first, then VIP (the server's order).
+  const superVipCards = useMemo(
+    () => (superVipProperties ?? []).map(toSaleCard),
+    [superVipProperties],
+  );
 
   const gridCards = useMemo(
     () =>
@@ -193,11 +231,12 @@ export default function SaleLandingBody({
   const extraZones = zones.slice(4);
   const lastZoneId = zones[zones.length - 1]?.id;
 
-  const renderZoneCard = (zone: Zone) => {
+  const renderZoneCard = (zone: Zone, className?: string) => {
     const isLast = zone.id === lastZoneId;
     return (
       <StatCard
         key={zone.id}
+        className={className}
         label={
           TRANSLATED_ZONE_SLUGS.has(zone.slug)
             ? tZones(`${zone.slug}.name`)
@@ -217,28 +256,30 @@ export default function SaleLandingBody({
       <section
         data-testid="homepage-hero"
         className={cn(
-          "relative flex items-start justify-center px-4 pb-14 pt-10 lg:pt-16",
-          showMap ? "lg:pb-16" : "lg:pb-0",
+          "relative flex items-start justify-center px-4 pt-10 lg:pt-16",
+          // Without the hanging zone cards the hero closes below the search
+          // box, as it does with the map open.
+          showMap || SALE_ZONE_PRICES_HIDDEN
+            ? "pb-14 lg:pb-16"
+            : "pb-0 sm:pb-14 lg:pb-0",
         )}
         style={{
           background:
             "linear-gradient(180deg, #0B3A2C 0%, #0F4C3A 55%, #134E3A 100%)",
         }}
       >
-        {/* subtle texture */}
+        {/* subtle texture (inline noise; see heroTexture.ts) */}
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.04]"
           style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1600&h=600&fit=crop&q=30')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
+            backgroundImage: HERO_NOISE_BACKGROUND,
             mixBlendMode: "overlay",
           }}
         />
 
         <div className="relative z-10 mx-auto w-full max-w-[1180px] text-center">
-          <ScrollReveal>
+          {/* No entrance fade on the h1: it is the LCP element (C40). */}
+          <div>
             <h1 className="text-[28px] font-black leading-[1.08] tracking-[-0.7px] text-white sm:text-[36px] lg:text-[64px] lg:leading-[68px] lg:tracking-[-1.25px]">
               {t("sale.heroTitleTop")}
               <br />
@@ -246,7 +287,7 @@ export default function SaleLandingBody({
                 {t("sale.heroTitleHighlight")}
               </span>
             </h1>
-          </ScrollReveal>
+          </div>
 
           <div className="mt-8 flex justify-center">
             <RentBuyToggle value={mode} onChange={onModeChange} />
@@ -262,21 +303,42 @@ export default function SaleLandingBody({
             />
           </div>
 
-          {/* First 4 zone cards overhang the hero; extras render after this section. */}
-          <div
-            className={cn(
-              ZONE_CARD_ROW_CLASS,
-              "mt-8",
-              !showMap && "sm:-mb-[42px]",
-            )}
-          >
-            {heroZones.map(renderZoneCard)}
-          </div>
+          {/* Phones: every zone in one scroll row that hangs 72px below the
+              hero, like the rent status cards (pb-3 keeps the shadow from
+              being clipped by the scroller). sm+: the first 4 overhang 42px
+              and extras render after this section. Hidden for now
+              (SALE_ZONE_PRICES_HIDDEN), with their spacers. */}
+          {!SALE_ZONE_PRICES_HIDDEN && (
+            <div
+              className={cn(
+                ZONE_CARD_ROW_CLASS,
+                "mt-5 pb-3 sm:mt-8 sm:pb-0",
+                !showMap && "-mb-[84px] sm:-mb-[42px]",
+              )}
+            >
+              {heroZones.map((zone) => renderZoneCard(zone))}
+              {extraZones.map((zone) => renderZoneCard(zone, "sm:hidden"))}
+            </div>
+          )}
         </div>
       </section>
 
-      {extraZones.length > 0 && (
-        <div data-testid="homepage-sale-extra-zone-cards" className="px-4">
+      {/* Phones: reserve the 72px card overhang (+ gutter). */}
+      {!SALE_ZONE_PRICES_HIDDEN && !showMap && (
+        <div aria-hidden className="h-[calc(72px+1.5rem)] sm:hidden" />
+      )}
+
+      {/* No extras row to absorb the hanging first row: reserve its 42px
+          overhang (+ gutter) so banners below never sit underneath it. */}
+      {!SALE_ZONE_PRICES_HIDDEN && extraZones.length === 0 && !showMap && (
+        <div aria-hidden className="hidden sm:block sm:h-[calc(42px+1.5rem)]" />
+      )}
+
+      {!SALE_ZONE_PRICES_HIDDEN && extraZones.length > 0 && (
+        <div
+          data-testid="homepage-sale-extra-zone-cards"
+          className="hidden px-4 sm:block"
+        >
           <div
             className={cn(
               "mx-auto w-full max-w-[1180px]",
@@ -286,7 +348,7 @@ export default function SaleLandingBody({
             )}
           >
             <div className={ZONE_CARD_ROW_CLASS}>
-              {extraZones.map(renderZoneCard)}
+              {extraZones.map((zone) => renderZoneCard(zone))}
             </div>
           </div>
         </div>
@@ -309,9 +371,44 @@ export default function SaleLandingBody({
         </div>
       )}
 
-      <BannerSlotView placement="home_top_strip" creatives={bannerCreatives} />
+      <BannerSlotView
+        placement="home_top_strip"
+        creatives={bannerCreatives}
+        className={SALE_ZONE_PRICES_HIDDEN ? "mt-6" : undefined}
+      />
 
       <BannerSlotView placement="home_hero" creatives={bannerCreatives} />
+
+      {/* ═══ VIP — main-page section (2026 price list §2.3) ═══ */}
+      {superVipCards.length > 0 && (
+        <section className="px-4 py-12 lg:py-16">
+          <div className="mx-auto max-w-[1180px]">
+            <ScrollReveal>
+              <div className="mb-8">
+                <h2
+                  data-testid="homepage-super-vip-heading"
+                  className="text-[17px] font-black leading-[22px] text-[#1E293B] lg:text-[26px] lg:leading-[32px]"
+                >
+                  {t("superVipTitle")}
+                </h2>
+                <p className="mt-1 text-[12px] font-medium leading-[17px] text-[#64748B] lg:text-[13px] lg:leading-[20px]">
+                  {t("superVipSubtitle")}
+                </p>
+              </div>
+            </ScrollReveal>
+            <MobileRail
+              desktopClassName="lg:mx-0 lg:grid lg:grid-cols-3 lg:items-stretch lg:gap-6 lg:overflow-visible lg:px-0 lg:pb-0 lg:snap-none"
+              desktopItemClassName="lg:h-full lg:w-auto lg:snap-none"
+            >
+              {superVipCards.map((card) => (
+                <ScrollReveal key={card.id} className="h-full">
+                  <SalePropertyCard {...card} />
+                </ScrollReveal>
+              ))}
+            </MobileRail>
+          </div>
+        </section>
+      )}
 
       {/* ═══ Sales grid ═══ */}
       <section className="bg-[#F8FAFC] px-4 py-12 lg:py-16">
@@ -397,19 +494,25 @@ export default function SaleLandingBody({
             <div>
               <ScrollReveal>
                 <span className="mb-3 block text-[11px] font-black uppercase tracking-[1.2px] text-[#16A34A]">
-                  {t("sale.researchEyebrow")}
+                  {research.eyebrow}
                 </span>
                 <h2 className="text-[26px] font-black leading-[32px] text-[#1E293B] md:text-[30px] md:leading-[36px]">
-                  {t("sale.whyInvest")}
+                  {research.title}
                 </h2>
                 <p className="mt-3 text-[14px] font-medium leading-[22px] text-[#64748B]">
-                  {t("sale.researchBody")}
+                  {research.body}
                 </p>
               </ScrollReveal>
 
               <div className="mt-6 grid grid-cols-2 gap-4">
-                <ResearchStat value="10-15%" label={t("sale.avgRoi")} />
-                <ResearchStat value="<$1,000" label={t("sale.minInitial")} />
+                <ResearchStat
+                  value={research.roiValue}
+                  label={research.roiLabel}
+                />
+                <ResearchStat
+                  value={research.entryValue}
+                  label={research.entryLabel}
+                />
               </div>
             </div>
 
@@ -417,27 +520,31 @@ export default function SaleLandingBody({
               <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-start lg:justify-end lg:gap-10">
                 <div className="flex flex-col items-center gap-4">
                   <span className="text-[12px] font-bold text-[#64748B]">
-                    {t("sale.supplyStructure")}
+                    {research.chartTitle}
                   </span>
                   <DonutChart
                     segments={[
                       {
-                        value: 72,
+                        value: research.smallShare,
                         color: "#16A34A",
                         label: t("sale.smallApartments"),
                       },
-                      { value: 28, color: "#D1FAE5", label: t("sale.other") },
+                      {
+                        value: 100 - research.smallShare,
+                        color: "#D1FAE5",
+                        label: t("sale.other"),
+                      },
                     ]}
                   />
                 </div>
                 <ul className="flex flex-col gap-3">
                   <li className="flex items-center gap-2 text-[13px] font-bold text-[#1E293B]">
                     <span className="size-3 rounded-sm bg-[#16A34A]" />
-                    {t("sale.smallApartmentsLegend")}
+                    {research.smallLegend}
                   </li>
                   <li className="flex items-center gap-2 text-[13px] font-bold text-[#64748B]">
                     <span className="size-3 rounded-sm bg-[#D1FAE5]" />
-                    {t("sale.otherFormatsLegend")}
+                    {research.otherLegend}
                   </li>
                 </ul>
               </div>
@@ -457,20 +564,24 @@ function StatCard({
   sublabel,
   icon,
   highlight,
+  className,
 }: {
   label: string;
   value: string;
   sublabel?: string;
   icon?: React.ReactNode;
   highlight?: boolean;
+  className?: string;
 }) {
   return (
     <div
+      data-zone-card
       className={cn(
-        "flex w-[min(260px,calc(100vw-64px))] shrink-0 snap-start flex-col justify-between rounded-[16px] px-5 py-4 text-left shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1)] sm:w-auto",
+        "flex w-max min-w-[140px] max-w-[260px] shrink-0 snap-start flex-col justify-between rounded-[16px] px-5 py-4 text-left shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1)] sm:w-auto sm:min-w-auto sm:max-w-none",
         highlight
           ? "border border-white/10 bg-[#0A1F2E] text-white"
           : "border border-[#E7EEE9] bg-white text-[#1E293B]",
+        className,
       )}
     >
       <div className="flex items-center gap-2">

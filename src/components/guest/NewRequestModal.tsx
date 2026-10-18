@@ -17,13 +17,24 @@ export interface NewRequestPayload {
   budgetMax?: number;
 }
 
+/** Values to open with (the support assistant's Smart Match button, C43). */
+export type NewRequestPrefill = Partial<Omit<NewRequestPayload, "zone">> & {
+  zone?: string;
+};
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (payload: NewRequestPayload) => Promise<void> | void;
+  initial?: NewRequestPrefill;
 }
 
-export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
+export default function NewRequestModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  initial,
+}: Props) {
   const t = useTranslations("GuestDashboard.newRequestModal");
   const tGuest = useTranslations("GuestDashboard");
   const tShared = useTranslations("DashboardShared");
@@ -51,6 +62,41 @@ export default function NewRequestModal({ isOpen, onClose, onSubmit }: Props) {
   const [budgetMax, setBudgetMax] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(false);
+
+  // A prefill fills the form when it opens; the guest still sends it.
+  useEffect(() => {
+    if (!isOpen || !initial) return;
+    if (initial.checkIn) {
+      setCheckIn(initial.checkIn);
+      setCheckOut(
+        initial.checkOut ??
+          new Date(Date.parse(`${initial.checkIn}T00:00:00Z`) + 86400000)
+            .toISOString()
+            .slice(0, 10),
+      );
+    } else if (initial.checkOut && initial.checkOut > today) {
+      setCheckOut(initial.checkOut);
+    }
+    const guests = initial.guestsCount;
+    const min = initial.budgetMin;
+    const max = initial.budgetMax;
+    if (guests !== undefined) setGuestsCount(String(guests));
+    if (min !== undefined) setBudgetMin(String(min));
+    if (max !== undefined) setBudgetMax(String(max));
+    if (guests !== undefined || min !== undefined || max !== undefined)
+      setAdvancedOpen(true);
+    // `today` changes only at midnight; the prefill is applied per opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initial]);
+
+  // Only an active zone's own name is taken (C15: anything else is a 22023);
+  // the list loads after the form opens.
+  const zoneNames = zones.map((z) => z.name_ka).join("\n");
+  useEffect(() => {
+    if (!isOpen || !initial?.zone) return;
+    const wanted = initial.zone;
+    setZone(zoneNames.split("\n").includes(wanted) ? wanted : "all");
+  }, [isOpen, initial, zoneNames]);
 
   useEffect(() => {
     if (!isOpen) return;

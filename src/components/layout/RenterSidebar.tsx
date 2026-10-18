@@ -20,6 +20,8 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
+import { CopyUserIdButton } from "@/components/layout/CopyUserIdButton";
+import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
 
 interface RenterSidebarProps {
   userName: string;
@@ -89,8 +91,8 @@ function BrandLogo() {
     <Image
       src="/logo.png"
       alt="MyBakuriani"
-      width={300}
-      height={199}
+      width={124}
+      height={50}
       className="h-10 w-auto"
     />
   );
@@ -119,9 +121,12 @@ export function RenterSidebar({
     .slice(0, 2);
 
   // A renter cabinet can exist from the profile role alone; SMS additionally
-  // requires an actual rental listing.
+  // requires an actual rental listing. Rental reviews are temporarily hidden
+  // (see RENTAL_REVIEWS_HIDDEN).
   const navItems = NAV_ITEMS.filter(
-    (item) => item.href !== "/dashboard/sms" || canUseSms,
+    (item) =>
+      (item.href !== "/dashboard/sms" || canUseSms) &&
+      (item.href !== "/dashboard/renter/reviews" || !RENTAL_REVIEWS_HIDDEN),
   );
 
   return (
@@ -134,7 +139,18 @@ export function RenterSidebar({
       </div>
 
       {/* User chip with role switcher */}
-      <CabinetSwitcher activeKey="renter" availableKeys={availableCabinets}>
+      <CabinetSwitcher
+        activeKey="renter"
+        availableKeys={availableCabinets}
+        accessory={
+          // Level with the "ID:" line inside the trigger; a 32px hit area so
+          // it stays clear of the name line above.
+          <CopyUserIdButton
+            userId={userId}
+            className="absolute right-3 top-[35px] after:-inset-1"
+          />
+        }
+      >
         <div className="relative shrink-0">
           <Avatar className="h-11 w-11">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={userName} />}

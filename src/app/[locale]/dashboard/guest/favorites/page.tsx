@@ -14,6 +14,7 @@ import {
   type FavoriteTarget,
 } from "@/lib/favorites/store";
 import { Skeleton } from "@/components/ui/skeleton";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import { formatNumber, formatPrice } from "@/lib/utils/format";
 import { priceUnitPathFor } from "@/lib/constants/listing-options";
 import type { Database } from "@/lib/types/database";
@@ -246,6 +247,12 @@ function FavoritePropertyCard({
             VIP
           </span>
         )}
+        {property.ownership_verified && (
+          <OwnershipVerifiedBadge
+            variant="card"
+            className="absolute bottom-3 right-3"
+          />
+        )}
       </Link>
       <button
         type="button"
@@ -320,6 +327,12 @@ function FavoriteServiceCard({
             fill
             sizes="400px"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        )}
+        {service.ownership_verified && (
+          <OwnershipVerifiedBadge
+            variant="card"
+            className="absolute bottom-3 right-3"
           />
         )}
       </Link>

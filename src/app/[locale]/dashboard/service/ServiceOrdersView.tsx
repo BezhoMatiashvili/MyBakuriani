@@ -17,6 +17,7 @@ import {
   Banknote,
   Download,
 } from "lucide-react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -32,24 +33,19 @@ type ApplicationRow = Tables<"job_applications"> & {
   service: { id: string; title: string; owner_id: string } | null;
 };
 
-type ViewType = "messages" | "applications";
 type StatusTab = "new" | "processed";
 
 /**
- * "service": full orders cabinet (transport / entertainment / handyman) with the
- * inquiries + applications switcher.
- * "employment": employer CV inbox — applications only, titled "CV-ები", no switcher.
+ * "service": the orders page of the transport / entertainment / handyman
+ * cabinets — customer inquiries only.
+ * "employment": the employer's CV inbox, titled "CV-ები" — the only place job
+ * applications and their CVs are shown, whichever cabinets the owner also has.
  */
 type Variant = "service" | "employment";
 
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "new", label: "ახალი" },
   { key: "processed", label: "დამუშავებული" },
-];
-
-const viewTabs: { key: ViewType; label: string }[] = [
-  { key: "messages", label: "შეკითხვები" },
-  { key: "applications", label: "ვაკანსიის განაცხადები" },
 ];
 
 export function ServiceOrdersView({
@@ -61,9 +57,6 @@ export function ServiceOrdersView({
   const { user } = useAuth();
   const isEmployment = variant === "employment";
 
-  const [viewType, setViewType] = useState<ViewType>(
-    isEmployment ? "applications" : "messages",
-  );
   const [activeTab, setActiveTab] = useState<StatusTab>("new");
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -99,10 +92,9 @@ export function ServiceOrdersView({
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    const tasks = isEmployment
-      ? [fetchApplications()]
-      : [fetchMessages(), fetchApplications()];
-    Promise.all(tasks).finally(() => setLoading(false));
+    (isEmployment ? fetchApplications() : fetchMessages()).finally(() =>
+      setLoading(false),
+    );
   }, [user, isEmployment, fetchMessages, fetchApplications]);
 
   // Realtime: messages (not used in the employment CV inbox)
@@ -128,10 +120,11 @@ export function ServiceOrdersView({
     };
   }, [user, isEmployment, supabase, fetchMessages]);
 
-  // Realtime: applications. The DB filter is by service_id, not owner, so we
-  // refetch and rely on the SELECT RLS policy to scope to the current owner.
+  // Realtime: applications (CV inbox only). The DB filter is by service_id, not
+  // owner, so we refetch and rely on the SELECT RLS policy to scope to the
+  // current owner.
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isEmployment) return;
     const channel = supabase
       .channel("service-orders-applications-rt")
       .on(
@@ -149,7 +142,7 @@ export function ServiceOrdersView({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, supabase, fetchApplications]);
+  }, [user, isEmployment, supabase, fetchApplications]);
 
   const filteredMessages = messages.filter((msg) =>
     activeTab === "new" ? !msg.is_read : msg.is_read,
@@ -171,23 +164,24 @@ export function ServiceOrdersView({
     );
   }
 
+  // Browsers cannot UPDATE job_applications, so the status goes through the
+  // owner-checked API route.
   async function markApplicationProcessed(id: string) {
-    const { error } = await supabase
-      .from("job_applications")
-      .update({ status: "processed" })
-      .eq("id", id);
-    if (error) return;
+    const response = await fetch(`/api/job-applications/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "processed" }),
+    }).catch(() => null);
+    if (!response?.ok) {
+      toast.error("შენახვა ვერ მოხერხდა");
+      return;
+    }
     setApplications((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status: "processed" } : a)),
     );
-  }
-
-  async function downloadCv(path: string) {
-    const { data, error } = await supabase.storage
-      .from("cv-documents")
-      .createSignedUrl(path, 60);
-    if (error || !data) return;
-    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    setSelectedApplication((current) =>
+      current?.id === id ? { ...current, status: "processed" } : current,
+    );
   }
 
   return (
@@ -196,58 +190,14 @@ export function ServiceOrdersView({
         {isEmployment ? "CV-ები" : "შეკვეთები / შეკითხვები"}
       </h1>
 
-      {/* View type switcher (hidden in the employment CV inbox) */}
-      {!isEmployment && (
-        <div className="inline-flex max-w-full flex-wrap rounded-xl border border-[#E2E8F0] bg-white p-1">
-          {viewTabs.map((vt) => {
-            const active = viewType === vt.key;
-            const badge =
-              vt.key === "messages" ? newMessageCount : newApplicationCount;
-            return (
-              <button
-                key={vt.key}
-                type="button"
-                onClick={() => {
-                  setViewType(vt.key);
-                  setActiveTab("new");
-                }}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-colors ${
-                  active
-                    ? "bg-[#2563EB] text-white"
-                    : "text-[#64748B] hover:text-[#1E293B]"
-                }`}
-              >
-                {vt.key === "messages" ? (
-                  <MessageSquare className="h-4 w-4" />
-                ) : (
-                  <Briefcase className="h-4 w-4" />
-                )}
-                {vt.label}
-                {badge > 0 && (
-                  <span
-                    className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
-                      active
-                        ? "bg-white text-[#2563EB]"
-                        : "bg-[#EF4444] text-white"
-                    }`}
-                  >
-                    {badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {/* Status tabs */}
       <div className="flex gap-1 rounded-xl bg-[#F8FAFC] p-1">
         {statusTabs.map((tab) => {
           const count =
             tab.key === "new"
-              ? viewType === "messages"
-                ? newMessageCount
-                : newApplicationCount
+              ? isEmployment
+                ? newApplicationCount
+                : newMessageCount
               : 0;
           return (
             <button
@@ -280,18 +230,17 @@ export function ServiceOrdersView({
             />
           ))}
         </div>
-      ) : viewType === "messages" ? (
-        <MessagesList
-          rows={filteredMessages}
-          activeTab={activeTab}
-          onSelect={setSelectedMessage}
-        />
-      ) : (
+      ) : isEmployment ? (
         <ApplicationsList
           rows={filteredApplications}
           activeTab={activeTab}
           onSelect={setSelectedApplication}
-          onDownloadCv={downloadCv}
+        />
+      ) : (
+        <MessagesList
+          rows={filteredMessages}
+          activeTab={activeTab}
+          onSelect={setSelectedMessage}
         />
       )}
 
@@ -303,7 +252,7 @@ export function ServiceOrdersView({
             title="შეკვეთის დეტალები"
             size="md"
           >
-            <div className="space-y-5">
+            <div data-jev-private className="space-y-5">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
                   <User className="h-5 w-5" />
@@ -348,6 +297,7 @@ export function ServiceOrdersView({
                 {!selectedMessage.is_read && (
                   <button
                     type="button"
+                    data-jev-label="მიღება"
                     onClick={() => {
                       markMessageRead(selectedMessage.id);
                       setSelectedMessage({
@@ -364,6 +314,7 @@ export function ServiceOrdersView({
                 <button
                   type="button"
                   onClick={() => setSelectedMessage(null)}
+                  data-jev-label="დახურვა"
                   className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#F8FAFC]"
                 >
                   <XIcon className="h-4 w-4" />
@@ -383,15 +334,10 @@ export function ServiceOrdersView({
           >
             <ApplicationDetail
               app={selectedApplication}
-              onMarkProcessed={() => {
-                markApplicationProcessed(selectedApplication.id);
-                setSelectedApplication({
-                  ...selectedApplication,
-                  status: "processed",
-                });
-              }}
+              onMarkProcessed={() =>
+                markApplicationProcessed(selectedApplication.id)
+              }
               onClose={() => setSelectedApplication(null)}
-              onDownloadCv={downloadCv}
             />
           </Modal>
         )}
@@ -440,7 +386,7 @@ function MessagesList({
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody data-jev-private data-jev-section="შეკითხვები">
             {rows.map((msg, idx) => (
               <motion.tr
                 key={msg.id}
@@ -466,6 +412,7 @@ function MessagesList({
                   <button
                     type="button"
                     onClick={() => onSelect(msg)}
+                    data-jev-label="ნახვა"
                     className="text-sm font-medium text-brand-accent hover:underline"
                   >
                     ნახვა
@@ -476,7 +423,11 @@ function MessagesList({
           </tbody>
         </table>
       </div>
-      <div className="space-y-3 sm:hidden">
+      <div
+        data-jev-private
+        data-jev-section="შეკითხვები"
+        className="space-y-3 sm:hidden"
+      >
         {rows.map((msg, idx) => (
           <motion.button
             key={msg.id}
@@ -518,12 +469,10 @@ function ApplicationsList({
   rows,
   activeTab,
   onSelect,
-  onDownloadCv,
 }: {
   rows: ApplicationRow[];
   activeTab: StatusTab;
   onSelect: (a: ApplicationRow) => void;
-  onDownloadCv: (path: string) => void;
 }) {
   if (rows.length === 0) {
     return (
@@ -556,7 +505,7 @@ function ApplicationsList({
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody data-jev-private data-jev-section="ვაკანსიის განაცხადები">
             {rows.map((app, idx) => (
               <motion.tr
                 key={app.id}
@@ -575,17 +524,19 @@ function ApplicationsList({
                 </td>
                 <td className="px-4 py-3">
                   {app.cv_path ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDownloadCv(app.cv_path!);
-                      }}
+                    // The route checks the vacancy owner and redirects to a
+                    // 60 s signed download (the bucket has no browser access).
+                    <a
+                      href={`/api/job-applications/${app.id}/cv`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      data-cv-download
+                      onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1 rounded-md bg-[#DBEAFE] px-2 py-1 text-xs font-bold text-[#2563EB] hover:bg-[#BFDBFE]"
                     >
                       <Download className="h-3 w-3" />
                       ჩამოტვირთვა
-                    </button>
+                    </a>
                   ) : (
                     <span className="text-xs text-[#94A3B8]">—</span>
                   )}
@@ -599,6 +550,7 @@ function ApplicationsList({
                   <button
                     type="button"
                     onClick={() => onSelect(app)}
+                    data-jev-label="ნახვა"
                     className="text-sm font-medium text-brand-accent hover:underline"
                   >
                     ნახვა
@@ -609,7 +561,11 @@ function ApplicationsList({
           </tbody>
         </table>
       </div>
-      <div className="space-y-3 sm:hidden">
+      <div
+        data-jev-private
+        data-jev-section="ვაკანსიის განაცხადები"
+        className="space-y-3 sm:hidden"
+      >
         {rows.map((app, idx) => (
           <motion.button
             key={app.id}
@@ -650,15 +606,13 @@ function ApplicationDetail({
   app,
   onMarkProcessed,
   onClose,
-  onDownloadCv,
 }: {
   app: ApplicationRow;
   onMarkProcessed: () => void;
   onClose: () => void;
-  onDownloadCv: (path: string) => void;
 }) {
   return (
-    <div className="space-y-5">
+    <div data-jev-private className="space-y-5">
       <div className="flex items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-accent-light text-brand-accent">
           <User className="h-5 w-5" />
@@ -719,15 +673,18 @@ function ApplicationDetail({
       )}
 
       {app.cv_path && (
-        <button
-          type="button"
-          onClick={() => onDownloadCv(app.cv_path!)}
+        <a
+          href={`/api/job-applications/${app.id}/cv`}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-cv-download
+          data-jev-label="ნახე CV"
           className="inline-flex items-center gap-2 rounded-xl border border-[#DBEAFE] bg-[#F0F7FF] px-4 py-2.5 text-sm font-bold text-[#2563EB] transition-colors hover:bg-[#DBEAFE]"
         >
           <FileText className="h-4 w-4" />
           ნახე CV
           <Download className="h-3.5 w-3.5" />
-        </button>
+        </a>
       )}
 
       <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
@@ -740,6 +697,7 @@ function ApplicationDetail({
           <button
             type="button"
             onClick={onMarkProcessed}
+            data-jev-label="მიღება"
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-accent/90"
           >
             <Check className="h-4 w-4" />
@@ -749,6 +707,7 @@ function ApplicationDetail({
         <button
           type="button"
           onClick={onClose}
+          data-jev-label="დახურვა"
           className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#F8FAFC]"
         >
           <XIcon className="h-4 w-4" />

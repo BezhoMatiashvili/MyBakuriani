@@ -1,12 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Heart, MapPin, Tag } from "lucide-react";
+import { Heart, MapPin, Star, Tag } from "lucide-react";
 import Image from "next/image";
 import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
+import { cardEnter } from "@/lib/utils/enterAnimation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { FALLBACK_ZONES } from "@/lib/zones/types";
@@ -19,6 +20,7 @@ import {
   ListingAgeBadge,
   NewlyAddedBadge,
 } from "@/components/shared/ListingRecency";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 
 // Seeded zone names get translated display labels (Zones.<slug>.name);
 // free-text / non-seeded locations pass through raw. Display only — the
@@ -52,8 +54,12 @@ interface InvestmentCardProps {
   paymentOptions?: string[];
   discountPercent: number;
   discountExpiresAt: string | null;
+  isVip?: boolean;
+  isSuperVip?: boolean;
   mobilePresentation?: "default" | "compact-grid";
   createdAt: string | null;
+  /** `public_properties.ownership_verified` (C39). */
+  isOwnershipVerified?: boolean;
 }
 
 export default function InvestmentCard({
@@ -70,8 +76,11 @@ export default function InvestmentCard({
   paymentOptions,
   discountPercent,
   discountExpiresAt,
+  isVip = false,
+  isSuperVip = false,
   mobilePresentation = "default",
   createdAt,
+  isOwnershipVerified = false,
 }: InvestmentCardProps) {
   const compactGrid = mobilePresentation === "compact-grid";
   const t = useTranslations("InvestmentCard");
@@ -123,14 +132,14 @@ export default function InvestmentCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
+      style={cardEnter}
       transition={{ duration: 0.3 }}
       whileHover={{ scale: 1.02 }}
       className="group h-full"
     >
       <Link
         href={`/sales/${id}`}
+        data-investment-card
         data-mobile-presentation={mobilePresentation}
         className={cn(
           "flex h-full flex-col overflow-hidden border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[0px_10px_30px_-4px_rgba(0,0,0,0.08)]",
@@ -178,6 +187,20 @@ export default function InvestmentCard({
               {t("forSale")}
             </span>
 
+            {(isSuperVip || isVip) && (
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full bg-creation font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.1)]",
+                  compactGrid
+                    ? "gap-1 px-2 py-1 text-[9px] sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[12px]"
+                    : "gap-1.5 px-3 py-1.5 text-[12px]",
+                )}
+              >
+                <Star className="size-3 fill-current" />
+                {isSuperVip ? "SUPER VIP" : "VIP"}
+              </span>
+            )}
+
             {discountActive && salePrice != null && (
               <span className="inline-flex items-center rounded-full bg-[#F97316] px-3 py-1.5 text-[12px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.1)]">
                 -{discountPercent}%
@@ -206,15 +229,42 @@ export default function InvestmentCard({
             <Heart className={`h-5 w-5 ${isFavorited ? "fill-current" : ""}`} />
           </button>
 
-          <NewlyAddedBadge
-            createdAt={createdAt}
+          {/* A full chip stack (for sale, VIP, discount and the long
+              "completed" chip) reaches y 160 px, so the pill, stacked above a
+              "new" chip on the same side, needs a photo of at least 226 px:
+              lg cards only just reach it (226.5 px at 1024), xl cards clear
+              it (260.5 px).
+              Below xl the badge is an icon under the favourite button, where
+              no chip reaches. */}
+          {isOwnershipVerified && (
+            <OwnershipVerifiedBadge
+              variant="icon"
+              className="absolute right-[26px] top-[68px] xl:hidden"
+            />
+          )}
+          <div
             className={cn(
-              "absolute",
+              "absolute flex flex-col items-start gap-1.5",
               compactGrid
-                ? "bottom-2 left-2 px-2 text-[8px] sm:bottom-4 sm:left-4"
+                ? "bottom-2 left-2 sm:bottom-4 sm:left-4"
                 : "bottom-4 left-4",
             )}
-          />
+          >
+            {isOwnershipVerified && (
+              <OwnershipVerifiedBadge
+                variant="card"
+                className="hidden xl:inline-flex"
+              />
+            )}
+            <NewlyAddedBadge
+              createdAt={createdAt}
+              className={
+                compactGrid
+                  ? "max-sm:h-4 max-sm:px-2 max-sm:text-[8px]"
+                  : undefined
+              }
+            />
+          </div>
         </div>
 
         <div

@@ -1,12 +1,26 @@
 export const RENT_PRICE_MIN = 0;
 export const RENT_PRICE_MAX = 1000;
 
+// Every property_type a `types=` search param may carry (C13). Anything else is
+// dropped on parse: the search query casts the list to the enum (22P02).
+export const SEARCH_TYPE_VALUES = [
+  "flat",
+  "apartment",
+  "hotel",
+  "cottage",
+  "villa",
+  "house",
+  "studio",
+  "land",
+] as const;
+
 export interface RentAdvancedFilters {
   priceMin: number;
   priceMax: number;
   bedrooms: number | null;
   bathrooms: number | null;
   capacity: number | null;
+  types: string[];
   amenities: string[];
   verifiedOnly: boolean;
 }
@@ -17,6 +31,7 @@ export const DEFAULT_RENT_FILTERS: RentAdvancedFilters = {
   bedrooms: null,
   bathrooms: null,
   capacity: null,
+  types: [],
   amenities: [],
   verifiedOnly: false,
 };
@@ -58,6 +73,7 @@ export function normalizeRentFilters(
     bedrooms: filters?.bedrooms ?? null,
     bathrooms: filters?.bathrooms ?? null,
     capacity: filters?.capacity ?? null,
+    types: [...(filters?.types ?? [])],
     amenities: [...(filters?.amenities ?? [])],
     verifiedOnly: filters?.verifiedOnly ?? false,
   };
@@ -88,6 +104,7 @@ export function buildRentSearchParams(
   if (filters.bathrooms !== null) {
     params.set("bathrooms", String(filters.bathrooms));
   }
+  if (filters.types.length > 0) params.set("types", filters.types.join(","));
   if (filters.amenities.length > 0) {
     params.set("amenities", filters.amenities.join(","));
   }
@@ -105,6 +122,10 @@ export function parseRentSearchParams(params: SearchParamReader): {
   const guests = finiteNumber(params.get("guests"));
   const rooms = finiteNumber(params.get("rooms"));
   const bathrooms = finiteNumber(params.get("bathrooms"));
+  const types = (params.get("types") ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => (SEARCH_TYPE_VALUES as readonly string[]).includes(item));
   const amenities = (params.get("amenities") ?? "")
     .split(",")
     .map((item) => item.trim())
@@ -124,6 +145,7 @@ export function parseRentSearchParams(params: SearchParamReader): {
         bedrooms: rooms,
         bathrooms,
         capacity: guests,
+        types,
         amenities,
         verifiedOnly:
           params.get("verified_only") === "true" ||

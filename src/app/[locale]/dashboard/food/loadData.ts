@@ -7,10 +7,6 @@ export type OwnerStats =
 export type FoodData = {
   restaurant: Tables<"services"> | null;
   kpis: OwnerStats | null;
-  stats: {
-    ordersToday: number;
-    revenueThisMonth: number;
-  };
 };
 
 /**
@@ -33,34 +29,17 @@ export async function loadFoodData(
 
   const restaurant = svcData ?? null;
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
-
-  const [todayRes, monthRes, kpisRes] = await Promise.all([
-    supabase
-      .from("sms_messages")
-      .select("*", { count: "exact", head: true })
-      .eq("to_user_id", userId)
-      .gte("created_at", startOfDay.toISOString()),
-    supabase
-      .from("sms_messages")
-      .select("*", { count: "exact", head: true })
-      .eq("to_user_id", userId)
-      .gte("created_at", startOfMonth.toISOString()),
-    supabase.rpc("owner_dashboard_stats", { p_scope: "food" }),
-  ]);
-
-  const unitPrice = restaurant?.price ?? 0;
+  const kpisRes = await supabase.rpc("owner_dashboard_stats", {
+    p_scope: "food",
+    // The whole screen describes `restaurant` (newest food listing: header,
+    // hours, price, actions, one-item picker), so scope the tiles to it —
+    // its header count and the Views tile can no longer disagree for owners
+    // with several food listings.
+    p_listing_ids: restaurant ? [restaurant.id] : undefined,
+  });
 
   return {
     restaurant,
     kpis: kpisRes.data?.[0] ?? null,
-    stats: {
-      ordersToday: todayRes.count ?? 0,
-      revenueThisMonth: (monthRes.count ?? 0) * unitPrice,
-    },
   };
 }

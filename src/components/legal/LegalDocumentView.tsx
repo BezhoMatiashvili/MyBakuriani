@@ -3,7 +3,10 @@ import type { LegalDoc } from "@/content/legal";
 export default function LegalDocumentView({ doc }: { doc: LegalDoc }) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="text-[32px] font-black text-[#1E293B]">{doc.title}</h1>
+      {/* 24px on phones: "კონფიდენციალურობის" alone is ~430px wide at 32px. */}
+      <h1 className="break-words text-[24px] font-black text-[#1E293B] sm:text-[32px]">
+        {doc.title}
+      </h1>
       <p className="mt-2 text-[13px] font-medium leading-[20px] text-[#64748B]">
         {doc.lastUpdated}
       </p>

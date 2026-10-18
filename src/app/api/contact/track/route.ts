@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
@@ -12,17 +12,16 @@ type Body = {
 };
 
 export async function POST(req: NextRequest) {
-  if (!(await checkRateLimit(`contact-track:${getClientIp(req)}`, 30, 60_000))) {
+  if (
+    !(await checkRateLimit(`contact-track:${getClientIp(req)}`, 30, 60_000))
+  ) {
     return Response.json(
       { tracked: false, reason: "rate_limited" },
       { status: 429 },
     );
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return Response.json({ tracked: false, reason: "unauth" }, { status: 401 });

@@ -6,6 +6,7 @@ import { isBannerTone } from "@/lib/banners";
 import {
   isBannerPlacement,
   legacyKindForPlacement,
+  placementRequiresMedia,
 } from "@/lib/banner-placements";
 import { isTimeoutError } from "@/lib/with-timeout";
 import { safeHttpsUrl, safeInternalPath } from "@/lib/security";
@@ -107,6 +108,42 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   }
 
   const db = createServiceClient(guard.admin.userId);
+
+  // Same rule as POST, judged on the row as it will be after this update. A
+  // plain on/off toggle touches none of these and is never refused.
+  if ("placement" in update || "image_url" in update || "video_url" in update) {
+    const { data: current, error: readError } = await db
+      .from("landing_banners")
+      .select("placement, image_url, video_url")
+      .eq("id", id)
+      .maybeSingle();
+    if (readError) {
+      return Response.json(
+        {
+          error: readError.message,
+          code: isTimeoutError(readError) ? "timeout" : undefined,
+        },
+        { status: 500 },
+      );
+    }
+    if (!current) return Response.json({ error: "not found" }, { status: 404 });
+    const next = { ...current, ...update } as {
+      placement: string;
+      image_url: string | null;
+      video_url: string | null;
+    };
+    if (
+      placementRequiresMedia(next.placement) &&
+      !next.image_url &&
+      !next.video_url
+    ) {
+      return Response.json(
+        { error: "image or video required", code: "media_required" },
+        { status: 400 },
+      );
+    }
+  }
+
   const { data, error } = await db
     .from("landing_banners")
     .update(update)

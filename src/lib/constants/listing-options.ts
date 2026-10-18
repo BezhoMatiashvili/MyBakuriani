@@ -300,6 +300,7 @@ const DB_VALUE_KEYS = {
     ბურანები: "buggies",
     კვადროციკლები: "quad_bikes",
     ბაგი: "buggy",
+    სპორტსკოლა: "sport_school",
     სხვა: "other",
   },
   durations: {
@@ -342,6 +343,8 @@ const DB_VALUE_KEYS = {
     "არ შედის": "not_included",
   },
   salePropertyTypes: {
+    ბინა: "flat",
+    სახლი: "house",
     სტუდიო: "studio",
     აპარტამენტი: "apartment",
     კოტეჯი: "cottage",
@@ -388,6 +391,8 @@ const DB_VALUE_KEYS = {
     ტური: "tour",
   },
   propertyTypes: {
+    ბინა: "flat",
+    სახლი: "house",
     აპარტამენტი: "apartment",
     სტუდიო: "studio",
     კოტეჯი: "cottage",

@@ -11,13 +11,44 @@ import { SalePagination } from "@/components/search/SalePagination";
 import { cn } from "@/lib/utils";
 import { isDiscountActive } from "@/lib/utils/pricing";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { interleaveSponsored } from "@/lib/ad-rotation";
 
 const ITEMS_PER_PAGE = 6;
 
 type ListingTab = "all" | "vip" | "discount";
 
+type SaleGridListing = Pick<
+  Tables<"public_properties">,
+  | "id"
+  | "created_at"
+  | "title"
+  | "description"
+  | "location"
+  | "photos"
+  | "type"
+  | "sale_price"
+  | "price_per_night"
+  | "area_sqm"
+  | "cadastral_code"
+  | "rooms"
+  | "capacity"
+  | "amenities"
+  | "house_rules"
+  | "organization_id"
+  | "developer"
+  | "roi_percent"
+  | "construction_status"
+  | "construction_progress_percent"
+  | "renovation_status"
+  | "is_vip"
+  | "is_super_vip"
+  | "discount_percent"
+  | "discount_expires_at"
+  | "ownership_verified"
+>;
+
 interface Props {
-  properties: Tables<"properties">[];
+  properties: SaleGridListing[];
   initialType?: string;
   initialTypes?: string[];
   initialLocation?: string;
@@ -32,6 +63,7 @@ interface Props {
   initialRoiMin?: number;
   initialConstruction?: string;
   initialRenovation?: string;
+  initialKeyword?: string;
 }
 
 // Sale-tab `construction` URL param uses the Figma-aligned values which map
@@ -58,6 +90,7 @@ export default function SalesGridClient({
   initialRoiMin,
   initialConstruction,
   initialRenovation,
+  initialKeyword,
 }: Props) {
   const t = useTranslations("SalesGrid");
   const tShared = useTranslations("Shared");
@@ -149,6 +182,15 @@ export default function SalesGridClient({
     if (initialRenovation) {
       list = list.filter((p) => p.renovation_status === initialRenovation);
     }
+    // Same fields the rental keyword matches on /search.
+    const keyword = initialKeyword?.trim().toLowerCase();
+    if (keyword) {
+      list = list.filter((p) =>
+        [p.title, p.description, p.location, p.cadastral_code].some((field) =>
+          field?.toLowerCase().includes(keyword),
+        ),
+      );
+    }
 
     if (listingTab === "vip") {
       list = list.filter((p) => p.is_vip || p.is_super_vip);
@@ -177,6 +219,7 @@ export default function SalesGridClient({
     initialRoiMin,
     initialConstruction,
     initialRenovation,
+    initialKeyword,
   ]);
 
   const totalPages = Math.max(
@@ -263,39 +306,50 @@ export default function SalesGridClient({
               bare
               className="col-span-full"
             />
-            <BannerSlot placement="listing_grid" bare />
-
-            {paginatedProperties.map((p, i) => (
-              <ScrollReveal key={p.id} delay={i * 0.05} className="h-full">
-                <PropertyCard
-                  id={p.id}
-                  createdAt={p.created_at}
-                  title={p.title}
-                  location={p.location}
-                  photos={p.photos ?? []}
-                  pricePerNight={
-                    p.price_per_night ? Number(p.price_per_night) : null
-                  }
-                  salePrice={p.sale_price ? Number(p.sale_price) : null}
-                  rating={null}
-                  capacity={p.capacity}
-                  rooms={p.rooms}
-                  isVip={p.is_vip ?? false}
-                  isSuperVip={p.is_super_vip ?? false}
-                  discountPercent={p.discount_percent ?? 0}
-                  discountExpiresAt={p.discount_expires_at}
-                  isForSale
-                  amenityTags={
-                    Array.isArray(p.amenities) ? (p.amenities as string[]) : []
-                  }
-                  constructionStatus={p.construction_status ?? null}
-                  constructionProgressPercent={
-                    p.construction_progress_percent ?? null
-                  }
-                  paymentOptions={readPaymentOptions(p.house_rules)}
+            {interleaveSponsored(
+              paginatedProperties.map((p, i) => (
+                <ScrollReveal key={p.id} delay={i * 0.05} className="h-full">
+                  <PropertyCard
+                    id={p.id}
+                    createdAt={p.created_at}
+                    title={p.title}
+                    location={p.location}
+                    photos={p.photos ?? []}
+                    pricePerNight={
+                      p.price_per_night ? Number(p.price_per_night) : null
+                    }
+                    salePrice={p.sale_price ? Number(p.sale_price) : null}
+                    rating={null}
+                    capacity={p.capacity}
+                    rooms={p.rooms}
+                    isVip={p.is_vip ?? false}
+                    isSuperVip={p.is_super_vip ?? false}
+                    isOwnershipVerified={p.ownership_verified ?? false}
+                    discountPercent={p.discount_percent ?? 0}
+                    discountExpiresAt={p.discount_expires_at}
+                    isForSale
+                    amenityTags={
+                      Array.isArray(p.amenities)
+                        ? (p.amenities as string[])
+                        : []
+                    }
+                    constructionStatus={p.construction_status ?? null}
+                    constructionProgressPercent={
+                      p.construction_progress_percent ?? null
+                    }
+                    paymentOptions={readPaymentOptions(p.house_rules)}
+                  />
+                </ScrollReveal>
+              )),
+              (slot) => (
+                <BannerSlot
+                  key={`sponsored-${slot}`}
+                  placement="listing_grid"
+                  bare
+                  position={slot}
                 />
-              </ScrollReveal>
-            ))}
+              ),
+            )}
           </div>
         )}
 

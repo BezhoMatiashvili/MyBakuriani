@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/utils/uuid";
@@ -50,8 +51,10 @@ function eventType(
   if (operation === "DELETE") return "legacy_deleted" as const;
   const oldStatus = textValue(oldValues, "status");
   const newStatus = textValue(newValues, "status");
-  if (newStatus === "cancelled" && oldStatus !== "cancelled") return "cancelled" as const;
-  if (oldStatus === "cancelled" && newStatus !== "cancelled") return "restored" as const;
+  if (newStatus === "cancelled" && oldStatus !== "cancelled")
+    return "cancelled" as const;
+  if (oldStatus === "cancelled" && newStatus !== "cancelled")
+    return "restored" as const;
   return "edited" as const;
 }
 
@@ -63,25 +66,32 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: "invalid_request" }, { status: 400 });
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return Response.json({ error: "unauthenticated" }, { status: 401 });
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+  const { user } = guard;
 
-  const db = createServiceClient();
-  const { data: property, error: propertyError } = await db
+  const supabase = await createClient();
+  const { data: property, error: propertyError } = await supabase
     .from("properties")
     .select("id")
     .eq("id", propertyId)
     .eq("owner_id", user.id)
     .maybeSingle();
-  if (propertyError) return Response.json({ error: propertyError.message }, { status: 500 });
+  if (propertyError)
+    return Response.json({ error: propertyError.message }, { status: 500 });
   if (!property) return Response.json({ error: "forbidden" }, { status: 403 });
 
+  // audit_logs' only RLS policy is admin-only ("Admins read audit logs"), and
+  // the actor-name profiles lookup below needs OTHER users' rows that "Users
+  // can view own profile" RLS would not return — both must stay on the
+  // service client; the ownership check above is the real backstop RLS can
+  // provide here (properties and, further down, manual_bookings).
+  const db = createServiceClient();
   let historyQuery = db
     .from("audit_logs")
-    .select("id, occurred_at, operation, record_id, actor_id, actor_source, changed_fields, old_values, new_values")
+    .select(
+      "id, occurred_at, operation, record_id, actor_id, actor_source, changed_fields, old_values, new_values",
+    )
     .eq("table_name", "manual_bookings")
     .eq("subject_user_id", user.id)
     .eq("property_id", propertyId)
@@ -97,7 +107,7 @@ export async function GET(request: NextRequest) {
 
   const [historyRes, cancelledRes] = await Promise.all([
     historyQuery,
-    db
+    supabase
       .from("manual_bookings")
       .select("*")
       .eq("owner_id", user.id)
@@ -126,7 +136,10 @@ export async function GET(request: NextRequest) {
     { name: string | null; role: string | null }
   >();
   const actors = actorIds.length
-    ? await db.from("profiles").select("id, display_name, role").in("id", actorIds)
+    ? await db
+        .from("profiles")
+        .select("id, display_name, role")
+        .in("id", actorIds)
     : { data: [], error: null };
   if (actors.error) {
     return Response.json({ error: actors.error.message }, { status: 500 });
@@ -145,8 +158,8 @@ export async function GET(request: NextRequest) {
     const actor = row.actor_id ? actorNames.get(row.actor_id) : null;
     const snapshotComplete = Boolean(
       snapshot &&
-        typeof snapshot.id === "string" &&
-        typeof snapshot.property_id === "string",
+      typeof snapshot.id === "string" &&
+      typeof snapshot.property_id === "string",
     );
     return {
       id: row.id,

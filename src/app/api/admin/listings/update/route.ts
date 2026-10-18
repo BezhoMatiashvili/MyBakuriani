@@ -144,11 +144,13 @@ const STRING_ARRAY_FIELDS = new Set<string>([
 
 const STATUS_VALUES = new Set(["active", "blocked", "pending", "draft"]);
 const PROPERTY_TYPE_VALUES = new Set([
+  "flat",
   "apartment",
   "cottage",
   "hotel",
   "studio",
   "villa",
+  "house",
   "land",
 ]);
 const SERVICE_CATEGORY_VALUES = new Set([

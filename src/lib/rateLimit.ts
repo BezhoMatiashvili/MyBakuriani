@@ -19,6 +19,7 @@
  * from a client component.
  */
 import { createServiceClient } from "@/lib/supabase/admin";
+import { ipv6Net64 } from "@/lib/client-ip";
 
 type Bucket = { count: number; resetAt: number };
 
@@ -156,30 +157,28 @@ export async function checkRateLimit(
   return localLimit(key, limit, windowMs);
 }
 
+/** Per-/64 headroom: a lone address never gets near it (C16). */
+const NET64_FACTOR = 8;
+
 /**
- * Client address from the trusted deployment proxy; never accept user input.
- *
- * Load-bearing: some limits are keyed on this value ALONE. DigitalOcean App
- * Platform's edge APPENDS the true client IP to any client-supplied
- * x-forwarded-for rather than replacing it, so the FIRST entry is
- * attacker-controlled — confirmed live 2026-09-08: 25 requests against the
- * geocode rate limiter (20/60s) each carrying a distinct spoofed
- * X-Forwarded-For all returned 200, while an unmodified control hit 429 at
- * request 21 as expected. Since there is exactly one trusted hop between the
- * client and this app, the LAST entry is the one DO's own edge appended and is
- * the one to trust. Do not revert to the first entry — that is the bypass this
- * fixes (see contracts.md C16).
+ * The /64 half of an IP-keyed brake (C16). True for IPv4. For an IPv6 client
+ * it consumes `<scope>:net64:<prefix>` at NET64_FACTOR x `limit`, so a host
+ * cycling through the addresses of its /64 cannot get a fresh bucket per
+ * request. Call it only after the per-address check passed: a denied address
+ * then adds nothing to its /64.
  */
-export function getClientIp(req: {
-  headers: { get(name: string): string | null };
-}): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const hops = forwarded
-      .split(",")
-      .map((hop) => hop.trim())
-      .filter(Boolean);
-    if (hops.length > 0) return hops[hops.length - 1];
-  }
-  return req.headers.get("x-real-ip") ?? "unknown";
+export async function checkNet64RateLimit(
+  scope: string,
+  ip: string,
+  limit: number,
+  windowMs: number,
+): Promise<boolean> {
+  const net = ipv6Net64(ip);
+  return (
+    net === null ||
+    checkRateLimit(`${scope}:net64:${net}`, limit * NET64_FACTOR, windowMs)
+  );
 }
+
+/** Trusted client address: rule and history in src/lib/client-ip.ts (C16). */
+export { getClientIp } from "@/lib/client-ip";

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { withRetry } from "@/lib/with-timeout";
 import { safeInternalPath } from "@/lib/security";
+import { postAuthRedirectPath } from "../post-auth-redirect";
 
 // `request.url` in a Node.js-runtime route handler reflects the container's
 // internal address (http://localhost:8080) behind DigitalOcean's proxy, NOT the
@@ -35,49 +35,18 @@ export async function GET(request: Request) {
         return redirect(next);
       }
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        const { data: profile, error: profileError } = await withRetry(() =>
-          supabase
-            .from("profiles")
-            .select("role")
-            .eq("id", user.id)
-            .maybeSingle(),
-        );
-
-        if (profileError) {
-          // Couldn't confirm the profile even after a retry — a DB blip, not
-          // proof the account has no profile. Don't bounce a signed-in user
-          // to registration on a transient failure.
-          return redirect("/dashboard/guest");
-        }
-        if (!profile) {
-          return redirect("/auth/register");
-        }
-
-        const rolePaths: Record<string, string> = {
-          admin: "/dashboard/admin",
-          renter: "/dashboard/renter",
-          seller: "/dashboard/seller",
-          cleaner: "/dashboard/cleaner",
-          food: "/dashboard/food",
-          entertainment: "/dashboard/entertainment",
-          transport: "/dashboard/transport",
-          employment: "/dashboard/employment",
-          handyman: "/dashboard/services",
-        };
-        const dashboardPath = rolePaths[profile.role] ?? "/dashboard/guest";
-        const target = next ?? dashboardPath;
-        return redirect(target);
-      }
+      return redirect(await postAuthRedirectPath(supabase, next));
     }
   }
 
   if (next === "/auth/reset-password") {
     return redirect("/auth/forgot-password?error=invalid_link");
+  }
+  // GoTrue appends error_code to the redirect of an expired or already-used
+  // email link. Every other error (a cancelled Google consent arrives as
+  // error=access_denied) keeps the plain bounce to the login page.
+  if (searchParams.get("error_code") === "otp_expired") {
+    return redirect("/auth/login?error=invalid_link");
   }
   return redirect("/auth/login");
 }

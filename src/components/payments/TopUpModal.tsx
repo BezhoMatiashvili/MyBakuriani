@@ -1,20 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldCheck } from "lucide-react";
 import Modal from "@/components/shared/Modal";
 import NumberField from "@/components/shared/NumberField";
-import { formatPrice } from "@/lib/utils/format";
+import { formatGelAmount } from "@/lib/utils/pricing";
+import {
+  MAX_CARD_TOPUP_TETRI,
+  MIN_CARD_TOPUP_TETRI,
+} from "@/lib/payments/keepz/amount";
 
 const PRESETS = [20, 50, 100, 200];
-const MAX_AMOUNT = 999999;
+// Same bounds the checkout route and payments_keepz_amount_check enforce (C32).
+const MIN_AMOUNT = MIN_CARD_TOPUP_TETRI / 100;
+const MAX_AMOUNT = MAX_CARD_TOPUP_TETRI / 100;
 
 interface TopUpModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (amount: number) => void;
   loading?: boolean;
+  /** Amount in GEL to open with. */
+  initialAmount?: number;
 }
 
 export default function TopUpModal({
@@ -22,13 +30,21 @@ export default function TopUpModal({
   onClose,
   onConfirm,
   loading,
+  initialAmount,
 }: TopUpModalProps) {
   const t = useTranslations("DashboardShared");
+  const tPayments = useTranslations("Payments");
   const [amount, setAmount] = useState("100");
+
+  // A deep link's amount (the support assistant's top-up button, C43): only
+  // filled in; the payer still confirms and pays on Keepz.
+  useEffect(() => {
+    if (isOpen && initialAmount !== undefined) setAmount(String(initialAmount));
+  }, [isOpen, initialAmount]);
 
   const numeric = Number(amount);
   const valid =
-    Number.isFinite(numeric) && numeric >= 1 && numeric <= MAX_AMOUNT;
+    Number.isFinite(numeric) && numeric >= MIN_AMOUNT && numeric <= MAX_AMOUNT;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t("topUp.title")}>
@@ -59,9 +75,9 @@ export default function TopUpModal({
           <NumberField
             value={amount}
             onChange={setAmount}
-            min={1}
+            min={MIN_AMOUNT}
             max={MAX_AMOUNT}
-            integer
+            decimals={2}
             suffix="₾"
           />
         </div>
@@ -75,9 +91,15 @@ export default function TopUpModal({
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            t("topUp.continue", { amount: formatPrice(valid ? numeric : 0) })
+            t("topUp.continue", {
+              amount: formatGelAmount(valid ? numeric : 0),
+            })
           )}
         </button>
+        <p className="flex items-center justify-center gap-1.5 text-[11px] text-[#64748B]">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+          {tPayments("secureNote")}
+        </p>
       </div>
     </Modal>
   );

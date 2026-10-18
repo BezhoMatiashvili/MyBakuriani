@@ -10,7 +10,16 @@ import {
   getCachedPublicCalendar,
   getCachedPublicPriceOverrides,
 } from "@/lib/data/getCachedPublicListing";
-import { buildListingMetadata } from "@/lib/seo";
+import { pickDescription } from "@/lib/seo/description";
+import { buildListingMetadata, redirectToCanonicalListing } from "@/lib/seo";
+import { propertyViewUrl } from "@/lib/utils/listingUrls";
+import ListingBreadcrumbs from "@/components/seo/ListingBreadcrumbs";
+import ListingFacts, {
+  listingFactsText,
+  propertyFactsFromRow,
+} from "@/components/seo/ListingFacts";
+import RelatedListings from "@/components/seo/RelatedListings";
+import { HotelJsonLd } from "@/components/seo/ListingJsonLd";
 import HotelDetailClient from "./HotelDetailClient";
 
 interface Props {
@@ -38,21 +47,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "Metadata" });
   // Cached public listing only — the cookie-aware metadata fallback lives on
   // the /preview route. A miss (pending/blocked/deleted) gets the not-found title.
+  // A transient error rethrows, as in the page body, instead of being cached as
+  // a not-found title.
   const data = isMockPropertyId(id)
     ? getMockProperty(id)
-    : await getCachedPublicProperty(id).catch(() => null);
+    : await getCachedPublicProperty(id).catch((err: unknown) => {
+        unstable_rethrow(err);
+        throw err;
+      });
 
   if (!data) {
     return { title: t("detail.hotelNotFound") };
   }
 
   const title = t("detail.hotelTitle", { title: data.title });
-  const description =
-    data.description ??
-    t("detail.hotelDesc", {
-      title: data.title,
-      location: data.location,
-    });
+  const description = pickDescription(
+    data.description,
+    await listingFactsText(locale, propertyFactsFromRow(data)),
+  );
 
   return {
     title,
@@ -68,7 +80,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function HotelDetailPage({ params }: Props) {
-  const { id } = await params;
+  const { locale, id } = await params;
 
   // Mock ids are non-UUID, so the cached fetch below would return null for
   // them; branch explicitly to keep demo listings rendering.
@@ -88,6 +100,21 @@ export default async function HotelDetailPage({ params }: Props) {
   // Cached public (active) listing — zero DB round-trip on a cache hit. A
   // transient miss-time error rethrows so this render fails (uncached) instead
   // of caching a 404 of a live listing for the next 60s.
+  // Start the extras alongside the listing rather than after it: they used to
+  // be a second serial round-trip wave, which doubles the DB latency this page
+  // waits on. The `.catch()` marks `extras` ITSELF as handled (the derived
+  // promise it returns is what `void` discards), so an early notFound() unwind
+  // can't surface an unhandled rejection — which under `next start` can take
+  // the whole single-instance process down. `await extras` below still rejects,
+  // so a real failure stays loud instead of silently rendering a page with no
+  // reviews/calendar.
+  const extras = Promise.all([
+    getCachedPublicReviews(id),
+    getCachedPublicCalendar(id),
+    getCachedPublicPriceOverrides(id),
+  ]);
+  void extras.catch(() => {});
+
   let cached: PropertyWithProfile | null = null;
   try {
     cached = await getCachedPublicProperty(id);
@@ -100,19 +127,44 @@ export default async function HotelDetailPage({ params }: Props) {
     notFound();
   }
 
-  const [reviews, calendarBlocks, priceOverrides] = await Promise.all([
-    getCachedPublicReviews(id),
-    getCachedPublicCalendar(id),
-    getCachedPublicPriceOverrides(id),
-  ]);
+  redirectToCanonicalListing(
+    `/hotels/${id}`,
+    propertyViewUrl(cached),
+    locale,
+  );
+
+  const [reviews, calendarBlocks, priceOverrides] = await extras;
 
   return (
-    <HotelDetailClient
-      property={cached}
-      isPending={false}
-      reviews={reviews}
-      calendarBlocks={calendarBlocks}
-      priceOverrides={priceOverrides}
-    />
+    <>
+      <ListingBreadcrumbs
+        locale={locale}
+        kind="hotels"
+        title={cached.title}
+        path={`/hotels/${id}`}
+      />
+      <HotelJsonLd
+        locale={locale}
+        path={`/hotels/${id}`}
+        property={cached}
+      />
+      <HotelDetailClient
+        property={cached}
+        isPending={false}
+        reviews={reviews}
+        calendarBlocks={calendarBlocks}
+        priceOverrides={priceOverrides}
+      />
+      <ListingFacts
+        locale={locale}
+        kind="hotels"
+        facts={propertyFactsFromRow(cached)}
+      />
+      <RelatedListings
+        locale={locale}
+        kind="hotels"
+        excludeId={id}
+      />
+    </>
   );
 }

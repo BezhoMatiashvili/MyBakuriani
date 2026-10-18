@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSmsFeatureEnabled } from "@/lib/sms/feature-flags";
 
@@ -9,14 +9,20 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ propertyId: string }> },
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return Response.json({ error: "unauthenticated" }, { status: 401 });
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+  const { user } = guard;
   if (!isSmsFeatureEnabled("SMS_PRICE_DROP_MODE", user.id)) {
     return Response.json({ error: "feature_unavailable" }, { status: 404 });
   }
-  const body = (await request.json().catch(() => null)) as { enabled?: unknown } | null;
-  if (!body || typeof body.enabled !== "boolean" || Object.keys(body).some((key) => key !== "enabled")) {
+  const body = (await request.json().catch(() => null)) as {
+    enabled?: unknown;
+  } | null;
+  if (
+    !body ||
+    typeof body.enabled !== "boolean" ||
+    Object.keys(body).some((key) => key !== "enabled")
+  ) {
     return Response.json({ error: "invalid_body" }, { status: 400 });
   }
   const { propertyId } = await params;
@@ -27,7 +33,8 @@ export async function PATCH(
     p_enabled: body.enabled,
   });
   if (error) {
-    const status = error.code === "42501" ? 403 : error.code === "P0002" ? 404 : 500;
+    const status =
+      error.code === "42501" ? 403 : error.code === "P0002" ? 404 : 500;
     return Response.json({ error: error.message }, { status });
   }
   return Response.json({ rule: data });

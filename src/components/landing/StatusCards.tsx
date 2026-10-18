@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import dynamic from "next/dynamic";
 import { ChevronDown, ExternalLink, PlayCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ICON_MAP } from "@/lib/status-cards/icons";
@@ -11,9 +12,18 @@ import {
   type StatusCardItem,
   type StatusKind,
 } from "@/lib/status-cards/types";
+import {
+  UPDATED_AT_CARD_IDS,
+  formatStatusUpdatedAt,
+} from "@/lib/status-cards/updated-at";
 import BottomSheet from "@/components/shared/BottomSheet";
 import Modal from "@/components/shared/Modal";
 import { safeHttpsUrl } from "@/lib/security";
+
+const RoadRouteMap = dynamic(
+  () => import("@/components/landing/RoadRouteMap"),
+  { ssr: false },
+);
 
 const DOT_COLOR: Record<StatusKind, string | null> = {
   ok: "#22C55E",
@@ -47,14 +57,35 @@ function ItemRow({
 }) {
   const label = pickLocalized(item.label, locale);
   const value = pickLocalized(item.value, locale);
+  const detail = pickLocalized(item.detail, locale);
+  const Icon = item.icon ? ICON_MAP[item.icon] : null;
   const labelColor = variant === "dark" ? "text-[#E2E8F0]" : "text-[#1E293B]";
   const valueColor = variant === "dark" ? "text-[#94A3B8]" : "text-[#64748B]";
   const href = safeHttpsUrl(item.url);
   return (
-    <li className="flex items-center justify-between gap-3 text-[14px]">
-      <span className={cn("flex items-center gap-2 font-medium", labelColor)}>
+    // A row with a detail (weather forecast day) keeps its day and
+    // temperatures on one line; only the detail shrinks, with an ellipsis.
+    <li
+      className={cn(
+        "flex items-center justify-between gap-3 text-[14px]",
+        detail && "whitespace-nowrap",
+      )}
+    >
+      <span
+        className={cn(
+          "flex items-center gap-2 font-medium",
+          labelColor,
+          detail && "min-w-0",
+        )}
+      >
         <StatusDot status={item.status} />
+        {Icon && <Icon className={cn("size-[18px] shrink-0", valueColor)} />}
         {label}
+        {detail && (
+          <span className={cn("truncate font-normal", valueColor)}>
+            {detail}
+          </span>
+        )}
       </span>
       {href && onView ? (
         <button
@@ -92,6 +123,7 @@ export default function StatusCards({
   mobileLayout?: "preview" | "home-compact";
 }) {
   const locale = useLocale();
+  const t = useTranslations("StatusCards");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewingItem, setViewingItem] = useState<StatusCardItem | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -154,6 +186,9 @@ export default function StatusCards({
           const label = pickLocalized(card.label, locale);
           const value = pickLocalized(card.value, locale);
           const subValue = pickLocalized(card.subValue, locale);
+          const updatedAt = UPDATED_AT_CARD_IDS.has(card.id)
+            ? formatStatusUpdatedAt(card.updatedAt, locale)
+            : null;
 
           const inner = (
             <div className="flex w-full flex-col gap-1">
@@ -178,6 +213,11 @@ export default function StatusCards({
               {subValue && (
                 <span className="text-[12px] font-semibold leading-none text-[#94A3B8]">
                   {subValue}
+                </span>
+              )}
+              {updatedAt && (
+                <span className="text-[11px] font-medium leading-none text-[#94A3B8]">
+                  {t("updatedAt", { date: updatedAt })}
                 </span>
               )}
             </div>
@@ -225,6 +265,7 @@ export default function StatusCards({
                   {pickLocalized(expandedCard.value, locale)}
                 </span>
               </p>
+              {expandedCard.id === "road" && <RoadRouteMap />}
               <ul className="space-y-2.5">
                 {expandedCard.items.map((item) => (
                   <ItemRow
@@ -253,19 +294,22 @@ export default function StatusCards({
           }
         >
           {expandedCard && (
-            <ul className="space-y-3">
-              {expandedCard.items.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  locale={locale}
-                  variant="light"
-                  onView={
-                    expandedCard.id === "cameras" ? setViewingItem : undefined
-                  }
-                />
-              ))}
-            </ul>
+            <>
+              {expandedCard.id === "road" && <RoadRouteMap />}
+              <ul className="space-y-3">
+                {expandedCard.items.map((item) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    locale={locale}
+                    variant="light"
+                    onView={
+                      expandedCard.id === "cameras" ? setViewingItem : undefined
+                    }
+                  />
+                ))}
+              </ul>
+            </>
           )}
         </BottomSheet>
       </div>

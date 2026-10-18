@@ -6,10 +6,21 @@ import { BadgeCheck, Check, Clock3, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatPhone, formatPrice } from "@/lib/utils/format";
+import { isFacebookProfileUrl } from "@/lib/fb-profile-url";
 import type { PendingMembership } from "@/app/api/admin/memberships/route";
+import { Link } from "@/i18n/navigation";
+
+// Stable review_renter_membership tokens the API forwards as `code`.
+const REVIEW_ERROR_CODES = [
+  "MEMBERSHIP_ALREADY_REVIEWED",
+  "MEMBERSHIP_ALREADY_ACTIVE",
+  "MEMBERSHIP_SEASON_ENDED",
+  "MEMBERSHIP_REQUEST_NOT_FOUND",
+] as const;
 
 export default function AdminMembershipsPage() {
   const t = useTranslations("AdminMemberships");
+  const tStatuses = useTranslations("AdminStatuses");
   const locale = useLocale();
   const [items, setItems] = useState<PendingMembership[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,8 +64,15 @@ export default function AdminMembershipsPage() {
       });
       const payload = (await res.json().catch(() => null)) as {
         error?: string;
+        code?: (typeof REVIEW_ERROR_CODES)[number];
       } | null;
-      if (!res.ok) throw new Error(payload?.error ?? t("reviewFailed"));
+      if (!res.ok) {
+        throw new Error(
+          payload?.code && REVIEW_ERROR_CODES.includes(payload.code)
+            ? t(`errors.${payload.code}`)
+            : (payload?.error ?? t("reviewFailed")),
+        );
+      }
       setItems((current) => current.filter((row) => row.id !== item.id));
       toast.success(action === "approve" ? t("approved") : t("rejected"));
     } catch (error) {
@@ -80,6 +98,12 @@ export default function AdminMembershipsPage() {
             </p>
           </div>
         </div>
+        <Link
+          href="/dashboard/admin/statuses"
+          className="mt-3 inline-flex min-h-11 items-center text-sm font-bold text-[#2563EB] underline-offset-2 hover:underline"
+        >
+          {tStatuses("title")} →
+        </Link>
       </header>
 
       <div className="rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-sm font-semibold text-[#92400E]">
@@ -103,7 +127,9 @@ export default function AdminMembershipsPage() {
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center px-5 py-16 text-center">
             <Check className="size-10 text-[#10B981]" />
-            <p className="mt-3 text-sm font-bold text-[#475569]">{t("empty")}</p>
+            <p className="mt-3 text-sm font-bold text-[#475569]">
+              {t("empty")}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-[#EEF2F7]">
@@ -123,18 +149,48 @@ export default function AdminMembershipsPage() {
                       <span className="rounded-md bg-[#EFF6FF] px-2 py-0.5 text-[11px] font-bold text-[#2563EB]">
                         {item.profile?.role ?? "renter"}
                       </span>
+                      {item.package?.meta?.price_tier === "fb_group_vip" && (
+                        <span className="rounded-md bg-[#FEF3C7] px-2 py-0.5 text-[11px] font-bold text-[#B45309]">
+                          {t("fbTierBadge")}
+                        </span>
+                      )}
+                      {isFacebookProfileUrl(item.fb_profile_url) && (
+                        <a
+                          href={item.fb_profile_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] font-bold text-[#2563EB] underline"
+                        >
+                          {t("fbProfileLink")}
+                        </a>
+                      )}
+                      <Link
+                        href={`/dashboard/admin/clients/${item.user_id}`}
+                        className="text-[11px] font-bold text-[#2563EB] underline"
+                      >
+                        {t("openClient")}
+                      </Link>
                     </div>
                     <p className="mt-1 text-xs font-medium text-[#64748B]">
-                      {item.profile?.phone ? formatPhone(item.profile.phone) : t("noPhone")}
+                      {item.profile?.phone
+                        ? formatPhone(item.profile.phone)
+                        : t("noPhone")}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs font-semibold text-[#475569]">
                       <span>{item.package?.name ?? t("seasonPlan")}</span>
                       <span>{formatPrice(Number(item.amount_paid ?? 0))}</span>
                       <span className="inline-flex items-center gap-1">
                         <Clock3 className="size-3.5" />
-                        {t("paidAt", { date: formatDate(item.created_at, locale) })}
+                        {t("paidAt", {
+                          date: formatDate(item.created_at, locale),
+                        })}
                       </span>
-                      <span>{t("seasonEnds", { date: formatDate(item.expires_at, locale) })}</span>
+                      <span>
+                        {t("period", {
+                          start: formatDate(item.starts_at, locale),
+                          end: formatDate(item.expires_at, locale),
+                        })}
+                      </span>
                     </div>
                   </div>
 
@@ -145,7 +201,11 @@ export default function AdminMembershipsPage() {
                       onClick={() => void review(item, "reject")}
                       className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] px-4 text-sm font-bold text-[#B91C1C] hover:bg-[#FEE2E2] disabled:opacity-50 lg:flex-none"
                     >
-                      {isBusy ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
+                      {isBusy ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <X className="size-4" />
+                      )}
                       {t("reject")}
                     </button>
                     <button
@@ -154,7 +214,11 @@ export default function AdminMembershipsPage() {
                       onClick={() => void review(item, "approve")}
                       className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#16A34A] px-4 text-sm font-bold text-white hover:bg-[#15803D] disabled:opacity-50 lg:flex-none"
                     >
-                      {isBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                      {isBusy ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Check className="size-4" />
+                      )}
                       {t("approve")}
                     </button>
                   </div>

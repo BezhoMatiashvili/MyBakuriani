@@ -10,6 +10,8 @@ import {
   useState,
 } from "react";
 import {
+  BarChart3,
+  ExternalLink,
   Flame,
   Loader2,
   Pause,
@@ -19,7 +21,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { Link, useRouter } from "@/i18n/navigation";
 import { toast } from "sonner";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import BannerLivePreview from "@/components/admin/BannerLivePreview";
@@ -29,13 +32,44 @@ import MediaUploader, {
 import DateField from "@/components/shared/DateField";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/utils/format";
-import { adRowToCreative, looksLikeVideoUrl } from "@/lib/banner-creative";
+import {
+  adRowToCreative,
+  looksLikeVideoUrl,
+  type BannerCreative,
+} from "@/lib/banner-creative";
 import {
   BANNER_PLACEMENTS,
   getPlacementSpec,
+  selectLiveCreatives,
+  slotHolder,
+  slotState,
   type BannerPlacement,
   type BannerSurface,
 } from "@/lib/banner-placements";
+import {
+  tbilisiDateOf,
+  tbilisiDayEnd,
+  tbilisiDayStart,
+} from "@/lib/admin-statuses";
+import {
+  enabledAdCreatives,
+  useEnabledCreatives,
+} from "@/components/admin/useEnabledCreatives";
+import AdRateCard from "@/components/admin/AdRateCard";
+import {
+  AD_PRIORITY_MAX,
+  AD_PRIORITY_MIN,
+  DEFAULT_AD_PRIORITY,
+  DEFAULT_FREQUENCY_CAP,
+  DEFAULT_SOV,
+  FREQUENCY_CAP_MAX,
+  SOV_TIERS,
+  everyNthLoad,
+  rotationModeFor,
+} from "@/lib/ad-rotation";
+import { RATE_CARD_DAYS, rateCardSlot } from "@/lib/ad-rate-card";
+import { invalidateBannerCreatives } from "@/lib/banner-slots-client";
+import { ADVERTISER_MAX_LENGTH } from "@/lib/analytics/model";
 
 type Ad = {
   id: string;
@@ -49,6 +83,13 @@ type Ad = {
   status: string;
   views_count: number;
   clicks_count: number;
+  created_at: string;
+  /** C47: the media plan's campaign fields. */
+  sov_percent: number;
+  priority: number;
+  frequency_cap_per_day: number | null;
+  /** C49: the client the ad is sold to ("active advertisers"). */
+  advertiser: string | null;
 };
 
 const SURFACE_ORDER: BannerSurface[] = [
@@ -62,14 +103,33 @@ const SURFACE_ORDER: BannerSurface[] = [
 const INITIAL_FORM_STATE = {
   id: "",
   title: "",
+  advertiser: "",
   placement: "home_hero" as BannerPlacement,
   url: "",
   startDate: "",
   endDate: "",
   bannerUrl: "",
+  // C47 campaign fields, kept as the <select>/<input> strings.
+  sovPercent: String(DEFAULT_SOV),
+  priority: String(DEFAULT_AD_PRIORITY),
+  /** "" = no cap. */
+  frequencyCap: String(DEFAULT_FREQUENCY_CAP),
 };
 
 type FormState = typeof INITIAL_FORM_STATE;
+
+const PRIORITIES = Array.from(
+  { length: AD_PRIORITY_MAX - AD_PRIORITY_MIN + 1 },
+  (_, i) => AD_PRIORITY_MAX - i,
+);
+
+/** "" → null (no cap); otherwise a whole number 1–FREQUENCY_CAP_MAX, or NaN. */
+function parseCap(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  const n = Number(trimmed);
+  return Number.isInteger(n) && n >= 1 && n <= FREQUENCY_CAP_MAX ? n : NaN;
+}
 
 function isHttpsUrl(value: string): boolean {
   try {
@@ -79,16 +139,33 @@ function isHttpsUrl(value: string): boolean {
   }
 }
 
+/**
+ * The form picks calendar days; a campaign runs from 00:00 of its first day to
+ * 23:59:59 of its last day, Tbilisi time (tbilisiDayStart / tbilisiDayEnd).
+ * Read back in Tbilisi too, so an unchanged edit saves the same instants.
+ */
 function toDateInput(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+  return Number.isNaN(Date.parse(iso)) ? "" : tbilisiDateOf(iso);
 }
 
-/** The `status` column is never updated by anything, so expiry is derived. */
-function effectiveStatus(ad: Ad): "active" | "paused" | "expired" {
-  if (ad.status === "paused") return "paused";
-  if (new Date(ad.end_at).getTime() < Date.now()) return "expired";
-  return "active";
+type AdStatus =
+  "active" | "paused" | "expired" | "scheduled" | "hidden" | "needs_media";
+
+/**
+ * The `status` column only says paused or not; whether the ad reaches visitors
+ * is the public loader's decision (selectLiveCreatives), replayed here.
+ */
+function effectiveStatus(
+  ad: Ad,
+  live: BannerCreative[],
+  now: number,
+): AdStatus {
+  if (ad.status !== "active") return "paused";
+  const creative = enabledAdCreatives([ad])[0];
+  // Unreachable while ads_placement_check holds: no known placement, not shown.
+  if (!creative) return "hidden";
+  const state = slotState(creative, live, now);
+  return state === "live" ? "active" : state;
 }
 
 function AdBannerThumb({ url }: { url: string }) {
@@ -117,9 +194,29 @@ function AdBannerThumb({ url }: { url: string }) {
   );
 }
 
+/** Strip and sticky placements show an ad as text: title, small image, label. */
+function isTextPlacement(placement: string): boolean {
+  const style = getPlacementSpec(placement)?.renderStyle;
+  return style === "strip" || style === "sticky";
+}
+
 export default function ModerationPage() {
   const t = useTranslations("AdminModeration");
   const tShared = useTranslations("AdminShared");
+  const tAnalytics = useTranslations("AdminAdAnalytics");
+  const locale = useLocale();
+  const router = useRouter();
+
+  // "საიტზე ნახვა": the placement's public page with this ad drawn on every
+  // load (C47 on-site preview). A plain new-tab link: no popup blocker.
+  const previewHref = (id: string) =>
+    `/api/admin/ads/${id}/preview?open=1&locale=${locale}`;
+  // A save shows on the site at once in this browser: drop the banner store
+  // and the prefetched pages (the sidebar's "back to home" link).
+  const refreshSite = () => {
+    invalidateBannerCreatives();
+    router.refresh();
+  };
 
   const placementLabel = useCallback(
     (id: string) =>
@@ -149,6 +246,18 @@ export default function ModerationPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const isEditing = formState.id !== "";
+
+  // Editorial banners share the placements; with these the card can say when
+  // another creative holds the slot.
+  const otherBanners = useEnabledCreatives("banner");
+  const live = useMemo(
+    () =>
+      selectLiveCreatives(
+        [...enabledAdCreatives(ads), ...otherBanners],
+        Date.now(),
+      ),
+    [ads, otherBanners],
+  );
 
   const filteredAds = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -182,6 +291,50 @@ export default function ModerationPage() {
       placement: formState.placement,
     });
   }, [formState]);
+
+  // C47: the database refuses an active booking that takes its placement's
+  // share of voice over 100 % on overlapping dates (ads_enforce_slot_capacity);
+  // the form says how much is free before the admin submits.
+  const isRotation = rotationModeFor(formState.placement) === "rotation";
+  const freeShare = useMemo(() => {
+    if (isRotation || !formState.startDate || !formState.endDate) return null;
+    const editing = ads.find((ad) => ad.id === formState.id);
+    if (editing && editing.status !== "active") return null;
+    const start = Date.parse(tbilisiDayStart(formState.startDate));
+    const end = Date.parse(tbilisiDayEnd(formState.endDate));
+    const now = Date.now();
+    const booked = ads
+      .filter(
+        (ad) =>
+          ad.id !== formState.id &&
+          ad.status === "active" &&
+          ad.placement === formState.placement &&
+          Date.parse(ad.end_at) > now &&
+          Date.parse(ad.start_at) < end &&
+          Date.parse(ad.end_at) > start,
+      )
+      .reduce((sum, ad) => sum + (ad.sov_percent ?? DEFAULT_SOV), 0);
+    return Math.max(0, 100 - booked);
+  }, [ads, formState, isRotation]);
+  const overCapacity =
+    freeShare !== null && Number(formState.sovPercent) > freeShare;
+  const formRate = rateCardSlot(
+    formState.placement,
+    isRotation ? null : Number(formState.sovPercent),
+  );
+
+  /** Server error token → the admin's language. */
+  const campaignError = useCallback(
+    (data: { error?: string; remaining?: number }) =>
+      data.error === "slot_full"
+        ? t("slotFull", { free: data.remaining ?? 0 })
+        : data.error === "invalid_sov" ||
+            data.error === "invalid_priority" ||
+            data.error === "invalid_frequency_cap"
+          ? t("invalidCampaign")
+          : null,
+    [t],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -223,11 +376,18 @@ export default function ModerationPage() {
     setFormState({
       id: ad.id,
       title: ad.title,
+      advertiser: ad.advertiser ?? "",
       placement: ad.placement as BannerPlacement,
       url: ad.url,
       startDate: toDateInput(ad.start_at),
       endDate: toDateInput(ad.end_at),
       bannerUrl: ad.banner_url ?? "",
+      sovPercent: String(ad.sov_percent ?? DEFAULT_SOV),
+      priority: String(ad.priority ?? DEFAULT_AD_PRIORITY),
+      frequencyCap:
+        ad.frequency_cap_per_day == null
+          ? ""
+          : String(ad.frequency_cap_per_day),
     });
     setFormError("");
     setIsModalOpen(true);
@@ -260,6 +420,7 @@ export default function ModerationPage() {
         toast.error(data.error ?? tShared("deleteFailed"));
       } else {
         toast.success(t("deleted"));
+        refreshSite();
         await load();
       }
     } catch {
@@ -272,7 +433,7 @@ export default function ModerationPage() {
   async function togglePause(ad: Ad) {
     if (busyId) return;
     setBusyId(ad.id);
-    const next = effectiveStatus(ad) === "paused" ? "active" : "paused";
+    const next = ad.status === "active" ? "paused" : "active";
     try {
       const res = await fetch(`/api/admin/ads/${ad.id}`, {
         method: "PATCH",
@@ -280,9 +441,12 @@ export default function ModerationPage() {
         body: JSON.stringify({ status: next }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) toast.error(data.error ?? tShared("error"));
+      // A resume can hit a full slot (C47).
+      if (!res.ok)
+        toast.error(campaignError(data) ?? data.error ?? tShared("error"));
       else {
         toast.success(t("updated"));
+        refreshSite();
         await load();
       }
     } catch {
@@ -318,16 +482,30 @@ export default function ModerationPage() {
       setFormError(t("endBeforeStart"));
       return;
     }
+    const frequencyCap = parseCap(formState.frequencyCap);
+    if (Number.isNaN(frequencyCap)) {
+      setFormError(t("frequencyCapInvalid", { max: FREQUENCY_CAP_MAX }));
+      return;
+    }
+    if (overCapacity) {
+      setFormError(t("slotFull", { free: freeShare ?? 0 }));
+      return;
+    }
 
     setSubmitting(true);
     try {
       const payload = {
         title: formState.title,
+        // "" clears it (the route stores null).
+        advertiser: formState.advertiser,
         placement: formState.placement,
         url: formState.url,
         banner_url: formState.bannerUrl,
-        start_at: new Date(formState.startDate).toISOString(),
-        end_at: new Date(formState.endDate).toISOString(),
+        start_at: tbilisiDayStart(formState.startDate),
+        end_at: tbilisiDayEnd(formState.endDate),
+        sov_percent: Number(formState.sovPercent),
+        priority: Number(formState.priority),
+        frequency_cap_per_day: frequencyCap,
       };
       const res = await fetch(
         isEditing ? `/api/admin/ads/${formState.id}` : "/api/admin/ads",
@@ -338,8 +516,23 @@ export default function ModerationPage() {
         },
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? tShared("createFailed"));
-      toast.success(isEditing ? t("updated") : t("adCreated"));
+      if (!res.ok) {
+        throw new Error(
+          campaignError(data) ?? data.error ?? tShared("createFailed"),
+        );
+      }
+      const savedId: string | undefined = data.ad?.id;
+      toast.success(isEditing ? t("updated") : t("adCreated"), {
+        action: savedId
+          ? {
+              label: t("previewOnSite"),
+              onClick: () => {
+                window.open(previewHref(savedId), "_blank", "noopener");
+              },
+            }
+          : undefined,
+      });
+      refreshSite();
       setFormState(INITIAL_FORM_STATE);
       setFormError("");
       setIsModalOpen(false);
@@ -373,6 +566,8 @@ export default function ModerationPage() {
           </button>
         </div>
 
+        <AdRateCard placementLabel={placementLabel} />
+
         <AdminSearchInput
           value={search}
           onChange={setSearch}
@@ -393,8 +588,20 @@ export default function ModerationPage() {
           </div>
         ) : (
           filteredAds.map((ad) => {
-            const status = effectiveStatus(ad);
-            const live = status === "active";
+            const status = effectiveStatus(ad, live, Date.now());
+            const holder =
+              status === "hidden" ? slotHolder(ad.placement, live) : null;
+            const hint =
+              status === "needs_media"
+                ? t("needsImage")
+                : status === "expired"
+                  ? t("expiredHint")
+                  : status === "scheduled"
+                    ? t("scheduledHint", { date: toDateInput(ad.start_at) })
+                    : status === "hidden"
+                      ? t("hiddenHint", { title: holder?.title ?? "" })
+                      : null;
+            const isLive = status === "active";
             const ctr =
               ad.views_count > 0
                 ? ((ad.clicks_count / ad.views_count) * 100).toFixed(1)
@@ -412,8 +619,8 @@ export default function ModerationPage() {
               { key: "ctr", value: `${ctr}%` },
               { key: "daysLeft", value: t("daysUnit", { count: daysLeft }) },
             ] as const;
-            const accent = live ? "#10B981" : "#94A3B8";
-            const accentBg = live ? "#ECFDF5" : "#F8FAFC";
+            const accent = isLive ? "#10B981" : "#94A3B8";
+            const accentBg = isLive ? "#ECFDF5" : "#F8FAFC";
 
             return (
               <article
@@ -429,12 +636,20 @@ export default function ModerationPage() {
                     <Flame className="h-4 w-4" style={{ color: accent }} />
                     <span
                       className="text-[11px] font-black uppercase tracking-[1.1px]"
-                      style={{ color: live ? "#047857" : "#64748B" }}
+                      style={{ color: isLive ? "#047857" : "#64748B" }}
                     >
                       {ad.title}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Link
+                      href={`/dashboard/admin/ad-analytics?source=ad&creative=${ad.id}`}
+                      aria-label={tAnalytics("openAnalytics")}
+                      title={tAnalytics("openAnalytics")}
+                      className="inline-flex h-11 min-h-[44px] w-11 items-center justify-center rounded-full text-[#64748B] transition-colors hover:bg-[#EFF6FF] hover:text-[#2563EB]"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                    </Link>
                     <span
                       className="inline-flex items-center rounded px-[10px] py-1 text-[10px] font-black uppercase tracking-[0.5px] text-white"
                       style={{ backgroundColor: accent }}
@@ -443,7 +658,13 @@ export default function ModerationPage() {
                         ? t("statusActive")
                         : status === "paused"
                           ? t("statusPaused")
-                          : t("statusExpired")}
+                          : status === "scheduled"
+                            ? t("statusScheduled")
+                            : status === "hidden"
+                              ? t("statusHidden")
+                              : status === "needs_media"
+                                ? t("statusNeedsImage")
+                                : t("statusExpired")}
                     </span>
                     <button
                       type="button"
@@ -503,6 +724,35 @@ export default function ModerationPage() {
                     <p className="text-[13px] font-bold leading-5 text-[#F97316]">
                       {placementLabel(ad.placement)}
                     </p>
+                    {getPlacementSpec(ad.placement)?.description ? (
+                      <p className="text-[12px] font-medium leading-[18px] text-[#64748B]">
+                        {getPlacementSpec(ad.placement)!.description}
+                      </p>
+                    ) : null}
+                    {isTextPlacement(ad.placement) ? (
+                      <p className="text-[12px] font-medium leading-[18px] text-[#64748B]">
+                        {t("textPlacementNote")}
+                      </p>
+                    ) : null}
+                    <p
+                      data-testid="ad-advertiser"
+                      className="text-[12px] font-semibold leading-5 text-[#475569]"
+                    >
+                      {t("advertiser")}: {ad.advertiser ?? t("advertiserNone")}
+                    </p>
+                    <CampaignChips ad={ad} />
+                    {isLive ? (
+                      <p
+                        data-testid="ad-delivery"
+                        className="text-[12px] font-bold leading-[18px] text-[#047857]"
+                      >
+                        {rotationModeFor(ad.placement) === "rotation"
+                          ? t("deliveryRotation")
+                          : t("deliveryEvery", {
+                              n: everyNthLoad(ad.sov_percent ?? DEFAULT_SOV),
+                            })}
+                      </p>
+                    ) : null}
                     <a
                       href={ad.url}
                       target="_blank"
@@ -511,15 +761,30 @@ export default function ModerationPage() {
                     >
                       {ad.url}
                     </a>
+                    <div className="pt-2">
+                      <a
+                        href={previewHref(ad.id)}
+                        target="_blank"
+                        rel="noopener"
+                        data-testid="ad-preview-on-site"
+                        className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#E2E8F0] px-4 text-[13px] font-bold text-[#2563EB] transition-colors hover:bg-[#EFF6FF]"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        {t("previewOnSite")}
+                      </a>
+                    </div>
                   </div>
                 </div>
 
-                {!ad.banner_url || status === "expired" ? (
+                {hint ? (
                   <p className="mx-6 mb-4 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-[13px] font-semibold text-[#92400E]">
-                    {!ad.banner_url ? t("needsImage") : t("expiredHint")}
+                    {hint}
                   </p>
                 ) : null}
 
+                <p className="border-t border-[#E2E8F0] px-6 pt-3 text-[10px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+                  {tAnalytics("allTimeLabel")}
+                </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4">
                   {metrics.map((metric) => (
                     <div
@@ -588,6 +853,31 @@ export default function ModerationPage() {
                 />
               </div>
 
+              <div className="space-y-2">
+                <label
+                  htmlFor="ad-advertiser"
+                  className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]"
+                >
+                  {t("advertiser")}
+                </label>
+                <input
+                  id="ad-advertiser"
+                  name="advertiser"
+                  value={formState.advertiser}
+                  onChange={handleInputChange}
+                  maxLength={ADVERTISER_MAX_LENGTH}
+                  placeholder={t("advertiserPlaceholder")}
+                  aria-describedby="ad-advertiser-hint"
+                  className="h-[55px] w-full rounded-2xl border border-[#E2E8F0] px-4 text-sm font-medium leading-[21px] text-[#1E293B] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none"
+                />
+                <p
+                  id="ad-advertiser-hint"
+                  className="pl-1 text-[11px] font-medium leading-[15px] text-[#94A3B8]"
+                >
+                  {t("advertiserHint")}
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div className="space-y-2">
                   <label
@@ -616,6 +906,11 @@ export default function ModerationPage() {
                   {getPlacementSpec(formState.placement)?.description && (
                     <p className="pl-1 text-[11px] font-medium leading-[15px] text-[#94A3B8]">
                       {getPlacementSpec(formState.placement)!.description}
+                    </p>
+                  )}
+                  {isTextPlacement(formState.placement) && (
+                    <p className="pl-1 text-[11px] font-medium leading-[15px] text-[#94A3B8]">
+                      {t("textPlacementNote")}
                     </p>
                   )}
                 </div>
@@ -680,6 +975,114 @@ export default function ModerationPage() {
                 </div>
               </div>
 
+              {/* C47 — the media plan's campaign fields (§7): share of voice,
+                  priority and frequency cap, with the rate card's price. */}
+              <fieldset className="space-y-3 rounded-2xl border border-[#E2E8F0] p-4">
+                <legend className="px-1 text-xs font-black leading-[18px] text-[#334155]">
+                  {t("campaignTitle")}
+                </legend>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,0.75fr)_minmax(0,1.25fr)] md:items-end">
+                  <div className="space-y-2">
+                    {isRotation ? (
+                      <>
+                        <span className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]">
+                          {t("sov")}
+                        </span>
+                        <p className="flex min-h-[55px] items-center rounded-2xl bg-[#F8FAFC] px-4 text-[12px] font-semibold leading-[17px] text-[#475569]">
+                          {t("sovRotation")}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <label
+                          htmlFor="ad-sov"
+                          className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]"
+                        >
+                          {t("sov")}
+                        </label>
+                        <select
+                          id="ad-sov"
+                          name="sovPercent"
+                          value={formState.sovPercent}
+                          onChange={handleInputChange}
+                          className="h-[55px] w-full rounded-2xl border border-[#E2E8F0] bg-white px-4 text-sm font-medium leading-[21px] text-[#1E293B] focus:border-[#2563EB] focus:outline-none"
+                        >
+                          {SOV_TIERS.map((tier) => (
+                            <option key={tier} value={tier}>
+                              {t("sovOption", { percent: tier })}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="ad-priority"
+                      className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]"
+                    >
+                      {t("priority")}
+                    </label>
+                    <select
+                      id="ad-priority"
+                      name="priority"
+                      value={formState.priority}
+                      onChange={handleInputChange}
+                      className="h-[55px] w-full rounded-2xl border border-[#E2E8F0] bg-white px-4 text-sm font-medium leading-[21px] text-[#1E293B] focus:border-[#2563EB] focus:outline-none"
+                    >
+                      {PRIORITIES.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="ad-frequency-cap"
+                      className="block pl-1 text-xs font-bold leading-[18px] text-[#334155]"
+                    >
+                      {t("frequencyCap")}
+                    </label>
+                    <input
+                      id="ad-frequency-cap"
+                      name="frequencyCap"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={FREQUENCY_CAP_MAX}
+                      value={formState.frequencyCap}
+                      onChange={handleInputChange}
+                      placeholder={t("noCap")}
+                      className="h-[55px] w-full rounded-2xl border border-[#E2E8F0] px-4 text-sm font-medium leading-[21px] text-[#1E293B] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <p className="pl-1 text-[11px] font-medium leading-[15px] text-[#94A3B8]">
+                  {t("campaignHint", { button: t("previewOnSite") })}
+                </p>
+                <p className="pl-1 text-[13px] font-bold leading-5 text-[#1E293B]">
+                  {formRate
+                    ? t("ratePrice", {
+                        tier: t(`rateCard.tiers.${formRate.tier}`),
+                        price: formatNumber(formRate.priceGel),
+                        days: RATE_CARD_DAYS,
+                      })
+                    : t("rateNone")}
+                </p>
+                {freeShare !== null ? (
+                  <p
+                    className={`pl-1 text-[12px] font-semibold leading-[17px] ${
+                      overCapacity ? "text-[#B91C1C]" : "text-[#047857]"
+                    }`}
+                  >
+                    {overCapacity
+                      ? t("slotFull", { free: freeShare })
+                      : t("freeShare", { free: freeShare })}
+                  </p>
+                ) : null}
+              </fieldset>
+
               {/*
                 The uploader is the ONLY writer of banner_url. There used to be
                 a free-text "banner URL" input bound to the same field, which is
@@ -726,6 +1129,43 @@ export default function ModerationPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** The campaign's §7 fields and its rate-card price, under the placement. */
+function CampaignChips({ ad }: { ad: Ad }) {
+  const t = useTranslations("AdminModeration");
+  const rotation = rotationModeFor(ad.placement) === "rotation";
+  const rate = rateCardSlot(ad.placement, rotation ? null : ad.sov_percent);
+  const chips = [
+    rotation
+      ? t("chips.rotation")
+      : t("chips.sov", { percent: ad.sov_percent ?? DEFAULT_SOV }),
+    t("chips.priority", { value: ad.priority ?? DEFAULT_AD_PRIORITY }),
+    ad.frequency_cap_per_day == null
+      ? t("chips.noCap")
+      : t("chips.cap", { value: ad.frequency_cap_per_day }),
+    ...(rate
+      ? [
+          t("chips.price", {
+            tier: t(`rateCard.tiers.${rate.tier}`),
+            price: formatNumber(rate.priceGel),
+            days: RATE_CARD_DAYS,
+          }),
+        ]
+      : []),
+  ];
+  return (
+    <div className="flex flex-wrap gap-1.5 pt-1">
+      {chips.map((chip) => (
+        <span
+          key={chip}
+          className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[11px] font-bold text-[#475569]"
+        >
+          {chip}
+        </span>
+      ))}
     </div>
   );
 }

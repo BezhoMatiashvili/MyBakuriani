@@ -9,12 +9,12 @@ import {
 } from "../_shared/guards.ts";
 import { secretsEqual } from "../_shared/secrets.ts";
 
-// Daily-scheduled VIP lifecycle job. For both properties and services:
-//   WARN   — listings whose VIP expires within 48h and haven't been warned yet
+// Hourly-scheduled VIP lifecycle job. For both properties and services:
+//   WARN   — listings whose VIP expires within 6h and haven't been warned yet
 //            get an in-app notification + a transactional SMS, then are marked
 //            warned (vip_expiry_notified_at) so the warning fires once.
 //   EXPIRE — listings whose VIP has already lapsed have is_vip / is_super_vip
-//            cleared so the badge disappears. Silent (the 48h warning covered
+//            cleared so the badge disappears. Silent (the 6h warning covered
 //            it). Keys off the flags, so it never re-clears -> idempotent.
 // Also: expired discount badges (discount_expires_at in the past) have
 // discount_percent / discount_expires_at cleared on both listing tables, and
@@ -28,7 +28,9 @@ import { secretsEqual } from "../_shared/secrets.ts";
 // credit consumption) and sent by the sms-dispatch job once a provider is
 // wired. Notifications + SMS use the service client, which bypasses RLS.
 
-const WARN_WINDOW_HOURS = 48;
+// Every package lasts 24 h (2026 price list), so the old 48 h window warned
+// "VIP expires soon" right after each purchase. The job runs hourly.
+const WARN_WINDOW_HOURS = 6;
 const WARN_BATCH = 100;
 
 const LISTING_TABLES = ["properties", "services"] as const;
@@ -67,6 +69,24 @@ function ownerPhone(row: WarnRow): string | null {
   return o?.phone ?? null;
 }
 
+function scopeFor(table: ListingTable, r: WarnRow): string {
+  if (table === "properties") return r.is_for_sale ? "seller" : "renter";
+  if (r.category === "food") return "food";
+  if (r.category === "cleaning") return "cleaner";
+  if (["employment", "transport", "entertainment"].includes(r.category ?? "")) {
+    return r.category as string;
+  }
+  return "services";
+}
+
+// The notification's "View" button must land where the VIP can be renewed.
+// Plain "/dashboard" only redirects to the cabinet overview, which says
+// nothing about VIP. Every scope here has a balance page except the cleaner
+// cabinet.
+function renewPathFor(scope: string): string {
+  return scope === "cleaner" ? "/dashboard/cleaner" : `/dashboard/${scope}/balance`;
+}
+
 async function warnExpiring(
   db: SbClient,
   table: ListingTable,
@@ -91,28 +111,18 @@ async function warnExpiring(
   if (rows.length === 0) return { warned: 0, sms: 0 };
 
   // In-app notifications (one per owner).
-  const notifications = rows.map((r) => ({
-    user_id: r.owner_id,
-    type: "vip_expiring",
-    title: "VIP იწურება",
-    message: "თქვენი VIP მალე იწურება.",
-    action_url: "/dashboard",
-    severity: "warning",
-    dashboard_scope:
-      table === "properties"
-        ? r.is_for_sale
-          ? "seller"
-          : "renter"
-        : r.category === "food"
-          ? "food"
-          : r.category === "cleaning"
-            ? "cleaner"
-            : ["employment", "transport", "entertainment"].includes(
-                  r.category ?? "",
-                )
-              ? r.category
-              : "services",
-  }));
+  const notifications = rows.map((r) => {
+    const scope = scopeFor(table, r);
+    return {
+      user_id: r.owner_id,
+      type: "vip_expiring",
+      title: "VIP იწურება",
+      message: "თქვენი VIP მალე იწურება.",
+      action_url: renewPathFor(scope),
+      severity: "warning",
+      dashboard_scope: scope,
+    };
+  });
   const { error: notifyErr } = await db
     .from("notifications")
     .insert(notifications);

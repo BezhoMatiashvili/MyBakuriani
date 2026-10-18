@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/utils/uuid";
 
 export const runtime = "nodejs";
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
     return Response.json({ error: "invalid_service_id" }, { status: 400 });
   }
 
-  const db = createServiceClient();
+  const db = await createClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: service, error: serviceError } = await (db as any)
     .from("services")

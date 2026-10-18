@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { safeInternalPath } from "@/lib/security";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
@@ -12,6 +13,13 @@ const SITE_LOCK_COOKIE = "mb_gate";
 // external origin (see layout.tsx, robots.ts, sitemap.ts).
 const SITE_ORIGIN =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://my-bakuriani.vercel.app";
+
+// Same rule as the middleware's bypass link (C27): compare in constant time.
+function passwordMatches(password: string, expected: string): boolean {
+  const given = Buffer.from(password);
+  const wanted = Buffer.from(expected);
+  return given.length === wanted.length && timingSafeEqual(given, wanted);
+}
 
 export async function POST(request: NextRequest) {
   const allowed = await checkRateLimit(
@@ -28,7 +36,7 @@ export async function POST(request: NextRequest) {
   const redirectTo = safeInternalPath(form.get("redirect")) ?? "/";
 
   const expected = process.env.SITE_LOCK_PASSWORD;
-  if (expected && password === expected) {
+  if (expected && passwordMatches(password, expected)) {
     const response = NextResponse.redirect(
       new URL(redirectTo, SITE_ORIGIN),
       303,
@@ -36,7 +44,9 @@ export async function POST(request: NextRequest) {
     response.headers.set("Cache-Control", "no-store");
     response.cookies.set(SITE_LOCK_COOKIE, expected, {
       httpOnly: true,
-      secure: request.nextUrl.protocol === "https:",
+      secure:
+        request.nextUrl.protocol === "https:" ||
+        SITE_ORIGIN.startsWith("https://"),
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 30,

@@ -2,9 +2,13 @@ import { NextRequest } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import {
+  checkNet64RateLimit,
+  checkRateLimit,
+  getClientIp,
+} from "@/lib/rateLimit";
 import { isUuid } from "@/lib/utils/uuid";
 
 export const runtime = "nodejs";
@@ -13,6 +17,23 @@ export const maxDuration = 30;
 const QUARANTINE_BUCKET = "media-quarantine";
 const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_DIMENSION = 4096;
+
+const PNG_SIGNATURE = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
+
+/** JPEG, PNG or WebP by magic bytes (the formats this route accepts). */
+function isAcceptedImage(b: Buffer): boolean {
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) {
+    return true;
+  }
+  if (b.length >= 8 && b.subarray(0, 8).equals(PNG_SIGNATURE)) return true;
+  return (
+    b.length >= 12 &&
+    b.toString("latin1", 0, 4) === "RIFF" &&
+    b.toString("latin1", 8, 12) === "WEBP"
+  );
+}
 
 // The MyBakuriani logo watermark (brand-coloured, transparent background),
 // shared with the client uploader (public/watermark.png). Bundled into the
@@ -55,20 +76,19 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const ip = getClientIp(req);
   if (
-    !(await checkRateLimit(`media-finalize:${getClientIp(req)}`, 12, 60_000))
+    !(await checkRateLimit(`media-finalize:${ip}`, 12, 60_000)) ||
+    !(await checkNet64RateLimit("media-finalize", ip, 12, 60_000))
   ) {
     return Response.json({ error: "rate_limited" }, { status: 429 });
   }
   const { id } = await params;
   if (!isUuid(id))
     return Response.json({ error: "not_found" }, { status: 404 });
-  const client = await createClient();
-  const {
-    data: { user },
-  } = await client.auth.getUser();
-  if (!user)
-    return Response.json({ error: "unauthenticated" }, { status: 401 });
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+  const { user } = guard;
 
   const db = createServiceClient();
   const intentDb = db as any;
@@ -88,6 +108,32 @@ export async function POST(
       { status: 409 },
     );
   }
+  // Claim the intent before any work: concurrent finalize calls of one intent
+  // would otherwise each publish an object (a service-role upload, outside the
+  // per-owner Storage budget). A failed attempt gives the claim back.
+  const { data: claimed } = await intentDb
+    .from("media_upload_intents")
+    .update({ status: "scanning" })
+    .eq("id", id)
+    .eq("owner_id", user.id)
+    .eq("status", "pending")
+    .is("finalized_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .select("id")
+    .maybeSingle();
+  if (!claimed) {
+    return Response.json(
+      { error: "invalid_or_expired_intent" },
+      { status: 409 },
+    );
+  }
+  const release = () =>
+    intentDb
+      .from("media_upload_intents")
+      .update({ status: "pending" })
+      .eq("id", id)
+      .eq("status", "scanning")
+      .is("finalized_at", null);
   const { data: source, error: downloadError } = await db.storage
     .from(QUARANTINE_BUCKET)
     .download(intent.quarantine_path);
@@ -99,10 +145,18 @@ export async function POST(
     source.size !== intent.expected_bytes
   ) {
     console.error("invalid quarantined media", downloadError);
+    await release();
     return Response.json({ error: "invalid_media" }, { status: 422 });
   }
   try {
     const input = Buffer.from(await source.arrayBuffer());
+    // Only JPEG, PNG and WebP bytes reach a decoder. The quarantine bucket checks
+    // the declared type, not the bytes, and sharp would otherwise pick its loader
+    // (SVG included) from the content before the format check below.
+    if (!isAcceptedImage(input)) {
+      await release();
+      return Response.json({ error: "invalid_media" }, { status: 422 });
+    }
     // Apply EXIF orientation up front so width/height (and the watermark
     // placement below) reflect the pixels as they will actually be encoded.
     const rotated = await sharp(input, {
@@ -119,6 +173,7 @@ export async function POST(
       metadata.height > MAX_DIMENSION ||
       !["jpeg", "png", "webp"].includes(metadata.format ?? "")
     ) {
+      await release();
       return Response.json({ error: "invalid_media" }, { status: 422 });
     }
     // Downscale to the same 2560px ceiling the client upload path already
@@ -139,13 +194,19 @@ export async function POST(
     const outHeight = resizedMeta.height ?? metadata.height;
     const overlay = await watermarkOverlay(outWidth);
     const overlayMeta = await sharp(overlay).metadata();
-    const pad = Math.max(12, Math.round(outWidth * 0.022));
+    // Centred, not in a corner: a corner logo is removed by a simple crop.
     const output = await sharp(resized)
       .composite([
         {
           input: overlay,
-          top: Math.max(0, outHeight - (overlayMeta.height ?? 0) - pad),
-          left: Math.max(0, outWidth - (overlayMeta.width ?? 0) - pad),
+          top: Math.max(
+            0,
+            Math.round((outHeight - (overlayMeta.height ?? 0)) / 2),
+          ),
+          left: Math.max(
+            0,
+            Math.round((outWidth - (overlayMeta.width ?? 0)) / 2),
+          ),
         },
       ])
       .webp({ quality: 86 })
@@ -168,6 +229,7 @@ export async function POST(
     const { error: finalizeError } = await intentDb
       .from("media_upload_intents")
       .update({
+        status: "approved",
         finalized_at: new Date().toISOString(),
         canonical_url: canonicalUrl,
         canonical_path: finalPath,
@@ -180,6 +242,7 @@ export async function POST(
     return Response.json({ url: canonicalUrl, path: finalPath });
   } catch (error) {
     console.error("media finalization failed", error);
+    await release();
     return Response.json({ error: "media_processing_failed" }, { status: 422 });
   }
 }

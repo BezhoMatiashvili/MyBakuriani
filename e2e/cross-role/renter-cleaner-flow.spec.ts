@@ -1,12 +1,36 @@
+import type { BrowserContext } from "@playwright/test";
 import { test, expect, loadTestUsers } from "../helpers/fixtures";
 import { cleaningTasks, supabaseAdmin } from "../helpers/supabase";
-import { TEST_IDS } from "../helpers/seed";
+import { authenticateAsRole } from "../helpers/auth";
+import { PHONES, TEST_IDS } from "../helpers/seed";
 import { configureIsolatedE2E } from "../helpers/env";
 import { createClient } from "@supabase/supabase-js";
 import {
   createPlatformCleanerTask,
+  loadCleaningTaskOwnerDetails,
   transitionPlatformCleanerTask,
 } from "../../src/lib/cleaner/tasks";
+
+/**
+ * What the cleaner-scoped details RPC returns for one call-out when called as
+ * `user`: the row, or null when that user is not the call-out's cleaner.
+ */
+async function ownerDetailsAs(
+  user: { accessToken: string; refreshToken: string },
+  taskId: string,
+) {
+  const env = configureIsolatedE2E();
+  const client = createClient(env.supabaseUrl, env.anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  await client.auth.setSession({
+    access_token: user.accessToken,
+    refresh_token: user.refreshToken,
+  });
+  const { data, error } = await loadCleaningTaskOwnerDetails(client);
+  expect(error).toBeNull();
+  return (data ?? []).find((row) => row.task_id === taskId) ?? null;
+}
 
 // ---------------------------------------------------------------------------
 // Renter-Cleaner cross-role flow
@@ -16,6 +40,11 @@ import {
 
 test.describe("Renter-Cleaner workflow", () => {
   test.describe.configure({ mode: "serial" });
+  // Contexts a test opened for a second role: closed even when the test fails.
+  const openContexts: BrowserContext[] = [];
+  test.afterEach(async () => {
+    for (const context of openContexts.splice(0)) await context.close();
+  });
   test.afterAll(async () => {
     // Reset the seed cleaning task status back to pending
     await cleaningTasks
@@ -119,13 +148,33 @@ test.describe("Renter-Cleaner workflow", () => {
 
   test("renter sees every call-out term and cancellation requires consent after acceptance", async ({
     renterPage,
-    cleanerPage,
+    browser,
     testIds,
   }) => {
+    // The whole lifecycle is one long test: three UI roles, many transitions.
+    test.setTimeout(120_000);
+    // The renterPage and cleanerPage fixtures share one browser context and each
+    // login replaces its single sb-*-auth-token cookie, so the second one wins and
+    // both pages act as the cleaner. Give the cleaner a context of its own.
+    const cleanerContext = await browser.newContext();
+    openContexts.push(cleanerContext);
+    const cleanerPage = await cleanerContext.newPage();
+    await authenticateAsRole(loadTestUsers().cleaner, cleanerPage);
+    // The cookie banner is fixed to the bottom of the viewport and would
+    // intercept clicks on the cards below it, so both contexts have answered it.
+    const consent = {
+      name: "mb_cookie_consent",
+      value: encodeURIComponent("v2|analytics=0|location=0"),
+      url: configureIsolatedE2E().baseUrl,
+    };
+    await renterPage.context().addCookies([consent]);
+    await cleanerContext.addCookies([consent]);
+
     const notificationSince = new Date(Date.now() - 1_000).toISOString();
     await renterPage.goto("/dashboard/renter/cleaners");
     await renterPage.waitForLoadState("networkidle");
-    if (renterPage.url().includes("/auth/")) return;
+    // No silent skip here: a login redirect would otherwise pass this whole lifecycle.
+    expect(renterPage.url()).not.toContain("/auth/");
 
     const renterCard = renterPage.getByTestId(
       `renter-cleaning-task-${testIds.cleaningTask}`,
@@ -142,6 +191,37 @@ test.describe("Renter-Cleaner workflow", () => {
       "ამ ბარათზე დამლაგებლის ნომერი გამოჩნდება, როცა გამოძახებას დაადასტურებს",
     );
 
+    // The cleaner is a different account, and RLS hides the owner's apartment
+    // and profile from them. Their card can only be complete because the
+    // cleaner-scoped details RPC feeds it: apartment, owner, number, address,
+    // the owner's note and what the price is per.
+    await cleanerPage.goto("/dashboard/cleaner");
+    expect(cleanerPage.url()).not.toContain("/auth/");
+    const pendingCard = cleanerPage.getByTestId(
+      `cleaner-pending-task-platform-${testIds.cleaningTask}`,
+    );
+    await expect(pendingCard).toBeVisible();
+    await expect(pendingCard).toContainText("E2E ბინა ბაკურიანში");
+    await expect(pendingCard).toContainText("E2E გამქირავებელი");
+    await expect(pendingCard).toContainText(
+      "ბაკურიანი, დიდველის ქუჩა, ბინა 12",
+    );
+    await expect(pendingCard.getByTestId("cleaner-task-notes")).toContainText(
+      "ტესტ დავალება",
+    );
+    await expect(pendingCard.getByTestId("cleaner-task-call")).toHaveAttribute(
+      "href",
+      `tel:${PHONES.renter}`,
+    );
+    await expect(pendingCard).toContainText(/80 ₾\s*\/\s*საათი/);
+    const users = loadTestUsers();
+    expect(
+      (await ownerDetailsAs(users.cleaner, testIds.cleaningTask))?.phone,
+    ).toBe(PHONES.renter);
+    // Only the call-out's own cleaner gets the row: not its owner, not a stranger.
+    expect(await ownerDetailsAs(users.renter, testIds.cleaningTask)).toBeNull();
+    expect(await ownerDetailsAs(users.guest, testIds.cleaningTask)).toBeNull();
+
     // A pending request has not been accepted, so the owner can withdraw it
     // immediately without manufacturing a cleaner decision.
     renterPage.once("dialog", (dialog) => dialog.accept());
@@ -152,6 +232,10 @@ test.describe("Renter-Cleaner workflow", () => {
       .poll(async () => (await cleaningTasks.get(testIds.cleaningTask))?.status)
       .toBe("cancelled");
     await expect(renterCard).toContainText("გაუქმებული");
+    // A cancelled call-out no longer discloses the owner's number.
+    expect(
+      (await ownerDetailsAs(users.cleaner, testIds.cleaningTask))?.phone,
+    ).toBeNull();
     await expect
       .poll(async () => {
         const { count } = await supabaseAdmin
@@ -167,6 +251,9 @@ test.describe("Renter-Cleaner workflow", () => {
     // Once accepted, the same owner action becomes a request and must keep the
     // job active until the cleaner explicitly responds.
     await cleaningTasks.update(testIds.cleaningTask, { status: "accepted" });
+    expect(
+      (await ownerDetailsAs(users.cleaner, testIds.cleaningTask))?.phone,
+    ).toBe(PHONES.renter);
 
     const env = configureIsolatedE2E();
     const renter = loadTestUsers().renter;
@@ -215,11 +302,19 @@ test.describe("Renter-Cleaner workflow", () => {
       .toBeGreaterThan(0);
 
     await cleanerPage.goto("/dashboard/cleaner");
-    if (cleanerPage.url().includes("/auth/")) return;
+    expect(cleanerPage.url()).not.toContain("/auth/");
     let cleanerCard = cleanerPage.getByTestId(
       `cleaner-scheduled-task-platform-${testIds.cleaningTask}`,
     );
     await expect(cleanerCard).toContainText("გაუქმებას ითხოვენ");
+    // The job is still active, so the cleaner keeps the number and the note.
+    await expect(cleanerCard.getByTestId("cleaner-task-call")).toHaveAttribute(
+      "href",
+      `tel:${PHONES.renter}`,
+    );
+    await expect(cleanerCard.getByTestId("cleaner-task-notes")).toContainText(
+      "ტესტ დავალება",
+    );
     await cleanerCard
       .getByRole("button", { name: "სამუშაო ძალაში დარჩეს", exact: true })
       .click();
@@ -267,6 +362,9 @@ test.describe("Renter-Cleaner workflow", () => {
     await expect(
       renterPage.getByTestId(`renter-cleaning-task-${testIds.cleaningTask}`),
     ).toContainText("გაუქმებული");
+    expect(
+      (await ownerDetailsAs(users.cleaner, testIds.cleaningTask))?.phone,
+    ).toBeNull();
   });
 
   test("mark cleaning task as completed via DB", async ({ testIds }) => {

@@ -21,6 +21,8 @@ export interface GuestOffer {
     rating: number | null;
     listingsCount: number | null;
   };
+  /** Read from `public_properties`; null while the listing is not public
+   *  (e.g. its owner's membership lapsed, C31): there is no page to open. */
   property: {
     id: string;
     title: string;
@@ -29,7 +31,8 @@ export interface GuestOffer {
     capacity: number | null;
     pricePerNight: number;
     isVip?: boolean;
-  };
+    href: string;
+  } | null;
 }
 
 interface Props {
@@ -162,7 +165,7 @@ function OfferCard({
   const t = useTranslations("GuestDashboard.offersModal");
   const tBookings = useTranslations("GuestBookings");
 
-  const listingPrice = offer.property.pricePerNight;
+  const listingPrice = offer.property?.pricePerNight ?? 0;
   const isCheaper = offer.offeredPrice < listingPrice && listingPrice > 0;
   const isExpensive = offer.offeredPrice > listingPrice && listingPrice > 0;
   const displayName = offer.renter.displayName ?? tBookings("defaultOwner");
@@ -210,42 +213,48 @@ function OfferCard({
       </div>
 
       <div className="px-5 pb-5 pt-2">
-        <div className="flex items-center gap-3 rounded-xl bg-[#FAFBFC] p-3">
-          <div className="relative h-[60px] w-[80px] shrink-0 overflow-hidden rounded-lg bg-[#F1F5F9]">
-            {offer.property.photo ? (
-              <Image
-                src={offer.property.photo}
-                alt={offer.property.title}
-                fill
-                sizes="80px"
-                className="object-cover"
-              />
-            ) : null}
-            {offer.property.isVip && (
-              <span className="absolute left-1 top-1 rounded bg-[#F97316] px-1 py-0.5 text-[8px] font-black uppercase text-white">
-                VIP
-              </span>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <h4 className="truncate text-[13px] font-extrabold text-[#0F172A]">
-              {offer.property.title}
-            </h4>
-            <div className="mt-1 flex items-center gap-3 text-[11px] font-medium text-[#64748B]">
-              {offer.property.rating != null && offer.property.rating > 0 && (
-                <span className="flex items-center gap-1">
-                  <Star className="h-3 w-3 fill-[#F59E0B] text-[#F59E0B]" />
-                  {offer.property.rating.toFixed(1)}
-                </span>
-              )}
-              {offer.property.capacity != null && (
-                <span>
-                  {t("guestsCount", { count: offer.property.capacity })}
+        {offer.property ? (
+          <div className="flex items-center gap-3 rounded-xl bg-[#FAFBFC] p-3">
+            <div className="relative h-[60px] w-[80px] shrink-0 overflow-hidden rounded-lg bg-[#F1F5F9]">
+              {offer.property.photo ? (
+                <Image
+                  src={offer.property.photo}
+                  alt={offer.property.title}
+                  fill
+                  sizes="80px"
+                  className="object-cover"
+                />
+              ) : null}
+              {offer.property.isVip && (
+                <span className="absolute left-1 top-1 rounded bg-[#F97316] px-1 py-0.5 text-[8px] font-black uppercase text-white">
+                  VIP
                 </span>
               )}
             </div>
+            <div className="min-w-0 flex-1">
+              <h4 className="truncate text-[13px] font-extrabold text-[#0F172A]">
+                {offer.property.title}
+              </h4>
+              <div className="mt-1 flex items-center gap-3 text-[11px] font-medium text-[#64748B]">
+                {offer.property.rating != null && offer.property.rating > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Star className="h-3 w-3 fill-[#F59E0B] text-[#F59E0B]" />
+                    {offer.property.rating.toFixed(1)}
+                  </span>
+                )}
+                {offer.property.capacity != null && (
+                  <span>
+                    {t("guestsCount", { count: offer.property.capacity })}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <p className="rounded-xl bg-[#FAFBFC] p-3 text-[12px] font-medium text-[#64748B]">
+            {tBookings("listingUnavailable")}
+          </p>
+        )}
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -279,13 +288,15 @@ function OfferCard({
             >
               {tBookings("decline")}
             </button>
-            <Link
-              href={`/apartments/${offer.property.id}`}
-              className="flex h-11 items-center gap-2 rounded-xl bg-[#2563EB] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
-            >
-              {tBookings("viewDetails")}
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+            {offer.property && (
+              <Link
+                href={offer.property.href}
+                className="flex h-11 items-center gap-2 rounded-xl bg-[#2563EB] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
+              >
+                {tBookings("viewDetails")}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            )}
           </div>
         </div>
       </div>

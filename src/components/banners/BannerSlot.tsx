@@ -9,6 +9,12 @@ export type BannerSlotProps = {
   className?: string;
   /** Skip the frame's page padding — see BannerSlotView. */
   bare?: boolean;
+  /**
+   * Which sponsored card of the page this is (0, 1) — listing grids place one
+   * after every 8th listing via `interleaveSponsored` (C47), and the second
+   * never repeats the first's creative.
+   */
+  position?: number;
 };
 
 /**
@@ -27,6 +33,7 @@ export default function BannerSlot({
   placement,
   className,
   bare,
+  position,
 }: BannerSlotProps) {
   const creatives = useBannerCreatives(placement);
   return (
@@ -35,6 +42,7 @@ export default function BannerSlot({
       creatives={creatives}
       className={className}
       bare={bare}
+      position={position}
     />
   );
 }

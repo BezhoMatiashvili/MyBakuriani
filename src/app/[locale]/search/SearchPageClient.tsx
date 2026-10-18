@@ -29,7 +29,10 @@ import ScrollReveal from "@/components/shared/ScrollReveal";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { HERO_NOISE_BACKGROUND } from "@/lib/utils/heroTexture";
+import { sortByPromotion } from "@/lib/utils/pricing";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { interleaveSponsored } from "@/lib/ad-rotation";
 import {
   RENT_PRICE_MAX,
   RENT_PRICE_MIN,
@@ -44,12 +47,85 @@ const ITEMS_PER_PAGE = 12;
 type ServiceRow = Tables<"services"> & {
   has_whatsapp?: boolean;
   best_active_menu_item_discount_percent?: number | null;
+  ownership_verified?: boolean;
 };
 type BlogRow = Tables<"blog_posts">;
-type ActiveTab = "all" | "properties" | "services" | "blog";
+// The columns search/page.tsx selects: everything this client renders plus what
+// filterPropertiesLocally (the offline fallback) reads. Edge-function rows are
+// a superset.
+type SearchListing = Pick<
+  Tables<"public_properties">,
+  | "id"
+  | "created_at"
+  | "title"
+  | "description"
+  | "location"
+  | "cadastral_code"
+  | "photos"
+  | "price_per_night"
+  | "sale_price"
+  | "capacity"
+  | "rooms"
+  | "bathrooms"
+  | "area_sqm"
+  | "type"
+  | "amenities"
+  | "is_vip"
+  | "is_super_vip"
+  | "discount_percent"
+  | "discount_expires_at"
+  | "is_for_sale"
+  | "house_rules"
+  | "ownership_verified"
+>;
+// One tab per category. global_search returns three buckets (properties,
+// services, blog); the property and service buckets are split here by
+// is_for_sale/type and by `category`, so every category gets its own tab.
+const PROPERTY_TABS = ["apartments", "hotels", "sales"] as const;
+// "services" is what is left after the named categories (cleaning, handyman…).
+const SERVICE_TABS = [
+  "food",
+  "entertainment",
+  "transport",
+  "employment",
+  "services",
+] as const;
+type PropertyTab = (typeof PROPERTY_TABS)[number];
+type ServiceTab = (typeof SERVICE_TABS)[number];
+type SectionTab = PropertyTab | ServiceTab | "blog";
+type ActiveTab = "all" | SectionTab;
+
+const isPropertyTab = (tab: ActiveTab): tab is PropertyTab =>
+  (PROPERTY_TABS as readonly string[]).includes(tab);
+const isServiceTab = (tab: ActiveTab): tab is ServiceTab =>
+  (SERVICE_TABS as readonly string[]).includes(tab);
+
+function splitProperties(
+  items: SearchListing[],
+): Record<PropertyTab, SearchListing[]> {
+  const rentals = items.filter((p) => !p.is_for_sale);
+  return {
+    apartments: rentals.filter((p) => p.type !== "hotel"),
+    hotels: rentals.filter((p) => p.type === "hotel"),
+    sales: items.filter((p) => p.is_for_sale),
+  };
+}
+
+function splitServices(items: ServiceRow[]): Record<ServiceTab, ServiceRow[]> {
+  const byCategory = (category: string) =>
+    items.filter((s) => s.category === category);
+  const named = ["food", "entertainment", "transport", "employment"];
+  return {
+    food: byCategory("food"),
+    entertainment: byCategory("entertainment"),
+    transport: byCategory("transport"),
+    employment: byCategory("employment"),
+    services: items.filter((s) => !named.includes(s.category)),
+  };
+}
 
 interface Props {
-  initialProperties: Tables<"properties">[];
+  initialProperties: SearchListing[];
   statusCards: StatusCard[];
   initialLocation?: string;
   initialCheckIn?: string;
@@ -69,7 +145,7 @@ interface SearchState {
 }
 
 function filterPropertiesLocally(
-  items: Tables<"properties">[],
+  items: SearchListing[],
   search: SearchState,
   currentFilters: Filters,
   currentMode: "rent" | "sale",
@@ -161,15 +237,124 @@ function filterPropertiesLocally(
     ) {
       return false;
     }
-    if (
-      currentFilters.verifiedOnly &&
-      (property as Tables<"properties"> & { profile_is_verified?: boolean })
-        .profile_is_verified !== true
-    ) {
+    if (currentFilters.verifiedOnly && property.ownership_verified !== true) {
       return false;
     }
     return true;
   });
+}
+
+// Owns the search dropdown state (and the zone list only it renders), so
+// opening a dropdown re-renders the hero alone, not the results below it.
+function SearchHero({
+  hasKeyword,
+  mode,
+  onModeChange,
+  onSearch,
+  searchState,
+  advancedFilters,
+  statusCards,
+}: {
+  hasKeyword: boolean;
+  mode: "rent" | "sale";
+  onModeChange: (next: "rent" | "sale") => void;
+  onSearch: (sf: SearchFilters) => void;
+  searchState: SearchState;
+  advancedFilters: RentAdvancedFilters;
+  statusCards: StatusCard[];
+}) {
+  const tLanding = useTranslations("Landing");
+  const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
+  const dropdownPortalRef = useRef<HTMLDivElement>(null);
+  const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
+  const filtersPortalRef = useRef<HTMLDivElement>(null);
+  const filtersBoundaryRef = useRef<HTMLDivElement>(null);
+  const { zones } = useActiveZones();
+
+  return (
+    <section
+      data-testid="listing-hero"
+      className={cn(
+        "relative flex items-start justify-center px-4 pb-14 pt-10 lg:overflow-visible lg:pb-0 lg:pt-16",
+        activeDropdown ? "overflow-visible" : "overflow-hidden",
+      )}
+      style={{
+        background:
+          "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
+      }}
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: HERO_NOISE_BACKGROUND,
+          mixBlendMode: "overlay",
+        }}
+      />
+
+      <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
+        <ScrollReveal>
+          <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
+            {tLanding("trustedGuide")}{" "}
+            <span className="text-[#38BDF8]">{tLanding("inBakuriani")}</span>
+          </h1>
+        </ScrollReveal>
+
+        {!hasKeyword && (
+          <div className="mt-6 flex justify-center">
+            <RentBuyToggle value={mode} onChange={onModeChange} />
+          </div>
+        )}
+
+        <div className="relative mt-6" data-testid="search-overlay-container">
+          <SearchBox
+            onSearch={onSearch}
+            className="shadow-[var(--shadow-search)]"
+            defaultLocation={searchState.location}
+            defaultGuests={searchState.guests}
+            defaultKeyword={searchState.keyword}
+            defaultCheckIn={searchState.checkIn}
+            defaultCheckOut={searchState.checkOut}
+            dropdownPortalRef={dropdownPortalRef}
+            dropdownBoundaryRef={dropdownBoundaryRef}
+            filtersPortalRef={filtersPortalRef}
+            filtersBoundaryRef={filtersBoundaryRef}
+            onActiveDropdownChange={setActiveDropdown}
+            zones={zones}
+            advancedFilters={advancedFilters}
+          />
+
+          {/* Permanently mounted (visibility toggled via CSS) so the portal
+              target exists the instant the panel opens, instead of flashing
+              a differently-styled fallback for a frame first. */}
+          <div
+            ref={filtersBoundaryRef}
+            onMouseDown={(event) => event.stopPropagation()}
+            className={cn(
+              "absolute left-0 top-full z-50 mt-2 w-[700px] max-w-full overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
+              activeDropdown === "filters"
+                ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:block"
+                : "hidden",
+            )}
+          >
+            <div ref={filtersPortalRef} className="min-w-0" />
+          </div>
+          {activeDropdown === "calendar" ? (
+            <div
+              ref={dropdownBoundaryRef}
+              onMouseDown={(event) => event.stopPropagation()}
+              className="absolute left-0 top-full z-50 mt-2 hidden w-[760px] max-w-full lg:block"
+            >
+              <div ref={dropdownPortalRef} className="min-w-0" />
+            </div>
+          ) : null}
+        </div>
+
+        <div data-testid="search-status-cards">
+          <StatusCards cards={statusCards} className="mt-8 sm:-mb-[42px]" />
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export default function SearchPageClient({
@@ -184,7 +369,6 @@ export default function SearchPageClient({
   initialFilters = DEFAULT_FILTERS,
 }: Props) {
   const t = useTranslations("SearchPage");
-  const tLanding = useTranslations("Landing");
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [searchState, setSearchState] = useState<SearchState>({
     location: initialLocation,
@@ -196,7 +380,6 @@ export default function SearchPageClient({
   const [mode, setMode] = useState<"rent" | "sale">(initialMode);
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<ActiveTab>("all");
-  const [activeDropdown, setActiveDropdown] = useState<ActiveDropdown>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [mobileFilterDraft, setMobileFilterDraft] = useState<Filters | null>(
     null,
@@ -204,11 +387,11 @@ export default function SearchPageClient({
 
   // Property-only path state (used when no keyword)
   const [properties, setProperties] =
-    useState<Tables<"properties">[]>(initialProperties);
+    useState<SearchListing[]>(initialProperties);
   const [totalCount, setTotalCount] = useState(initialProperties.length);
 
   // Keyword path state — three buckets returned by global_search
-  const [kwProperties, setKwProperties] = useState<Tables<"properties">[]>([]);
+  const [kwProperties, setKwProperties] = useState<SearchListing[]>([]);
   const [kwServices, setKwServices] = useState<ServiceRow[]>([]);
   const [kwBlog, setKwBlog] = useState<BlogRow[]>([]);
 
@@ -218,14 +401,9 @@ export default function SearchPageClient({
   const hasObservedUrl = useRef(false);
   const skipNextUrlWrite = useRef(false);
   const lastWrittenQuery = useRef<string | null>(null);
-  const dropdownPortalRef = useRef<HTMLDivElement>(null);
-  const dropdownBoundaryRef = useRef<HTMLDivElement>(null);
-  const filtersPortalRef = useRef<HTMLDivElement>(null);
-  const filtersBoundaryRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const urlSearchParams = useSearchParams();
   const urlQuery = urlSearchParams.toString();
-  const { zones } = useActiveZones();
 
   const hasKeyword = searchState.keyword.trim().length > 0;
 
@@ -237,6 +415,7 @@ export default function SearchPageClient({
         bedrooms: filters.rooms,
         bathrooms: filters.bathrooms,
         capacity: searchState.guests === "" ? null : Number(searchState.guests),
+        types: filters.types,
         amenities: filters.amenities,
         verifiedOnly: filters.verifiedOnly,
       }),
@@ -267,7 +446,9 @@ export default function SearchPageClient({
         if (search.checkOut) body.check_out = search.checkOut;
         if (search.guests) body.capacity = search.guests;
 
-        body.is_for_sale = currentMode === "sale";
+        // A keyword searches every category, sale listings included; the
+        // rent/sale split only scopes the plain property list.
+        if (!keyword) body.is_for_sale = currentMode === "sale";
 
         if (currentFilters.priceMin !== "")
           body.price_min = currentFilters.priceMin;
@@ -304,17 +485,19 @@ export default function SearchPageClient({
         if (keyword) {
           // Bucketed response from global_search RPC
           const data = result.data as {
-            properties?: Tables<"properties">[];
+            properties?: SearchListing[];
             services?: ServiceRow[];
             blog?: BlogRow[];
           };
-          setKwProperties(data?.properties ?? []);
-          setKwServices(data?.services ?? []);
+          // global_search ranks by text similarity only; paid tiers get the
+          // promised priority placement within those results.
+          setKwProperties(sortByPromotion(data?.properties ?? []));
+          setKwServices(sortByPromotion(data?.services ?? []));
           setKwBlog(data?.blog ?? []);
           setProperties([]);
           setTotalCount(0);
         } else {
-          let data: Tables<"properties">[] = result.data || [];
+          let data: SearchListing[] = result.data || [];
           if (currentFilters.types.length > 1) {
             data = data.filter((p) => currentFilters.types.includes(p.type));
           }
@@ -334,7 +517,7 @@ export default function SearchPageClient({
           currentMode,
         );
         if (search.keyword.trim()) {
-          setKwProperties(filtered);
+          setKwProperties(sortByPromotion(filtered));
           setKwServices([]);
           setKwBlog([]);
           setProperties([]);
@@ -353,20 +536,16 @@ export default function SearchPageClient({
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
+      // page.tsx already applies location/guests/price/rooms/bathrooms/area/
+      // types/amenities/verifiedOnly to initialProperties server-side, so
+      // re-running the search for those on mount would just duplicate the
+      // request. Only keyword (switches to the bucketed global_search across
+      // properties+services+blog) and check-in/check-out (availability via
+      // calendar_blocks) aren't computed server-side and still need a fetch.
       const needFetch =
         !!searchState.keyword ||
         !!searchState.checkIn ||
-        !!searchState.checkOut ||
-        !!searchState.guests ||
-        filters.priceMin !== "" ||
-        filters.priceMax !== "" ||
-        filters.rooms !== null ||
-        filters.bathrooms !== null ||
-        filters.areaMin !== "" ||
-        filters.areaMax !== "" ||
-        filters.types.length > 0 ||
-        filters.amenities.length > 0 ||
-        filters.verifiedOnly;
+        !!searchState.checkOut;
       if (!needFetch) return;
     }
     runSearch(searchState, filters, mode, page);
@@ -390,7 +569,6 @@ export default function SearchPageClient({
     );
     if (filters.areaMin !== "") params.set("area_min", String(filters.areaMin));
     if (filters.areaMax !== "") params.set("area_max", String(filters.areaMax));
-    if (filters.types.length > 0) params.set("types", filters.types.join(","));
     lastWrittenQuery.current = params.toString();
     router.replace(`/search?${params.toString()}`, { scroll: false });
   }, [searchState, mode, filters, router, searchBoxAdvancedFilters]);
@@ -431,10 +609,7 @@ export default function SearchPageClient({
       bathrooms: advanced.bathrooms,
       areaMin: parseOptionalNumber("area_min"),
       areaMax: parseOptionalNumber("area_max"),
-      types: (observedParams.get("types") ?? "")
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean),
+      types: advanced.types,
       amenities: advanced.amenities,
       verifiedOnly: advanced.verifiedOnly,
     });
@@ -450,6 +625,7 @@ export default function SearchPageClient({
       priceMax: adv.priceMax === RENT_PRICE_MAX ? "" : adv.priceMax,
       rooms: adv.bedrooms,
       bathrooms: adv.bathrooms,
+      types: adv.types,
       amenities: adv.amenities,
       verifiedOnly: adv.verifiedOnly,
     }));
@@ -471,103 +647,67 @@ export default function SearchPageClient({
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
-  const tabCounts = useMemo(
-    () => ({
-      properties: kwProperties.length,
-      services: kwServices.length,
-      blog: kwBlog.length,
-      all: kwProperties.length + kwServices.length + kwBlog.length,
-    }),
-    [kwProperties.length, kwServices.length, kwBlog.length],
+  const kwPropertyGroups = useMemo(
+    () => splitProperties(kwProperties),
+    [kwProperties],
   );
+  const kwServiceGroups = useMemo(
+    () => splitServices(kwServices),
+    [kwServices],
+  );
+
+  const tabCounts = useMemo(() => {
+    const counts = {
+      all: kwProperties.length + kwServices.length + kwBlog.length,
+      blog: kwBlog.length,
+    } as Record<ActiveTab, number>;
+    for (const tab of PROPERTY_TABS) counts[tab] = kwPropertyGroups[tab].length;
+    for (const tab of SERVICE_TABS) counts[tab] = kwServiceGroups[tab].length;
+    return counts;
+  }, [
+    kwProperties.length,
+    kwServices.length,
+    kwBlog.length,
+    kwPropertyGroups,
+    kwServiceGroups,
+  ]);
+
+  const tabLabels: Record<ActiveTab, string> = {
+    all: t("tabAll"),
+    apartments: t("tabProperties"),
+    hotels: t("tabHotels"),
+    sales: t("tabSales"),
+    food: t("tabFood"),
+    entertainment: t("tabEntertainment"),
+    transport: t("tabTransport"),
+    employment: t("tabEmployment"),
+    services: t("tabServices"),
+    blog: t("tabBlog"),
+  };
+  // Only categories that have a hit get a tab. A refetch (e.g. a mode switch)
+  // can empty the selected one; fall back to "all" rather than an empty grid.
+  const visibleTabs = (
+    ["all", ...PROPERTY_TABS, ...SERVICE_TABS, "blog"] as const
+  ).filter((tab) => tab === "all" || tabCounts[tab] > 0);
+  const shownTab = visibleTabs.includes(activeTab) ? activeTab : "all";
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
-      <section
-        data-testid="listing-hero"
-        className={cn(
-          "relative flex items-start justify-center px-4 pb-14 pt-10 lg:overflow-visible lg:pb-0 lg:pt-16",
-          activeDropdown ? "overflow-visible" : "overflow-hidden",
-        )}
-        style={{
-          background:
-            "linear-gradient(90deg, #101A33 -4.88%, #0E2150 51.09%, #1E419A 119.49%)",
-        }}
-      >
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1600&h=600&fit=crop&q=30')",
-            backgroundSize: "cover",
-            backgroundPosition: "center bottom",
-            mixBlendMode: "overlay",
-          }}
-        />
+      <SearchHero
+        hasKeyword={hasKeyword}
+        mode={mode}
+        onModeChange={handleModeChange}
+        onSearch={handleSearch}
+        searchState={searchState}
+        advancedFilters={searchBoxAdvancedFilters}
+        statusCards={statusCards}
+      />
 
-        <div className="relative z-10 mx-auto w-full max-w-[1160px] text-center">
-          <ScrollReveal>
-            <h1 className="text-2xl font-black leading-[1.15] tracking-[-0.7px] text-white sm:text-[32px] lg:text-[50px] lg:leading-[50px] lg:tracking-[-1.25px]">
-              {tLanding("trustedGuide")}{" "}
-              <span className="text-[#38BDF8]">{tLanding("inBakuriani")}</span>
-            </h1>
-          </ScrollReveal>
-
-          {!hasKeyword && (
-            <div className="mt-6 flex justify-center">
-              <RentBuyToggle value={mode} onChange={handleModeChange} />
-            </div>
-          )}
-
-          <div className="relative mt-6" data-testid="search-overlay-container">
-            <SearchBox
-              onSearch={handleSearch}
-              className="shadow-[var(--shadow-search)]"
-              defaultLocation={searchState.location}
-              defaultGuests={searchState.guests}
-              defaultKeyword={searchState.keyword}
-              defaultCheckIn={searchState.checkIn}
-              defaultCheckOut={searchState.checkOut}
-              dropdownPortalRef={dropdownPortalRef}
-              dropdownBoundaryRef={dropdownBoundaryRef}
-              filtersPortalRef={filtersPortalRef}
-              filtersBoundaryRef={filtersBoundaryRef}
-              onActiveDropdownChange={setActiveDropdown}
-              zones={zones}
-              advancedFilters={searchBoxAdvancedFilters}
-            />
-
-            {/* Permanently mounted (visibility toggled via CSS) so the portal
-                target exists the instant the panel opens, instead of flashing
-                a differently-styled fallback for a frame first. */}
-            <div
-              ref={filtersBoundaryRef}
-              onMouseDown={(event) => event.stopPropagation()}
-              className={cn(
-                "absolute left-0 top-full z-50 mt-2 w-[700px] max-w-full overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]",
-                activeDropdown === "filters"
-                  ? "hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 lg:block"
-                  : "hidden",
-              )}
-            >
-              <div ref={filtersPortalRef} className="min-w-0" />
-            </div>
-            {activeDropdown === "calendar" ? (
-              <div
-                ref={dropdownBoundaryRef}
-                onMouseDown={(event) => event.stopPropagation()}
-                className="absolute left-0 top-full z-50 mt-2 hidden w-[760px] max-w-full lg:block"
-              >
-                <div ref={dropdownPortalRef} className="min-w-0" />
-              </div>
-            ) : null}
-          </div>
-
-          <div data-testid="search-status-cards">
-            <StatusCards cards={statusCards} className="mt-8 sm:-mb-[42px]" />
-          </div>
-        </div>
-      </section>
+      {/* From lg the status cards hang 42px below the hero (sm:-mb-[42px]);
+          reserve that so the results start a full section gap below them. */}
+      {statusCards.length > 0 && (
+        <div aria-hidden="true" className="hidden lg:block lg:h-[42px]" />
+      )}
 
       <section
         data-testid="listing-results"
@@ -646,45 +786,33 @@ export default function SearchPageClient({
             )}
 
             {/* Tabs (keyword mode only) */}
-            {hasKeyword && (
-              <div className="mb-6 flex flex-wrap gap-2 border-b border-[#E2E8F0]">
-                {(
-                  [
-                    { id: "all", label: t("tabAll"), count: tabCounts.all },
-                    {
-                      id: "properties",
-                      label: t("tabProperties"),
-                      count: tabCounts.properties,
-                    },
-                    {
-                      id: "services",
-                      label: t("tabServices"),
-                      count: tabCounts.services,
-                    },
-                    { id: "blog", label: t("tabBlog"), count: tabCounts.blog },
-                  ] as const
-                ).map((tab) => (
+            {hasKeyword && tabCounts.all > 0 && (
+              // One scrolling row: up to ten tabs would wrap into several rows
+              // on a phone. The baseline is an inset shadow because
+              // overflow-x clips the usual -mb-px underline overlap.
+              <div className="mb-6 flex gap-2 overflow-x-auto shadow-[inset_0_-1px_0_#E2E8F0] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {visibleTabs.map((tab) => (
                   <button
-                    key={tab.id}
+                    key={tab}
                     type="button"
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => setActiveTab(tab)}
                     className={cn(
-                      "relative -mb-px px-4 py-3 text-[14px] font-semibold transition-colors",
-                      activeTab === tab.id
+                      "relative shrink-0 whitespace-nowrap px-4 py-3 text-[14px] font-semibold transition-colors",
+                      shownTab === tab
                         ? "border-b-2 border-[#2563EB] text-[#2563EB]"
                         : "border-b-2 border-transparent text-[#64748B] hover:text-[#1E293B]",
                     )}
                   >
-                    {tab.label}{" "}
+                    {tabLabels[tab]}{" "}
                     <span
                       className={cn(
                         "ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold",
-                        activeTab === tab.id
+                        shownTab === tab
                           ? "bg-[#DBEAFE] text-[#2563EB]"
                           : "bg-[#F1F5F9] text-[#64748B]",
                       )}
                     >
-                      {tab.count}
+                      {tabCounts[tab]}
                     </span>
                   </button>
                 ))}
@@ -707,42 +835,52 @@ export default function SearchPageClient({
                   bare
                   className="col-span-full"
                 />
-                <BannerSlot placement="listing_grid" bare />
-
-                {properties.map((p, i) => (
-                  <ScrollReveal key={p.id} delay={i * 0.05}>
-                    <PropertyCard
-                      id={p.id}
-                      createdAt={p.created_at}
-                      title={p.title}
-                      location={p.location}
-                      photos={p.photos ?? []}
-                      pricePerNight={
-                        p.price_per_night ? Number(p.price_per_night) : null
-                      }
-                      salePrice={p.sale_price ? Number(p.sale_price) : null}
-                      rating={null}
-                      capacity={p.capacity}
-                      rooms={p.rooms}
-                      isVip={p.is_vip ?? false}
-                      isSuperVip={p.is_super_vip ?? false}
-                      discountPercent={p.discount_percent ?? 0}
-                      discountExpiresAt={p.discount_expires_at}
-                      isForSale={p.is_for_sale ?? false}
-                      paymentOptions={readPaymentOptions(p.house_rules)}
+                {interleaveSponsored(
+                  properties.map((p, i) => (
+                    <ScrollReveal key={p.id} delay={i * 0.05}>
+                      <PropertyCard
+                        id={p.id}
+                        createdAt={p.created_at}
+                        title={p.title}
+                        location={p.location}
+                        photos={p.photos ?? []}
+                        pricePerNight={
+                          p.price_per_night ? Number(p.price_per_night) : null
+                        }
+                        salePrice={p.sale_price ? Number(p.sale_price) : null}
+                        rating={null}
+                        capacity={p.capacity}
+                        rooms={p.rooms}
+                        isVip={p.is_vip ?? false}
+                        isSuperVip={p.is_super_vip ?? false}
+                        discountPercent={p.discount_percent ?? 0}
+                        discountExpiresAt={p.discount_expires_at}
+                        isForSale={p.is_for_sale ?? false}
+                        paymentOptions={readPaymentOptions(p.house_rules)}
+                        isOwnershipVerified={p.ownership_verified ?? false}
+                      />
+                    </ScrollReveal>
+                  )),
+                  (slot) => (
+                    <BannerSlot
+                      key={`sponsored-${slot}`}
+                      placement="listing_grid"
+                      bare
+                      position={slot}
                     />
-                  </ScrollReveal>
-                ))}
+                  ),
+                )}
               </div>
             )}
 
             {/* Keyword path: tab-specific rendering */}
             {!loading && hasKeyword && tabCounts.all > 0 && (
               <KeywordResults
-                activeTab={activeTab}
+                activeTab={shownTab}
                 onTabChange={setActiveTab}
-                propertiesArr={kwProperties}
-                servicesArr={kwServices}
+                labels={tabLabels}
+                propertyGroups={kwPropertyGroups}
+                serviceGroups={kwServiceGroups}
                 blogArr={kwBlog}
               />
             )}
@@ -852,50 +990,59 @@ function EmptyState() {
 function KeywordResults({
   activeTab,
   onTabChange,
-  propertiesArr,
-  servicesArr,
+  labels,
+  propertyGroups,
+  serviceGroups,
   blogArr,
 }: {
   activeTab: ActiveTab;
   onTabChange: (t: ActiveTab) => void;
-  propertiesArr: Tables<"properties">[];
-  servicesArr: ServiceRow[];
+  labels: Record<ActiveTab, string>;
+  propertyGroups: Record<PropertyTab, SearchListing[]>;
+  serviceGroups: Record<ServiceTab, ServiceRow[]>;
   blogArr: BlogRow[];
 }) {
-  const t = useTranslations("SearchPage");
-  if (activeTab === "properties") {
-    return <PropertiesGrid items={propertiesArr} />;
+  if (isPropertyTab(activeTab)) {
+    return <PropertiesGrid items={propertyGroups[activeTab]} />;
   }
-  if (activeTab === "services") {
-    return <ServicesGrid items={servicesArr} />;
+  if (isServiceTab(activeTab)) {
+    return <ServicesGrid items={serviceGroups[activeTab]} />;
   }
   if (activeTab === "blog") {
     return <BlogGrid items={blogArr} />;
   }
-  // "all"
+  // "all": one section per category that has a hit
   return (
     <div className="flex flex-col gap-10">
-      {propertiesArr.length > 0 && (
-        <Section
-          title={t("tabProperties")}
-          count={propertiesArr.length}
-          onSeeAll={() => onTabChange("properties")}
-        >
-          <PropertiesGrid items={propertiesArr.slice(0, 6)} />
-        </Section>
+      {PROPERTY_TABS.map(
+        (tab) =>
+          propertyGroups[tab].length > 0 && (
+            <Section
+              key={tab}
+              title={labels[tab]}
+              count={propertyGroups[tab].length}
+              onSeeAll={() => onTabChange(tab)}
+            >
+              <PropertiesGrid items={propertyGroups[tab].slice(0, 6)} />
+            </Section>
+          ),
       )}
-      {servicesArr.length > 0 && (
-        <Section
-          title={t("tabServices")}
-          count={servicesArr.length}
-          onSeeAll={() => onTabChange("services")}
-        >
-          <ServicesGrid items={servicesArr.slice(0, 6)} />
-        </Section>
+      {SERVICE_TABS.map(
+        (tab) =>
+          serviceGroups[tab].length > 0 && (
+            <Section
+              key={tab}
+              title={labels[tab]}
+              count={serviceGroups[tab].length}
+              onSeeAll={() => onTabChange(tab)}
+            >
+              <ServicesGrid items={serviceGroups[tab].slice(0, 6)} />
+            </Section>
+          ),
       )}
       {blogArr.length > 0 && (
         <Section
-          title={t("tabBlog")}
+          title={labels.blog}
           count={blogArr.length}
           onSeeAll={() => onTabChange("blog")}
         >
@@ -942,7 +1089,7 @@ function Section({
   );
 }
 
-function PropertiesGrid({ items }: { items: Tables<"properties">[] }) {
+function PropertiesGrid({ items }: { items: SearchListing[] }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6 xl:grid-cols-3">
       {items.map((p, i) => (
@@ -964,6 +1111,7 @@ function PropertiesGrid({ items }: { items: Tables<"properties">[] }) {
             discountExpiresAt={p.discount_expires_at}
             isForSale={p.is_for_sale ?? false}
             paymentOptions={readPaymentOptions(p.house_rules)}
+            isOwnershipVerified={p.ownership_verified ?? false}
           />
         </ScrollReveal>
       ))}
@@ -994,6 +1142,7 @@ function ServicesGrid({ items }: { items: ServiceRow[] }) {
               s.category === "food" ? null : s.discount_expires_at
             }
             isVip={s.is_vip ?? false}
+            isSuperVip={s.is_super_vip ?? false}
             schedule={s.schedule}
             operatingHours={s.operating_hours}
             phone={null}
@@ -1007,6 +1156,7 @@ function ServicesGrid({ items }: { items: ServiceRow[] }) {
             route={s.route}
             routes={s.routes}
             description={s.description}
+            isOwnershipVerified={s.ownership_verified ?? false}
           />
         </ScrollReveal>
       ))}
@@ -1018,10 +1168,11 @@ function BlogGrid({ items }: { items: BlogRow[] }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6">
       {items.map((post, i) => (
-        <ScrollReveal key={post.id} delay={i * 0.05}>
+        <ScrollReveal key={post.id} delay={i * 0.05} className="h-full">
           <Link
             href={`/blog/${post.slug}`}
-            className="group block overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white transition-shadow hover:shadow-lg"
+            data-blog-card
+            className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white transition-shadow hover:shadow-lg"
           >
             {post.image_url ? (
               <div className="relative h-48 w-full">

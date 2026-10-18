@@ -21,8 +21,12 @@ import {
   Ban,
   Phone,
   MessageCircle,
+  Check,
+  Clock,
+  Circle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import CleanerCallModal from "@/components/renter/CleanerCallModal";
@@ -107,6 +111,181 @@ const STATUS_BADGE_CLASSES: Record<string, string> = {
   cancelled: "bg-[#F1F5F9] text-[#64748B]",
 };
 
+// Every call-out status (the cleaning_tasks status CHECK, C24) in the order of
+// a call-out's life; the status counts and filters list them in this order.
+const CALL_STATUSES = [
+  "pending",
+  "accepted",
+  "cancellation_requested",
+  "in_progress",
+  "completed",
+  "declined",
+  "cancelled",
+] as const;
+
+type CallStatus = (typeof CALL_STATUSES)[number];
+
+function countCallStatuses(list: MyTask[]): Record<CallStatus, number> {
+  const counts = Object.fromEntries(
+    CALL_STATUSES.map((status) => [status, 0]),
+  ) as Record<CallStatus, number>;
+  for (const task of list) {
+    if (task.status in counts) counts[task.status as CallStatus] += 1;
+  }
+  return counts;
+}
+
+type ProgressState = "done" | "current" | "upcoming" | "declined" | "cancelled";
+
+// Labels live in RenterCleaners.progress.<key>.
+interface ProgressStep {
+  key:
+    | "sent"
+    | "accepted"
+    | "declined"
+    | "cancelled"
+    | "cancellationRequested"
+    | "started"
+    | "completed";
+  state: ProgressState;
+  at?: string | null;
+}
+
+// A call-out's path so far, read from its status and the only times the row
+// keeps (created_at, started_at, completed_at): the cleaner's answer and a
+// cancellation have no time of their own. in_progress and
+// cancellation_requested can only follow accepted (transition_cleaning_task).
+function callProgress(task: MyTask): ProgressStep[] {
+  const sent: ProgressStep = {
+    key: "sent",
+    state: "done",
+    at: task.created_at,
+  };
+  const accepted: ProgressStep = { key: "accepted", state: "done" };
+  switch (task.status) {
+    case "pending":
+      return [
+        sent,
+        { key: "accepted", state: "current" },
+        { key: "started", state: "upcoming" },
+        { key: "completed", state: "upcoming" },
+      ];
+    case "declined":
+      return [sent, { key: "declined", state: "declined" }];
+    case "cancelled":
+      return [sent, { key: "cancelled", state: "cancelled" }];
+    case "accepted":
+      return [
+        sent,
+        accepted,
+        { key: "started", state: "current" },
+        { key: "completed", state: "upcoming" },
+      ];
+    case "cancellation_requested":
+      return [
+        sent,
+        accepted,
+        { key: "cancellationRequested", state: "current" },
+      ];
+    case "in_progress":
+      return [
+        sent,
+        accepted,
+        { key: "started", state: "done", at: task.started_at },
+        { key: "completed", state: "current" },
+      ];
+    case "completed":
+      return [
+        sent,
+        accepted,
+        { key: "started", state: "done", at: task.started_at },
+        { key: "completed", state: "done", at: task.completed_at },
+      ];
+    default:
+      return [sent];
+  }
+}
+
+const PROGRESS_ICON_CLASSES: Record<ProgressState, string> = {
+  done: "bg-[#DCFCE7] text-[#16A34A]",
+  current: "bg-[#FEF3C7] text-[#D97706]",
+  upcoming: "border border-dashed border-[#CBD5E1] bg-white text-[#CBD5E1]",
+  declined: "bg-[#FEF2F2] text-[#EF4444]",
+  cancelled: "bg-[#F1F5F9] text-[#64748B]",
+};
+
+const PROGRESS_LABEL_CLASSES: Record<ProgressState, string> = {
+  done: "text-[#0F172A]",
+  current: "text-[#B45309]",
+  upcoming: "text-[#94A3B8]",
+  declined: "text-[#DC2626]",
+  cancelled: "text-[#64748B]",
+};
+
+function CallProgress({ task }: { task: MyTask }) {
+  const t = useTranslations("RenterCleaners");
+  return (
+    <ol
+      aria-label={t("progress.label")}
+      className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:gap-x-6 sm:gap-y-3"
+    >
+      {callProgress(task).map((step) => {
+        const Icon =
+          step.state === "done"
+            ? Check
+            : step.state === "current"
+              ? Clock
+              : step.state === "upcoming"
+                ? Circle
+                : X;
+        return (
+          <li
+            key={step.key}
+            aria-current={step.state === "current" ? "step" : undefined}
+            className="flex items-start gap-2"
+          >
+            <span
+              className={cn(
+                "flex size-5 shrink-0 items-center justify-center rounded-full",
+                PROGRESS_ICON_CLASSES[step.state],
+              )}
+            >
+              <Icon
+                aria-hidden
+                className={step.state === "upcoming" ? "size-1.5" : "size-3"}
+                strokeWidth={3}
+              />
+            </span>
+            <span className="min-w-0 sm:flex sm:flex-col">
+              <span
+                className={cn(
+                  "text-[12px] font-bold leading-5",
+                  PROGRESS_LABEL_CLASSES[step.state],
+                )}
+              >
+                {t(`progress.${step.key}`)}
+                {(step.state === "done" ||
+                  step.state === "current" ||
+                  step.state === "upcoming") && (
+                  <span className="sr-only">
+                    {" "}
+                    ({t(`progress.state.${step.state}`)})
+                  </span>
+                )}
+              </span>
+              {step.at && (
+                <span className="ml-1.5 text-[11px] font-semibold leading-5 text-[#64748B] sm:ml-0 sm:leading-4">
+                  {formatDateTime(step.at)}
+                </span>
+              )}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 function deriveInitials(name: string): string {
   return name
     .trim()
@@ -170,12 +349,32 @@ export default function RenterCleanersPage() {
   const [taskCleanerDetails, setTaskCleanerDetails] = useState<
     Map<string, CleaningTaskCleanerDetails>
   >(new Map());
+  const [callFilter, setCallFilter] = useState<CallStatus | "all">("all");
+  const [callCleanerFilter, setCallCleanerFilter] = useState<string | null>(
+    null,
+  );
   const callsSectionRef = useRef<HTMLDivElement>(null);
 
   const fetchCleaners = useCallback(async () => {
     setCleanersLoaded(false);
     setDetailsLoaded(false);
     setDetailsError(false);
+    // public_services holds every active cleaning service (the RPC's own
+    // filter), so the details read starts with the RPC instead of after it and
+    // is narrowed to the RPC's ids below. The .catch() only marks it handled
+    // for the early returns that never await it.
+    // The generated view type intentionally mirrors the legacy base-table shape,
+    // so the appended profile_* columns need this narrow runtime cast.
+    const detailsQuery = Promise.resolve(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from("public_services")
+        .select(
+          "id, title, description, price, price_unit, photos, location, schedule, operating_hours, experience_required, languages, service_field, profile_avatar_url, profile_is_verified",
+        )
+        .eq("category", "cleaning"),
+    );
+    detailsQuery.catch(() => {});
     const { data, error } = await supabase.rpc("get_platform_cleaners");
     if (error || !data) {
       setCleaners([]);
@@ -200,20 +399,17 @@ export default function RenterCleanersPage() {
 
     // public_services is the explicit safe read model: it contains profile and
     // capability data, but never raw phone/WhatsApp or private cleaner fields.
-    // The generated view type intentionally mirrors the legacy base-table shape,
-    // so the appended profile_* columns need this narrow runtime cast.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const detailsResult = await (supabase as any)
-      .from("public_services")
-      .select(
-        "id, title, description, price, price_unit, photos, location, schedule, operating_hours, experience_required, languages, service_field, profile_avatar_url, profile_is_verified",
-      )
-      .in("id", serviceIds);
+    const detailsResult = await detailsQuery;
     if (detailsResult.error) {
       setServiceDetails([]);
       setDetailsError(true);
     } else {
-      setServiceDetails((detailsResult.data ?? []) as PublicServiceDetail[]);
+      const listed = new Set(serviceIds);
+      setServiceDetails(
+        ((detailsResult.data ?? []) as PublicServiceDetail[]).filter(
+          (service) => listed.has(service.id),
+        ),
+      );
     }
     setDetailsLoaded(true);
   }, [supabase]);
@@ -470,7 +666,34 @@ export default function RenterCleanersPage() {
     });
   }
 
-  const visibleTasks = tasks;
+  function showCalls(status: CallStatus | "all", cleanerId: string | null) {
+    setCallFilter(status);
+    setCallCleanerFilter(cleanerId);
+    callsSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
+  const allCallCounts = countCallStatuses(tasks);
+  const cleanerTasks = callCleanerFilter
+    ? tasks.filter((task) => task.cleaner_id === callCleanerFilter)
+    : tasks;
+  const callCounts = countCallStatuses(cleanerTasks);
+  const visibleTasks =
+    callFilter === "all"
+      ? cleanerTasks
+      : cleanerTasks.filter((task) => task.status === callFilter);
+
+  // tasks are newest first, so the first call-out seen per cleaner is the
+  // latest one.
+  const callsByCleaner = new Map<string, { count: number; latest: MyTask }>();
+  for (const task of tasks) {
+    if (!task.cleaner_id) continue;
+    const entry = callsByCleaner.get(task.cleaner_id);
+    if (entry) entry.count += 1;
+    else callsByCleaner.set(task.cleaner_id, { count: 1, latest: task });
+  }
 
   const platformProfiles = useMemo<PlatformCleanerProfile[]>(() => {
     const detailsById = new Map(
@@ -540,6 +763,10 @@ export default function RenterCleanersPage() {
   ];
   const listReady =
     cleanersLoaded && detailsLoaded && savedLoaded && manualLoaded;
+  const filterCleanerName = callCleanerFilter
+    ? (platformProfiles.find((profile) => profile.id === callCleanerFilter)
+        ?.name ?? t("defaultCleaner"))
+    : null;
 
   function openDetails(
     profile: CleanerProfileView,
@@ -626,6 +853,33 @@ export default function RenterCleanersPage() {
           </button>
         </div>
       </motion.div>
+
+      {tasks.length > 0 && (
+        <div
+          role="group"
+          aria-label={t("callStatusSummary")}
+          className="-mt-2 flex flex-wrap gap-2"
+        >
+          {CALL_STATUSES.filter((status) => allCallCounts[status] > 0).map(
+            (status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => showCalls(status, null)}
+                className={cn(
+                  "inline-flex min-h-11 items-center gap-2 rounded-xl px-3.5 text-[13px] font-bold transition-opacity hover:opacity-80",
+                  STATUS_BADGE_CLASSES[status],
+                )}
+              >
+                {t(`status.${status}`)}
+                <span className="rounded-full bg-white/70 px-1.5 text-[11px] font-black">
+                  {allCallCounts[status]}
+                </span>
+              </button>
+            ),
+          )}
+        </div>
+      )}
 
       {detailsError && (
         <div
@@ -771,6 +1025,7 @@ export default function RenterCleanersPage() {
             .map((service) => service.price)
             .filter((price): price is number => price != null);
           const minPrice = prices.length ? Math.min(...prices) : null;
+          const calls = callsByCleaner.get(cleaner.id);
           return (
             <article
               key={`platform-${cleaner.id}`}
@@ -862,6 +1117,26 @@ export default function RenterCleanersPage() {
                 </span>
               </div>
 
+              {calls && (
+                <button
+                  type="button"
+                  onClick={() => showCalls("all", cleaner.id)}
+                  className="mt-3 flex min-h-11 w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-xl bg-[#F8FAFC] px-3 py-2 text-left transition-colors hover:bg-[#EFF6FF]"
+                >
+                  <span className="whitespace-nowrap text-[12px] font-semibold text-[#475569]">
+                    {t("cleanerCalls", { count: calls.count })}
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex shrink-0 items-center rounded-lg px-2.5 py-1 text-[11px] font-bold",
+                      STATUS_BADGE_CLASSES[calls.latest.status],
+                    )}
+                  >
+                    {t(`status.${calls.latest.status}`)}
+                  </span>
+                </button>
+              )}
+
               <div className="mt-5 grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -911,6 +1186,60 @@ export default function RenterCleanersPage() {
           {t("myCalls")}
         </h2>
 
+        {tasks.length > 0 && (
+          <div
+            role="group"
+            aria-label={t("callFilters")}
+            className="flex flex-wrap gap-2"
+          >
+            {filterCleanerName && (
+              <button
+                type="button"
+                onClick={() => setCallCleanerFilter(null)}
+                aria-label={t("clearCleanerFilter", {
+                  name: filterCleanerName,
+                })}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#2563EB] bg-[#EFF6FF] px-3.5 text-[13px] font-bold text-[#2563EB] transition-colors hover:bg-[#DBEAFE]"
+              >
+                {filterCleanerName}
+                <X aria-hidden className="size-3.5" strokeWidth={2.4} />
+              </button>
+            )}
+            {(["all", ...CALL_STATUSES] as const)
+              .filter(
+                (key) =>
+                  key === "all" || key === callFilter || callCounts[key] > 0,
+              )
+              .map((key) => {
+                const active = callFilter === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setCallFilter(key)}
+                    className={cn(
+                      "inline-flex min-h-11 items-center gap-2 rounded-xl border px-3.5 text-[13px] font-bold transition-colors",
+                      active
+                        ? "border-[#2563EB] bg-[#2563EB] text-white"
+                        : "border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F8FAFC]",
+                    )}
+                  >
+                    {key === "all" ? t("filterAll") : t(`status.${key}`)}
+                    <span
+                      className={cn(
+                        "rounded-full px-1.5 text-[11px] font-black",
+                        active ? "bg-white/20" : "bg-[#F1F5F9] text-[#64748B]",
+                      )}
+                    >
+                      {key === "all" ? cleanerTasks.length : callCounts[key]}
+                    </span>
+                  </button>
+                );
+              })}
+          </div>
+        )}
+
         {visibleTasks.map((task) => {
           const badgeClass = STATUS_BADGE_CLASSES[task.status ?? ""];
           const cleaningKey = optionKeyFor("cleaningTypes", task.cleaning_type);
@@ -943,6 +1272,8 @@ export default function RenterCleanersPage() {
             <article
               key={task.id}
               data-testid={`renter-cleaning-task-${task.id}`}
+              data-jev-private
+              data-jev-section={t("myCalls")}
               className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]"
             >
               <div className="flex items-start justify-between gap-3">
@@ -979,6 +1310,8 @@ export default function RenterCleanersPage() {
                   </span>
                 )}
               </div>
+
+              <CallProgress task={task} />
 
               <dl className="mt-4 grid grid-cols-1 gap-3 rounded-2xl bg-[#F8FAFC] p-4 sm:grid-cols-2">
                 <div>
@@ -1067,6 +1400,7 @@ export default function RenterCleanersPage() {
                 {phone && (
                   <a
                     href={`tel:${phone}`}
+                    data-jev-label={tShared("call")}
                     className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#0EA5E9] px-4 text-[12px] font-bold text-white"
                   >
                     <Phone className="size-4" />
@@ -1078,6 +1412,7 @@ export default function RenterCleanersPage() {
                     href={`https://wa.me/${whatsapp.slice(1)}`}
                     target="_blank"
                     rel="noreferrer"
+                    data-jev-label={t("whatsapp")}
                     className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#16A34A] px-4 text-[12px] font-bold text-white"
                   >
                     <MessageCircle className="size-4" />
@@ -1101,6 +1436,7 @@ export default function RenterCleanersPage() {
                   <button
                     type="button"
                     onClick={() => redial(task)}
+                    data-jev-label={t("redial")}
                     className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB]"
                   >
                     <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.4} />
@@ -1112,6 +1448,11 @@ export default function RenterCleanersPage() {
                     type="button"
                     onClick={() => void cancelTask(task)}
                     disabled={taskActionId === task.id}
+                    data-jev-label={
+                      task.status === "pending"
+                        ? t("cancelCall")
+                        : t("requestCancellation")
+                    }
                     className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#FEF2F2] px-4 py-2.5 text-[13px] font-bold text-[#DC2626] transition-colors hover:bg-[#FEE2E2] disabled:opacity-50"
                   >
                     <Ban className="h-3.5 w-3.5" strokeWidth={2.4} />
@@ -1128,7 +1469,7 @@ export default function RenterCleanersPage() {
         {tasksLoaded && visibleTasks.length === 0 && (
           <div className="rounded-[20px] border border-dashed border-[#E2E8F0] bg-white px-6 py-14 text-center">
             <p className="text-sm font-medium text-[#64748B]">
-              {t("noCallsYet")}
+              {tasks.length === 0 ? t("noCallsYet") : t("noCallsForFilter")}
             </p>
           </div>
         )}

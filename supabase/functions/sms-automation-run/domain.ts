@@ -1,19 +1,35 @@
 export type AutomationKind = "check_in" | "review_request" | "win_back";
 
 // Spec-mandated texts. This module is the single template source of truth.
+// Written to MyBakuriani_SMS_Optimization_Spec-2.md: Georgian goes out as UCS-2,
+// 70 UTF-16 units in one SMS and 67 per segment once it is split, so every value
+// below is clamped and the texts carry no filler.
 export const TEMPLATES = {
+  // One line per part. buildCheckIn drops the " — name" clause and every line
+  // whose value is missing; each URL ends its own line, so nothing is glued to it.
   check_in:
-    "გამარჯობა [Guest_Name]. გელოდებით ხვალ [Check_In_Time]-დან. ლოკაცია: [Map_Link]. დეტალებისთვის: [Host_Phone]. კარგ დასვენებას გისურვებთ!",
+    "გამარჯობა, [Guest_Name]! გელოდებით ხვალ [Check_In_Time]-დან — [Property_Name].\n🔗 [Listing_Link]\n📍 [Location]\n☎️ [Host_Phone]",
   review_request:
-    "[Guest_Name], მადლობა სტუმრობისთვის! მოხარული ვიქნებით თუ შეაფასებთ ჩვენს ბინას აქ: [Property_Review_Link]. თქვენი აზრი ჩვენთვის მნიშვნელოვანია! - MyBakuriani.ge",
+    "[Guest_Name], მადლობა! შეგვიფასეთ ბინა: [Property_Review_Link] — MyBakuriani",
   win_back:
-    "მოგესალმებით [Guest_Name]. დაბრუნდით ბაკურიანში! დაჯავშნეთ ჩვენი ბინა და მიიღეთ [Discount_Value] ფასდაკლება ([Discount_Period]): [Property_Direct_Link]",
+    "[Guest_Name], დაბრუნდით ბაკურიანში! მიიღეთ [Discount_Value] ფასდაკლება ([Discount_Period]): [Property_Direct_Link] — MyBakuriani",
   win_back_fallback:
-    "მოგესალმებით [Guest_Name]. დაბრუნდით ბაკურიანში! დაჯავშნეთ ჩვენი ბინა და მიიღეთ სპეციალური ფასდაკლება ექსკლუზიურად თქვენთვის: [Property_Direct_Link]",
+    "[Guest_Name], დაბრუნდით ბაკურიანში! თქვენთვის სპეციალური შეთავაზება: [Property_Direct_Link] — MyBakuriani",
+  // Sent by the platform when an owner asks for a manual-booking guest's
+  // marketing consent (the owner never sees the link). No owner-typed text.
+  consent_request:
+    "MyBakuriani.ge: გსურთ მარკეტინგული SMS-ების მიღება? დაადასტურეთ ან უარი თქვით: [Consent_Link]",
+  // Phone sign-in / phone-change code (C48), sent by the auth-send-sms hook.
+  auth_code: "MyBakuriani კოდი: [Code]. არავის გაუზიაროთ.",
 } as const;
 
 const GUEST_NAME_FALLBACK = "ძვირფასო სტუმარო";
-const GUEST_NAME_MAX = 40;
+const GUEST_NAME_MAX = 20;
+const PROPERTY_TITLE_MAX = 25;
+// A pin-less listing's area (its zone name, or what the owner typed) as text.
+const AREA_MAX = 30;
+// Longest host number kept when it is not a Georgian mobile (those are 13).
+const HOST_PHONE_MAX = 20;
 
 export interface Rule {
   user_id: string;
@@ -32,8 +48,10 @@ export interface PropertyRef {
   is_for_sale: boolean | null;
   location_lat: number | null;
   location_lng: number | null;
+  location: string | null;
   phone: string | null;
   check_in_time: string | null;
+  title: string | null;
 }
 
 export interface Candidate {
@@ -73,32 +91,102 @@ export function tbilisiDate(offsetDays: number, now = Date.now()): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Owner-typed text gets what public._notice_text gives user-typed text in a
+// notification (C33): control, space, zero-width and bidi characters become one
+// space (the C24 class), a dot between two non-space characters becomes U+2024
+// and "://" becomes ":/ /", so a typed value never reaches a phone as a link.
+const FLATTEN =
+  /[\p{Cc}\s\u0001-\u0020\u007F-\u00A0\u00AD\u034F\u061C\u115F\u1160\u1680\u17B4\u17B5\u180E\u2000-\u200B\u200E\u200F\u2028-\u202F\u205F-\u206F\u2800\u3000\u3164\uFEFF\uFFA0\uFFF9-\uFFFC\u{E0001}\u{E0020}-\u{E007F}]+/gu;
+
+function plainText(value: string | null): string {
+  return (value ?? "")
+    .replace(FLATTEN, " ")
+    .trim()
+    .replace(/([^\s.])\.(?=[^\s.])/gu, "$1\u2024")
+    .split("://")
+    .join(":/ /");
+}
+
 function clampName(name: string | null): string {
-  const trimmed = (name ?? "").trim();
+  const trimmed = plainText(name);
   if (!trimmed) return GUEST_NAME_FALLBACK;
   return trimmed.length > GUEST_NAME_MAX
     ? trimmed.slice(0, GUEST_NAME_MAX)
     : trimmed;
 }
 
-export function buildCheckIn(c: Candidate, rule: Rule): string {
+/** Owner-typed text as one line (no line breaks), cut to `max` characters. */
+function clampOneLine(value: string | null, max: number): string {
+  const oneLine = plainText(value);
+  return Array.from(oneLine).slice(0, max).join("").trim();
+}
+
+/**
+ * A pin to about a metre (5 decimals): the URL is the longest part of the text.
+ * PostgREST sends a numeric NaN as the string "NaN", which an owner can store
+ * (no range check on the column before 20261016130000): anything that is not a
+ * finite number is no pin, and the text names the area instead.
+ */
+function pinCoordinate(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Number(value.toFixed(5))
+    : null;
+}
+
+/**
+ * `listingVisible`: public_properties serves the listing (C31 hides a lapsed
+ * owner's rentals), so its page opens. Otherwise the text carries no link.
+ */
+export function buildCheckIn(
+  c: Candidate,
+  rule: Rule,
+  siteUrl: string,
+  listingVisible: boolean,
+): string {
   const p = c.property;
   const time = (p?.check_in_time ?? "14:00").slice(0, 5);
-  const mapLink = p && p.location_lat != null && p.location_lng != null
-    ? `https://maps.google.com/?q=${p.location_lat},${p.location_lng}`
+  const title = clampOneLine(p?.title ?? null, PROPERTY_TITLE_MAX);
+  const listingLink = p && listingVisible
+    ? `${siteUrl}${propertyViewPath(p)}`
     : null;
-  const hostPhone = p?.phone ?? rule.owner_phone ?? null;
+  const lat = pinCoordinate(p?.location_lat);
+  const lng = pinCoordinate(p?.location_lng);
+  const pin = lat !== null && lng !== null ? `${lat},${lng}` : null;
+  // The owner's exact pin, else the area as text: a zone's centre on a map
+  // would read as the exact spot and send the guest to the wrong place.
+  const location = pin
+    ? `https://maps.google.com/?q=${pin}`
+    : (clampOneLine(p?.location ?? null, AREA_MAX) || null);
+  // A Georgian mobile in its fixed +995 form; any other number as typed, cut short.
+  const rawPhone = p?.phone ?? rule.owner_phone ?? null;
+  const hostPhone = toCanonicalGePhone(rawPhone) ??
+    (clampOneLine(rawPhone, HOST_PHONE_MAX) || null);
 
-  let message = TEMPLATES.check_in
-    .replace("[Guest_Name]", clampName(c.guest_name))
-    .replace("[Check_In_Time]", time);
-  message = mapLink
-    ? message.replace("[Map_Link]", mapLink)
-    : message.replace(" ლოკაცია: [Map_Link].", "");
-  message = hostPhone
-    ? message.replace("[Host_Phone]", hostPhone)
-    : message.replace(" დეტალებისთვის: [Host_Phone].", "");
-  return message;
+  const values: Record<string, string | null> = {
+    Guest_Name: clampName(c.guest_name),
+    Check_In_Time: time,
+    Property_Name: title,
+    Listing_Link: listingLink,
+    Location: location,
+    Host_Phone: hostPhone,
+  };
+  const template = title
+    ? TEMPLATES.check_in
+    : TEMPLATES.check_in.replace(" — [Property_Name]", "");
+  // Single pass per line, so a value is never re-read as a placeholder or as a
+  // `$` pattern; a line with a missing value is left out.
+  return template
+    .split("\n")
+    .flatMap((line) => {
+      let missing = false;
+      const filled = line.replace(/\[(\w+)\]/g, (_, key: string) => {
+        const value = values[key];
+        if (!value) missing = true;
+        return value ?? "";
+      });
+      return missing ? [] : [filled];
+    })
+    .join("\n");
 }
 
 export function buildReviewRequest(
@@ -121,8 +209,8 @@ export function buildWinBack(
   rule: Rule,
   siteUrl: string,
 ): string {
-  const value = (rule.win_back_discount_value ?? "").trim();
-  const period = (rule.win_back_discount_period ?? "").trim();
+  const value = plainText(rule.win_back_discount_value);
+  const period = plainText(rule.win_back_discount_period);
   const link = c.property
     ? `${siteUrl}${propertyViewPath(c.property)}`
     : siteUrl;
@@ -137,4 +225,19 @@ export function buildWinBack(
     .replace("[Discount_Value]", value)
     .replace("[Discount_Period]", period)
     .replace("[Property_Direct_Link]", link);
+}
+
+/** The consent-request SMS; `consentLink` is the guest's /sms-consent/<token> URL. */
+export function buildConsentRequest(consentLink: string): string {
+  return TEMPLATES.consent_request.replace("[Consent_Link]", consentLink);
+}
+
+/**
+ * The sign-in code SMS. With the site's host it ends in the origin-bound line
+ * `@host #code` that Android's WebOTP and iOS code autofill read (the code is
+ * then offered only on that site). 67 UTF-16 units for mybakuriani.ge: one SMS.
+ */
+export function buildAuthCode(code: string, host: string | null): string {
+  const text = TEMPLATES.auth_code.replace("[Code]", code);
+  return host ? `${text}\n@${host} #${code}` : text;
 }

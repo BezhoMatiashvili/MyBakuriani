@@ -20,6 +20,7 @@ export async function POST(
   const body = (await request.json().catch(() => null)) as {
     action?: "approve" | "reject";
     reason?: string;
+    expectedUpdatedAt?: unknown;
   } | null;
   if (!body?.action || !["approve", "reject"].includes(body.action))
     return Response.json({ error: "invalid_action" }, { status: 400 });
@@ -34,7 +35,7 @@ export async function POST(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: pending, error: lookupError } = await (db as any)
       .from("content_change_requests")
-      .select("request_kind")
+      .select("request_kind, updated_at")
       .eq("id", id)
       .eq("status", "pending")
       .maybeSingle();
@@ -42,6 +43,15 @@ export async function POST(
       return Response.json({ error: lookupError.message }, { status: 500 });
     if (!pending)
       return Response.json({ error: "request_not_pending" }, { status: 409 });
+    // The owner can resubmit in place (same id) while the admin's list is open:
+    // approve only the version the admin was shown (C14).
+    if (
+      typeof body.expectedUpdatedAt === "string" &&
+      pending.updated_at !== body.expectedUpdatedAt
+    )
+      return Response.json({
+        result: { status: "superseded", reason: "changed_since_loaded" },
+      });
     const rpcName =
       pending.request_kind === "food_discount"
         ? "approve_food_discount_request"

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Check, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -11,6 +12,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import type { Tables } from "@/lib/types/database";
 import { updateSelfServiceProfile } from "@/lib/self-service/client";
+import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
+import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
+import { showsSms } from "@/lib/dashboard/cabinetSms";
+import { dashboardScopeForPath } from "@/lib/notifications/scopes";
 
 interface NotifPrefs {
   newInquiry: boolean;
@@ -23,6 +28,8 @@ export default function ServiceParametersPage() {
   const tCreate = useTranslations("CreateShared");
   const { user } = useAuth();
   const supabase = createClient();
+  // Shared by the four service cabinets; transport has no SMS (cabinetSms.ts).
+  const showSms = showsSms(dashboardScopeForPath(usePathname()));
 
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,8 +81,14 @@ export default function ServiceParametersPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
-    if (phone && !isValidGePhone(phone)) return;
-    if (whatsapp && !isValidGePhone(whatsapp)) return;
+    const invalid = [
+      ...(phone && !isValidGePhone(phone) ? ["phone"] : []),
+      ...(whatsapp && !isValidGePhone(whatsapp) ? ["whatsapp"] : []),
+    ];
+    if (invalid.length) {
+      scrollToFirstInvalid(invalid);
+      return;
+    }
     setSaving(true);
     setSaved(false);
     setReviewError("");
@@ -235,7 +248,7 @@ export default function ServiceParametersPage() {
               />
             </div>
 
-            <div>
+            <div data-field="phone" className="scroll-mt-24">
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
                 {tShared("phoneNumber")}
               </label>
@@ -272,7 +285,7 @@ export default function ServiceParametersPage() {
               />
             </div>
 
-            <div className="sm:col-span-2">
+            <div data-field="whatsapp" className="scroll-mt-24 sm:col-span-2">
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
                 {tShared("whatsappNumber")}
               </label>
@@ -333,7 +346,7 @@ export default function ServiceParametersPage() {
               {
                 key: "newInquiry" as const,
                 title: tShared("notifNewRequest"),
-                sub: tShared("channelWebSms"),
+                sub: tShared(showSms ? "channelWebSms" : "channelWebOnly"),
               },
               {
                 key: "dailyReport" as const,
@@ -362,6 +375,8 @@ export default function ServiceParametersPage() {
           </div>
         </motion.div>
       </div>
+
+      <ChangePasswordCard />
     </div>
   );
 }

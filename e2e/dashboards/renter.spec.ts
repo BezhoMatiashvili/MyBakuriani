@@ -2,11 +2,21 @@ import { test, expect } from "../helpers/fixtures";
 import type { Locator, Page, Response } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { properties, supabaseAdmin } from "../helpers/supabase";
-import { TEST_IDS } from "../helpers/seed";
+import { TEST_IDS, seedRenterMembership } from "../helpers/seed";
+import { configureIsolatedE2E } from "../helpers/env";
 
 const RENTER_MEMBERSHIP_PACKAGE_IDS = {
   season: "aae2ff00-e101-4000-a000-000000000001",
+  winter: "aae2ff00-e101-4000-a000-000000000002",
 } as const;
+
+/** Month-day of an instant on the Tbilisi calendar, e.g. "10-31". */
+const tbilisiMonthDay = (iso: string) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tbilisi",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
 
 const RENTER_BLACKLIST_CASES = {
   newPhone: "+995599800101",
@@ -20,6 +30,18 @@ async function cleanupRenterBlacklistCases() {
     .delete()
     .eq("owner_id", TEST_IDS.renter)
     .in("phone", Object.values(RENTER_BLACKLIST_CASES));
+}
+
+// The cookie banner covers the bottom of a phone screen and would take the
+// clicks meant for the controls under it, so the user has already answered it.
+async function answerCookieBanner(page: Page) {
+  await page.context().addCookies([
+    {
+      name: "mb_cookie_consent",
+      value: encodeURIComponent("v2|analytics=0|location=0"),
+      url: configureIsolatedE2E().baseUrl,
+    },
+  ]);
 }
 
 /** If page redirected to login, skip assertion gracefully */
@@ -70,7 +92,8 @@ test.describe("Renter Dashboard", () => {
             status: 204,
             headers: {
               "access-control-allow-origin": "*",
-              "access-control-allow-headers": "authorization, apikey, content-type",
+              "access-control-allow-headers":
+                "authorization, apikey, content-type",
               "access-control-allow-methods": "POST, OPTIONS",
             },
           });
@@ -175,12 +198,16 @@ test.describe("Renter Dashboard", () => {
       if (!(await assertDashboard(renterPage, "/dashboard/renter"))) return;
 
       const activeCard = renterPage.locator(`[data-listing-id="${activeId}"]`);
-      const expiredCard = renterPage.locator(`[data-listing-id="${expiredId}"]`);
+      const expiredCard = renterPage.locator(
+        `[data-listing-id="${expiredId}"]`,
+      );
       const activeVip = activeCard.getByRole("button", {
         name: /VIP —/,
       });
       await expect(activeVip).toBeDisabled();
-      await expect(expiredCard.getByRole("button", { name: "VIP" })).toBeEnabled();
+      await expect(
+        expiredCard.getByRole("button", { name: "VIP" }),
+      ).toBeEnabled();
 
       await expiredCard.getByRole("button", { name: "VIP" }).click();
       const blockedPickerRow = renterPage.getByRole("button", {
@@ -317,7 +344,9 @@ test.describe("Renter Dashboard", () => {
 
     const activeService = renterPage.getByTestId("renter-active-service");
     await expect(activeService).toBeVisible();
-    expect((await activeService.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    expect((await activeService.boundingBox())?.height).toBeGreaterThanOrEqual(
+      44,
+    );
     await activeService.click();
     const switcher = renterPage.getByTestId("mobile-service-switcher");
     await expect(switcher).toBeVisible();
@@ -390,9 +419,7 @@ test.describe("Renter Dashboard", () => {
     await expect(
       renterPage.getByRole("button", { name: "მომდევნო 7 დღე" }),
     ).toHaveCount(0);
-    await renterPage
-      .getByRole("button", { name: "ხელმისაწვდომობა" })
-      .click();
+    await renterPage.getByRole("button", { name: "ხელმისაწვდომობა" }).click();
     const dialog = renterPage.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(
@@ -404,6 +431,102 @@ test.describe("Renter Dashboard", () => {
     ).toHaveAttribute("aria-pressed", "true");
     await renterPage.waitForTimeout(300);
     expect(calendarMutations).toBe(0);
+  });
+
+  // ბაკურიანი 5 ოქტ.pdf, slide 2: on a phone the controls used to wrap into
+  // other rows whenever a month's name got longer (იანვარი -> თებერვალი).
+  test("calendar controls keep the phone layout in every month", async ({
+    renterPage,
+  }) => {
+    await answerCookieBanner(renterPage);
+    await renterPage.setViewportSize({ width: 360, height: 800 });
+    await renterPage.goto("/dashboard/renter/calendar");
+    if (!(await assertDashboard(renterPage, "/dashboard/renter/calendar")))
+      return;
+
+    const button = (name: string) =>
+      renterPage.getByRole("button", { name, exact: true });
+    const history = button("ისტორია");
+    const prev = button("წინა თვე");
+    const next = button("შემდეგი თვე");
+    const availability = button("ხელმისაწვდომობა");
+    const priceRange = button("ფასი დიაპაზონზე");
+    const add = button("დამატება");
+    const controls = [history, prev, next, availability, priceRange, add];
+    const monthLabel = next.locator("xpath=preceding-sibling::span[1]");
+    await expect(availability).toBeEnabled();
+
+    const boxes = () =>
+      Promise.all(
+        controls.map(async (control) => {
+          const box = await control.boundingBox();
+          expect(box).not.toBeNull();
+          return box!;
+        }),
+      );
+    const truncated = () =>
+      Promise.all(
+        [
+          monthLabel,
+          availability.locator("span"),
+          priceRange.locator("span"),
+        ].map((label) =>
+          label.evaluate((el) => el.scrollWidth > el.clientWidth),
+        ),
+      );
+
+    const first = await boxes();
+    const [hist, prevBox, nextBox, avail, price, addBox] = first;
+    // Row 1: History + month switcher; row 2: Availability + Price by range;
+    // then Add across the full width.
+    expect(prevBox.y + prevBox.height / 2).toBeCloseTo(
+      hist.y + hist.height / 2,
+      0,
+    );
+    expect(nextBox.y).toBeCloseTo(prevBox.y, 0);
+    expect(price.y).toBeCloseTo(avail.y, 0);
+    expect(avail.y).toBeGreaterThanOrEqual(hist.y + hist.height);
+    expect(addBox.y).toBeGreaterThanOrEqual(avail.y + avail.height);
+    expect(addBox.x).toBeCloseTo(hist.x, 0);
+    expect(addBox.x + addBox.width).toBeCloseTo(price.x + price.width, 0);
+    for (const box of [hist, avail, price, addBox])
+      expect(box.height).toBeGreaterThanOrEqual(44);
+
+    // Twelve steps from the current month pass every month name once.
+    for (let i = 0; i < 12; i += 1) {
+      const before = (await monthLabel.textContent()) ?? "";
+      await next.click();
+      await expect(monthLabel).not.toHaveText(before);
+      expect(await truncated()).toEqual([false, false, false]);
+      expect(await boxes()).toEqual(first);
+    }
+  });
+
+  // ბაკურიანი 5 ოქტ.pdf, slide 1: the zone is chosen on step 1 only; step 2
+  // used to repeat the same select, so a second pick overwrote the first.
+  test("rental form asks for the zone on step 1 only", async ({
+    renterPage,
+  }) => {
+    await answerCookieBanner(renterPage);
+    await renterPage.goto(`/create/rental?edit=${TEST_IDS.apartment}`);
+    if (!(await assertDashboard(renterPage, "/create/rental"))) return;
+
+    await expect(renterPage.locator("textarea")).toHaveValue(
+      "ტესტ ბინა ავტომატური ტესტებისთვის",
+    );
+    await expect(
+      renterPage.locator('[data-field="location"] select'),
+    ).toHaveCount(1);
+
+    await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
+    await expect(
+      renterPage.getByText("ბინის დეტალები და მდებარეობა").first(),
+    ).toBeVisible();
+    await expect(
+      renterPage.locator('[data-field="title"] input'),
+    ).toBeVisible();
+    await expect(renterPage.getByText("ზუსტი მდებარეობა რუკაზე")).toBeVisible();
+    await expect(renterPage.locator("select")).toHaveCount(0);
   });
 
   test("win-back automation shows the live production SMS template", async ({
@@ -452,7 +575,7 @@ test.describe("Renter Dashboard", () => {
     await discountValue.fill("15%");
 
     await expect(preview).toContainText(
-      "მიიღეთ სპეციალური ფასდაკლება ექსკლუზიურად თქვენთვის",
+      "თქვენთვის სპეციალური შეთავაზება",
     );
     await expect(preview).not.toContainText("15%");
 
@@ -521,6 +644,37 @@ test.describe("Renter Dashboard", () => {
       ).toBeVisible();
     }
   });
+
+  // Owner's PDF "გასასწორებელი (6ოქტ)" p.3: phones never showed the account ID.
+  test("the phone More sheet shows the account ID the desktop sidebar shows", async ({
+    renterPage,
+  }) => {
+    await answerCookieBanner(renterPage);
+    await renterPage.goto("/dashboard/renter");
+    if (!(await assertDashboard(renterPage, "/dashboard/renter"))) return;
+
+    const accountId = `ID: MB-${TEST_IDS.renter.replace(/-/g, "").slice(0, 5).toUpperCase()}`;
+    await expect(
+      renterPage.locator("aside").getByText(accountId, { exact: true }),
+    ).toBeVisible();
+
+    await renterPage.setViewportSize({ width: 390, height: 844 });
+    await renterPage
+      .locator('button[aria-controls="dashboard-more-sheet"]')
+      .click();
+    const row = renterPage.getByRole("dialog").getByTestId("mobile-account-row");
+    await expect(row.getByText(accountId, { exact: true })).toBeVisible();
+
+    // The ID is copyable from the sheet (bare "MB-XXXXX", no "ID:" prefix).
+    await renterPage
+      .context()
+      .grantPermissions(["clipboard-read", "clipboard-write"]);
+    await renterPage.evaluate(() => navigator.clipboard.writeText(""));
+    await row.getByTestId("copy-user-id").click();
+    await expect
+      .poll(() => renterPage.evaluate(() => navigator.clipboard.readText()))
+      .toBe(accountId.replace("ID: ", ""));
+  });
 });
 
 test.describe("Renter guest blacklist", () => {
@@ -534,9 +688,7 @@ test.describe("Renter guest blacklist", () => {
     await cleanupRenterBlacklistCases();
   });
 
-  async function openBlacklistForm(
-    renterPage: Page,
-  ): Promise<Locator | null> {
+  async function openBlacklistForm(renterPage: Page): Promise<Locator | null> {
     await renterPage.goto("/dashboard/renter/guests");
     if (!(await assertDashboard(renterPage, "/dashboard/renter/guests")))
       return null;
@@ -571,9 +723,7 @@ test.describe("Renter guest blacklist", () => {
         response.request().method() === "POST" &&
         response.url().includes("/rest/v1/rpc/add_renter_guest_to_blacklist"),
     );
-    await dialog
-      .getByRole("button", { name: "შავ სიაში დამატება" })
-      .click();
+    await dialog.getByRole("button", { name: "შავ სიაში დამატება" }).click();
     expect((await rpcResponse).ok()).toBeTruthy();
 
     await expect
@@ -637,9 +787,7 @@ test.describe("Renter guest blacklist", () => {
     await dialog.locator('input[type="text"]').fill("E2E სხვა სახელი");
     await dialog.locator('input[type="tel"]').fill("599800102");
     await dialog.locator("textarea").fill("E2E ახალი შენიშვნა");
-    await dialog
-      .getByRole("button", { name: "შავ სიაში დამატება" })
-      .click();
+    await dialog.getByRole("button", { name: "შავ სიაში დამატება" }).click();
 
     await expect
       .poll(async () => {
@@ -707,9 +855,7 @@ test.describe("Renter guest blacklist", () => {
     if (!dialog) return;
     await dialog.locator('input[type="text"]').fill("E2E წარუმატებელი პირი");
     await dialog.locator('input[type="tel"]').fill("599800103");
-    await dialog
-      .getByRole("button", { name: "შავ სიაში დამატება" })
-      .click();
+    await dialog.getByRole("button", { name: "შავ სიაში დამატება" }).click();
 
     await expect.poll(() => failedRequests).toBe(1);
     await expect(dialog).toBeVisible();
@@ -727,6 +873,10 @@ test.describe("Renter guest blacklist", () => {
 test.describe("Renter membership", () => {
   test.describe.configure({ mode: "serial" });
 
+  // The fb_group_vip tier (RENTER_MEMBERSHIP_PACKAGE_IDS.season) now requires
+  // a Facebook profile link; every direct RPC call against it needs one.
+  const E2E_FB_PROFILE_URL = "https://www.facebook.com/e2e.tester";
+
   async function clearMemberships() {
     await supabaseAdmin
       .from("user_subscriptions")
@@ -736,30 +886,61 @@ test.describe("Renter membership", () => {
 
   test.beforeAll(async () => {
     await clearMemberships();
-    await supabaseAdmin.from("pricing_packages").upsert({
-      id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
-      category: "subscription",
-      code: "e2e-renter-membership-season",
-      name: "E2E renter membership — season",
-      label: "Season",
-      amount_gel: 30,
-      is_enabled: true,
-      sort_order: 990,
-      meta: {
-        subscription_scope: "renter",
-        billing_period: "seasonal",
-        season_end_month: 3,
-        season_end_day: 15,
+    // 2026 price list: summer runs Apr 1 – Oct 31, winter Nov 1 – Mar 31, and the
+    // Facebook-group VIP rate is 30 ₾ (see lib/membership/plans SEASON_BOUNDS).
+    await supabaseAdmin.from("pricing_packages").upsert([
+      {
+        id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+        category: "subscription",
+        code: "e2e-renter-membership-season",
+        name: "E2E renter membership — season",
+        label: "Season",
+        amount_gel: 30,
+        is_enabled: true,
+        sort_order: 990,
+        meta: {
+          subscription_scope: "renter",
+          billing_period: "seasonal",
+          season: "summer",
+          price_tier: "fb_group_vip",
+          season_start_month: 4,
+          season_start_day: 1,
+          season_end_month: 10,
+          season_end_day: 31,
+        },
       },
-    });
+      {
+        id: RENTER_MEMBERSHIP_PACKAGE_IDS.winter,
+        category: "subscription",
+        code: "e2e-renter-membership-winter",
+        name: "E2E renter membership — winter",
+        label: "Winter",
+        amount_gel: 60,
+        is_enabled: true,
+        sort_order: 991,
+        meta: {
+          subscription_scope: "renter",
+          billing_period: "seasonal",
+          season: "winter",
+          price_tier: "standard",
+          season_start_month: 11,
+          season_start_day: 1,
+          season_end_month: 3,
+          season_end_day: 31,
+        },
+      },
+    ]);
+    // upsert, not update: the seed does not create a balance row, so the suite
+    // must not depend on an earlier spec having created one.
     await supabaseAdmin
       .from("balances")
-      .update({ amount: 500 })
-      .eq("user_id", TEST_IDS.renter);
+      .upsert({ user_id: TEST_IDS.renter, amount: 500 });
   });
 
   test.afterAll(async () => {
     await clearMemberships();
+    // Public pages show the renter's seeded rentals only with a membership (C31).
+    await seedRenterMembership();
     await supabaseAdmin
       .from("pricing_packages")
       .delete()
@@ -777,14 +958,68 @@ test.describe("Renter membership", () => {
     await expect(
       renterPage.getByText("გაააქტიურეთ გამქირავებლის წევრობა"),
     ).toBeVisible();
-    await renterPage.getByRole("button", { name: "წევრობის გააქტიურება" }).click();
+    await renterPage
+      .getByRole("button", { name: "წევრობის გააქტიურება" })
+      .click();
     await expect(renterPage.getByRole("dialog")).toBeVisible();
     await expect(
       renterPage.getByText("აქტიური წევრობა არ გაქვთ"),
     ).toBeVisible();
   });
 
-  test("only a current active subscription is shown as valid", async ({ renterPage }) => {
+  test("the membership dialog lists both seasons and requires the Facebook-group declaration", async ({
+    renterPage,
+  }) => {
+    await clearMemberships();
+    await supabaseAdmin
+      .from("balances")
+      .update({ amount: 500 })
+      .eq("user_id", TEST_IDS.renter);
+    await renterPage.goto("/dashboard/renter");
+    if (!(await assertDashboard(renterPage, "/dashboard/renter"))) return;
+    await expect(
+      renterPage.getByText("გაააქტიურეთ გამქირავებლის წევრობა"),
+    ).toBeVisible();
+
+    const dialog = renterPage.getByRole("dialog");
+    // The button is server-rendered; retry until hydration wires up the click.
+    await expect(async () => {
+      await renterPage
+        .getByRole("button", { name: "წევრობის გააქტიურება" })
+        .click();
+      await expect(dialog).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
+    await expect(dialog.getByTestId("membership-season-summer")).toBeVisible();
+    await expect(dialog.getByTestId("membership-season-winter")).toBeVisible();
+
+    const pay = dialog.getByRole("button", {
+      name: "გადახდა და დასადასტურებლად გაგზავნა",
+    });
+    await dialog
+      .getByTestId("membership-plan-e2e-renter-membership-season")
+      .click();
+    const declaration = dialog.getByTestId("membership-fb-declaration");
+    await expect(declaration).toBeVisible();
+    await expect(pay).toBeDisabled();
+    await declaration.check();
+    const profileUrl = dialog.getByTestId("membership-fb-profile-url");
+    await expect(profileUrl).toBeVisible();
+    await expect(pay).toBeDisabled();
+    await profileUrl.fill("not a link");
+    await expect(pay).toBeDisabled();
+    await profileUrl.fill(E2E_FB_PROFILE_URL);
+    await expect(pay).toBeEnabled();
+
+    await dialog
+      .getByTestId("membership-plan-e2e-renter-membership-winter")
+      .click();
+    await expect(declaration).toBeHidden();
+    await expect(pay).toBeEnabled();
+  });
+
+  test("only a current active subscription is shown as valid", async ({
+    renterPage,
+  }) => {
     await clearMemberships();
     const now = Date.now();
     await supabaseAdmin.from("user_subscriptions").insert([
@@ -842,6 +1077,7 @@ test.describe("Renter membership", () => {
     const purchase = await supabaseAdmin.rpc("purchase_renter_membership", {
       p_user_id: TEST_IDS.renter,
       p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+      p_fb_profile_url: E2E_FB_PROFILE_URL,
     });
     expect(purchase.error).toBeNull();
     const { data: subscription } = await supabaseAdmin
@@ -853,12 +1089,15 @@ test.describe("Renter membership", () => {
       .single();
     expect(subscription?.status).toBe("pending_approval");
     expect(Number(subscription?.amount_paid)).toBe(30);
-    expect(new Date(subscription!.expires_at).getMonth()).toBe(2);
-    expect(new Date(subscription!.expires_at).getDate()).toBe(15);
+    expect(tbilisiMonthDay(subscription!.expires_at)).toBe("10-31");
+    expect(Date.parse(subscription!.starts_at)).toBeLessThan(
+      Date.parse(subscription!.expires_at),
+    );
 
     const duplicate = await supabaseAdmin.rpc("purchase_renter_membership", {
       p_user_id: TEST_IDS.renter,
       p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+      p_fb_profile_url: E2E_FB_PROFILE_URL,
     });
     expect(duplicate.error?.message).toContain("MEMBERSHIP_ALREADY_PENDING");
 
@@ -879,12 +1118,17 @@ test.describe("Renter membership", () => {
 
   test("admin approval activates the season and repeated approval is idempotent", async () => {
     await clearMemberships();
-    await supabaseAdmin.from("balances").update({ amount: 500 }).eq("user_id", TEST_IDS.renter);
+    await supabaseAdmin
+      .from("balances")
+      .update({ amount: 500 })
+      .eq("user_id", TEST_IDS.renter);
     const purchase = await supabaseAdmin.rpc("purchase_renter_membership", {
       p_user_id: TEST_IDS.renter,
       p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+      p_fb_profile_url: E2E_FB_PROFILE_URL,
     });
-    const subscriptionId = (purchase.data as { subscription_id: string }).subscription_id;
+    const subscriptionId = (purchase.data as { subscription_id: string })
+      .subscription_id;
 
     const approval = await supabaseAdmin.rpc("review_renter_membership", {
       p_subscription_id: subscriptionId,
@@ -910,18 +1154,71 @@ test.describe("Renter membership", () => {
     expect(activated?.status).toBe("active");
     expect(activated?.reviewed_by).toBe(TEST_IDS.admin);
     expect(activated?.reviewed_at).toBeTruthy();
-    expect(new Date(activated!.expires_at).getMonth()).toBe(2);
-    expect(new Date(activated!.expires_at).getDate()).toBe(15);
+    expect(tbilisiMonthDay(activated!.expires_at)).toBe("10-31");
+  });
+
+  test("an approved season allows pre-buying the other season but not the same one", async () => {
+    await clearMemberships();
+    await supabaseAdmin
+      .from("balances")
+      .update({ amount: 500 })
+      .eq("user_id", TEST_IDS.renter);
+    const summer = await supabaseAdmin.rpc("purchase_renter_membership", {
+      p_user_id: TEST_IDS.renter,
+      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+      p_fb_profile_url: E2E_FB_PROFILE_URL,
+    });
+    expect(summer.error).toBeNull();
+    const approval = await supabaseAdmin.rpc("review_renter_membership", {
+      p_subscription_id: (summer.data as { subscription_id: string })
+        .subscription_id,
+      p_admin_id: TEST_IDS.admin,
+      p_action: "approve",
+    });
+    expect(approval.error).toBeNull();
+
+    const sameSeason = await supabaseAdmin.rpc("purchase_renter_membership", {
+      p_user_id: TEST_IDS.renter,
+      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+      p_fb_profile_url: E2E_FB_PROFILE_URL,
+    });
+    expect(sameSeason.error?.message).toContain("MEMBERSHIP_ALREADY_ACTIVE");
+
+    const winter = await supabaseAdmin.rpc("purchase_renter_membership", {
+      p_user_id: TEST_IDS.renter,
+      p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.winter,
+    });
+    expect(winter.error).toBeNull();
+    const { data: pending } = await supabaseAdmin
+      .from("user_subscriptions")
+      .select("status, starts_at, expires_at, amount_paid")
+      .eq("id", (winter.data as { subscription_id: string }).subscription_id)
+      .single();
+    expect(pending?.status).toBe("pending_approval");
+    expect(Number(pending?.amount_paid)).toBe(60);
+    expect(tbilisiMonthDay(pending!.expires_at)).toBe("03-31");
+
+    const { data: balance } = await supabaseAdmin
+      .from("balances")
+      .select("amount")
+      .eq("user_id", TEST_IDS.renter)
+      .single();
+    expect(Number(balance?.amount)).toBe(410);
   });
 
   test("admin rejection refunds exactly once", async () => {
     await clearMemberships();
-    await supabaseAdmin.from("balances").update({ amount: 500 }).eq("user_id", TEST_IDS.renter);
+    await supabaseAdmin
+      .from("balances")
+      .update({ amount: 500 })
+      .eq("user_id", TEST_IDS.renter);
     const purchase = await supabaseAdmin.rpc("purchase_renter_membership", {
       p_user_id: TEST_IDS.renter,
       p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+      p_fb_profile_url: E2E_FB_PROFILE_URL,
     });
-    const subscriptionId = (purchase.data as { subscription_id: string }).subscription_id;
+    const subscriptionId = (purchase.data as { subscription_id: string })
+      .subscription_id;
 
     const rejection = await supabaseAdmin.rpc("review_renter_membership", {
       p_subscription_id: subscriptionId,
@@ -961,6 +1258,7 @@ test.describe("Renter membership", () => {
     const insufficient = await supabaseAdmin.rpc("purchase_renter_membership", {
       p_user_id: TEST_IDS.renter,
       p_package_id: RENTER_MEMBERSHIP_PACKAGE_IDS.season,
+      p_fb_profile_url: E2E_FB_PROFILE_URL,
     });
     expect(insufficient.error?.message).toContain("არასაკმარისი ბალანსი");
 
@@ -993,10 +1291,7 @@ test.describe("Renter cleaner profiles", () => {
       .delete()
       .eq("owner_id", TEST_IDS.renter)
       .eq("name", manualCleanerName);
-    await supabaseAdmin
-      .from("services")
-      .delete()
-      .eq("id", ownCleanerServiceId);
+    await supabaseAdmin.from("services").delete().eq("id", ownCleanerServiceId);
   }
 
   test.beforeEach(resetCleanerDirectoryState);
@@ -1009,7 +1304,9 @@ test.describe("Renter cleaner profiles", () => {
     if (!(await assertDashboard(renterPage, "/dashboard/renter/cleaners")))
       return;
 
-    await renterPage.getByRole("button", { name: "დამატება", exact: true }).click();
+    await renterPage
+      .getByRole("button", { name: "დამატება", exact: true })
+      .click();
     const addDialog = renterPage.getByRole("dialog", {
       name: "დამლაგებლის დამატება",
     });
@@ -1022,13 +1319,21 @@ test.describe("Renter cleaner profiles", () => {
     const profileDialog = renterPage.getByRole("dialog", {
       name: "დამლაგებლის პროფილი",
     });
-    await expect(profileDialog.getByText("MyBakuriani", { exact: true })).toBeVisible();
+    await expect(
+      profileDialog.getByText("MyBakuriani", { exact: true }),
+    ).toBeVisible();
     await expect(
       profileDialog.getByText("ბაკურიანი, დიდველი", { exact: true }).first(),
     ).toBeVisible();
-    await expect(profileDialog.getByText("E2E დილის დასუფთავება", { exact: true })).toBeVisible();
-    await expect(profileDialog.getByText("E2E საღამოს დასუფთავება", { exact: true })).toBeVisible();
-    await profileDialog.getByRole("button", { name: "დამატება", exact: true }).click();
+    await expect(
+      profileDialog.getByText("E2E დილის დასუფთავება", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      profileDialog.getByText("E2E საღამოს დასუფთავება", { exact: true }),
+    ).toBeVisible();
+    await profileDialog
+      .getByRole("button", { name: "დამატება", exact: true })
+      .click();
     await expect(
       profileDialog.getByRole("button", { name: "წაშლა", exact: true }),
     ).toBeEnabled();
@@ -1066,7 +1371,9 @@ test.describe("Renter cleaner profiles", () => {
     await renterPage.goto("/dashboard/renter/cleaners");
     if (!(await assertDashboard(renterPage, "/dashboard/renter/cleaners")))
       return;
-    await renterPage.getByRole("button", { name: "დამატება", exact: true }).click();
+    await renterPage
+      .getByRole("button", { name: "დამატება", exact: true })
+      .click();
     const addDialog = renterPage.getByRole("dialog", {
       name: "დამლაგებლის დამატება",
     });
@@ -1087,7 +1394,9 @@ test.describe("Renter cleaner profiles", () => {
     if (!(await assertDashboard(renterPage, "/dashboard/renter/cleaners")))
       return;
 
-    await renterPage.getByRole("button", { name: "დამატება", exact: true }).click();
+    await renterPage
+      .getByRole("button", { name: "დამატება", exact: true })
+      .click();
     await renterPage
       .getByRole("button", { name: "ჩემი დამლაგებლის დამატება" })
       .click();
@@ -1106,12 +1415,16 @@ test.describe("Renter cleaner profiles", () => {
     const manualCard = renterPage.locator("article").filter({
       hasText: manualCleanerName,
     });
-    await expect(manualCard.getByText("ხელით დამატებული", { exact: true })).toBeVisible();
+    await expect(
+      manualCard.getByText("ხელით დამატებული", { exact: true }),
+    ).toBeVisible();
     await manualCard.getByRole("button", { name: "დეტალები" }).click();
     let profileDialog = renterPage.getByRole("dialog", {
       name: "დამლაგებლის პროფილი",
     });
-    await expect(profileDialog.getByText("7 წელი", { exact: true })).toBeVisible();
+    await expect(
+      profileDialog.getByText("7 წელი", { exact: true }),
+    ).toBeVisible();
     await expect(
       profileDialog.getByText(
         "ალაგებს აპარტამენტებს და აკეთებს გენერალურ დასუფთავებას",
@@ -1126,7 +1439,9 @@ test.describe("Renter cleaner profiles", () => {
     await editForm
       .getByPlaceholder(/ალაგებს აპარტამენტებსა და კოტეჯებს/)
       .fill("გენერალური დასუფთავება და თეთრეულის გამოცვლა");
-    await editForm.getByRole("button", { name: "შენახვა", exact: true }).click();
+    await editForm
+      .getByRole("button", { name: "შენახვა", exact: true })
+      .click();
     await expect(editForm).toBeHidden();
     await renterPage.reload();
     await renterPage
@@ -1142,5 +1457,80 @@ test.describe("Renter cleaner profiles", () => {
         exact: true,
       }),
     ).toBeVisible();
+  });
+});
+
+// C45: choosing "სასტუმრო" as the rental wizard's type asks for stars and
+// rooms instead of one room count and area; the cheapest room becomes the
+// listing's price, and the detail page lists the rooms. /create has no hotel
+// tile: a hotel is added through "გაქირავება".
+test.describe("Hotel rooms", () => {
+  test("the hotel type asks for stars and rooms", async ({ renterPage }) => {
+    await answerCookieBanner(renterPage);
+    await renterPage.goto("/create");
+    if (!(await assertDashboard(renterPage, "/create"))) return;
+
+    await expect(
+      renterPage.getByRole("link", { name: "სასტუმრო" }),
+    ).toHaveCount(0);
+    await renterPage.getByRole("link", { name: "გაქირავება" }).click();
+    await expect(renterPage).toHaveURL(/\/create\/rental$/);
+    await renterPage.locator("select").first().selectOption("hotel");
+
+    await renterPage
+      .locator('[data-field="location"] select')
+      .selectOption({ index: 1 });
+    await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
+    await renterPage
+      .locator('[data-field="title"] input')
+      .fill("E2E სასტუმრო ნომრებით");
+    await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
+
+    const editor = renterPage.getByTestId("hotel-rooms-editor");
+    await expect(editor).toBeVisible();
+    await expect(renterPage.locator('[data-field="area"]')).toHaveCount(0);
+
+    await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
+    await expect(
+      renterPage.getByText("ნომერი 1: შეავსეთ ველი „ნომრის ტიპი“").first(),
+    ).toBeVisible();
+
+    const rooms = renterPage.getByTestId("hotel-room");
+    await rooms.nth(0).locator('input[type="text"]').first().fill("ლუქსი");
+    await rooms.nth(0).getByPlaceholder("120").fill("150");
+    await editor.getByRole("button", { name: "ნომრის დამატება" }).click();
+    await expect(rooms).toHaveCount(2);
+    await rooms.nth(1).locator('input[type="text"]').first().fill("ეკონომი");
+    await rooms.nth(1).getByPlaceholder("120").fill("90");
+
+    await renterPage.getByRole("radio", { name: "4 ვარსკვლავი" }).click();
+    await expect(
+      renterPage.getByRole("radio", { name: "4 ვარსკვლავი" }),
+    ).toHaveAttribute("aria-checked", "true");
+    // Smoking and pets ("აკრძალულია" twice), then meals included.
+    const rules = renterPage.locator('[data-field="houseRules"]');
+    const forbidden = rules.getByRole("button", {
+      name: "აკრძალულია",
+      exact: true,
+    });
+    await forbidden.nth(0).click();
+    await forbidden.nth(1).click();
+    await rules.getByRole("button", { name: "შედის", exact: true }).click();
+    await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
+
+    await expect(renterPage.getByTestId("hotel-from-price")).toHaveText(
+      "90 ₾-დან",
+    );
+  });
+
+  test("the hotel page lists its rooms and stars", async ({ page }) => {
+    await answerCookieBanner(page);
+    await page.goto(`/hotels/${TEST_IDS.hotel}`);
+
+    await expect(page.getByRole("heading", { name: "ნომრები" })).toBeVisible();
+    const rooms = page.getByTestId("hotel-rooms");
+    await expect(rooms.getByText("სტანდარტული ორადგილიანი")).toBeVisible();
+    await expect(rooms.getByText("220 ₾ / ღამე")).toBeVisible();
+    await expect(page.getByRole("img", { name: "4 ვარსკვლავი" })).toBeVisible();
   });
 });

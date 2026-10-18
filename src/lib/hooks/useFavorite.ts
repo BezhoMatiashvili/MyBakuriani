@@ -3,8 +3,9 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import type { User } from "@supabase/supabase-js";
 import { useRouter } from "@/i18n/navigation";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { subscribeAuthUser } from "@/lib/auth/session-store";
 import { isMockPropertyId } from "@/lib/mock/properties";
 import { isMockServiceId } from "@/lib/mock/services";
 import {
@@ -34,11 +35,21 @@ type UseFavoriteArgs =
 export function useFavorite({ propertyId, serviceId }: UseFavoriteArgs) {
   const t = useTranslations("Favorites");
   const router = useRouter();
-  const { user } = useAuth();
+  // The same null-then-user sequence useAuth() gives each card, from one shared
+  // session read instead of one per card (@/lib/auth/session-store).
+  const [user, setUser] = useState<User | null>(null);
   const [busy, setBusy] = useState(false);
   const target: FavoriteTarget = propertyId
     ? { kind: "property", id: propertyId }
     : { kind: "service", id: serviceId! };
+
+  useEffect(
+    () =>
+      subscribeAuthUser((next) =>
+        setUser((prev) => (prev?.id === next?.id ? prev : next)),
+      ),
+    [],
+  );
 
   useEffect(() => {
     if (user) ensureFavoritesLoaded(user.id);

@@ -18,3 +18,27 @@ export function scrollToField(fieldKey: string): void {
     )?.focus({ preventScroll: true });
   }, 350);
 }
+
+/**
+ * Scrolls to whichever of the given invalid fields comes first on the page
+ * (document order, not the order of `fieldKeys`). Runs on the next frame so an
+ * anchor mounted by the same state update (e.g. a step change) already exists.
+ */
+export function scrollToFirstInvalid(fieldKeys: Iterable<string>): void {
+  if (typeof window === "undefined") return;
+  const keys = [...fieldKeys];
+  if (keys.length === 0) return;
+  window.requestAnimationFrame(() => {
+    const anchors = keys
+      .map((key) =>
+        document.querySelector<HTMLElement>(`[data-field="${key}"]`),
+      )
+      .filter((el): el is HTMLElement => el !== null);
+    if (anchors.length === 0) return;
+    anchors.sort((a, b) =>
+      a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
+    );
+    const first = anchors[0].getAttribute("data-field");
+    if (first) scrollToField(first);
+  });
+}

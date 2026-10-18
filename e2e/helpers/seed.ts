@@ -23,6 +23,10 @@ import {
   organizationSubscriptions,
 } from "./supabase";
 import { FIXTURE_IDS } from "./fixture-manifest.mjs";
+import {
+  seedStressFixtures,
+  cleanupStressFixtures,
+} from "./stress-fixtures";
 
 // ---------------------------------------------------------------------------
 // Deterministic UUIDs
@@ -96,6 +100,25 @@ export type TestUserMap = Record<
 // ---------------------------------------------------------------------------
 // Seed
 // ---------------------------------------------------------------------------
+
+/**
+ * C31: a rental is public only while its owner holds an active seasonal
+ * membership, so the renter's seeded rentals need one to appear on public
+ * pages. The renter membership spec clears it and calls this again after.
+ * Deleting the profile cascades it away.
+ */
+export async function seedRenterMembership(): Promise<void> {
+  const day = 86_400_000;
+  const { error } = await supabaseAdmin.from("user_subscriptions").upsert({
+    id: TEST_IDS.renterMembership,
+    user_id: TEST_IDS.renter,
+    starts_at: new Date(Date.now() - day).toISOString(),
+    expires_at: new Date(Date.now() + 365 * day).toISOString(),
+    status: "active",
+  });
+  if (error) throw new Error(`renter membership seed: ${error.message}`);
+}
+
 export async function seedTestData(): Promise<{ users: TestUserMap }> {
   // ---- Users ----
   const admin = await elevateTestUserToAal2(await createTestUser({
@@ -186,6 +209,8 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     status: "active",
   });
 
+  await seedRenterMembership();
+
   // ---- Properties ----
   await properties.create({
     id: TEST_IDS.apartment,
@@ -245,6 +270,18 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     house_rules: { hosting_langs: ["ru", "ar"] },
     photos: [],
     hotel_stars: 4,
+    // C45: one room matching the columns above (price, rooms, capacity).
+    hotel_rooms: [
+      {
+        name: "სტანდარტული ორადგილიანი",
+        guests: 2,
+        beds: 1,
+        area_sqm: 32,
+        price: 220,
+        quantity: 1,
+        photos: [],
+      },
+    ],
     status: "active",
     is_for_sale: false,
     created_at: pastTimestamp(5),
@@ -640,6 +677,10 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     documents: { id_photo: "test.jpg", ownership_doc: "test.pdf" },
   });
 
+  // Content-variation listings for the card-geometry audit. Last, so they carry
+  // the newest created_at and pin to the top of every public list page.
+  await seedStressFixtures();
+
   return { users };
 }
 
@@ -648,6 +689,9 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
 // ---------------------------------------------------------------------------
 export async function cleanupTestData(): Promise<void> {
   const ignore = () => {};
+
+  // Stress listings first: they FK to the QA profiles deleted at the end.
+  await cleanupStressFixtures().catch(ignore);
 
   // Organization subscriptions must be deleted before their organization.
   await organizationSubscriptions

@@ -13,6 +13,7 @@ import { optionKeyFor } from "@/lib/constants/listing-options";
 import { FavoriteButton } from "@/components/shared/FavoriteButton";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { ListingCardAction } from "@/components/shared/ListingCardAction";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import {
   ListingAgeBadge,
   NewlyAddedBadge,
@@ -55,6 +56,8 @@ interface PropertyCardProps {
   priority?: boolean;
   mobilePresentation?: "default" | "compact-grid";
   createdAt: string | null;
+  /** `public_properties.ownership_verified` (C39). */
+  isOwnershipVerified?: boolean;
 }
 
 function extractZone(location: string): string {
@@ -94,6 +97,7 @@ export default function PropertyCard(props: PropertyCardProps) {
     priority,
     mobilePresentation = "default",
     createdAt,
+    isOwnershipVerified = false,
   } = props;
   const compactGrid = mobilePresentation === "compact-grid";
   const {
@@ -151,6 +155,7 @@ export default function PropertyCard(props: PropertyCardProps) {
   const showHotelDiscount = isHotel && active;
   const showHotelStars =
     isHotel && !showHotelDiscount && hotelStars != null && hotelStars > 0;
+  const topLeftTaken = isHotel ? showHotelDiscount || showHotelStars : active;
 
   return (
     <div className="group h-full animate-in fade-in slide-in-from-bottom-4 duration-300 transition-transform hover:scale-[1.02]">
@@ -159,7 +164,7 @@ export default function PropertyCard(props: PropertyCardProps) {
         data-listing-card
         data-mobile-presentation={mobilePresentation}
         className={cn(
-          "flex h-full flex-col overflow-hidden border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] md:h-auto lg:h-[440px] lg:rounded-[24px]",
+          "flex h-full flex-col overflow-hidden border border-[#F1F5F9] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] lg:h-[440px] lg:rounded-[24px]",
           compactGrid
             ? "rounded-[16px] sm:rounded-[20px]"
             : "rounded-[20px]",
@@ -229,14 +234,21 @@ export default function PropertyCard(props: PropertyCardProps) {
             </ListingBadge>
           )}
 
-          {!isHotel && !active && (isSuperVip || isVip) && (
+          {/* VIP and the discount are separate paid badges (2026 price list
+              §2.1/§2.2): when the top-left slot already holds the discount or
+              a hotel's stars, VIP drops to a second row instead of vanishing. */}
+          {(isSuperVip || isVip) && (
             <ListingBadge
               variant="vip"
               className={cn(
                 "absolute",
                 compactGrid
-                  ? "left-2 top-2 max-w-[calc(100%-3.5rem)] truncate px-2 text-[9px] sm:left-4 sm:top-4 sm:max-w-none sm:px-2.5 sm:text-[10px]"
-                  : "left-4 top-4",
+                  ? topLeftTaken
+                    ? "left-2 top-8 max-w-[calc(100%-3.5rem)] truncate px-2 text-[9px] sm:left-4 sm:top-12 sm:max-w-none sm:px-2.5 sm:text-[10px]"
+                    : "left-2 top-2 max-w-[calc(100%-3.5rem)] truncate px-2 text-[9px] sm:left-4 sm:top-4 sm:max-w-none sm:px-2.5 sm:text-[10px]"
+                  : topLeftTaken
+                    ? "left-4 top-12"
+                    : "left-4 top-4",
               )}
             >
               {isSuperVip ? "SUPER VIP" : "VIP"}
@@ -254,21 +266,36 @@ export default function PropertyCard(props: PropertyCardProps) {
             )}
           />
 
+          {/* A hotel's B2B chip holds the bottom-right corner, so there the
+              ownership badge stacks above that chip, on the same side. */}
           {isHotel && isB2BPartner && (
-            <span className={cn("absolute rounded-lg bg-[#F97316] font-bold uppercase text-white", compactGrid ? "bottom-2 right-2 px-2 py-1 text-[8px] sm:bottom-4 sm:right-4 sm:px-3 sm:text-[10px]" : "bottom-4 right-4 px-3 py-1 text-[10px]") }>
-              {t("b2bPartner")}
-            </span>
+            <div className={cn("absolute flex flex-col items-end gap-1.5", compactGrid ? "bottom-2 right-2 sm:bottom-4 sm:right-4" : "bottom-4 right-4")}>
+              {isOwnershipVerified && <OwnershipVerifiedBadge variant="card" />}
+              <span className={cn("rounded-lg bg-[#F97316] font-bold uppercase text-white", compactGrid ? "px-2 py-1 text-[8px] sm:px-3 sm:text-[10px]" : "px-3 py-1 text-[10px]") }>
+                {t("b2bPartner")}
+              </span>
+            </div>
           )}
 
-          <NewlyAddedBadge
-            createdAt={createdAt}
+          {/* Bottom-left column: a phone-width card cannot fit the "new" chip
+              and the ownership badge on one line, so the badge stacks above
+              the chip on the same side (on a B2B hotel, above the B2B chip). */}
+          <div
             className={cn(
-              "absolute",
+              "absolute flex flex-col items-start gap-1.5",
               compactGrid
-                ? "bottom-2 left-2 max-w-[calc(100%-1rem)] truncate px-2 text-[8px] sm:bottom-4 sm:left-4 sm:max-w-none sm:px-2.5 sm:text-[9px]"
+                ? "bottom-2 left-2 max-w-[calc(100%-1rem)] sm:bottom-4 sm:left-4 sm:max-w-none"
                 : "bottom-4 left-4",
             )}
-          />
+          >
+            {isOwnershipVerified && !(isHotel && isB2BPartner) && (
+              <OwnershipVerifiedBadge variant="card" />
+            )}
+            <NewlyAddedBadge
+              createdAt={createdAt}
+              className={compactGrid ? "max-w-full truncate" : undefined}
+            />
+          </div>
         </div>
 
         <div

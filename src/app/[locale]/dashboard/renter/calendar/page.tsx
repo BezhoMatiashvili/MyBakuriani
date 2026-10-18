@@ -25,6 +25,7 @@ import AddBookingModal, {
 } from "@/components/renter/AddBookingModal";
 import PriceRangeModal from "@/components/renter/PriceRangeModal";
 import BookingHistoryDrawer from "@/components/renter/BookingHistoryDrawer";
+import BookingListPanel from "@/components/renter/BookingListPanel";
 import AvailabilityRangeModal, {
   type AvailabilityAction,
 } from "@/components/calendar/AvailabilityRangeModal";
@@ -157,6 +158,10 @@ export default function RenterCalendarPage() {
   const [platformBookings, setPlatformBookings] = useState<
     PlatformBookingRow[]
   >([]);
+  // Every manual booking of the property, for the filterable list.
+  const [bookingList, setBookingList] = useState<ManualBooking[]>([]);
+  const [bookingListLoading, setBookingListLoading] = useState(true);
+  const [bookingListError, setBookingListError] = useState(false);
 
   // Details modal opened by tapping a booked day.
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -380,25 +385,48 @@ export default function RenterCalendarPage() {
 
   useEffect(() => {
     fetchBookings();
-    if (!selectedPropertyId) return;
-    const channel = supabase
-      .channel(`manual-bookings-${selectedPropertyId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "manual_bookings",
-          filter: `property_id=eq.${selectedPropertyId}`,
-        },
-        () => fetchBookings(),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId, year, month]);
+
+  // All manual bookings of the property, any date or status, for the list
+  // under the grid. Month-independent; refetched after every write below.
+  const fetchBookingList = useCallback(async () => {
+    if (!selectedPropertyId || !user) return;
+    const propertyId = selectedPropertyId;
+    const { data, error } = await supabase
+      .from("manual_bookings")
+      .select("*")
+      .eq("owner_id", user.id)
+      .eq("property_id", propertyId)
+      .order("check_in", { ascending: false });
+    if (selectedPropertyRef.current !== propertyId) return;
+    setBookingListError(Boolean(error));
+    if (!error) setBookingList(data ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyId, user]);
+
+  // Only the latest load may clear the spinner, so a slow response for the
+  // previous property can't flash the new one's empty state.
+  const bookingListSeqRef = useRef(0);
+  const loadBookingList = useCallback(() => {
+    const seq = ++bookingListSeqRef.current;
+    setBookingListLoading(true);
+    return fetchBookingList().finally(() => {
+      if (seq === bookingListSeqRef.current) setBookingListLoading(false);
+    });
+  }, [fetchBookingList]);
+
+  useEffect(() => {
+    setBookingList([]);
+    setBookingListError(false);
+    if (selectedPropertyId) void loadBookingList();
+  }, [loadBookingList, selectedPropertyId]);
+
+  // `manual_bookings` is not in the supabase_realtime publication (contract
+  // C7), so there is no live channel for it: every write path on this page
+  // awaits fetchBookings() and fetchBookingList() itself, and the
+  // calendar_blocks channel below covers cross-client convergence for the
+  // nights a booking occupies.
 
   const scheduleCalendarRefresh = useCallback(
     (includeBookings = false) => {
@@ -411,12 +439,17 @@ export default function RenterCalendarPage() {
         const shouldFetchBookings = calendarRefreshBookingsRef.current;
         calendarRefreshBookingsRef.current = false;
         const jobs: Promise<unknown>[] = [fetchBlocks(), fetchOccupancy()];
-        if (shouldFetchBookings) jobs.push(fetchBookings());
+        if (shouldFetchBookings) jobs.push(fetchBookings(), fetchBookingList());
         void Promise.all(jobs);
       }, 200);
     },
-    [fetchBlocks, fetchBookings, fetchOccupancy],
+    [fetchBlocks, fetchBookings, fetchOccupancy, fetchBookingList],
   );
+
+  const scheduleCalendarRefreshRef = useRef(scheduleCalendarRefresh);
+  useEffect(() => {
+    scheduleCalendarRefreshRef.current = scheduleCalendarRefresh;
+  }, [scheduleCalendarRefresh]);
 
   const schedulePriceRefresh = useCallback(() => {
     if (priceRefreshTimerRef.current) {
@@ -427,6 +460,30 @@ export default function RenterCalendarPage() {
       void fetchOverrides();
     }, 200);
   }, [fetchOverrides]);
+
+  const schedulePriceRefreshRef = useRef(schedulePriceRefresh);
+  useEffect(() => {
+    schedulePriceRefreshRef.current = schedulePriceRefresh;
+  }, [schedulePriceRefresh]);
+
+  // The channel-registration effects below now only depend on
+  // selectedPropertyId, so they no longer tear down (and cancel pending
+  // debounced timers) on month navigation. Replicate that cancellation
+  // explicitly so a timer queued for the previous month can't land stale
+  // data after the grid has moved to a new month.
+  useEffect(() => {
+    return () => {
+      if (calendarRefreshTimerRef.current) {
+        clearTimeout(calendarRefreshTimerRef.current);
+        calendarRefreshTimerRef.current = null;
+      }
+      calendarRefreshBookingsRef.current = false;
+      if (priceRefreshTimerRef.current) {
+        clearTimeout(priceRefreshTimerRef.current);
+        priceRefreshTimerRef.current = null;
+      }
+    };
+  }, [selectedPropertyId, year, month]);
 
   useEffect(() => {
     void fetchBlocks();
@@ -449,7 +506,7 @@ export default function RenterCalendarPage() {
             status?: string;
             booking_id?: string | null;
           };
-          scheduleCalendarRefresh(
+          scheduleCalendarRefreshRef.current(
             next?.status === "booked" || Boolean(next?.booking_id),
           );
         },
@@ -464,7 +521,7 @@ export default function RenterCalendarPage() {
       void supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPropertyId, scheduleCalendarRefresh]);
+  }, [selectedPropertyId]);
 
   useEffect(() => {
     if (!selectedPropertyId) return;
@@ -478,7 +535,7 @@ export default function RenterCalendarPage() {
           table: "price_overrides",
           filter: `property_id=eq.${selectedPropertyId}`,
         },
-        schedulePriceRefresh,
+        () => schedulePriceRefreshRef.current(),
       )
       .subscribe();
     return () => {
@@ -489,7 +546,7 @@ export default function RenterCalendarPage() {
       void supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPropertyId, schedulePriceRefresh]);
+  }, [selectedPropertyId]);
 
   // Close property dropdown on outside click
   useEffect(() => {
@@ -720,7 +777,12 @@ export default function RenterCalendarPage() {
       p_client_list: payload.clientList,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
-    await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
+    await Promise.all([
+      fetchBlocks(),
+      fetchBookings(),
+      fetchOccupancy(),
+      fetchBookingList(),
+    ]);
     await revalidatePublicProperty(selectedPropertyId);
     return { ok: true, bookingId: data.id };
   };
@@ -750,7 +812,12 @@ export default function RenterCalendarPage() {
       p_client_list: payload.clientList,
     });
     if (error) return { ok: false, errorCode: mapBookingError(error.message) };
-    await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
+    await Promise.all([
+      fetchBlocks(),
+      fetchBookings(),
+      fetchOccupancy(),
+      fetchBookingList(),
+    ]);
     if (selectedPropertyId) await revalidatePublicProperty(selectedPropertyId);
     return { ok: true };
   };
@@ -764,7 +831,12 @@ export default function RenterCalendarPage() {
       p_id: editingBooking.id,
     });
     if (error) return { ok: false, errorCode: "generic" };
-    await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
+    await Promise.all([
+      fetchBlocks(),
+      fetchBookings(),
+      fetchOccupancy(),
+      fetchBookingList(),
+    ]);
     setHistoryRefreshToken((value) => value + 1);
     try {
       await revalidatePublicProperty(selectedPropertyId);
@@ -794,7 +866,12 @@ export default function RenterCalendarPage() {
       toast.error(t("history.restoreError"));
       return "error";
     }
-    await Promise.all([fetchBlocks(), fetchBookings(), fetchOccupancy()]);
+    await Promise.all([
+      fetchBlocks(),
+      fetchBookings(),
+      fetchOccupancy(),
+      fetchBookingList(),
+    ]);
     setHistoryRefreshToken((value) => value + 1);
     if (selectedPropertyId) {
       try {
@@ -823,6 +900,17 @@ export default function RenterCalendarPage() {
     setDetailsOpen(true);
   };
 
+  // A row in the booking list opens the same edit modal as a booked day and
+  // moves the grid to the month the stay starts in.
+  const handleListOpen = (booking: ManualBooking) => {
+    const [y, m] = booking.check_in.split("-").map(Number);
+    setCurrentDate(new Date(y, m - 1, 1));
+    setEditingBooking(booking);
+    setViewBooking(null);
+    setDetailsMode("edit");
+    setDetailsOpen(true);
+  };
+
   return (
     <div className="space-y-5 pb-32 lg:pb-5">
       {/* Header row */}
@@ -835,9 +923,9 @@ export default function RenterCalendarPage() {
               <button
                 type="button"
                 onClick={() => setPropertyOpen((v) => !v)}
-                className="inline-flex items-center gap-2 text-[20px] font-black text-[#0F172A] hover:text-[#2563EB]"
+                className="inline-flex max-w-full items-center gap-2 text-[20px] font-black text-[#0F172A] hover:text-[#2563EB]"
               >
-                <span className="truncate">
+                <span className="min-w-0 truncate">
                   {selectedProperty?.title ?? "—"}
                 </span>
                 <ChevronDown
@@ -867,6 +955,8 @@ export default function RenterCalendarPage() {
                           setPriceOverrides([]);
                           setManualBookings([]);
                           setPlatformBookings([]);
+                          setBookingList([]);
+                          setBookingListLoading(true);
                           setOccupancyReady(false);
                           setSelectedPropertyId(p.id);
                           setPropertyOpen(false);
@@ -918,60 +1008,63 @@ export default function RenterCalendarPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-3">
+        {/* Phones: History + month, then Availability + Price by range, then
+            Add, the same rows whatever the month's name. On md+ the month label
+            has a fixed width, so switching months moves nothing either. */}
+        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
           <div className="flex items-center gap-2 md:contents">
             <button
               type="button"
               disabled={!selectedPropertyId}
               onClick={() => setHistoryOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-black text-[#475569] transition-colors hover:bg-[#F8FAFC] disabled:opacity-50"
+              className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-[12px] font-black text-[#475569] transition-colors hover:bg-[#F8FAFC] disabled:opacity-50 md:min-h-0 md:gap-2 md:px-4 md:text-[13px]"
             >
               <History className="h-4 w-4" />
               {t("history.button")}
             </button>
 
-            <div className="inline-flex items-center rounded-xl border border-[#E2E8F0] bg-white px-2 py-1 shadow-[0px_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="flex min-h-11 min-w-0 flex-1 items-center justify-between rounded-xl border border-[#E2E8F0] bg-white px-1 py-1 shadow-[0px_1px_2px_rgba(15,23,42,0.04)] md:min-h-0 md:flex-none md:px-2">
               <button
                 type="button"
                 onClick={handlePrevMonth}
                 aria-label={t("prevMonth")}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="px-3 text-[13px] font-black text-[#0F172A]">
+              <span className="min-w-0 flex-1 truncate text-center text-[13px] font-black text-[#0F172A] max-[374px]:text-[12px] md:w-[8.5rem] md:flex-none">
                 {tMonths(MONTH_KEYS[month])} {year}
               </span>
               <button
                 type="button"
                 onClick={handleNextMonth}
                 aria-label={t("nextMonth")}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 md:contents">
+          <div className="flex gap-1.5 md:contents">
             <button
               type="button"
               disabled={!selectedPropertyId}
               onClick={() => setAvailabilityModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#D97706] bg-white px-4 py-2.5 text-[13px] font-black text-[#B45309] transition-colors hover:bg-[#FFFBEB] disabled:opacity-50"
+              className="inline-flex min-h-11 min-w-0 flex-auto items-center justify-center gap-1.5 rounded-xl border border-[#D97706] bg-white px-0.5 py-2.5 text-[11px] font-black text-[#B45309] transition-colors hover:bg-[#FFFBEB] disabled:opacity-50 md:min-h-0 md:flex-none md:gap-2 md:px-4 md:text-[13px]"
             >
-              <CalendarRange className="h-4 w-4" strokeWidth={2.4} />
-              {t("availability.button")}
+              <CalendarRange className="h-4 w-4 shrink-0" strokeWidth={2.4} />
+              <span className="truncate">{t("availability.button")}</span>
             </button>
 
             <button
               type="button"
               disabled={!selectedPropertyId}
               onClick={() => setRangeModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#F97316] bg-white px-4 py-2.5 text-[13px] font-black text-[#F97316] transition-colors hover:bg-[#FFF7ED] disabled:opacity-50"
+              className="inline-flex min-h-11 min-w-0 flex-auto items-center justify-center gap-1.5 rounded-xl border border-[#F97316] bg-white px-0.5 py-2.5 text-[11px] font-black text-[#F97316] transition-colors hover:bg-[#FFF7ED] disabled:opacity-50 md:min-h-0 md:flex-none md:gap-2 md:px-4 md:text-[13px]"
             >
-              <CalendarRange className="h-4 w-4" strokeWidth={2.4} />
-              {t("priceRange")}
+              <CalendarRange className="h-4 w-4 shrink-0" strokeWidth={2.4} />
+              <span className="truncate">{t("priceRange")}</span>
             </button>
           </div>
 
@@ -982,7 +1075,7 @@ export default function RenterCalendarPage() {
               setAddBookingInitial({ checkIn: "", checkOut: "" });
               setAddBookingOpen(true);
             }}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#22C55E] px-5 py-2.5 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(34,197,94,0.3)] transition-colors hover:bg-[#16A34A] disabled:opacity-50 md:w-auto"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#22C55E] px-5 py-2.5 text-[13px] font-black text-white shadow-[0_1px_2px_rgba(34,197,94,0.3)] transition-colors hover:bg-[#16A34A] disabled:opacity-50 md:min-h-0 md:w-auto"
           >
             <Plus className="h-4 w-4" strokeWidth={2.6} />
             {tShared("add")}
@@ -1009,6 +1102,7 @@ export default function RenterCalendarPage() {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
+        data-jev-private
         className="grid grid-cols-7 overflow-hidden rounded-[8px] border border-[#EEF1F4]"
       >
         {days.map((d, i) => (
@@ -1035,6 +1129,18 @@ export default function RenterCalendarPage() {
       </motion.div>
 
       <p className="text-[11px] text-[#94A3B8] md:text-[12px]">{t("hint")}</p>
+
+      {selectedPropertyId && (
+        <BookingListPanel
+          bookings={bookingList}
+          loading={bookingListLoading}
+          error={bookingListError}
+          onRetry={() => void loadBookingList()}
+          todayIso={todayIso}
+          onOpen={handleListOpen}
+          onRestore={handleRestoreBooking}
+        />
+      )}
 
       <AddBookingModal
         isOpen={addBookingOpen}
@@ -1154,6 +1260,7 @@ function DayCell({
     <button
       type="button"
       data-booking-type={booking?.type}
+      data-jev-label={String(meta.day)}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       disabled={!meta.inMonth}
@@ -1213,7 +1320,10 @@ function DayCell({
       <Tooltip.Trigger render={button} delay={250} closeDelay={80} />
       <Tooltip.Portal>
         <Tooltip.Positioner side="top" sideOffset={8} className="z-[70]">
-          <Tooltip.Popup className="w-[min(320px,calc(100vw-24px))] rounded-xl border border-[#E2E8F0] bg-white p-4 text-left shadow-[0_18px_45px_-18px_rgba(15,23,42,0.45)] outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0">
+          <Tooltip.Popup
+            data-jev-private
+            className="w-[min(320px,calc(100vw-24px))] rounded-xl border border-[#E2E8F0] bg-white p-4 text-left shadow-[0_18px_45px_-18px_rgba(15,23,42,0.45)] outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0"
+          >
             <BookingTooltip booking={booking} />
           </Tooltip.Popup>
         </Tooltip.Positioner>

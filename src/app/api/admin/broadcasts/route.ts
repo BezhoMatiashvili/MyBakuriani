@@ -1,19 +1,133 @@
 import { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { criticalReserve } from "@/lib/email/budget";
+import { getEmailConfig, type EmailConfig } from "@/lib/email/config";
+import {
+  isReservedAddress,
+  recipientAllowed,
+  RESERVED_TLDS,
+} from "@/lib/email/recipients";
+import {
+  insertNotificationsChunked,
+  loadAudienceUserIds,
+} from "@/lib/notifications/audience";
 import { Constants, type Database } from "@/lib/types/database";
 
 export const runtime = "nodejs";
 
 type Severity = "info" | "warning" | "critical";
 type Channel = "push" | "email";
+/** An email broadcast is an offer (marketing, opt-in only) or a service notice. */
+type EmailKind = "marketing" | "service";
 type Role = Database["public"]["Enums"]["user_role"];
+type Db = ReturnType<typeof createServiceClient>;
 
 const VALID_ROLES = new Set<string>(Constants.public.Enums.user_role);
+
+// email_claim_batch cancels queued mail older than 3 days ("expired"), so an
+// email broadcast must fit in three days of the daily budget it shares.
+const EMAIL_QUEUE_DAYS = 3;
+// Ids per recipients RPC call: stays under PostgREST's max-rows cap (1000).
+const EMAIL_LOOKUP_CHUNK = 500;
+const EMAIL_INSERT_CHUNK = 500;
+
+type EmailCounts = {
+  queued: number;
+  no_consent: number;
+  no_email: number;
+  suppressed: number;
+  /** Outside EMAIL_ALLOWED_RECIPIENTS, or a reserved test domain. */
+  not_allowed: number;
+  /** Broadcast mail the dispatcher may still send today. */
+  sendable_today: number;
+  /** Broadcast mail the queue can take before rows expire. */
+  capacity: number;
+};
+type EmailPlan = {
+  rows: { user_id: string; to_email: string }[];
+  counts: EmailCounts;
+};
+
+/**
+ * Admin email broadcasts (C33), read through admin_broadcast_email_recipients:
+ * a confirmed address, no suppression, inside the recipient allow-list. An
+ * offer (marketing) also needs profiles.marketing_email_consent = true; a
+ * service notice goes out whatever the marketing choice.
+ */
+async function planBroadcastEmail(
+  db: Db,
+  config: EmailConfig,
+  userIds: string[],
+  kind: EmailKind,
+): Promise<EmailPlan | { error: string }> {
+  const counts: EmailCounts = {
+    queued: 0,
+    no_consent: 0,
+    no_email: 0,
+    suppressed: 0,
+    not_allowed: 0,
+    sendable_today: 0,
+    capacity: 0,
+  };
+  const rows: EmailPlan["rows"] = [];
+  for (let i = 0; i < userIds.length; i += EMAIL_LOOKUP_CHUNK) {
+    const { data, error } = await db.rpc("admin_broadcast_email_recipients", {
+      p_user_ids: userIds.slice(i, i + EMAIL_LOOKUP_CHUNK),
+    });
+    if (error) return { error: error.message };
+    for (const r of data ?? []) {
+      // The RPC reports "suppressed" before "no_consent", so a service notice
+      // never reaches a suppressed address.
+      const mailable =
+        r.outcome === "ok" ||
+        (kind === "service" && r.outcome === "no_consent");
+      if (!mailable && r.outcome === "no_consent") counts.no_consent += 1;
+      else if (r.outcome === "suppressed") counts.suppressed += 1;
+      else if (!mailable || !r.email) counts.no_email += 1;
+      else if (
+        isReservedAddress(r.email) ||
+        !recipientAllowed(config.allowedRecipients, r.email)
+      ) {
+        counts.not_allowed += 1;
+      } else rows.push({ user_id: r.user_id, to_email: r.email });
+    }
+  }
+  counts.queued = rows.length;
+
+  // The dispatcher's daily budget for classes 2+ (src/lib/email/budget.ts),
+  // minus today's sends and the mail already waiting in the queue.
+  const dayStart = new Date();
+  dayStart.setUTCHours(0, 0, 0, 0);
+  let waitingQuery = db
+    .from("email_outbound")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["queued", "sending"]);
+  // Rows to reserved test domains (e2e accounts) are only ever cancelled.
+  for (const tld of RESERVED_TLDS) {
+    waitingQuery = waitingQuery.not("to_email", "like", `%.${tld}`);
+  }
+  const [sent, waiting] = await Promise.all([
+    db
+      .from("email_outbound")
+      .select("id", { count: "exact", head: true })
+      .gte("sent_at", dayStart.toISOString()),
+    waitingQuery,
+  ]);
+  if (sent.error) return { error: sent.error.message };
+  if (waiting.error) return { error: waiting.error.message };
+  const daily = config.dailyCap - criticalReserve(config.dailyCap);
+  const used = (sent.count ?? 0) + (waiting.count ?? 0);
+  counts.sendable_today = Math.min(rows.length, Math.max(0, daily - used));
+  counts.capacity = Math.max(0, daily * EMAIL_QUEUE_DAYS - used);
+  return { rows, counts };
+}
 
 type Body = {
   severity?: Severity;
   channel?: Channel;
+  /** Email only; a missing value (an older page bundle) is an offer. */
+  email_kind?: EmailKind;
   title?: string;
   subject?: string;
   message?: string;
@@ -49,6 +163,23 @@ export async function POST(req: NextRequest) {
   if (body.channel !== "push" && body.channel !== "email") {
     return Response.json({ error: "invalid channel" }, { status: 400 });
   }
+  const emailKind = body.email_kind ?? "marketing";
+  if (emailKind !== "marketing" && emailKind !== "service") {
+    return Response.json({ error: "invalid email_kind" }, { status: 400 });
+  }
+  // Without these the dispatcher sends nothing: refuse instead of recording a
+  // broadcast nobody receives.
+  const emailConfig = body.channel === "email" ? getEmailConfig() : null;
+  if (
+    emailConfig &&
+    (!emailConfig.deliveryEnabled ||
+      !emailConfig.resendApiKey ||
+      !emailConfig.siteUrl ||
+      (emailConfig.allowedRecipients !== "all" &&
+        emailConfig.allowedRecipients.size === 0))
+  ) {
+    return Response.json({ error: "email_not_configured" }, { status: 503 });
+  }
   const targetRoles = body.target_roles.filter((r): r is Role =>
     VALID_ROLES.has(r),
   );
@@ -64,15 +195,20 @@ export async function POST(req: NextRequest) {
 
   const db = createServiceClient(guard.admin.userId);
 
-  // Resolve recipients: profiles.id where role in target_roles, UNION target_user_ids.
+  // Resolve recipients: users holding a target role (profile role OR the
+  // cabinet derived from owned data), UNION target_user_ids.
   const recipientIds = new Set<string>(targetUserIds);
   if (targetRoles.length > 0) {
-    const { data: roleUsers, error: rErr } = await db
-      .from("profiles")
-      .select("id")
-      .in("role", targetRoles);
-    if (rErr) return Response.json({ error: rErr.message }, { status: 500 });
-    for (const u of roleUsers ?? []) recipientIds.add(u.id);
+    try {
+      for (const id of await loadAudienceUserIds(db, targetRoles)) {
+        recipientIds.add(id);
+      }
+    } catch (e) {
+      return Response.json(
+        { error: e instanceof Error ? e.message : "audience lookup failed" },
+        { status: 500 },
+      );
+    }
   }
   if (!body.include_self) {
     recipientIds.delete(guard.admin.userId);
@@ -90,6 +226,32 @@ export async function POST(req: NextRequest) {
   const message = body.message.trim();
   const subject = body.subject?.trim() || null;
 
+  let email: EmailPlan | null = null;
+  if (emailConfig) {
+    const plan = await planBroadcastEmail(
+      db,
+      emailConfig,
+      Array.from(recipientIds),
+      emailKind,
+    );
+    if ("error" in plan) {
+      return Response.json({ error: plan.error }, { status: 500 });
+    }
+    if (plan.rows.length === 0) {
+      return Response.json(
+        { error: "no_email_recipients", email: plan.counts },
+        { status: 400 },
+      );
+    }
+    if (plan.rows.length > plan.counts.capacity) {
+      return Response.json(
+        { error: "over_email_capacity", email: plan.counts },
+        { status: 409 },
+      );
+    }
+    email = plan;
+  }
+
   const { data: record, error: bErr } = await db
     .from("broadcasts")
     .insert({
@@ -97,7 +259,7 @@ export async function POST(req: NextRequest) {
       audience_filter: audienceFilter,
       subject,
       body: message,
-      recipient_count: recipientIds.size,
+      recipient_count: email ? email.rows.length : recipientIds.size,
       sent_by: guard.admin.userId,
       severity: body.severity,
       target_roles: targetRoles,
@@ -108,7 +270,38 @@ export async function POST(req: NextRequest) {
     .single();
   if (bErr) return Response.json({ error: bErr.message }, { status: 500 });
 
-  // Insert notifications (push channel only for now — email channel recorded but not wired to a provider yet).
+  // Email: one email_outbound row per recipient (no bell notification); the
+  // dispatcher sends them after all transactional mail (class 4, C33), an
+  // offer with the marketing footer, a service notice with the service one.
+  if (email) {
+    const notificationType =
+      emailKind === "service" ? "service_broadcast" : "broadcast";
+    const rows = email.rows.map((r) => ({
+      ...r,
+      notification_type: notificationType,
+      subject: (subject ?? title).slice(0, 200),
+      body: message.slice(0, 4000),
+    }));
+    let queued = 0;
+    for (let i = 0; i < rows.length; i += EMAIL_INSERT_CHUNK) {
+      const chunk = rows.slice(i, i + EMAIL_INSERT_CHUNK);
+      const { error: eErr } = await db.from("email_outbound").insert(chunk);
+      if (eErr) {
+        await db
+          .from("broadcasts")
+          .update({ recipient_count: queued })
+          .eq("id", record.id);
+        return Response.json(
+          { error: eErr.message, delivered: queued, recipients: rows.length },
+          { status: 500 },
+        );
+      }
+      queued += chunk.length;
+    }
+    return Response.json({ ok: true, broadcast: record, email: email.counts });
+  }
+
+  // Push: a bell notification per recipient.
   if (body.channel === "push") {
     const rows = Array.from(recipientIds).map((userId) => ({
       user_id: userId,
@@ -118,8 +311,21 @@ export async function POST(req: NextRequest) {
       severity: body.severity,
       broadcast_id: record.id,
     }));
-    const { error: nErr } = await db.from("notifications").insert(rows);
-    if (nErr) return Response.json({ error: nErr.message }, { status: 500 });
+    const { delivered, error: nErr } = await insertNotificationsChunked(
+      db,
+      rows,
+    );
+    if (nErr) {
+      // Keep the history row honest: record what was actually delivered.
+      await db
+        .from("broadcasts")
+        .update({ recipient_count: delivered })
+        .eq("id", record.id);
+      return Response.json(
+        { error: nErr, delivered, recipients: recipientIds.size },
+        { status: 500 },
+      );
+    }
   }
 
   return Response.json({ ok: true, broadcast: record });

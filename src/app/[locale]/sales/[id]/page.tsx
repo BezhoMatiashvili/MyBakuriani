@@ -9,7 +9,15 @@ import {
   getCachedPublicProperty,
   getCachedPublicReviews,
 } from "@/lib/data/getCachedPublicListing";
-import { buildListingMetadata } from "@/lib/seo";
+import { pickDescription } from "@/lib/seo/description";
+import { buildListingMetadata, redirectToCanonicalListing } from "@/lib/seo";
+import { propertyViewUrl } from "@/lib/utils/listingUrls";
+import ListingBreadcrumbs from "@/components/seo/ListingBreadcrumbs";
+import ListingFacts, {
+  listingFactsText,
+  propertyFactsFromRow,
+} from "@/components/seo/ListingFacts";
+import RelatedListings from "@/components/seo/RelatedListings";
 import SaleDetailClient from "./SaleDetailClient";
 
 interface Props {
@@ -37,18 +45,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "Metadata" });
   // Cached public listing only — the cookie-aware metadata fallback lives on
   // the /preview route. A miss (pending/blocked/deleted) gets the not-found title.
+  // A transient error rethrows, as in the page body, instead of being cached as
+  // a not-found title.
   const data = isMockPropertyId(id)
     ? getMockProperty(id)
-    : await getCachedPublicProperty(id).catch(() => null);
+    : await getCachedPublicProperty(id).catch((err: unknown) => {
+        unstable_rethrow(err);
+        throw err;
+      });
 
   if (!data) {
     return { title: t("detail.saleNotFound") };
   }
 
   const title = t("detail.saleTitle", { title: data.title });
-  const description =
-    data.description ??
-    t("detail.saleDesc", { title: data.title, location: data.location });
+  const description = pickDescription(
+    data.description,
+    await listingFactsText(locale, propertyFactsFromRow(data)),
+  );
 
   return {
     title,
@@ -64,7 +78,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function SaleDetailPage({ params }: Props) {
-  const { id } = await params;
+  const { locale, id } = await params;
   // Env-only read (static-safe). Owner/QA visibility is decided client-side
   // inside PriceDropAlertButton via useAuth() — no auth round-trip here.
   const priceAlertMode = smsFeatureMode("SMS_PRICE_DROP_MODE");
@@ -83,6 +97,14 @@ export default async function SaleDetailPage({ params }: Props) {
     );
   }
 
+  // Start the extra read alongside the listing rather than after it: it used to
+  // be a second serial round-trip wave. The `.catch()` marks the promise ITSELF
+  // as handled (the derived promise it returns is what `void` discards), so an
+  // early notFound() unwind can't surface an unhandled rejection. It is still
+  // awaited below and still rejects, so a real failure stays loud.
+  const reviewsPromise = getCachedPublicReviews(id);
+  void reviewsPromise.catch(() => {});
+
   // Cached public (active) listing — zero DB round-trip on a cache hit. A
   // transient miss-time error rethrows so this render fails (uncached) instead
   // of caching a 404 of a live listing for the next 60s.
@@ -98,14 +120,38 @@ export default async function SaleDetailPage({ params }: Props) {
     notFound();
   }
 
-  const reviews = await getCachedPublicReviews(id);
+  redirectToCanonicalListing(
+    `/sales/${id}`,
+    propertyViewUrl(cached),
+    locale,
+  );
+
+  const reviews = await reviewsPromise;
 
   return (
-    <SaleDetailClient
-      property={cached}
-      reviews={reviews}
-      isPending={false}
-      priceAlertMode={priceAlertMode}
-    />
+    <>
+      <ListingBreadcrumbs
+        locale={locale}
+        kind="sales"
+        title={cached.title}
+        path={`/sales/${id}`}
+      />
+      <SaleDetailClient
+        property={cached}
+        reviews={reviews}
+        isPending={false}
+        priceAlertMode={priceAlertMode}
+      />
+      <ListingFacts
+        locale={locale}
+        kind="sales"
+        facts={propertyFactsFromRow(cached)}
+      />
+      <RelatedListings
+        locale={locale}
+        kind="sales"
+        excludeId={id}
+      />
+    </>
   );
 }

@@ -1,7 +1,8 @@
 import { type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { test, expect } from "../helpers/fixtures";
-import { services, supabaseAdmin } from "../helpers/supabase";
+import { PHONES, TEST_IDS } from "../helpers/seed";
+import { cleaningTasks, services, supabaseAdmin } from "../helpers/supabase";
 
 /** If page redirected to login, skip assertion gracefully */
 async function assertDashboard(page: Page) {
@@ -54,12 +55,87 @@ test.describe("Cleaner Dashboard", () => {
     await expect(cleanerPage).toHaveURL(/\/dashboard\/cleaner/);
   });
 
+  // Owner's PDF "გასასწორებელი (6ოქტ)" p.3: one account ID in every cabinet.
+  test("the sidebar shows the same MB- account ID as the other cabinets", async ({
+    cleanerPage,
+  }) => {
+    await cleanerPage.goto("/dashboard/cleaner");
+    if (!(await assertDashboard(cleanerPage))) return;
+
+    const accountId = `ID: MB-${TEST_IDS.cleaner.replace(/-/g, "").slice(0, 5).toUpperCase()}`;
+    await expect(
+      cleanerPage.locator("aside").getByText(accountId, { exact: true }),
+    ).toBeVisible();
+
+    // The copy button copies the bare ID and leaves the cabinet switcher shut.
+    await cleanerPage
+      .context()
+      .grantPermissions(["clipboard-read", "clipboard-write"]);
+    await cleanerPage.locator("aside").getByTestId("copy-user-id").click();
+    await expect
+      .poll(() => cleanerPage.evaluate(() => navigator.clipboard.readText()))
+      .toBe(accountId.replace("ID: ", ""));
+    await expect(
+      cleanerPage.locator("aside").getByText("სივრცის შეცვლა"),
+    ).toHaveCount(0);
+  });
+
   test("schedule page loads", async ({ cleanerPage }) => {
     await cleanerPage.goto("/dashboard/cleaner/schedule");
     if (!(await assertDashboard(cleanerPage))) return;
 
     await expect(cleanerPage.locator("main")).toBeVisible();
     await expect(cleanerPage).toHaveURL(/\/dashboard\/cleaner\/schedule/);
+  });
+
+  test("a confirmed call-out shows the owner's number, note and price unit on its card", async ({
+    cleanerPage,
+    testIds,
+  }) => {
+    await cleanerPage.goto("/dashboard/cleaner");
+    // No silent skip: a login redirect would otherwise pass this test without a check.
+    expect(cleanerPage.url()).not.toContain("/auth/");
+
+    // Owner and cleaner are different accounts: RLS hides the apartment and the
+    // owner's profile from the cleaner, so these only arrive through
+    // get_my_cleaning_task_owner_details().
+    const card = cleanerPage.getByTestId(
+      `cleaner-scheduled-task-platform-${testIds.cleanerScheduleTask}`,
+    );
+    await expect(card).toBeVisible();
+    await expect(card).toContainText("E2E ვილა ბაკურიანში");
+    await expect(card).toContainText("E2E გამქირავებელი");
+    await expect(card.getByTestId("cleaner-task-call")).toHaveAttribute(
+      "href",
+      `tel:${PHONES.renter}`,
+    );
+    await expect(card.getByTestId("cleaner-task-notes")).toContainText(
+      "განრიგის CTA ტესტი",
+    );
+    await expect(card).toContainText(/100 ₾\s*\/\s*საათი/);
+  });
+
+  test("the schedule shows the owner's number and note for a platform job", async ({
+    cleanerPage,
+    testIds,
+  }) => {
+    await cleanerPage.goto("/dashboard/cleaner/schedule");
+    expect(cleanerPage.url()).not.toContain("/auth/");
+
+    // The seed's date helpers follow the machine's timezone (futureISO(0) is
+    // yesterday east of UTC), so select the job's own day, not the default one.
+    const job = await cleaningTasks.get(testIds.cleanerScheduleTask);
+    await selectCalendarDate(cleanerPage, new Date(job!.scheduled_at));
+
+    const day = cleanerPage.getByTestId("cleaner-selected-day-schedule");
+    await expect(day).toContainText("E2E ვილა ბაკურიანში");
+    await expect(day.getByTestId("cleaner-task-call").first()).toHaveAttribute(
+      "href",
+      `tel:${PHONES.renter}`,
+    );
+    await expect(day.getByTestId("cleaner-task-notes").first()).toContainText(
+      "განრიგის CTA ტესტი",
+    );
   });
 
   test("exact cleaner slots are exclusive across both task sources", async ({
@@ -424,7 +500,9 @@ test.describe("Cleaner Dashboard", () => {
 
     // Create and edit flows direct the cleaner back here instead of racing the
     // unique index or placing an impossible editorial request in the queue.
-    await cleanerPage.goto("/create/service");
+    // The cleaner cabinet's own link: it fixes the category to cleaning (the
+    // form no longer pre-selects a sphere for anyone who arrives without one).
+    await cleanerPage.goto("/create/service?category=cleaning");
     await expect(
       cleanerPage.getByTestId("existing-247-conflict"),
     ).toBeVisible();

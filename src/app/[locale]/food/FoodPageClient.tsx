@@ -11,17 +11,11 @@ import type { Tables } from "@/lib/types/database";
 import ServiceCard from "@/components/cards/ServiceCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { interleaveSponsored } from "@/lib/ad-rotation";
 import { ResponsiveFilterSheet } from "@/components/shared/ResponsiveFilterSheet";
 import { isDiscountActive } from "@/lib/utils/pricing";
 
-const OBJECT_TYPES = [
-  "all",
-  "restaurant",
-  "cafe",
-  "bar",
-  "fastfood",
-  "other",
-] as const;
+const OBJECT_TYPES = ["all", "restaurant", "bar", "fastfood", "other"] as const;
 
 // `value` is matched against DB `location` values and must stay Georgian.
 const LOCATION_FILTERS = [
@@ -53,8 +47,10 @@ type PublicService = Pick<
   | "schedule"
   | "operating_hours"
   | "is_vip"
+  | "is_super_vip"
   | "created_at"
   | "best_active_menu_item_discount_percent"
+  | "ownership_verified"
 >;
 
 interface Props {
@@ -66,21 +62,14 @@ function matchesObjectType(s: PublicService, value: string): boolean {
   switch (value) {
     case "restaurant":
       return cuisine === "georgian" || cuisine === "european";
-    case "cafe":
-      return cuisine === "cafe";
     case "bar":
       return cuisine === "bar";
     case "fastfood":
       return cuisine === "fastfood" || cuisine === "pizza";
     case "other":
-      return ![
-        "georgian",
-        "european",
-        "cafe",
-        "bar",
-        "fastfood",
-        "pizza",
-      ].includes(cuisine);
+      return !["georgian", "european", "bar", "fastfood", "pizza"].includes(
+        cuisine,
+      );
     default:
       return true;
   }
@@ -115,6 +104,11 @@ export default function FoodPageClient({ services }: Props) {
         return true;
       })
       .sort((a, b) => {
+        // SUPER VIP → VIP → active menu discount → newest (2026 price list:
+        // the discount badge buys no priority over the paid VIP tiers).
+        if (Boolean(a.is_super_vip) !== Boolean(b.is_super_vip))
+          return a.is_super_vip ? -1 : 1;
+        if (Boolean(a.is_vip) !== Boolean(b.is_vip)) return a.is_vip ? -1 : 1;
         const aDiscount = isDiscountActive(
           a.best_active_menu_item_discount_percent,
           null,
@@ -124,7 +118,6 @@ export default function FoodPageClient({ services }: Props) {
           null,
         );
         if (aDiscount !== bDiscount) return aDiscount ? -1 : 1;
-        if (Boolean(a.is_vip) !== Boolean(b.is_vip)) return a.is_vip ? -1 : 1;
         return (
           new Date(b.created_at ?? 0).getTime() -
           new Date(a.created_at ?? 0).getTime()
@@ -151,15 +144,17 @@ export default function FoodPageClient({ services }: Props) {
         }}
       >
         <div className="mx-auto max-w-3xl">
-          <ScrollReveal>
+          {/* No entrance fade: the h1 is the LCP element (C40). */}
+          <div>
             <h1 className="text-[30px] font-black leading-[38px] lg:text-[48px] lg:leading-[56px]">
               <span className="text-white">{t("heroTitle1")}</span>{" "}
-              <span className="text-white">{t("heroTitle2")}</span>
+              <span className="text-white">{t("heroTitle2")}</span>{" "}
+              <span className="text-white">{t("heroLocation")}</span>
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-[15px] leading-[24px] text-white/80">
               {t("heroSubtitle")}
             </p>
-          </ScrollReveal>
+          </div>
           <div className="mx-auto mt-8 flex max-w-[720px] items-center gap-2 rounded-full bg-white p-2 shadow-lg">
             <div className="flex flex-1 items-center gap-2 pl-4">
               <Search className="h-5 w-5 text-[#94A3B8]" />
@@ -275,32 +270,42 @@ export default function FoodPageClient({ services }: Props) {
                 bare
                 className="col-span-full"
               />
-              <BannerSlot placement="listing_grid" bare />
-
-              {paginated.map((s, i) => (
-                <ScrollReveal key={s.id} delay={i * 0.05}>
-                  <ServiceCard
-                    mobilePresentation="compact-grid"
-                    id={s.id}
-                    createdAt={s.created_at}
-                    title={s.title}
-                    category={s.category}
-                    location={s.location}
-                    photos={s.photos ?? []}
-                    price={s.price}
-                    priceUnit={s.price_unit}
-                    discountPercent={
-                      s.best_active_menu_item_discount_percent ?? 0
-                    }
-                    discountExpiresAt={null}
-                    isVip={s.is_vip ?? false}
-                    variant="photo"
-                    schedule={s.schedule}
-                    operatingHours={s.operating_hours}
-                    phone={null}
+              {interleaveSponsored(
+                paginated.map((s, i) => (
+                  <ScrollReveal key={s.id} delay={i * 0.05}>
+                    <ServiceCard
+                      mobilePresentation="compact-grid"
+                      id={s.id}
+                      createdAt={s.created_at}
+                      title={s.title}
+                      category={s.category}
+                      location={s.location}
+                      photos={s.photos ?? []}
+                      price={s.price}
+                      priceUnit={s.price_unit}
+                      discountPercent={
+                        s.best_active_menu_item_discount_percent ?? 0
+                      }
+                      discountExpiresAt={null}
+                      isVip={s.is_vip ?? false}
+                      isSuperVip={s.is_super_vip ?? false}
+                      isOwnershipVerified={s.ownership_verified ?? false}
+                      variant="photo"
+                      schedule={s.schedule}
+                      operatingHours={s.operating_hours}
+                      phone={null}
+                    />
+                  </ScrollReveal>
+                )),
+                (slot) => (
+                  <BannerSlot
+                    key={`sponsored-${slot}`}
+                    placement="listing_grid"
+                    bare
+                    position={slot}
                   />
-                </ScrollReveal>
-              ))}
+                ),
+              )}
             </div>
             {totalPages > 1 && (
               <div className="mt-12 flex flex-wrap items-center justify-center gap-2">

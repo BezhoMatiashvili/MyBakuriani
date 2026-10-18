@@ -1,23 +1,6 @@
-import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
-import type { AppLocale } from "@/i18n/routing";
-
-// The locale must be passed explicitly. getTranslations("Metadata") resolves the
-// locale by reading headers(), which throws (500) in this static/ISR render when
-// the URL carries an invalid locale segment — e.g. a crawler hitting /ads.txt.
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: AppLocale }>;
-}): Promise<Metadata> {
-  const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Metadata" });
-  return {
-    title: t("sales"),
-    description: t("salesDesc"),
-  };
-}
-
+// Metadata for /sales lives in page.tsx: a page's generateMetadata overrides its
+// layout's, so a layout copy was dead weight and a second place for the copy to
+// drift (C40).
 export default function SalesLayout({
   children,
 }: {

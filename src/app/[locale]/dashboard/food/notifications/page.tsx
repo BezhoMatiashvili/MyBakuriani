@@ -65,7 +65,11 @@ export default function FoodNotificationsPage() {
   } = useRealtimeList<Notification>({
     table: "notifications",
     enabled: !!user,
-    filter: user ? "dashboard_scope=eq.food" : undefined,
+    // Filtered on the viewer, per C19: a dashboard_scope filter would stream
+    // every other user's rows to an admin viewer. Refetch mode keeps the list
+    // to this scope, since the fetcher below applies it.
+    filter: user ? `user_id=eq.${user.id}` : undefined,
+    mode: "refetch",
     fetcher: async () => {
       const { data } = await supabase
         .from("notifications")
@@ -108,7 +112,11 @@ export default function FoodNotificationsPage() {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
     );
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", id)
+      .eq("user_id", user?.id ?? "");
   }
 
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import "mapbox-gl/dist/mapbox-gl.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import { useTranslations } from "next-intl";
 import { Loader2, Search } from "lucide-react";
@@ -48,46 +48,87 @@ export default function ExactLocationPicker({
   const [latInput, setLatInput] = useState(value ? String(value.lat) : "");
   const [lngInput, setLngInput] = useState(value ? String(value.lng) : "");
 
-  // ── Address search (forward geocoding via /api/geocode) ──
+  // ── Address search: type-ahead suggestions via /api/geocode ──
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<GeocodeResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false); // "no search yet" vs "0 results"
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const abortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const listId = useId();
+  const listOpen = open && results.length > 0;
 
-  // Abort any in-flight geocode request when the picker unmounts.
-  useEffect(() => () => abortRef.current?.abort(), []);
+  // Drop the pending keystroke search and any in-flight request on unmount.
+  useEffect(
+    () => () => {
+      clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
+    },
+    [],
+  );
 
-  const runSearch = useCallback(async () => {
-    const q = query.trim();
-    if (q.length < 3 || searching) return;
+  // `explicit` = Enter or the search button. Only then does a failure toast;
+  // a flaky upstream or a 429 must not toast on every keystroke.
+  const runSearch = useCallback(
+    async (q: string, explicit: boolean) => {
+      clearTimeout(debounceRef.current);
+      abortRef.current?.abort(); // the latest query always wins
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error("geocode failed");
+        const json = (await res.json()) as { results?: GeocodeResult[] };
+        setResults(json.results ?? []);
+        setActiveIndex(-1);
+        setOpen(true);
+        setSearched(true);
+      } catch (err) {
+        if ((err as Error)?.name === "AbortError") return; // superseded by a newer search
+        setResults([]);
+        if (explicit) toast.error(t("searchError"));
+      } finally {
+        if (abortRef.current === controller) setSearching(false);
+      }
+    },
+    [t],
+  );
 
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setSearching(true);
-    setSearched(true);
-    try {
-      const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`, {
-        signal: controller.signal,
-      });
-      if (!res.ok) throw new Error("geocode failed");
-      const json = (await res.json()) as { results?: GeocodeResult[] };
-      setResults(json.results ?? []);
-    } catch (err) {
-      if ((err as Error)?.name === "AbortError") return; // superseded by a newer search
+  const handleQueryChange = (next: string) => {
+    setQuery(next);
+    setSearched(false); // no "no results" while the next search is pending
+    setActiveIndex(-1);
+    clearTimeout(debounceRef.current);
+    const q = next.trim();
+    if (q.length < 3) {
+      abortRef.current?.abort();
       setResults([]);
-      toast.error(t("searchError"));
-    } finally {
-      if (abortRef.current === controller) setSearching(false);
+      return;
     }
-  }, [query, searching, t]);
+    debounceRef.current = setTimeout(() => runSearch(q, false), 300);
+  };
+
+  const searchNow = () => {
+    const q = query.trim();
+    if (q.length >= 3) runSearch(q, true);
+  };
 
   const handleSelectResult = useCallback(
     (r: GeocodeResult) => {
+      clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
       onChange({ lat: r.lat, lng: r.lng });
       setResults([]);
       setSearched(false);
+      setOpen(false);
+      setActiveIndex(-1);
       setQuery(r.display_name);
     },
     [onChange],
@@ -225,21 +266,53 @@ export default function ExactLocationPicker({
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => handleQueryChange(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                const n = results.length;
+                if (n === 0) return;
                 e.preventDefault();
-                runSearch();
+                const step = e.key === "ArrowDown" ? 1 : -1;
+                setOpen(true);
+                setActiveIndex((i) =>
+                  !listOpen || i < 0
+                    ? step === 1
+                      ? 0
+                      : n - 1
+                    : (i + step + n) % n,
+                );
+              } else if (e.key === "Enter") {
+                e.preventDefault();
+                if (listOpen && activeIndex >= 0) {
+                  handleSelectResult(results[activeIndex]);
+                } else {
+                  searchNow();
+                }
+              } else if (e.key === "Escape" && listOpen) {
+                e.preventDefault();
+                setOpen(false);
               }
             }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setOpen(false)}
             placeholder={t("searchPlaceholder")}
             className={inputClass}
             aria-label={t("searchLabel")}
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={listOpen}
+            aria-controls={listOpen ? listId : undefined}
+            aria-activedescendant={
+              listOpen && activeIndex >= 0
+                ? `${listId}-${activeIndex}`
+                : undefined
+            }
+            autoComplete="off"
           />
           <button
             type="button"
-            onClick={runSearch}
-            disabled={searching || query.trim().length < 3}
+            onClick={searchNow}
+            disabled={query.trim().length < 3}
             aria-label={t("searchButton")}
             className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-xl bg-[#2563EB] text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50"
           >
@@ -250,29 +323,35 @@ export default function ExactLocationPicker({
             )}
           </button>
         </div>
-        {searching && (
+        {searching && !listOpen && (
           <p className="text-xs text-[#64748B]">{t("searching")}</p>
         )}
         {!searching && searched && results.length === 0 && (
           <p className="text-xs text-[#64748B]">{t("noResults")}</p>
         )}
-        {results.length > 0 && (
+        {listOpen && (
           <>
             <ul
+              id={listId}
               role="listbox"
+              aria-label={t("searchLabel")}
               className="divide-y divide-[#E2E8F0] overflow-hidden rounded-xl border border-[#E2E8F0] bg-white"
             >
               {results.map((r, i) => (
-                <li key={`${r.lat},${r.lng},${i}`}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={false}
-                    onClick={() => handleSelectResult(r)}
-                    className="block w-full px-4 py-2.5 text-left text-sm text-[#334155] outline-none transition-colors hover:bg-[#F1F5F9] focus:bg-[#F1F5F9]"
-                  >
-                    {r.display_name}
-                  </button>
+                <li
+                  key={`${r.lat},${r.lng},${i}`}
+                  id={`${listId}-${i}`}
+                  role="option"
+                  aria-selected={i === activeIndex}
+                  // Keeps focus in the input, so its blur doesn't close the
+                  // list before the click lands.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelectResult(r)}
+                  className={`flex min-h-[44px] cursor-pointer items-center px-4 py-2.5 text-left text-sm text-[#334155] transition-colors hover:bg-[#F1F5F9] ${
+                    i === activeIndex ? "bg-[#F1F5F9]" : ""
+                  }`}
+                >
+                  {r.display_name}
                 </li>
               ))}
             </ul>

@@ -4,7 +4,11 @@ import { getMessages, getTranslations } from "next-intl/server";
 import { isSmsFeatureEnabled } from "@/lib/sms/feature-flags";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser, getCurrentProfile } from "@/lib/auth/current-user";
+import { requireConsent } from "@/lib/auth/require-consent";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { SupportAssistantLoader } from "@/components/support/SupportAssistantLoader";
+import { isSupportConfigured } from "@/lib/support/openrouter";
+import { DASHBOARD_NAMESPACES, pickMessages } from "@/i18n/namespaces";
 import { deriveAvailableCabinets } from "@/lib/cabinets";
 import type { DashboardUnreadCounts } from "@/lib/notifications/scopes";
 
@@ -58,14 +62,20 @@ export default async function DashboardLayout({
     redirect("/auth/login");
   }
 
+  // Server-side backstop for the blocking consent gate. Reuses the same
+  // cache()-wrapped getCurrentProfile() call already in flight above, so this
+  // adds no round trip. See src/lib/auth/require-consent.ts.
+  await requireConsent();
+
   const t = await getTranslations("DashboardLayout");
   const sellerSmsFlag = isSmsFeatureEnabled("SMS_PRICE_DROP_MODE", user.id);
 
   // One RPC instead of 7 parallel REST queries — counts, balance and
   // cabinet-derivation flags arrive in a single round trip.
   // The root [locale] provider only ships public namespaces, so re-provide the
-  // full message bundle for the dashboard subtree (nested providers replace,
-  // not merge — locale/timeZone/formats are still inherited from the parent).
+  // dashboard subtree's namespaces (DASHBOARD_NAMESPACES, derived by
+  // scripts/i18n-scope.mjs; nested providers replace, not merge —
+  // locale/timeZone/formats are still inherited from the parent).
   // sellerSmsCount only depends on user.id (already resolved above), so it runs
   // alongside the rest of this request's Supabase calls instead of adding a
   // separate round-trip to the tail of the critical path.
@@ -109,7 +119,9 @@ export default async function DashboardLayout({
   const canUseSellerSms = sellerSmsFlag && (sellerSmsCount.count ?? 0) > 0;
 
   return (
-    <NextIntlClientProvider messages={messages}>
+    <NextIntlClientProvider
+      messages={pickMessages(messages, DASHBOARD_NAMESPACES)}
+    >
       <DashboardShell
         userId={user.id}
         displayName={displayName}
@@ -127,6 +139,7 @@ export default async function DashboardLayout({
       >
         {children}
       </DashboardShell>
+      {isSupportConfigured() && <SupportAssistantLoader homeRole={role} />}
     </NextIntlClientProvider>
   );
 }

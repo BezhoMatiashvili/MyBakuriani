@@ -2,14 +2,13 @@
 import { useState, useMemo } from "react";
 import { Search, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
-import {
-  optionKeyFor,
-  priceUnitPathFor,
-} from "@/lib/constants/listing-options";
+import { optionKeyFor } from "@/lib/constants/listing-options";
+import { describeSalary } from "@/lib/employment/salary";
 import type { Tables } from "@/lib/types/database";
 import EmploymentCard from "@/components/cards/EmploymentCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { interleaveSponsored } from "@/lib/ad-rotation";
 import { ResponsiveFilterSheet } from "@/components/shared/ResponsiveFilterSheet";
 
 // `value` is matched against DB `position` values and must stay Georgian.
@@ -30,14 +29,15 @@ const ITEMS_PER_PAGE = 9;
 // filters). The server query selects exactly these; widening usage here will
 // surface as a type error until the select in page.tsx is updated to match.
 type EmploymentListing = Pick<
-  Tables<"services">,
+  Tables<"public_services">,
   | "id"
   | "title"
   | "position"
   | "location"
   | "description"
   | "price"
-  | "price_unit"
+  | "salary_type"
+  | "salary_range"
   | "salary_daily"
   | "salary_min"
   | "salary_max"
@@ -47,7 +47,9 @@ type EmploymentListing = Pick<
   | "discount_percent"
   | "discount_expires_at"
   | "is_vip"
+  | "is_super_vip"
   | "created_at"
+  | "ownership_verified"
 >;
 
 interface Props {
@@ -56,7 +58,7 @@ interface Props {
 }
 
 function deriveBadge(s: EmploymentListing): "urgent" | "vip" | null {
-  if (s.is_vip) return "vip";
+  if (s.is_super_vip || s.is_vip) return "vip";
   if (s.discount_percent && s.discount_percent > 0) return "urgent";
   return null;
 }
@@ -65,20 +67,6 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
   const t = useTranslations("EmploymentPage");
   const tShared = useTranslations("Shared");
   const tOpts = useTranslations("ListingOptions");
-
-  const salaryLabel = (s: EmploymentListing): string | null => {
-    if (s.salary_daily != null)
-      return t("salaryDaily", { amount: s.salary_daily });
-    if (s.salary_min != null && s.salary_max != null) {
-      return `${s.salary_min} - ${s.salary_max} ₾`;
-    }
-    if (s.price != null) {
-      const unitPath = priceUnitPathFor(s.price_unit);
-      const unit = unitPath ? tOpts(unitPath) : s.price_unit;
-      return `${s.price} ₾${unit ? ` / ${unit}` : ""}`;
-    }
-    return null;
-  };
 
   // Rows store Georgian enum labels (e.g. "მოქნილი"); resolve to the
   // ListingOptions translation, passing unknown free-text through raw.
@@ -256,25 +244,34 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
                 bare
                 className="col-span-full"
               />
-              <BannerSlot placement="listing_grid" bare />
-
-              {paginated.map((s, i) => (
-                <ScrollReveal key={s.id} delay={i * 0.05}>
-                  <EmploymentCard
-                    id={s.id}
-                    createdAt={s.created_at}
-                    title={s.position ?? s.title}
-                    employer={s.title}
-                    location={s.location}
-                    salaryLabel={salaryLabel(s)}
-                    scheduleLabel={scheduleLabel(s)}
-                    description={s.description}
-                    badge={deriveBadge(s)}
-                    applicationsCount={cvCounts[s.id] ?? 0}
-                    highlighted={s.is_vip ?? false}
+              {interleaveSponsored(
+                paginated.map((s, i) => (
+                  <ScrollReveal key={s.id} delay={i * 0.05}>
+                    <EmploymentCard
+                      id={s.id}
+                      createdAt={s.created_at}
+                      title={s.position ?? s.title}
+                      employer={s.title}
+                      location={s.location}
+                      salary={describeSalary(s)}
+                      scheduleLabel={scheduleLabel(s)}
+                      description={s.description}
+                      badge={deriveBadge(s)}
+                      applicationsCount={cvCounts[s.id] ?? 0}
+                      highlighted={Boolean(s.is_super_vip || s.is_vip)}
+                      isOwnershipVerified={s.ownership_verified ?? false}
+                    />
+                  </ScrollReveal>
+                )),
+                (slot) => (
+                  <BannerSlot
+                    key={`sponsored-${slot}`}
+                    placement="listing_grid"
+                    bare
+                    position={slot}
                   />
-                </ScrollReveal>
-              ))}
+                ),
+              )}
             </div>
             {totalPages > 1 && (
               <div className="mt-12 flex flex-wrap items-center justify-center gap-2">

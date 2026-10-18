@@ -5,11 +5,14 @@ import { ExternalLink, MapPin } from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
 import { trackMenuOpen } from "@/lib/menu-tracking";
 import { safeHttpsUrl } from "@/lib/security";
+import { googleMapsDirectionsUrl, type LatLng } from "@/lib/maps/googleMapsUrl";
 
 interface Props {
   phone: string | null;
   menuUrl: string | null;
   location: string | null;
+  /** The owner's map pin, when one was set. */
+  coords?: LatLng | null;
   serviceId?: string | null;
 }
 
@@ -17,6 +20,7 @@ export function FoodContactCard({
   phone,
   menuUrl,
   location,
+  coords,
   serviceId,
 }: Props) {
   const t = useTranslations("FoodDetail");
@@ -25,13 +29,16 @@ export function FoodContactCard({
   // (a non-https value, e.g. `javascript:`, becomes a stored-XSS href).
   const safeMenuUrl = menuUrl ? safeHttpsUrl(menuUrl) : null;
 
-  // Google Maps search query, not visible UI — Georgian "ბაკურიანი" matches
-  // the Georgian location strings stored in the DB for geocoding.
-  const mapsHref = location
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-        `${location} ბაკურიანი`,
-      )}`
-    : null;
+  // With a pin: directions to it (Google Maps starts from the device's own
+  // location). Without one, a search for the zone text — Georgian
+  // "ბაკურიანი" matches the Georgian location strings stored in the DB.
+  const mapsHref = coords
+    ? googleMapsDirectionsUrl(coords)
+    : location
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          `${location} ბაკურიანი`,
+        )}`
+      : null;
 
   return (
     <div className="rounded-[20px] border border-[#E2E8F0] bg-white p-6">

@@ -9,9 +9,15 @@ import { useActiveZones } from "@/lib/zones/client";
 import { FALLBACK_ZONES, resolveZone } from "@/lib/zones/types";
 import { cn } from "@/lib/utils";
 
-const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
-  ssr: false,
-});
+const BakurianiMap = dynamic(
+  () =>
+    import("@/components/maps/BakurianiMap").then((mod) =>
+      mod.canvasReady.then(() => mod),
+    ),
+  {
+    ssr: false,
+  },
+);
 
 // Seeded zone slugs have display translations under Zones.<slug>; unknown
 // (admin-created) zones fall back to their Georgian name_ka/description_ka.

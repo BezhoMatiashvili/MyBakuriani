@@ -8,6 +8,7 @@ import {
   legacyKindForPlacement,
   type BannerPlacement,
 } from "@/lib/banner-placements";
+import { SUPABASE_MEDIA_HOSTS } from "@/lib/media-hosts";
 import { safeHttpsUrl, safeInternalPath } from "@/lib/security";
 
 /**
@@ -46,6 +47,17 @@ export type BannerCreative = {
   /** Shown in the editorial detail modal's schedule row. */
   startAt: string | null;
   endAt: string | null;
+  /** Last tie-break of the render order (newest first). */
+  createdAt: string | null;
+  /**
+   * Ads only (C47, the media plan's §7): the booked share of voice (25 | 50 |
+   * 100), priority (1–10) and daily frequency cap per device (null = none).
+   * Editorial banners carry nulls: they are house fill, drawn in the share
+   * the ads leave (src/lib/banner-slots-client.ts:useSlotRotation).
+   */
+  sovPercent: number | null;
+  priority: number | null;
+  frequencyCap: number | null;
 };
 
 const VIDEO_URL_RE = /\.(mp4|webm)(\?|#|$)/i;
@@ -74,7 +86,7 @@ export function isCreativeMediaUrl(value: unknown): boolean {
   try {
     const url = new URL(safe);
     return (
-      url.hostname.endsWith(".supabase.co") &&
+      SUPABASE_MEDIA_HOSTS.includes(url.hostname) &&
       url.pathname.startsWith("/storage/v1/object/public/")
     );
   } catch {
@@ -87,8 +99,9 @@ export function isCreativeMediaUrl(value: unknown): boolean {
  *
  * This is the INTERSECTION of two independent allow-lists, and both must hold:
  *   - CSP `img-src` in src/middleware.ts:21 — 'self', data:, blob:,
- *     *.supabase.co, images.unsplash.com, *.basemaps.cartocdn.com
- *   - next/image `remotePatterns` in next.config.ts — *.supabase.co restricted
+ *     the Supabase hosts of @/lib/media-hosts (C6), images.unsplash.com,
+ *     *.basemaps.cartocdn.com
+ *   - next/image `remotePatterns` in next.config.ts — those Supabase hosts restricted
  *     to pathname /storage/v1/object/public/**, plus images.unsplash.com
  *
  * Note this is deliberately NOT `safeStorageImageUrl` from @/lib/security: that
@@ -103,7 +116,7 @@ export function renderableImageUrl(value: unknown): string | null {
     const url = new URL(safe);
     if (url.hostname === "images.unsplash.com") return safe;
     if (
-      url.hostname.endsWith(".supabase.co") &&
+      SUPABASE_MEDIA_HOSTS.includes(url.hostname) &&
       url.pathname.startsWith("/storage/v1/object/public/")
     ) {
       return safe;
@@ -116,14 +129,15 @@ export function renderableImageUrl(value: unknown): string | null {
 
 /**
  * Strictly narrower than renderableImageUrl: CSP `media-src` (middleware.ts:24)
- * is only 'self' + *.supabase.co — unsplash is NOT allowed for media.
+ * is only 'self' + the Supabase hosts of @/lib/media-hosts — unsplash is NOT
+ * allowed for media.
  */
 export function renderableVideoUrl(value: unknown): string | null {
   const safe = safeHttpsUrl(value);
   if (!safe) return null;
   try {
     const url = new URL(safe);
-    return url.hostname.endsWith(".supabase.co") &&
+    return SUPABASE_MEDIA_HOSTS.includes(url.hostname) &&
       url.pathname.startsWith("/storage/v1/object/public/")
       ? safe
       : null;
@@ -175,6 +189,7 @@ type LandingBannerRow = {
   end_at: string | null;
   kind?: string;
   placement?: string | null;
+  created_at?: string | null;
 };
 
 /**
@@ -226,6 +241,10 @@ export function landingBannerToCreative(
     sortOrder: row.sort_order ?? 0,
     startAt: row.start_at ?? null,
     endAt: row.end_at ?? null,
+    createdAt: row.created_at ?? null,
+    sovPercent: null,
+    priority: null,
+    frequencyCap: null,
   };
 }
 
@@ -238,6 +257,10 @@ type AdRow = {
   position?: string | null;
   start_at?: string | null;
   end_at?: string | null;
+  created_at?: string | null;
+  sov_percent?: number | null;
+  priority?: number | null;
+  frequency_cap_per_day?: number | null;
 };
 
 function resolveAdPlacement(row: AdRow): BannerPlacement | null {
@@ -287,11 +310,13 @@ export function adRowToCreative(row: AdRow): BannerCreative | null {
     sortOrder: 0,
     startAt: row.start_at ?? null,
     endAt: row.end_at ?? null,
+    createdAt: row.created_at ?? null,
+    // A row read without these columns (an app ahead of its migration) is
+    // drawn as the whole slot, the way ads rendered before C47.
+    sovPercent: row.sov_percent ?? null,
+    priority: row.priority ?? null,
+    frequencyCap: row.frequency_cap_per_day ?? null,
   };
-}
-
-export function creativeHasMedia(creative: BannerCreative): boolean {
-  return creative.imageUrl != null || creative.videoUrl != null;
 }
 
 /** Re-exported so admin write paths keep `landing_banners.kind` valid. */

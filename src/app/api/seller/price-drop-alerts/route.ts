@@ -1,5 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { isSmsFeatureEnabled } from "@/lib/sms/feature-flags";
 
 export const runtime = "nodejs";
@@ -21,39 +22,81 @@ export type SellerPriceAlertListing = {
 };
 
 export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return Response.json({ error: "unauthenticated" }, { status: 401 });
+  const guard = await requireUser();
+  if (!guard.ok) return guard.response;
+  const { user } = guard;
   if (!isSmsFeatureEnabled("SMS_PRICE_DROP_MODE", user.id)) {
     return Response.json({ error: "feature_unavailable" }, { status: 404 });
   }
 
-  const db = createServiceClient();
+  const supabase = await createClient();
   const [balanceRes, propertiesRes] = await Promise.all([
-    db.from("balances").select("sms_remaining").eq("user_id", user.id).maybeSingle(),
-    db.from("properties").select("id,title,sale_price,currency,status").eq("owner_id", user.id).eq("is_for_sale", true).is("organization_id", null).order("created_at", { ascending: false }),
+    supabase
+      .from("balances")
+      .select("sms_remaining")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("properties")
+      .select("id,title,sale_price,currency,status")
+      .eq("owner_id", user.id)
+      .eq("is_for_sale", true)
+      .is("organization_id", null)
+      .order("created_at", { ascending: false }),
   ]);
-  if (propertiesRes.error) return Response.json({ error: propertiesRes.error.message }, { status: 500 });
+  if (propertiesRes.error)
+    return Response.json(
+      { error: propertiesRes.error.message },
+      { status: 500 },
+    );
 
   const propertyIds = (propertiesRes.data ?? []).map((property) => property.id);
   if (propertyIds.length === 0) {
-    return Response.json({ sms_remaining: Number(balanceRes.data?.sms_remaining ?? 0), listings: [] });
+    return Response.json({
+      sms_remaining: Number(balanceRes.data?.sms_remaining ?? 0),
+      listings: [],
+    });
   }
 
+  // sale_price_alert_rules and sale_price_drop_events have no authenticated
+  // grant at all (admin-only RLS), and sale_price_alert_subscriptions' RLS
+  // only lets a caller read rows where THEY are the subscriber — not the
+  // aggregate subscriber count for properties they own. None of the three is
+  // expressible through RLS for the seller, so this batch stays service-role.
+  const db = createServiceClient();
   const [rulesRes, subscriptionsRes, eventsRes] = await Promise.all([
-    db.from("sale_price_alert_rules").select("property_id,enabled").in("property_id", propertyIds),
-    db.from("sale_price_alert_subscriptions").select("property_id").in("property_id", propertyIds).eq("active", true),
-    db.from("sale_price_drop_events").select("property_id,status,baseline_price,latest_price,send_after").in("property_id", propertyIds).order("created_at", { ascending: false }),
+    db
+      .from("sale_price_alert_rules")
+      .select("property_id,enabled")
+      .in("property_id", propertyIds),
+    db
+      .from("sale_price_alert_subscriptions")
+      .select("property_id")
+      .in("property_id", propertyIds)
+      .eq("active", true),
+    db
+      .from("sale_price_drop_events")
+      .select("property_id,status,baseline_price,latest_price,send_after")
+      .in("property_id", propertyIds)
+      .order("created_at", { ascending: false }),
   ]);
   const error = rulesRes.error ?? subscriptionsRes.error ?? eventsRes.error;
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
-  const enabledByProperty = new Map((rulesRes.data ?? []).map((rule) => [rule.property_id, rule.enabled]));
+  const enabledByProperty = new Map(
+    (rulesRes.data ?? []).map((rule) => [rule.property_id, rule.enabled]),
+  );
   const subscriberCount = new Map<string, number>();
   for (const subscription of subscriptionsRes.data ?? []) {
-    subscriberCount.set(subscription.property_id, (subscriberCount.get(subscription.property_id) ?? 0) + 1);
+    subscriberCount.set(
+      subscription.property_id,
+      (subscriberCount.get(subscription.property_id) ?? 0) + 1,
+    );
   }
-  const recentEvent = new Map<string, SellerPriceAlertListing["recent_event"]>();
+  const recentEvent = new Map<
+    string,
+    SellerPriceAlertListing["recent_event"]
+  >();
   for (const event of eventsRes.data ?? []) {
     if (!recentEvent.has(event.property_id)) {
       recentEvent.set(event.property_id, {
@@ -65,13 +108,19 @@ export async function GET() {
     }
   }
 
-  const listings: SellerPriceAlertListing[] = (propertiesRes.data ?? []).map((property) => ({
-    ...property,
-    sale_price: property.sale_price == null ? null : Number(property.sale_price),
-    enabled: enabledByProperty.get(property.id) ?? false,
-    subscriber_count: subscriberCount.get(property.id) ?? 0,
-    recent_event: recentEvent.get(property.id) ?? null,
-  }));
+  const listings: SellerPriceAlertListing[] = (propertiesRes.data ?? []).map(
+    (property) => ({
+      ...property,
+      sale_price:
+        property.sale_price == null ? null : Number(property.sale_price),
+      enabled: enabledByProperty.get(property.id) ?? false,
+      subscriber_count: subscriberCount.get(property.id) ?? 0,
+      recent_event: recentEvent.get(property.id) ?? null,
+    }),
+  );
 
-  return Response.json({ sms_remaining: Number(balanceRes.data?.sms_remaining ?? 0), listings });
+  return Response.json({
+    sms_remaining: Number(balanceRes.data?.sms_remaining ?? 0),
+    listings,
+  });
 }

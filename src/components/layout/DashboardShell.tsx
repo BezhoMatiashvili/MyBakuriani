@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type Dispatch,
@@ -12,12 +13,15 @@ import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { clearSupportChat } from "@/lib/support/storage";
+import { clearStaffBrowser, markStaffBrowser } from "@/lib/staff-browser";
 import {
   leadsClient,
   SELLER_LEADS_CHANGED_EVENT,
   sellerLeadsScopeKey,
   type SellerLeadsChangedDetail,
 } from "@/lib/supabase/leads";
+import { showsSms } from "@/lib/dashboard/cabinetSms";
 import {
   toServiceSegment,
   SEGMENT_TO_ROLE_KEY,
@@ -28,9 +32,15 @@ import {
 } from "@/lib/dashboard/orgScope";
 import {
   dashboardScopeForPath,
+  dashboardScopeFromRoute,
   type DashboardScope,
   type DashboardUnreadCounts,
 } from "@/lib/notifications/scopes";
+import {
+  DashboardNotificationsFeedProvider,
+  type DashboardNotificationsFeed,
+  type NotificationRow,
+} from "@/lib/dashboard/notificationsFeed";
 import BottomSheet from "@/components/shared/BottomSheet";
 import { MobileServiceSwitcherGrid } from "@/components/layout/MobileServiceSwitcherGrid";
 
@@ -90,6 +100,22 @@ const ServiceSidebar = dynamic(() =>
 const ServiceTopbar = dynamic(() =>
   import("@/components/layout/ServiceTopbar").then((mod) => mod.ServiceTopbar),
 );
+
+/**
+ * Exact unread count across EVERY scope (global NULL-scope notices included):
+ * the header bell's number. Null on error so callers keep the last good value.
+ */
+async function fetchTotalUnread(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<number | null> {
+  const { count, error } = await supabase
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_read", false);
+  return error ? null : (count ?? 0);
+}
 
 /**
  * Fetches the "new" leads count for the seller sidebar badge. Rendered inside
@@ -218,6 +244,15 @@ export function DashboardShell({
   const tRenter = useTranslations("RenterDashboard");
   const tSidebar = useTranslations("DashboardSidebar");
   const [unreadCounts, setUnreadCounts] = useState(initialUnreadCounts);
+  // Header-bell number: unread across ALL scopes incl. global NULL notices,
+  // which dashboard_layout_data's per-scope map excludes. Seeded from that
+  // map for first paint, then made exact by a user_id-only head-count on mount.
+  const [totalUnread, setTotalUnread] = useState(() =>
+    Object.values(initialUnreadCounts).reduce(
+      (sum, count) => sum + (count ?? 0),
+      0,
+    ),
+  );
   const [smartMatchCount, setSmartMatchCount] = useState(
     initialSmartMatchCount,
   );
@@ -226,6 +261,16 @@ export function DashboardShell({
   const [membershipCount, setMembershipCount] = useState(0);
   const [cleanerAvailable, setCleanerAvailable] = useState(cleanerOnline);
   const [serviceSwitcherOpen, setServiceSwitcherOpen] = useState(false);
+  // INSERT/UPDATE rows this component's own subscription below has seen
+  // (bounded, newest last), handed to DashboardNotificationsFeedProvider so
+  // useNotifications() (used by the guest/cleaner/admin topbar bell) can merge
+  // them instead of opening a second, redundant channel on the same
+  // table/filter. An array rather than a single slot: two rows landing in the
+  // same React batch (e.g. the smart-match fan-out) would otherwise collapse
+  // to just the last one.
+  const [notificationEvents, setNotificationEvents] = useState<
+    { eventType: "INSERT" | "UPDATE"; row: NotificationRow }[]
+  >([]);
   // One timer PER scope: two notification events for different cabinets inside
   // the debounce window must not cancel each other, or the first cabinet's badge
   // never reconciles. (smartMatchTimer is scope-less, so a single ref is right.)
@@ -233,6 +278,7 @@ export function DashboardShell({
     Partial<Record<DashboardScope, ReturnType<typeof setTimeout>>>
   >({});
   const smartMatchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const totalRecountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Prevent a development-mode effect replay from issuing the same bulk update
   // twice, while clearing this key after leaving the inbox still lets a later
   // visit count as a fresh page entry.
@@ -278,6 +324,22 @@ export function DashboardShell({
       }, 400);
     };
 
+    // Reconcile the all-scope total behind the header bell. Unlike the cabinet
+    // badges this also covers global (NULL-scope) notices.
+    const recountTotal = () => {
+      if (totalRecountTimer.current) clearTimeout(totalRecountTimer.current);
+      totalRecountTimer.current = setTimeout(() => {
+        void fetchTotalUnread(supabase, userId).then((count) => {
+          if (count !== null) setTotalUnread(count);
+        });
+      }, 400);
+    };
+
+    // The seed above omits NULL-scope notices; correct it right away.
+    void fetchTotalUnread(supabase, userId).then((count) => {
+      if (count !== null) setTotalUnread(count);
+    });
+
     // The Smart Match badge is NOT notification-derived: it re-reads the same
     // definition the inbox renders (open requests this renter hasn't answered),
     // which is the only way it can go down when an offer is sent or a request
@@ -314,6 +376,17 @@ export function DashboardShell({
               [scope]: (current[scope] ?? 0) + 1,
             }));
           }
+          // The header bell counts every scope, global notices included.
+          setTotalUnread((current) => current + 1);
+          setNotificationEvents((prev) =>
+            [
+              ...prev,
+              {
+                eventType: "INSERT" as const,
+                row: payload.new as NotificationRow,
+              },
+            ].slice(-50),
+          );
           if (
             (payload.new as { type?: string } | null)?.type ===
             "smart_match_request"
@@ -340,6 +413,16 @@ export function DashboardShell({
             payload.new as { dashboard_scope?: DashboardScope | null }
           )?.dashboard_scope;
           if (scope) recountUnread(scope);
+          recountTotal();
+          setNotificationEvents((prev) =>
+            [
+              ...prev,
+              {
+                eventType: "UPDATE" as const,
+                row: payload.new as NotificationRow,
+              },
+            ].slice(-50),
+          );
         },
       )
       .on(
@@ -365,6 +448,7 @@ export function DashboardShell({
       });
       recountTimers.current = {};
       if (smartMatchTimer.current) clearTimeout(smartMatchTimer.current);
+      if (totalRecountTimer.current) clearTimeout(totalRecountTimer.current);
       supabase.removeChannel(channel);
     };
   }, [userId, hasRenterCabinet]);
@@ -411,6 +495,11 @@ export function DashboardShell({
           // Do not clear other cabinets locally. Realtime updates reconcile
           // later changes, including notifications that arrive after entry.
           setUnreadCounts((current) => ({ ...current, [scope]: 0 }));
+          // The bulk read also lowered the all-scope total behind the header
+          // bell; re-read it instead of guessing how many rows it flipped.
+          void fetchTotalUnread(supabase, userId).then((count) => {
+            if (count !== null) setTotalUnread(count);
+          });
         }
       });
   }, [pathname, userId]);
@@ -434,7 +523,15 @@ export function DashboardShell({
       .catch(() => {});
   }, [role, pathname]);
 
+  // An admin's browser is never frequency-capped and sends no banner stats
+  // (C47, src/lib/staff-browser.ts); cleared again in handleSignOut.
+  useEffect(() => {
+    if (role === "admin") markStaffBrowser();
+  }, [role]);
+
   async function handleSignOut() {
+    clearSupportChat();
+    clearStaffBrowser();
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
@@ -450,13 +547,50 @@ export function DashboardShell({
     // /dashboard/sms is the renter cabinet's SMS Center — always show the renter
     // sidebar (the link only exists there and the page is renter-gated), so
     // multi-cabinet users don't get bounced to their primary-role sidebar.
-    return cabinet === "sms" ? "renter" : cabinet;
+    if (cabinet === "sms") return "renter";
+    // /dashboard/account (sign-in methods + notification channels) belongs to
+    // the whole account, not one cabinet, so it renders inside the user's own
+    // cabinet shell. Falling through to the generic DashboardSidebar showed a
+    // raw i18n key and guest-only links on desktop, and no header on mobile.
+    if (cabinet === "account") return null;
+    // /dashboard/payments/result is where Keepz sends a payer back from any
+    // cabinet, so it renders in the user's own shell too (C32).
+    if (cabinet === "payments") return null;
+    return cabinet;
   })();
   const activeRole = cabinetFromPath ?? role;
-  const normalizedPath =
-    pathname.replace(/^\/(ka|en|ru)(?=\/|$)/, "") || "/";
-  const activeScope = dashboardScopeForPath(pathname) ?? "guest";
+  const normalizedPath = pathname.replace(/^\/(ka|en|ru)(?=\/|$)/, "") || "/";
+  const activeScope =
+    dashboardScopeForPath(pathname) ??
+    dashboardScopeFromRoute(activeRole) ??
+    "guest";
   const notificationCount = unreadCounts[activeScope] ?? 0;
+  // Shared with DashboardNotificationsFeedProvider (wraps every branch below)
+  // so the header bell's useNotifications() reuses this state instead of
+  // duplicating it. unreadCount is the all-scope total; the per-cabinet map
+  // above only feeds sidebar badges.
+  const dashboardNotificationsFeedValue = useMemo<DashboardNotificationsFeed>(
+    () => ({
+      unreadCount: totalUnread,
+      events: notificationEvents,
+      adjustUnreadCount: (delta, rowScope) => {
+        setTotalUnread((current) => Math.max(0, current + delta));
+        if (rowScope) {
+          setUnreadCounts((current) => ({
+            ...current,
+            [rowScope]: Math.max(0, (current[rowScope] ?? 0) + delta),
+          }));
+        }
+      },
+      resetUnreadCount: () => {
+        setTotalUnread(0);
+        setUnreadCounts((current) =>
+          Object.fromEntries(Object.keys(current).map((scope) => [scope, 0])),
+        );
+      },
+    }),
+    [totalUnread, notificationEvents],
+  );
 
   const isAdmin = activeRole === "admin";
   const isRenter = activeRole === "renter";
@@ -468,136 +602,98 @@ export function DashboardShell({
   // "service"/"handyman" aliases); drives the ServiceSidebar/Topbar branch.
   const serviceSegment = toServiceSegment(activeRole);
   const shortUserId = `MB-${userId.replace(/-/g, "").slice(0, 5).toUpperCase()}`;
+  // The phone "More" sheet's account row: the desktop sidebar's name + ID chip.
+  const mobileProfile = {
+    name: displayName,
+    avatarUrl: avatarUrl ?? undefined,
+    userCode: shortUserId,
+  };
 
-  if (isAdmin) {
-    return (
-      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#02060E] lg:h-screen">
-        <AdminSidebar
-          verificationAlerts={verificationCount}
-          membershipAlerts={membershipCount}
-          onSignOut={handleSignOut}
-        />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#F8FAFC]">
-          <AdminTopbar
-            userName={displayName}
-            notificationCount={notificationCount}
+  // One notifications subscription for every cabinet: the provider wraps
+  // whichever shell branch renders, so each topbar's bell shares it.
+  // Each scrolling <main> is `relative` so absolutely positioned page content
+  // (every `sr-only` input or label) scrolls inside it; without a positioned
+  // ancestor it sits in the window instead and stretches the document, letting
+  // the whole shell scroll up over blank space.
+  function renderShell() {
+    if (isAdmin) {
+      return (
+        <div className="flex h-[100dvh] w-full overflow-hidden bg-[#02060E] lg:h-screen">
+          <AdminSidebar
+            verificationAlerts={verificationCount}
+            membershipAlerts={membershipCount}
+            onSignOut={handleSignOut}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-8 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8 xl:p-10">
-            {children}
-          </main>
-        </div>
-        <MobileBottomNav
-          currentPath={pathname}
-          userRole="admin"
-          onSignOut={handleSignOut}
-          notificationCount={notificationCount}
-          availableCabinets={availableCabinets}
-        />
-      </div>
-    );
-  }
-
-  if (isRenter) {
-    return (
-      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
-        <RenterSidebar
-          userName={displayName}
-          userId={shortUserId}
-          avatarUrl={avatarUrl ?? undefined}
-          isVerified
-          notificationCount={notificationCount}
-          pendingReviewsAlert={false}
-          smartMatchCount={smartMatchCount}
-          currentPath={pathname}
-          onSignOut={handleSignOut}
-          availableCabinets={availableCabinets}
-          canUseSms={canUseSms}
-        />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <RenterTopbar balance={balance} smsRemaining={smsRemaining} />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
-            {normalizedPath === "/dashboard/renter" && (
-              <div className="border-b border-[#E2E8F0] bg-white px-4 lg:hidden">
-                <button
-                  type="button"
-                  data-testid="renter-active-service"
-                  aria-expanded={serviceSwitcherOpen}
-                  onClick={() => setServiceSwitcherOpen(true)}
-                  className="flex min-h-14 w-full items-center justify-between gap-3 text-left"
-                >
-                  <span className="text-[12px] font-semibold text-[#64748B]">
-                    {tRenter("activeService")}
-                  </span>
-                  <span className="flex min-w-0 items-center gap-2 text-[12px] font-extrabold text-[#1E293B]">
-                    <span className="truncate">
-                      {tSidebar("switcher.rentalsRent")}
-                    </span>
-                    <ChevronDown
-                      className="size-4 shrink-0 text-[#64748B]"
-                      aria-hidden
-                    />
-                  </span>
-                </button>
-              </div>
-            )}
-            <div
-              className={
-                normalizedPath === "/dashboard/renter"
-                  ? "w-full px-4 py-5 sm:px-10 sm:py-10"
-                  : "w-full px-5 py-8 sm:px-10 sm:py-10"
-              }
-            >
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#F8FAFC]">
+            <AdminTopbar
+              userName={displayName}
+              notificationCount={totalUnread}
+            />
+            <main className="relative h-0 w-full flex-1 overflow-y-auto p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-8 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8 xl:p-10">
               {children}
-            </div>
-          </main>
-        </div>
-        <MobileBottomNav
-          currentPath={pathname}
-          userRole={activeRole}
-          onSignOut={handleSignOut}
-          notificationCount={notificationCount}
-          canUseSms={canUseSms}
-          availableCabinets={availableCabinets}
-        />
-        <BottomSheet
-          isOpen={serviceSwitcherOpen}
-          onClose={() => setServiceSwitcherOpen(false)}
-          title={tSidebar("serviceSwitcher")}
-        >
-          <MobileServiceSwitcherGrid
-            activeCabinetKey="renter"
+            </main>
+          </div>
+          <MobileBottomNav
+            currentPath={pathname}
+            userRole="admin"
+            onSignOut={handleSignOut}
             availableCabinets={availableCabinets}
-            onSelect={() => setServiceSwitcherOpen(false)}
           />
-        </BottomSheet>
-      </div>
-    );
-  }
+        </div>
+      );
+    }
 
-  if (isSeller) {
-    return (
-      <ActiveOrgScopeProvider companies={companies}>
-        <SellerLeadsCountEffect userId={userId} onCount={setLeadsCount} />
+    if (isRenter) {
+      return (
         <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
-          <SellerSidebar
+          <RenterSidebar
             userName={displayName}
+            userId={shortUserId}
             avatarUrl={avatarUrl ?? undefined}
             isVerified
-            leadsCount={leadsCount}
             notificationCount={notificationCount}
+            pendingReviewsAlert={false}
+            smartMatchCount={smartMatchCount}
             currentPath={pathname}
             onSignOut={handleSignOut}
             availableCabinets={availableCabinets}
-            companies={companies}
-            canUseSellerSms={canUseSellerSms}
+            canUseSms={canUseSms}
           />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <SellerTopbar balance={balance} smsRemaining={smsRemaining} />
-            <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+            <RenterTopbar
+              balance={balance}
+              smsRemaining={smsRemaining}
+              notificationCount={totalUnread}
+            />
+            <main className="relative h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+              {normalizedPath === "/dashboard/renter" && (
+                <div className="border-b border-[#E2E8F0] bg-white px-4 lg:hidden">
+                  <button
+                    type="button"
+                    data-testid="renter-active-service"
+                    aria-expanded={serviceSwitcherOpen}
+                    onClick={() => setServiceSwitcherOpen(true)}
+                    className="flex min-h-14 w-full items-center justify-between gap-3 text-left"
+                  >
+                    <span className="text-[12px] font-semibold text-[#64748B]">
+                      {tRenter("activeService")}
+                    </span>
+                    <span className="flex min-w-0 items-center gap-2 text-[12px] font-extrabold text-[#1E293B]">
+                      <span className="truncate">
+                        {tSidebar("switcher.rentalsRent")}
+                      </span>
+                      <ChevronDown
+                        className="size-4 shrink-0 text-[#64748B]"
+                        aria-hidden
+                      />
+                    </span>
+                  </button>
+                </div>
+              )}
               <div
                 className={
-                  normalizedPath === "/dashboard/seller"
-                    ? "w-full px-4 py-6 sm:px-10 sm:py-10"
+                  normalizedPath === "/dashboard/renter"
+                    ? "w-full px-4 py-5 sm:px-10 sm:py-10"
                     : "w-full px-5 py-8 sm:px-10 sm:py-10"
                 }
               >
@@ -609,163 +705,238 @@ export function DashboardShell({
             currentPath={pathname}
             userRole={activeRole}
             onSignOut={handleSignOut}
-            notificationCount={notificationCount}
-            leadsCount={leadsCount}
-            canUseSms={canUseSellerSms}
+            canUseSms={canUseSms}
             availableCabinets={availableCabinets}
-            balance={balance}
-            companies={companies}
+            profile={mobileProfile}
+          />
+          <BottomSheet
+            isOpen={serviceSwitcherOpen}
+            onClose={() => setServiceSwitcherOpen(false)}
+            title={tSidebar("serviceSwitcher")}
+          >
+            <MobileServiceSwitcherGrid
+              activeCabinetKey="renter"
+              availableCabinets={availableCabinets}
+              onSelect={() => setServiceSwitcherOpen(false)}
+            />
+          </BottomSheet>
+        </div>
+      );
+    }
+
+    if (isSeller) {
+      return (
+        <ActiveOrgScopeProvider companies={companies}>
+          <SellerLeadsCountEffect userId={userId} onCount={setLeadsCount} />
+          <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
+            <SellerSidebar
+              userName={displayName}
+              avatarUrl={avatarUrl ?? undefined}
+              isVerified
+              leadsCount={leadsCount}
+              notificationCount={notificationCount}
+              currentPath={pathname}
+              onSignOut={handleSignOut}
+              availableCabinets={availableCabinets}
+              companies={companies}
+              canUseSellerSms={canUseSellerSms}
+            />
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <SellerTopbar
+                balance={balance}
+                smsRemaining={smsRemaining}
+                notificationCount={totalUnread}
+              />
+              <main className="relative h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+                <div
+                  className={
+                    normalizedPath === "/dashboard/seller"
+                      ? "w-full px-4 py-6 sm:px-10 sm:py-10"
+                      : "w-full px-5 py-8 sm:px-10 sm:py-10"
+                  }
+                >
+                  {children}
+                </div>
+              </main>
+            </div>
+            <MobileBottomNav
+              currentPath={pathname}
+              userRole={activeRole}
+              onSignOut={handleSignOut}
+              leadsCount={leadsCount}
+              canUseSms={canUseSellerSms}
+              availableCabinets={availableCabinets}
+              balance={balance}
+              companies={companies}
+              profile={mobileProfile}
+            />
+          </div>
+        </ActiveOrgScopeProvider>
+      );
+    }
+
+    if (isGuest) {
+      return (
+        <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
+          <GuestSidebar
+            userName={displayName}
+            avatarUrl={avatarUrl ?? undefined}
+            isVerified
+            currentPath={pathname}
+            onSignOut={handleSignOut}
+            availableCabinets={availableCabinets}
+          />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <GuestTopbar notificationCount={totalUnread} />
+            <main className="relative h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+              <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
+                {children}
+              </div>
+            </main>
+          </div>
+          <MobileBottomNav
+            currentPath={pathname}
+            userRole={activeRole}
+            onSignOut={handleSignOut}
+            availableCabinets={availableCabinets}
+            profile={mobileProfile}
           />
         </div>
-      </ActiveOrgScopeProvider>
-    );
-  }
+      );
+    }
 
-  if (isGuest) {
-    return (
-      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
-        <GuestSidebar
-          userName={displayName}
-          avatarUrl={avatarUrl ?? undefined}
-          isVerified
-          currentPath={pathname}
-          onSignOut={handleSignOut}
-          availableCabinets={availableCabinets}
-        />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <GuestTopbar notificationCount={notificationCount} />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
-            <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
-          </main>
+    if (isCleaner) {
+      return (
+        <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
+          <CleanerSidebar
+            userName={displayName}
+            userId={shortUserId}
+            avatarUrl={avatarUrl ?? undefined}
+            currentPath={pathname}
+            onSignOut={handleSignOut}
+            availableCabinets={availableCabinets}
+          />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <CleanerTopbar
+              notificationCount={totalUnread}
+              available={cleanerAvailable}
+              onAvailableChange={handleCleanerAvailableChange}
+            />
+            <main className="relative h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+              <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
+                {children}
+              </div>
+            </main>
+          </div>
+          <MobileBottomNav
+            currentPath={pathname}
+            userRole={activeRole}
+            onSignOut={handleSignOut}
+            availableCabinets={availableCabinets}
+            profile={mobileProfile}
+          />
         </div>
-        <MobileBottomNav
-          currentPath={pathname}
-          userRole={activeRole}
-          onSignOut={handleSignOut}
-          notificationCount={notificationCount}
-          availableCabinets={availableCabinets}
-        />
-      </div>
-    );
-  }
+      );
+    }
 
-  if (isCleaner) {
-    return (
-      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
-        <CleanerSidebar
-          userName={displayName}
-          userId={userId}
-          avatarUrl={avatarUrl ?? undefined}
-          currentPath={pathname}
-          onSignOut={handleSignOut}
-          availableCabinets={availableCabinets}
-        />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <CleanerTopbar
+    if (isFood) {
+      return (
+        <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
+          <FoodSidebar
+            restaurantName={displayName}
+            currentPath={pathname}
             notificationCount={notificationCount}
-            available={cleanerAvailable}
-            onAvailableChange={handleCleanerAvailableChange}
+            availableCabinets={availableCabinets}
+            onSignOut={handleSignOut}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
-            <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
-          </main>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <FoodTopbar balance={balance} notificationCount={totalUnread} />
+            <main className="relative h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+              <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
+                {children}
+              </div>
+            </main>
+          </div>
+          <MobileBottomNav
+            currentPath={pathname}
+            userRole={activeRole}
+            onSignOut={handleSignOut}
+            availableCabinets={availableCabinets}
+            profile={mobileProfile}
+          />
         </div>
-        <MobileBottomNav
-          currentPath={pathname}
-          userRole={activeRole}
-          onSignOut={handleSignOut}
-          notificationCount={notificationCount}
-          availableCabinets={availableCabinets}
-        />
-      </div>
-    );
-  }
+      );
+    }
 
-  if (isFood) {
-    return (
-      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
-        <FoodSidebar
-          restaurantName={displayName}
-          currentPath={pathname}
-          notificationCount={notificationCount}
-          availableCabinets={availableCabinets}
-          onSignOut={handleSignOut}
-        />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <FoodTopbar balance={balance} smsRemaining={smsRemaining} />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
-            <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
-          </main>
-        </div>
-        <MobileBottomNav
-          currentPath={pathname}
-          userRole={activeRole}
-          onSignOut={handleSignOut}
-          notificationCount={notificationCount}
-          availableCabinets={availableCabinets}
-        />
-      </div>
-    );
-  }
-
-  if (serviceSegment) {
-    const serviceBasePath = `/dashboard/${serviceSegment}`;
-    return (
-      <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
-        <ServiceSidebar
-          userName={displayName}
-          avatarUrl={avatarUrl ?? undefined}
-          isVerified
-          currentPath={pathname}
-          notificationCount={notificationCount}
-          availableCabinets={availableCabinets}
-          onSignOut={handleSignOut}
-          basePath={serviceBasePath}
-          cabinetKey={serviceSegment}
-          roleKey={SEGMENT_TO_ROLE_KEY[serviceSegment]}
-        />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <ServiceTopbar
-            balance={balance}
-            smsRemaining={smsRemaining}
+    if (serviceSegment) {
+      const serviceBasePath = `/dashboard/${serviceSegment}`;
+      return (
+        <div className="flex h-[100dvh] w-full overflow-hidden bg-[#F8FAFC] lg:h-screen">
+          <ServiceSidebar
+            userName={displayName}
+            avatarUrl={avatarUrl ?? undefined}
+            isVerified
+            currentPath={pathname}
+            notificationCount={notificationCount}
+            availableCabinets={availableCabinets}
+            onSignOut={handleSignOut}
             basePath={serviceBasePath}
+            cabinetKey={serviceSegment}
+            roleKey={SEGMENT_TO_ROLE_KEY[serviceSegment]}
           />
-          <main className="h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
-            <div className="w-full px-5 py-8 sm:px-10 sm:py-10">{children}</div>
-          </main>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <ServiceTopbar
+              balance={balance}
+              smsRemaining={smsRemaining}
+              showSms={showsSms(serviceSegment)}
+              notificationCount={totalUnread}
+              basePath={serviceBasePath}
+            />
+            <main className="relative h-0 w-full flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+              <div className="w-full px-5 py-8 sm:px-10 sm:py-10">
+                {children}
+              </div>
+            </main>
+          </div>
+          <MobileBottomNav
+            currentPath={pathname}
+            userRole={activeRole}
+            onSignOut={handleSignOut}
+            availableCabinets={availableCabinets}
+            profile={mobileProfile}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex min-h-screen bg-[#F8FAFC]/60">
+        <DashboardSidebar
+          userName={displayName}
+          userRole={activeRole}
+          avatarUrl={avatarUrl ?? undefined}
+          smsCount={notificationCount}
+          currentPath={pathname}
+        />
+        <div className="flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+          <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+            {children}
+          </div>
         </div>
         <MobileBottomNav
           currentPath={pathname}
           userRole={activeRole}
           onSignOut={handleSignOut}
-          notificationCount={notificationCount}
           availableCabinets={availableCabinets}
+          profile={mobileProfile}
         />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC]/60">
-      <DashboardSidebar
-        userName={displayName}
-        userRole={activeRole}
-        avatarUrl={avatarUrl ?? undefined}
-        smsCount={notificationCount}
-        currentPath={pathname}
-      />
-      <div className="flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
-        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-          {children}
-        </div>
-      </div>
-      <MobileBottomNav
-        currentPath={pathname}
-        userRole={activeRole}
-        onSignOut={handleSignOut}
-        notificationCount={notificationCount}
-        availableCabinets={availableCabinets}
-      />
-    </div>
+    <DashboardNotificationsFeedProvider value={dashboardNotificationsFeedValue}>
+      {renderShell()}
+    </DashboardNotificationsFeedProvider>
   );
 }

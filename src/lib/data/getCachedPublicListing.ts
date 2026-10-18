@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -9,11 +10,15 @@ import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 /** Public-view contract: the number stays private; only availability is safe. */
 export type PublicPropertyWithProfile = PropertyWithProfile & {
   has_whatsapp: boolean;
+  /** Ownership badge (C39); absent on base-table preview reads. */
+  ownership_verified?: boolean;
 };
 
 /** Public-view contract: the number stays private; only availability is safe. */
 export type PublicServiceWithFoodExtras = ServiceWithFoodExtras & {
   has_whatsapp: boolean;
+  /** Ownership badge (C39); absent on base-table preview reads. */
+  ownership_verified?: boolean;
 };
 
 /**
@@ -41,7 +46,12 @@ export const PUBLIC_LISTING_REVALIDATE_S = 60;
 export const listingTag = (kind: "property" | "service", id: string): string =>
   `${kind}:${id}`;
 
-export function getCachedPublicProperty(
+// Wrapped in React cache() so generateMetadata and the page share one read per
+// request: unstable_cache has no in-flight dedupe, and Supabase requests carry
+// an AbortSignal (timeoutFetch), which opts them out of Next's fetch
+// memoization. The inner unstable_cache keys are unchanged. Callers must not
+// mutate the returned row: within a request it is now one shared object.
+export const getCachedPublicProperty = cache(function getCachedPublicProperty(
   id: string,
 ): Promise<PublicPropertyWithProfile | null> {
   if (!isUuid(id)) return Promise.resolve(null);
@@ -96,9 +106,10 @@ export function getCachedPublicProperty(
       revalidate: PUBLIC_LISTING_REVALIDATE_S,
     },
   )();
-}
+});
 
-export function getCachedPublicService(
+// cache(): see getCachedPublicProperty.
+export const getCachedPublicService = cache(function getCachedPublicService(
   id: string,
 ): Promise<PublicServiceWithFoodExtras | null> {
   if (!isUuid(id)) return Promise.resolve(null);
@@ -132,9 +143,17 @@ export function getCachedPublicService(
       revalidate: PUBLIC_LISTING_REVALIDATE_S,
     },
   )();
-}
+});
 
 export function getCachedPublicMenuItems(id: string) {
+  // A non-UUID id must never reach Postgres: it raises 22P02 (invalid input
+  // syntax for type uuid), which surfaces as an uncached 500. Crawlers and old
+  // URLs produce a steady stream of these. The food page runs this inside a
+  // Promise.all BEFORE notFound(), so for it the 500 was reachable in practice;
+  // the others are only safe today by statement ordering, which is a fragile
+  // reason to stay correct.
+  if (!isUuid(id)) return Promise.resolve([]);
+
   return unstable_cache(
     async () => {
       const supabase = createPublicClient();
@@ -157,15 +176,26 @@ export function getCachedPublicMenuItems(id: string) {
 }
 
 export function getCachedPublicReviews(id: string) {
+  // A non-UUID id must never reach Postgres: it raises 22P02 (invalid input
+  // syntax for type uuid), which surfaces as an uncached 500. Crawlers and old
+  // URLs produce a steady stream of these. The food page runs this inside a
+  // Promise.all BEFORE notFound(), so for it the 500 was reachable in practice;
+  // the others are only safe today by statement ordering, which is a fragile
+  // reason to stay correct.
+  if (!isUuid(id)) return Promise.resolve([]);
+
   return unstable_cache(
     async () => {
       const supabase = createPublicClient();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("public_reviews")
         .select("*")
         .eq("property_id", id)
         .order("created_at", { ascending: false })
         .limit(20);
+      // Don't cache a transient failure as "no reviews": throw so unstable_cache
+      // skips caching and the caller falls through to the dynamic path.
+      if (error) throw error;
       return (data ?? []).map((review) => {
         const row = review as typeof review & {
           guest_display_name?: string | null;
@@ -185,18 +215,29 @@ export function getCachedPublicReviews(id: string) {
 }
 
 export function getCachedPublicCalendar(id: string) {
+  // A non-UUID id must never reach Postgres: it raises 22P02 (invalid input
+  // syntax for type uuid), which surfaces as an uncached 500. Crawlers and old
+  // URLs produce a steady stream of these. The food page runs this inside a
+  // Promise.all BEFORE notFound(), so for it the 500 was reachable in practice;
+  // the others are only safe today by statement ordering, which is a fragile
+  // reason to stay correct.
+  if (!isUuid(id)) return Promise.resolve([]);
+
   return unstable_cache(
     async () => {
       const supabase = createPublicClient();
       const today = new Date();
       const horizon = new Date(today);
       horizon.setMonth(horizon.getMonth() + 3);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("calendar_blocks")
         .select("date, status")
         .eq("property_id", id)
         .gte("date", today.toISOString().split("T")[0])
         .lte("date", horizon.toISOString().split("T")[0]);
+      // Don't cache a transient failure as "no blocks": throw so unstable_cache
+      // skips caching and the caller falls through to the dynamic path.
+      if (error) throw error;
       return data ?? [];
     },
     ["public-calendar", id],
@@ -210,18 +251,24 @@ export function getCachedPublicCalendar(id: string) {
 export function getCachedPublicPriceOverrides(
   id: string,
 ): Promise<PublicPriceOverrides> {
+  // See the note on getCachedPublicMenuItems: a non-UUID id raises 22P02 in
+  // Postgres and surfaces as an uncached 500.
+  if (!isUuid(id)) return Promise.resolve([]);
   return unstable_cache(
     async (): Promise<PublicPriceOverrides> => {
       const supabase = createPublicClient();
       const today = new Date();
       const horizon = new Date(today);
       horizon.setMonth(horizon.getMonth() + 3);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("price_overrides")
         .select("date, price")
         .eq("property_id", id)
         .gte("date", today.toISOString().split("T")[0])
         .lte("date", horizon.toISOString().split("T")[0]);
+      // Don't cache a transient failure as "no overrides": throw so unstable_cache
+      // skips caching and the caller falls through to the dynamic path.
+      if (error) throw error;
       return (data ?? []).map((o) => ({
         date: o.date,
         price: Number(o.price),
@@ -259,6 +306,9 @@ async function fetchCvCounts(ids: string[]): Promise<Record<string, number>> {
 export const getCvCountsForServices = fetchCvCounts;
 
 export function getCachedPublicCvCount(id: string): Promise<number> {
+  // See the note on getCachedPublicMenuItems: a non-UUID id raises 22P02 in
+  // Postgres and surfaces as an uncached 500.
+  if (!isUuid(id)) return Promise.resolve(0);
   return unstable_cache(
     async (): Promise<number> => (await fetchCvCounts([id]))[id] ?? 0,
     ["public-cv-count", id],

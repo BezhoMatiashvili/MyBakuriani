@@ -6,6 +6,7 @@ import type { Tables } from "@/lib/types/database";
 import ServiceCard from "@/components/cards/ServiceCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { interleaveSponsored } from "@/lib/ad-rotation";
 import { ResponsiveFilterSheet } from "@/components/shared/ResponsiveFilterSheet";
 
 // The subset of public_services columns this page actually renders (cards +
@@ -26,8 +27,10 @@ type PublicService = Pick<
   | "schedule"
   | "operating_hours"
   | "is_vip"
+  | "is_super_vip"
   | "has_whatsapp"
   | "created_at"
+  | "ownership_verified"
 >;
 
 const CATEGORIES = [
@@ -113,15 +116,17 @@ export default function ServicesPageClient({ services }: Props) {
         }}
       >
         <div className="mx-auto max-w-3xl">
-          <ScrollReveal>
+          {/* No entrance fade: the h1 is the LCP element (C40). */}
+          <div>
             <h1 className="text-[30px] font-black leading-[38px] lg:text-[48px] lg:leading-[56px]">
               <span className="text-[#60A5FA]">{t("heroTitle1")}</span>{" "}
-              <span className="text-white">{t("heroTitle2")}</span>
+              <span className="text-white">{t("heroTitle2")}</span>{" "}
+              <span className="text-white">{t("heroLocation")}</span>
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-[15px] leading-[24px] text-white/70">
               {t("heroSubtitle")}
             </p>
-          </ScrollReveal>
+          </div>
           <div className="mx-auto mt-8 flex max-w-[720px] items-center gap-2 rounded-full bg-white p-2 shadow-lg">
             <div className="flex flex-1 items-center gap-2 pl-4">
               <Search className="h-5 w-5 text-[#94A3B8]" />
@@ -208,38 +213,48 @@ export default function ServicesPageClient({ services }: Props) {
                 bare
                 className="col-span-full"
               />
-              <BannerSlot placement="listing_grid" bare />
-
-              {paginated.map((s, i) => (
-                <ScrollReveal key={s.id} delay={i * 0.05}>
-                  <ServiceCard
-                    id={s.id}
-                    createdAt={s.created_at}
-                    title={s.title}
-                    category={s.category}
-                    location={s.location}
-                    photos={s.photos ?? []}
-                    price={s.price}
-                    priceUnit={s.price_unit}
-                    discountPercent={s.discount_percent ?? 0}
-                    discountExpiresAt={s.discount_expires_at}
-                    isVip={s.is_vip ?? false}
-                    variant="avatar"
-                    schedule={s.schedule}
-                    operatingHours={s.operating_hours}
-                    phone={null}
-                    hasWhatsapp={s.has_whatsapp ?? false}
-                    providerName={s.position}
-                    // `availabilityStatus` used to be derived from
-                    // `discount_percent > 0`, which is an unrelated column: the
-                    // avatar variant turns "busy" into `phone={null}` on the
-                    // WhatsApp button, so buying a discount removed the only way
-                    // to contact the provider. Nothing tracks real availability
-                    // for services yet, so leave it unset (= active).
-                    availabilityStatus="active"
+              {interleaveSponsored(
+                paginated.map((s, i) => (
+                  <ScrollReveal key={s.id} delay={i * 0.05}>
+                    <ServiceCard
+                      id={s.id}
+                      createdAt={s.created_at}
+                      title={s.title}
+                      category={s.category}
+                      location={s.location}
+                      photos={s.photos ?? []}
+                      price={s.price}
+                      priceUnit={s.price_unit}
+                      discountPercent={s.discount_percent ?? 0}
+                      discountExpiresAt={s.discount_expires_at}
+                      isVip={s.is_vip ?? false}
+                      isSuperVip={s.is_super_vip ?? false}
+                      isOwnershipVerified={s.ownership_verified ?? false}
+                      variant="avatar"
+                      schedule={s.schedule}
+                      operatingHours={s.operating_hours}
+                      phone={null}
+                      hasWhatsapp={s.has_whatsapp ?? false}
+                      providerName={s.position}
+                      // `availabilityStatus` used to be derived from
+                      // `discount_percent > 0`, which is an unrelated column: the
+                      // avatar variant turns "busy" into `phone={null}` on the
+                      // WhatsApp button, so buying a discount removed the only way
+                      // to contact the provider. Nothing tracks real availability
+                      // for services yet, so leave it unset (= active).
+                      availabilityStatus="active"
+                    />
+                  </ScrollReveal>
+                )),
+                (slot) => (
+                  <BannerSlot
+                    key={`sponsored-${slot}`}
+                    placement="listing_grid"
+                    bare
+                    position={slot}
                   />
-                </ScrollReveal>
-              ))}
+                ),
+              )}
             </div>
             {totalPages > 1 && (
               <div className="mt-12 flex flex-wrap items-center justify-center gap-2">

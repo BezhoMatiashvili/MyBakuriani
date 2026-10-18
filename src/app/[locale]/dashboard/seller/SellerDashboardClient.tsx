@@ -21,9 +21,10 @@ import ListingActions from "@/components/dashboard/ListingActions";
 import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
 import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadges";
+import { OwnershipStatusChip } from "@/components/dashboard/OwnershipStatusChip";
 import { type VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Database, Tables } from "@/lib/types/database";
-import { isSuperVipActive } from "@/lib/utils/pricing";
+import { formatGelAmount, isSuperVipActive } from "@/lib/utils/pricing";
 import { loadSellerData, type SellerData } from "./loadData";
 
 const ListingAnalyticsPanel = dynamic(
@@ -80,6 +81,8 @@ export default function SellerDashboardClient({
   const [pickerModal, setPickerModal] = useState<{
     open: boolean;
     tier: VipInfoTier;
+    /** Listing whose row button opened the picker (preselected). */
+    listingId?: string;
   }>({ open: false, tier: "super-vip" });
   const [openAnalytics, setOpenAnalytics] = useState<Set<string>>(new Set());
 
@@ -93,42 +96,16 @@ export default function SellerDashboardClient({
       setProperties(data.properties);
     }
 
-    // Coarse single-condition realtime filter; in personal scope events for
-    // the user's org-linked rows still fire, but loadSellerData excludes them
-    // (organization_id IS NULL) so they only cause a harmless refetch.
-    const filter =
-      scope.mode === "org" && scope.organizationId
-        ? `organization_id=eq.${scope.organizationId}`
-        : `owner_id=eq.${userId}`;
-
     if (scopeInitialized.current) {
       // The active scope changed after mount — refresh immediately so the
-      // preview reflects the newly selected personal/org view without
-      // waiting for a live DB write to trigger the subscription below.
+      // preview reflects the newly selected personal/org view.
       loadSellerData(supabase, userId, scope).then(applyData);
     } else {
       scopeInitialized.current = true;
     }
-
-    // Live: status / VIP changes on the owner's (or, in org scope, the
-    // company's) listings refresh the preview.
-    const channel = supabase
-      .channel("seller-overview-rt")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "properties",
-          filter,
-        },
-        () => loadSellerData(supabase, userId, scope).then(applyData),
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // No realtime channel: `properties` is not in the supabase_realtime
+    // publication (contract C7), so status / VIP changes show on the next
+    // navigation or reload rather than live.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, scope.mode, scope.organizationId]);
 
@@ -232,7 +209,7 @@ export default function SellerDashboardClient({
           />
           <MetricCard
             label={tStats("stats.spent")}
-            value={formatPrice(Number(stats?.spent ?? 0))}
+            value={formatGelAmount(Number(stats?.spent ?? 0))}
             loading={statsLoading}
           />
           <MetricCard
@@ -319,6 +296,7 @@ export default function SellerDashboardClient({
                         src={(property.photos ?? [])[0]}
                         alt={property.title}
                         fill
+                        sizes="88px"
                         className="object-cover"
                       />
                     )}
@@ -365,13 +343,22 @@ export default function SellerDashboardClient({
                         discountPercent={property.discount_percent}
                         discountExpiresAt={property.discount_expires_at}
                       />
+                      {property.owner_id === userId && (
+                        <OwnershipStatusChip
+                          kind="property"
+                          id={property.id}
+                          blocked={property.status === "blocked"}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
                 <ListingActions
                   viewUrl={propertyViewUrl(property, { preview: true })}
                   editUrl={propertyEditUrl(property)}
-                  onPromote={(tier) => setPickerModal({ open: true, tier })}
+                  onPromote={(tier) =>
+                    setPickerModal({ open: true, tier, listingId: property.id })
+                  }
                   standardVipDisabled={isSuperVipActive(
                     property.is_super_vip,
                     property.vip_expires_at,
@@ -420,6 +407,7 @@ export default function SellerDashboardClient({
         isOpen={pickerModal.open}
         onClose={() => setPickerModal((p) => ({ ...p, open: false }))}
         tier={pickerModal.tier}
+        selectedListingId={pickerModal.listingId}
         listings={properties.map((p) => ({
           id: p.id,
           title: p.title,
@@ -431,6 +419,7 @@ export default function SellerDashboardClient({
             p.is_super_vip,
             p.vip_expires_at,
           ),
+          notLive: p.status !== "active",
         }))}
         target="property"
         onPurchased={async () => {

@@ -154,7 +154,7 @@ export default function NumberField({
         placeholder={placeholder}
         disabled={disabled}
         className={cn(
-          "h-12 w-full rounded-xl border bg-white px-4 text-sm outline-none transition-colors focus:ring-2 disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]",
+          "h-12 w-full rounded-xl border bg-white px-4 text-sm text-[#0F172A] outline-none transition-colors focus:ring-2 disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]",
           error ? "border-[#EF4444]" : "border-[#E2E8F0]",
           ACCENT[accent].focus,
           ACCENT[accent].ring,

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { Check, Settings } from "lucide-react";
+import { Check, Settings, ShieldCheck } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { AddListingButton } from "@/components/shared/AddListingButton";
@@ -35,6 +35,9 @@ interface CabinetSwitcherProps {
   /** Canonical cabinet keys the user may switch into. Omit to show all. */
   availableKeys?: string[];
   children: React.ReactNode;
+  /** Rendered beside the trigger, not inside it (a control placed in
+   *  `children` would be a button inside a button). Position it absolutely. */
+  accessory?: React.ReactNode;
   triggerClassName?: string;
   openClassName?: string;
 }
@@ -43,13 +46,21 @@ export function CabinetSwitcher({
   activeKey,
   availableKeys,
   children,
+  accessory,
   triggerClassName,
   openClassName,
 }: CabinetSwitcherProps) {
   const t = useTranslations("DashboardSidebar");
+  const tAccount = useTranslations("DashboardAccount");
   const items = availableKeys
     ? CABINET_SWITCHER_ITEMS.filter((item) => availableKeys.includes(item.key))
     : CABINET_SWITCHER_ITEMS;
+  // Ownership verification covers property listings only (rentals, hotels,
+  // sales), so the link is for users with a renter or seller cabinet.
+  const showOwnership =
+    !availableKeys ||
+    availableKeys.includes("renter") ||
+    availableKeys.includes("seller");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -72,6 +83,7 @@ export function CabinetSwitcher({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
+        data-jev-label={t("switcher.switchWorkspace")}
         className={cn(
           "flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-colors",
           open
@@ -82,6 +94,7 @@ export function CabinetSwitcher({
       >
         {children}
       </button>
+      {accessory}
 
       <AnimatePresence>
         {open && (
@@ -123,15 +136,36 @@ export function CabinetSwitcher({
             </ul>
 
             <div className="border-t border-[#F1F5F9] px-3 py-2.5">
-              <AddListingButton label={t("switcher.addListing")} variant="full" onClick={() => setOpen(false)} />
+              <AddListingButton
+                label={t("switcher.addListing")}
+                variant="full"
+                onClick={() => setOpen(false)}
+              />
             </div>
 
-            <div className="flex items-center gap-2 border-t border-[#F1F5F9] px-4 py-2.5">
+            <Link
+              href="/dashboard/account"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 border-t border-[#F1F5F9] px-4 py-2.5 transition-colors hover:bg-[#F8FAFC]"
+            >
               <Settings className="h-3.5 w-3.5 text-[#94A3B8]" />
               <span className="text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
-                {t("nav.settings")}
+                {t("switcher.linkedAccounts")}
               </span>
-            </div>
+            </Link>
+
+            {showOwnership ? (
+              <Link
+                href="/dashboard/account/ownership"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 border-t border-[#F1F5F9] px-4 py-2.5 transition-colors hover:bg-[#F8FAFC]"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 text-[#94A3B8]" />
+                <span className="text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
+                  {tAccount("ownership.title")}
+                </span>
+              </Link>
+            ) : null}
 
             <div className="px-3 pb-3 pt-1">
               <Link

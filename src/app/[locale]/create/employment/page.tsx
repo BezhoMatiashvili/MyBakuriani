@@ -52,6 +52,17 @@ const SALARY_TYPE_KEYS: Record<(typeof SALARY_TYPE_VALUES)[number], string> = {
   შეთანხმებით: "negotiable",
 };
 
+// Commission (a percentage) and negotiable pay have no fixed amount, so the
+// amount inputs are locked for them and every salary amount is saved as null.
+const AMOUNTLESS_SALARY_TYPES: ReadonlySet<string> = new Set(
+  SALARY_TYPE_VALUES.filter((value) => {
+    const key = SALARY_TYPE_KEYS[value];
+    return key === "commission" || key === "negotiable";
+  }),
+);
+
+type SalaryMode = "range" | "daily";
+
 const EXPERIENCE_VALUES = [
   "სასურველია",
   "არ არის აუცილებელი",
@@ -91,6 +102,8 @@ const LANGUAGE_OPTIONS = [
   { value: "რუსული", key: "ru" },
   { value: "სხვა", key: "other" },
 ] as const;
+
+const POSITION_MAX_LENGTH = 90;
 
 export default function CreateEmploymentPage() {
   return (
@@ -165,6 +178,7 @@ function CreateEmploymentPageInner() {
   const [salaryMin, setSalaryMin] = useState("");
   const [salaryMax, setSalaryMax] = useState("");
   const [salaryDaily, setSalaryDaily] = useState("");
+  const [salaryMode, setSalaryMode] = useState<SalaryMode>("range");
 
   const [accommodation, setAccommodation] = useState<string>("");
   const [meals, setMeals] = useState<string>("");
@@ -203,6 +217,13 @@ function CreateEmploymentPageInner() {
       setSalaryDaily(
         data.salary_daily != null ? String(data.salary_daily) : "",
       );
+      setSalaryMode(
+        data.salary_daily != null &&
+          data.salary_min == null &&
+          data.salary_max == null
+          ? "daily"
+          : "range",
+      );
       setAccommodation(data.accommodation ?? "");
       setMeals(data.meals ?? "");
       setWorkDescription(data.description ?? "");
@@ -224,11 +245,11 @@ function CreateEmploymentPageInner() {
     };
   }, [editId, user, supabase, tShared]);
 
-  // Salary is optional. The employer fills either a min–max range or a daily
-  // wage — never both; entering one mode disables the other.
-  const rangeActive =
-    salaryMin.trim().length > 0 || salaryMax.trim().length > 0;
-  const dailyActive = salaryDaily.trim().length > 0;
+  // Salary is optional. The employer picks a monthly range or a daily wage and
+  // only the chosen mode is saved; amountless salary types save neither.
+  const salaryLocked = AMOUNTLESS_SALARY_TYPES.has(salaryType);
+  const usesRange = !salaryLocked && salaryMode === "range";
+  const usesDaily = !salaryLocked && salaryMode === "daily";
 
   const requiredFlags = [
     title.trim().length > 0,
@@ -242,6 +263,7 @@ function CreateEmploymentPageInner() {
     Math.round((requiredFilled / requiredFlags.length) * 100),
   );
   const salaryRangeInvalid =
+    usesRange &&
     salaryMin.trim().length > 0 &&
     salaryMax.trim().length > 0 &&
     Number(salaryMin) > Number(salaryMax);
@@ -266,6 +288,13 @@ function CreateEmploymentPageInner() {
       errs.push({ key: "location", message: t("chooseLocation") });
     if (!position.trim())
       errs.push({ key: "position", message: t("enterPosition") });
+    else if (position.trim().length > POSITION_MAX_LENGTH)
+      errs.push({
+        key: "position",
+        message: t("positionTooLong", { max: POSITION_MAX_LENGTH }),
+      });
+    if (salaryRangeInvalid)
+      errs.push({ key: "salary", message: t("salaryMinGtMax") });
     if (!workDescription.trim())
       errs.push({ key: "workDescription", message: t("enterJobDescription") });
     return errs;
@@ -279,13 +308,6 @@ function CreateEmploymentPageInner() {
       setInvalidFields(new Set(errs.map((e) => e.key)));
       setError(errs[0].message);
       scrollToField(errs[0].key);
-      return;
-    }
-    // Cross-field safety net: min must not exceed max.
-    if (salaryRangeInvalid) {
-      setInvalidFields(new Set(["salary"]));
-      setError(t("enterSalary"));
-      scrollToField("salary");
       return;
     }
     setInvalidFields(new Set());
@@ -304,16 +326,18 @@ function CreateEmploymentPageInner() {
         location: location || null,
         employment_type: employmentType || null,
         salary_type: salaryType || null,
-        salary_min: salaryMin ? Number(salaryMin) : null,
-        salary_max: salaryMax ? Number(salaryMax) : null,
-        salary_daily: salaryDaily ? Number(salaryDaily) : null,
+        salary_min: usesRange && salaryMin ? Number(salaryMin) : null,
+        salary_max: usesRange && salaryMax ? Number(salaryMax) : null,
+        salary_daily: usesDaily && salaryDaily ? Number(salaryDaily) : null,
         accommodation: accommodation || null,
         meals: meals || null,
         requirements: requirements.trim() || null,
         languages: languages.length > 0 ? languages : null,
         experience_required: experience || null,
         salary_range:
-          salaryMin && salaryMax ? `${salaryMin}-${salaryMax} ₾` : null,
+          usesRange && salaryMin && salaryMax
+            ? `${salaryMin}-${salaryMax} ₾`
+            : null,
       };
 
       if (editId) {
@@ -411,7 +435,10 @@ function CreateEmploymentPageInner() {
           <input
             type="text"
             value={position}
-            onChange={(e) => setPosition(e.target.value)}
+            onChange={(e) =>
+              setPosition(e.target.value.slice(0, POSITION_MAX_LENGTH))
+            }
+            maxLength={POSITION_MAX_LENGTH}
             placeholder={t("positionPlaceholder")}
             className={inputClass}
           />
@@ -438,60 +465,90 @@ function CreateEmploymentPageInner() {
           </Field>
         </div>
 
-        <Field
-          label={t("salary")}
-          fieldKey="salary"
-          error={invalidFields.has("salary")}
-        >
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <NumberField
-                  value={salaryMin}
-                  onChange={setSalaryMin}
-                  min={0}
-                  max={999999}
-                  integer
-                  suffix="₾"
-                  accent="blue"
-                  placeholder="1200"
-                  disabled={dailyActive && !rangeActive}
-                />
-              </div>
-              <span className="text-sm font-medium text-[#94A3B8]">–</span>
-              <div className="flex-1">
-                <NumberField
-                  value={salaryMax}
-                  onChange={setSalaryMax}
-                  min={0}
-                  max={999999}
-                  integer
-                  suffix="₾"
-                  accent="blue"
-                  placeholder="1500"
-                  disabled={dailyActive && !rangeActive}
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="shrink-0 text-xs font-medium text-[#94A3B8]">
-                {tShared("or")}
-              </span>
-              <div className="flex-1">
-                <NumberField
-                  value={salaryDaily}
-                  onChange={setSalaryDaily}
-                  min={0}
-                  max={999999}
-                  integer
-                  suffix="₾"
-                  accent="blue"
-                  placeholder={t("dailySalaryPlaceholder")}
-                  disabled={rangeActive}
-                />
-              </div>
-            </div>
+        <Field label={t("salary")} error={invalidFields.has("salary")}>
+          <div
+            role="group"
+            aria-label={t("salaryPeriod")}
+            className="flex gap-2"
+          >
+            {(["range", "daily"] as const).map((mode) => {
+              const active = salaryMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setSalaryMode(mode)}
+                  disabled={salaryLocked}
+                  aria-pressed={active}
+                  data-salary-mode={mode}
+                  className={cn(
+                    pillClass(active),
+                    "h-11 flex-1 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none",
+                  )}
+                >
+                  {mode === "range"
+                    ? t("salaryModeMonthly")
+                    : t("salaryModeDaily")}
+                </button>
+              );
+            })}
           </div>
+          {/* The scroll anchor wraps only the amounts, so a salary error focuses
+              the first amount input rather than the mode switch. */}
+          <div
+            data-field="salary"
+            data-salary-locked={salaryLocked ? "true" : undefined}
+            className={cn(salaryLocked && "opacity-60")}
+          >
+            {salaryMode === "range" ? (
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <NumberField
+                    value={salaryLocked ? "" : salaryMin}
+                    onChange={setSalaryMin}
+                    min={0}
+                    max={999999}
+                    integer
+                    suffix="₾"
+                    accent="blue"
+                    placeholder="1200"
+                    disabled={salaryLocked}
+                  />
+                </div>
+                <span className="text-sm font-medium text-[#94A3B8]">–</span>
+                <div className="flex-1">
+                  <NumberField
+                    value={salaryLocked ? "" : salaryMax}
+                    onChange={setSalaryMax}
+                    min={0}
+                    max={999999}
+                    integer
+                    suffix="₾"
+                    accent="blue"
+                    placeholder="1500"
+                    disabled={salaryLocked}
+                  />
+                </div>
+              </div>
+            ) : (
+              <NumberField
+                value={salaryLocked ? "" : salaryDaily}
+                onChange={setSalaryDaily}
+                min={0}
+                max={999999}
+                integer
+                suffix="₾"
+                accent="blue"
+                placeholder={t("dailySalaryPlaceholder")}
+                disabled={salaryLocked}
+              />
+            )}
+          </div>
+          {salaryLocked && (
+            <p className="text-[12px] font-medium text-[#94A3B8]">
+              {t("salaryLockedHint")}
+            </p>
+          )}
         </Field>
       </WizardInnerCard>
 

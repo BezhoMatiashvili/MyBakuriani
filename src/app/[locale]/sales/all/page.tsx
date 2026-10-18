@@ -2,7 +2,9 @@ import { createPublicClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import { buildPageMetadata } from "@/lib/seo";
 import SalesGridClient from "./SalesGridClient";
+import { firstPhotoOnly } from "@/lib/utils/photos";
 
 export async function generateMetadata({
   params,
@@ -11,10 +13,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  return {
+  return buildPageMetadata({
+    locale,
+    path: "/sales/all",
     title: t("salesAll"),
     description: t("salesAllDesc"),
-  };
+    noindex: true,
+  });
 }
 
 interface Props {
@@ -36,9 +41,13 @@ export default async function SalesGridPage({ searchParams }: Props) {
   // reads searchParams.)
   const supabase = createPublicClient();
 
+  // Only the columns SalesGridClient filters and renders (keep in sync with its
+  // SaleGridListing type); the grid shows one photo per card.
   const { data: properties, error } = await supabase
     .from("public_properties")
-    .select("*")
+    .select(
+      "id, created_at, title, description, location, photos, type, sale_price, price_per_night, area_sqm, cadastral_code, rooms, capacity, amenities, house_rules, organization_id, developer, roi_percent, construction_status, construction_progress_percent, renovation_status, is_vip, is_super_vip, discount_percent, discount_expires_at, ownership_verified",
+    )
     .eq("is_for_sale", true)
     .order("is_super_vip", { ascending: false })
     .order("is_vip", { ascending: false })
@@ -68,10 +77,11 @@ export default async function SalesGridPage({ searchParams }: Props) {
     typeof sp.construction === "string" ? sp.construction : undefined;
   const initialRenovation =
     typeof sp.renovation === "string" ? sp.renovation : undefined;
+  const initialKeyword = typeof sp.q === "string" ? sp.q : undefined;
 
   return (
     <SalesGridClient
-      properties={properties ?? []}
+      properties={(properties ?? []).map(firstPhotoOnly)}
       initialType={initialType}
       initialTypes={toCsv(sp.types)}
       initialLocation={initialLocation}
@@ -88,6 +98,7 @@ export default async function SalesGridPage({ searchParams }: Props) {
       initialRoiMin={initialRoiMin}
       initialConstruction={initialConstruction}
       initialRenovation={initialRenovation}
+      initialKeyword={initialKeyword}
     />
   );
 }

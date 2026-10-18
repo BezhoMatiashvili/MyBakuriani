@@ -1,47 +1,31 @@
-import { toast } from "sonner";
+// Share targets for a listing detail page (src/components/shared/ShareMenu.tsx).
+// Deliberately pure and free of `@/` imports so `scripts/unit/*.test.mjs` can
+// import this module directly under `node --test` type-stripping (see C29).
 
-export interface ShareMessages {
-  /** Toast shown after the link is copied to the clipboard. */
-  copied: string;
-  /** Toast shown when neither sharing nor copying worked. */
-  error: string;
+/**
+ * The URL a share hands out: origin + path only. The query is dropped because
+ * on the owner-preview route it is `?preview=1`, which middleware turns into
+ * the force-dynamic, noindex /preview twin (C28) — never a link to give out.
+ */
+export function shareableUrl(location: {
+  origin: string;
+  pathname: string;
+}): string {
+  return `${location.origin}${location.pathname}`;
 }
 
 /**
- * Share a listing using the Web Share API when available (native share sheet
- * on mobile / supported browsers), otherwise copy a title + URL block to the
- * clipboard so the user can paste it into any social network. Pasting the URL
- * triggers the OG preview card on Facebook, X, LinkedIn, WhatsApp, Telegram,
- * Discord, etc.; the leading title gives context where previews are stripped.
- *
- * Toast copy is provided by the caller (translated via next-intl).
+ * Facebook's composer renders the preview card purely from the page's Open
+ * Graph tags (src/lib/seo.ts); the sharer ignores any text passed to it.
  */
-export async function shareListing(
-  title: string,
-  messages: ShareMessages,
-  url?: string,
-): Promise<void> {
-  const shareUrl =
-    url ?? (typeof window !== "undefined" ? window.location.href : "");
-  if (!shareUrl) return;
+export function facebookShareUrl(url: string): string {
+  return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+}
 
-  if (
-    typeof navigator !== "undefined" &&
-    typeof navigator.share === "function"
-  ) {
-    try {
-      await navigator.share({ title, url: shareUrl });
-      return;
-    } catch (err) {
-      if ((err as { name?: string })?.name === "AbortError") return;
-    }
-  }
-
-  const text = `${title}\n\n${shareUrl}`;
-  try {
-    await navigator.clipboard.writeText(text);
-    toast.success(messages.copied);
-  } catch {
-    toast.error(messages.error);
-  }
+/**
+ * URL only: WhatsApp builds the preview (image, title, domain) from the same
+ * Open Graph tags, so a title in front of it would only repeat the card.
+ */
+export function whatsappShareUrl(url: string): string {
+  return `https://wa.me/?text=${encodeURIComponent(url)}`;
 }

@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { differenceInDays } from "date-fns";
-import { Home } from "lucide-react";
+import { Check, Copy, Home, Link2, LoaderCircle } from "lucide-react";
 import { parseISODate } from "@/components/shared/DateField";
 import { formatDate, formatDateRange, formatPrice } from "@/lib/utils/format";
 import type { Tables } from "@/lib/types/database";
@@ -50,6 +50,111 @@ function formatVisit(raw: string | null, locale: string): string {
     return formatDateRange(parseISODate(a)!, parseISODate(b)!, locale);
   if (isISO(a)) return formatDate(parseISODate(a), locale);
   return raw || "—";
+}
+
+type ReviewLinkErrorCode =
+  | "not_consented"
+  | "already_reviewed"
+  | "not_past_checkout"
+  | "cancelled_booking"
+  | "generic";
+
+/** Inline "generate a review link" action for a completed manual stay — mints
+ *  a one-off token via sms_create_manual_review_token (owner-triggered,
+ *  independent of the SMS-automation opt-in toggle) and shows the resulting
+ *  /review/<token> URL to copy and hand to the guest. */
+function ReviewLinkAction({ manualBookingId }: { manualBookingId: string }) {
+  const t = useTranslations("RenterGuests.reviewLink");
+  const locale = useLocale();
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<ReviewLinkErrorCode | null>(null);
+
+  const generate = async () => {
+    if (loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/renter/manual-bookings/${manualBookingId}/review-link`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ locale }),
+        },
+      );
+      const payload = (await response.json().catch(() => null)) as {
+        url?: string;
+        error?: string;
+      } | null;
+      if (!response.ok || !payload?.url) {
+        const code = payload?.error;
+        setError(
+          code === "not_consented" ||
+            code === "already_reviewed" ||
+            code === "not_past_checkout" ||
+            code === "cancelled_booking"
+            ? code
+            : "generic",
+        );
+        return;
+      }
+      setUrl(payload.url);
+    } catch {
+      setError("generic");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copy = async () => {
+    if (!url) return;
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  if (url) {
+    return (
+      <div className="mt-2 flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5">
+        <p className="min-w-0 flex-1 truncate text-[11px] text-[#475569]">
+          {url}
+        </p>
+        <button
+          type="button"
+          onClick={() => void copy()}
+          className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[#F1F5F9] px-2 py-1 text-[10px] font-bold text-[#334155]"
+        >
+          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+          {copied ? t("copied") : t("copy")}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => void generate()}
+        className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-[#DBEAFE] bg-[#EFF6FF] px-2.5 py-1 text-[11px] font-bold text-[#1D4ED8] disabled:opacity-60"
+      >
+        {loading ? (
+          <LoaderCircle className="size-3.5 animate-spin" />
+        ) : (
+          <Link2 className="size-3.5" />
+        )}
+        {t("generate")}
+      </button>
+      {error && (
+        <p className="mt-1 text-[11px] font-semibold text-[#B91C1C]">
+          {t(`errors.${error}`)}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export default function GuestHistoryPanel({
@@ -99,6 +204,8 @@ export default function GuestHistoryPanel({
     );
   }
 
+  const todayIso = new Date().toISOString().slice(0, 10);
+
   return (
     <div className="px-4 pb-5 pt-1 sm:px-6">
       <p className="mb-2.5 text-[12px] font-bold text-[#64748B]">
@@ -111,6 +218,10 @@ export default function GuestHistoryPanel({
       <ul className="space-y-2">
         {stays.map((s) => {
           const statusCls = s.status ? STATUS_META[s.status] : undefined;
+          const canReview =
+            s.source === "manual" &&
+            s.status !== "cancelled" &&
+            s.checkOut < todayIso;
           return (
             <li
               key={`${s.source}-${s.id}`}
@@ -164,6 +275,7 @@ export default function GuestHistoryPanel({
                   {s.amount != null ? formatPrice(s.amount) : "—"}
                 </span>
               </div>
+              {canReview && <ReviewLinkAction manualBookingId={s.id} />}
             </li>
           );
         })}

@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
@@ -23,6 +23,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { formatDateShort, formatTime } from "@/lib/utils/format";
 import {
   fetchPricingPackages,
+  smsCreditsLabel,
   type PricingPackage,
 } from "@/lib/pricing-packages";
 import type { SmsHistoryItem } from "@/app/api/sms/history/route";
@@ -49,9 +50,13 @@ export function SmsCenterClient({
   initialRules,
 }: Props) {
   const t = useTranslations("SMSCenter");
+  const tShared = useTranslations("DashboardShared");
+  const locale = useLocale();
   const { user } = useAuth();
   const supabase = createClient();
   const [smsRemaining, setSmsRemaining] = useState(initialSmsRemaining);
+  // Wallet ₾, for the confirm dialog's pay-by-card fallback (C32).
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [smsPackages, setSmsPackages] = useState<PricingPackage[]>([]);
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [confirmPkg, setConfirmPkg] = useState<PricingPackage | null>(null);
@@ -72,11 +77,16 @@ export function SmsCenterClient({
     if (!user) return;
     const { data } = await supabase
       .from("balances")
-      .select("sms_remaining")
+      .select("sms_remaining, amount")
       .eq("user_id", user.id)
       .maybeSingle();
     setSmsRemaining(Number(data?.sms_remaining ?? 0));
+    setWalletBalance(Number(data?.amount ?? 0));
   }, [user, supabase]);
+
+  useEffect(() => {
+    void reloadBalance();
+  }, [reloadBalance]);
 
   const reloadHistory = useCallback(async () => {
     const response = await fetch("/api/sms/history", { cache: "no-store" });
@@ -151,7 +161,7 @@ export function SmsCenterClient({
         );
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error ?? t("purchaseFailed"));
-        toast.success(`+${smsCount(pkg)} SMS`);
+        toast.success(`+${smsCreditsLabel(smsCount(pkg), locale)}`);
         await reloadBalance();
       } catch {
         toast.error(t("purchaseFailed"));
@@ -159,7 +169,7 @@ export function SmsCenterClient({
         setBuyingId(null);
       }
     },
-    [user, buyingId, supabase, reloadBalance, t],
+    [user, buyingId, supabase, reloadBalance, t, locale],
   );
 
   return (
@@ -203,7 +213,31 @@ export function SmsCenterClient({
           if (confirmPkg) await buyPack(confirmPkg);
         }}
         title={confirmPkg?.name ?? ""}
+        description={
+          confirmPkg ? smsCreditsLabel(smsCount(confirmPkg), locale) : undefined
+        }
         priceLabel={confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""}
+        balance={walletBalance ?? undefined}
+        amount={confirmPkg?.amount_gel}
+        cardPayment={
+          confirmPkg
+            ? {
+                resume: {
+                  kind: "purchase-vip",
+                  body: { package_id: confirmPkg.id, quantity: 1 },
+                },
+              }
+            : undefined
+        }
+        validity={confirmPkg ? tShared("purchaseTerms.smsNoExpiry") : undefined}
+        conditions={
+          confirmPkg
+            ? [
+                tShared("purchaseTerms.smsCredits"),
+                tShared("purchaseTerms.smsConsent"),
+              ]
+            : undefined
+        }
       />
     </div>
   );
@@ -221,7 +255,7 @@ function BalanceCard({
   onBuy: (pkg: PricingPackage) => void;
 }) {
   const t = useTranslations("SMSCenter.balance");
-  const primaryPackage = packages[0] ?? null;
+  const locale = useLocale();
   return (
     <div className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-[#1E3A8A] via-[#1D4ED8] to-[#2563EB] p-6 text-white shadow-[0px_10px_24px_-8px_rgba(37,99,235,0.45)]">
       <div className="pointer-events-none absolute -right-12 -top-12 size-48 rounded-full bg-white/10 blur-2xl" />
@@ -237,15 +271,47 @@ function BalanceCard({
           <Clock className="size-3.5" strokeWidth={2.4} />
           {t("automationOnly")}
         </p>
-        <button
-          type="button"
-          onClick={() => primaryPackage && onBuy(primaryPackage)}
-          disabled={!primaryPackage || Boolean(buyingId)}
-          className="mt-5 flex h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-white text-[13px] font-extrabold text-[#0F172A] shadow-[0_4px_12px_rgba(0,0,0,0.18)] transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Package className="size-4" strokeWidth={2.4} />
-          {buyingId ? t("buyingPackage") : t("buyPackage")}
-        </button>
+        {/* One row per enabled SMS package (2026 price list: 100 / 200 / 250 credits). */}
+        {packages.length > 0 ? (
+          <div className="mt-5 space-y-2">
+            {packages.map((pkg) => (
+              <button
+                key={pkg.id}
+                type="button"
+                onClick={() => onBuy(pkg)}
+                disabled={Boolean(buyingId)}
+                aria-label={`${t("buyPackage")}: ${pkg.name}, ${smsCreditsLabel(smsCount(pkg), locale)}, ${pkg.amount_gel.toFixed(2)} ₾`}
+                className="flex min-h-[44px] w-full items-center justify-between gap-3 rounded-xl bg-white px-4 py-2 text-left text-[#0F172A] shadow-[0_4px_12px_rgba(0,0,0,0.18)] transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <Package className="size-4 shrink-0" strokeWidth={2.4} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] font-extrabold">
+                      {pkg.name}
+                    </span>
+                    <span className="block text-[11px] font-semibold text-[#64748B]">
+                      {smsCreditsLabel(smsCount(pkg), locale)}
+                    </span>
+                  </span>
+                </span>
+                <span className="shrink-0 text-[13px] font-extrabold">
+                  {buyingId === pkg.id
+                    ? t("buyingPackage")
+                    : `${pkg.amount_gel.toFixed(2)} ₾`}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="mt-5 flex h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-white text-[13px] font-extrabold text-[#0F172A] shadow-[0_4px_12px_rgba(0,0,0,0.18)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Package className="size-4" strokeWidth={2.4} />
+            {t("buyPackage")}
+          </button>
+        )}
       </div>
     </div>
   );

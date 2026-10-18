@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationCard } from "@/components/notifications/NotificationCard";
 import { ICON_STYLES, iconForType } from "@/lib/utils/notifications";
+import { notificationScopeLabelKey } from "@/lib/notifications/scopes";
 import type { Tables } from "@/lib/types/database";
 
 type Notification = Tables<"notifications">;
@@ -14,6 +15,7 @@ const PAGE_SIZE = 50;
 /** Authenticated aggregate inbox: every scoped and global row for this user. */
 export default function NotificationsInbox({ userId }: { userId: string }) {
   const t = useTranslations("DashboardShared");
+  const tNavbar = useTranslations("Navbar");
   const supabase = useMemo(() => createClient(), []);
   const [items, setItems] = useState<Notification[]>([]);
   const [total, setTotal] = useState(0);
@@ -58,7 +60,11 @@ export default function NotificationsInbox({ userId }: { userId: string }) {
 
   async function markRead(id: string) {
     setItems((current) => current.map((item) => item.id === id ? { ...item, is_read: true } : item));
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", id)
+      .eq("user_id", userId);
   }
 
   async function markAllRead() {
@@ -103,7 +109,7 @@ export default function NotificationsInbox({ userId }: { userId: string }) {
           <ul className="divide-y divide-[#EEF1F4]">
             {items.map((item) => {
               const tone = ICON_STYLES[iconForType(item.type)];
-              return <NotificationCard key={item.id} notification={item} tone={{ Icon: tone.Icon, bg: tone.bg, fg: tone.color }} onRead={markRead} />;
+              return <NotificationCard key={item.id} notification={item} tone={{ Icon: tone.Icon, bg: tone.bg, fg: tone.color }} scopeLabel={tNavbar(`scopeLabels.${notificationScopeLabelKey(item.dashboard_scope)}`)} onRead={markRead} />;
             })}
           </ul>
         )}

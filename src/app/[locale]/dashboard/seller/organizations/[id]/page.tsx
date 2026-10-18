@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import { cn } from "@/lib/utils";
+import { COMPANY_TIER_RANK } from "@/lib/org-tiers";
 import { formatDateTime } from "@/lib/utils/format";
 
 type Org = {
@@ -41,11 +42,21 @@ type Pkg = {
   amount_gel: number;
 };
 
-const TIER_RANK: Record<string, number> = {
-  entry: 1,
-  pro: 2,
-  premium: 3,
-};
+// Tier codes and upgrade order live in src/lib/org-tiers.ts (shared with the
+// contract checks: the DB CHECK, the RPC and the edge function must agree).
+const TIER_RANK: Record<string, number> = COMPANY_TIER_RANK;
+
+// Every package includes the same (existing) features; they differ only in
+// the apartment limit (2026 price list §5 — features that don't exist yet are
+// deliberately not advertised).
+const TIER_FEATURE_KEYS = [
+  "listings",
+  "constructionStages",
+  "constructionProgress",
+  "statistics",
+  "map",
+  "buyerRequests",
+] as const;
 
 type Agent = {
   id: string;
@@ -56,6 +67,7 @@ type Agent = {
 
 export default function OrganizationCabinetPage() {
   const t = useTranslations("Organizations");
+  const tShared = useTranslations("DashboardShared");
   const locale = useLocale();
   const params = useParams();
   const orgId = String(params.id);
@@ -297,8 +309,12 @@ export default function OrganizationCabinetPage() {
           </p>
           {sub ? (
             <div className="mt-2">
-              <p className="inline-flex rounded-md bg-[#DCFCE7] px-2.5 py-1 text-[13px] font-bold text-[#166534]">
-                {sub.tier.toUpperCase()}
+              <p
+                data-testid="organization-active-tier"
+                className="inline-flex rounded-md bg-[#DCFCE7] px-2.5 py-1 text-[13px] font-bold text-[#166534]"
+              >
+                {packages.find((pkg) => pkg.code === `company-${sub.tier}`)
+                  ?.name ?? sub.tier.toUpperCase()}
               </p>
               <p
                 data-testid="organization-subscription-expiry"
@@ -339,7 +355,7 @@ export default function OrganizationCabinetPage() {
           </span>
         </div>
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {packages.map((pkg) => {
             const tier = pkg.code.replace("company-", "");
             const selected = selectedTier === tier;
@@ -395,6 +411,23 @@ export default function OrganizationCabinetPage() {
           })}
         </div>
 
+        <div className="mt-4 rounded-2xl border border-[#EEF1F4] bg-[#FAFBFC] p-4">
+          <p className="text-[12px] font-bold text-[#0F172A]">
+            {t("tierFeaturesTitle")}
+          </p>
+          <ul className="mt-2 grid gap-1.5 text-[12px] font-medium text-[#475569] sm:grid-cols-2">
+            {TIER_FEATURE_KEYS.map((key) => (
+              <li key={key} className="flex items-start gap-1.5">
+                <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#16A34A]" />
+                {t(`tierFeatures.${key}`)}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] font-medium text-[#94A3B8]">
+            {t("tierFeaturesNote")}
+          </p>
+        </div>
+
         {isOwner && (
           <div className="mt-5 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
             <p className="text-[13px] font-medium text-[#64748B]">
@@ -431,7 +464,11 @@ export default function OrganizationCabinetPage() {
           )}
         </div>
 
-        <div className="mt-5 space-y-3">
+        <div
+          data-jev-private
+          data-jev-section={t("agentsTitle")}
+          className="mt-5 space-y-3"
+        >
           {agents.length === 0 && (
             <p className="py-4 text-center text-sm font-medium text-[#94A3B8]">
               {t("noAgents")}
@@ -464,6 +501,7 @@ export default function OrganizationCabinetPage() {
                     type="button"
                     disabled={busyAgent === agent.id}
                     onClick={() => handleAgent(agent.id, "reject")}
+                    data-jev-label={t("reject")}
                     className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-[#FECACA] bg-white px-3 text-[13px] font-bold text-[#EF4444] transition-colors hover:bg-[#FEF2F2] disabled:opacity-60 lg:h-[38px]"
                   >
                     <X className="h-4 w-4" />
@@ -473,6 +511,7 @@ export default function OrganizationCabinetPage() {
                     type="button"
                     disabled={busyAgent === agent.id}
                     onClick={() => handleAgent(agent.id, "approve")}
+                    data-jev-label={t("approve")}
                     className="inline-flex h-11 items-center gap-1.5 rounded-xl bg-[#2563EB] px-3 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-60 lg:h-[38px]"
                   >
                     {busyAgent === agent.id ? (
@@ -498,7 +537,29 @@ export default function OrganizationCabinetPage() {
         priceLabel={
           selectedPkg ? `${selectedPkg.amount_gel} ₾ ${t("perMonth")}` : ""
         }
-        balance={balance ?? undefined}
+        balance={balance ?? 0}
+        amount={selectedPkg?.amount_gel}
+        cardPayment={
+          selectedTier && isOwner
+            ? {
+                resume: {
+                  kind: "company-subscription",
+                  body: { org_id: orgId, tier: selectedTier },
+                },
+              }
+            : undefined
+        }
+        validity={selectedPkg ? t("termValidity") : undefined}
+        conditions={
+          selectedPkg
+            ? [
+                t("termUpgradeOnly"),
+                t("termNoCarryOver"),
+                t("termNoAutoRenew"),
+                tShared("purchaseTerms.notPublication"),
+              ]
+            : undefined
+        }
       />
     </div>
   );

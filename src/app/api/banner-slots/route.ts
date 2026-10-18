@@ -20,10 +20,12 @@ export async function GET() {
   return Response.json(
     { creatives },
     {
-      // Same policy as /api/banners. Worst-case staleness for a scheduled
-      // banner ≈ 60s; revalidatePath does not purge this CDN entry.
+      // revalidatePath (the admin banner and ad routes) refreshes the origin's
+      // data at once but does not purge this CDN entry, so an admin edit
+      // reaches visitors within about 2 minutes (60 s fresh + 60 s stale).
+      // An admin's own browser skips the CDN with `?fresh=` (C47).
       headers: {
-        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=60",
       },
     },
   );

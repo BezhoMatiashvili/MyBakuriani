@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { parseISO } from "date-fns";
 import {
   ArrowLeft,
@@ -23,28 +22,45 @@ import { BookingSidebar } from "@/components/booking/BookingSidebar";
 import ReviewCard from "@/components/cards/ReviewCard";
 import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
 import { SkierLoader } from "@/components/shared/SkierLoader";
+import LazyOnVisible from "@/components/shared/LazyOnVisible";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import { formatPricePerNight } from "@/lib/utils/format";
+import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { applyDiscount } from "@/lib/utils/pricing";
+import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
+import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 
-const BakurianiMap = dynamic(() => import("@/components/maps/BakurianiMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-[300px] items-center justify-center rounded-2xl bg-[#F1F5F9]">
-      <SkierLoader variant="inline" />
-    </div>
-  ),
-});
+const BakurianiMap = dynamic(
+  () =>
+    import("@/components/maps/BakurianiMap").then((mod) =>
+      mod.canvasReady.then(() => mod),
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[300px] items-center justify-center rounded-2xl bg-[#F1F5F9]">
+        <SkierLoader variant="inline" />
+      </div>
+    ),
+  },
+);
 import type { Tables } from "@/lib/types/database";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
 import PropertyAmenities from "@/components/detail/PropertyAmenities";
 import HostLanguages from "@/components/detail/HostLanguages";
+import {
+  previewContactPhone,
+  previewContactWhatsapp,
+} from "@/lib/utils/preview-contact";
 
 type PropertyWithOwner = Tables<"properties"> & {
   profiles: Tables<"profiles"> | null;
   has_whatsapp?: boolean;
+  /** Ownership badge (C39); absent on base-table preview reads. */
+  ownership_verified?: boolean;
 };
 
 interface ReviewWithGuest {
@@ -73,12 +89,6 @@ interface Props {
   priceOverrides?: PriceOverrideRow[];
 }
 
-const fadeIn = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
-};
-
 export default function ApartmentDetailClient({
   property,
   isPending = false,
@@ -97,11 +107,11 @@ export default function ApartmentDetailClient({
     end: Date | null;
   }>({ start: null, end: null });
 
-  useEffect(() => {
-    void fetch(`/api/listings/property/${property.id}/view`, {
-      method: "POST",
-    });
-  }, [property.id]);
+  const views = useListingViewCount(
+    "property",
+    property.id,
+    property.views_count,
+  );
 
   const owner = property.profiles;
   const amenities = (property.amenities ?? []) as string[];
@@ -129,18 +139,41 @@ export default function ApartmentDetailClient({
   const showHouseRules =
     smokingRule !== null || petsRule !== null || extraHouseRules.length > 0;
   const avgRating =
-    reviews.length > 0
+    !RENTAL_REVIEWS_HIDDEN && reviews.length > 0
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
       : null;
 
-  const parsedCalendarDates = calendarBlocks.map((block) => ({
-    // Parse date-only strings (YYYY-MM-DD) as LOCAL midnight. `new Date(str)`
-    // would parse them as UTC midnight, which shifts the day back for viewers
-    // west of UTC and makes booked dates render as available in the local-time
-    // calendar grid (AvailabilityCalendar / BookingSidebar use isSameDay).
-    date: parseISO(block.date),
-    status: block.status as "available" | "booked" | "blocked",
-  }));
+  const parsedCalendarDates = useMemo(
+    () =>
+      calendarBlocks.map((block) => ({
+        // Parse date-only strings (YYYY-MM-DD) as LOCAL midnight. `new Date(str)`
+        // would parse them as UTC midnight, which shifts the day back for viewers
+        // west of UTC and makes booked dates render as available in the local-time
+        // calendar grid (AvailabilityCalendar / BookingSidebar match local days).
+        date: parseISO(block.date),
+        status: block.status as "available" | "booked" | "blocked",
+      })),
+    [calendarBlocks],
+  );
+  // Stable across re-renders (a date click, a lightbox open): the map rebuilds
+  // every marker whenever this array's identity changes.
+  const mapMarkers = useMemo(
+    () => [
+      {
+        id: property.id,
+        title: property.title,
+        price: Number(property.price_per_night ?? 0),
+        lat: Number(property.location_lat),
+        lng: Number(property.location_lng),
+        isVip: property.is_vip ?? false,
+        isSuperVip: property.is_super_vip ?? false,
+        photo: Array.isArray(property.photos)
+          ? (property.photos[0] as string)
+          : undefined,
+      },
+    ],
+    [property],
+  );
 
   const handleRangeChange = (range: {
     start: Date | null;
@@ -162,20 +195,16 @@ export default function ApartmentDetailClient({
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
-      <motion.button
-        {...fadeIn}
+      <button
+        style={enterUp()}
         onClick={() => router.back()}
         className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
       >
         <ArrowLeft className="h-4 w-4" />
         {tShared("back")}
-      </motion.button>
+      </button>
 
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.1 }}
-        className="mb-6"
-      >
+      <div style={enterUp(0.1)} className="mb-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
@@ -198,7 +227,7 @@ export default function ApartmentDetailClient({
               )}
               <span className="flex items-center gap-1.5 font-medium">
                 <Eye className="h-4 w-4" />
-                {tDetail("views", { count: property.views_count ?? 0 })}
+                {tDetail("views", { count: views })}
               </span>
             </div>
           </div>
@@ -213,21 +242,20 @@ export default function ApartmentDetailClient({
             </span>
           )}
         </div>
-      </motion.div>
+        {property.ownership_verified === true && (
+          <OwnershipVerifiedBadge variant="detail" className="mt-3" />
+        )}
+      </div>
 
-      <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
+      <div>
         <PhotoGallery
           photos={property.photos ?? []}
           title={property.title}
           propertyId={property.id}
         />
-      </motion.div>
+      </div>
 
-      <motion.div
-        {...fadeIn}
-        transition={{ duration: 0.4, delay: 0.18 }}
-        className="mt-6 flex flex-wrap gap-2"
-      >
+      <div style={enterUp(0.18)} className="mt-6 flex flex-wrap gap-2">
         {property.rooms != null && (
           <span
             data-testid="property-quick-spec-rooms"
@@ -258,25 +286,25 @@ export default function ApartmentDetailClient({
             {tDetail("areaSqm", { area: property.area_sqm })}
           </span>
         )}
-      </motion.div>
+      </div>
 
       <div className="mt-8 grid grid-cols-1 gap-12 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
           {/* Description */}
           {property.description && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
+            <div style={enterUp(0.2)}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {tDetail("description")}
               </h2>
               <p className="text-[15px] font-medium leading-[27px] text-[#475569] whitespace-pre-line">
                 {property.description}
               </p>
-            </motion.div>
+            </div>
           )}
 
           {/* Amenities */}
           {amenities.length > 0 && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
+            <div style={enterUp(0.25)}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {tDetail("amenitiesTitle")}
               </h2>
@@ -286,13 +314,13 @@ export default function ApartmentDetailClient({
                 showAllLabel={t("showAll")}
                 showLessLabel={t("showLess")}
               />
-            </motion.div>
+            </div>
           )}
 
           <HostLanguages value={houseRulesObj.hosting_langs} />
 
           {/* Location with Map */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
+          <div style={enterUp(0.3)}>
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
               {tDetail("exactLocation")}
             </h2>
@@ -301,25 +329,31 @@ export default function ApartmentDetailClient({
               {property.location}
               {property.cadastral_code && `, ${property.cadastral_code}`}
             </p>
-            <div className="h-[300px] overflow-hidden rounded-2xl border border-[#E2E8F0]">
-              <BakurianiMap
-                className="h-full w-full"
-                center={
-                  property.location_lat && property.location_lng
-                    ? {
-                        lat: Number(property.location_lat),
-                        lng: Number(property.location_lng),
-                      }
-                    : undefined
-                }
-                zoom={15}
-              />
-            </div>
-          </motion.div>
+            {property.location_lat && property.location_lng ? (
+              <div className="h-[300px] overflow-hidden rounded-2xl border border-[#E2E8F0]">
+                <LazyOnVisible className="h-full w-full">
+                  <BakurianiMap
+                    className="h-full w-full"
+                    center={{
+                      lat: Number(property.location_lat),
+                      lng: Number(property.location_lng),
+                    }}
+                    properties={mapMarkers}
+                    zoom={15}
+                    showRouteButton
+                  />
+                </LazyOnVisible>
+              </div>
+            ) : (
+              <div className="flex h-[200px] items-center justify-center rounded-2xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] text-[13px] text-[#94A3B8]">
+                {tDetail("noCoordinates")}
+              </div>
+            )}
+          </div>
 
           {/* House Rules */}
           {showHouseRules && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.35 }}>
+            <div style={enterUp(0.35)}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("houseRulesTitle")}
               </h2>
@@ -354,11 +388,11 @@ export default function ApartmentDetailClient({
                   ))}
                 </ul>
               )}
-            </motion.div>
+            </div>
           )}
 
           {/* Available dates — inline calendar */}
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.4 }}>
+          <div style={enterUp(0.4)}>
             <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
               {tDetail("freeDates")}
             </h2>
@@ -367,13 +401,13 @@ export default function ApartmentDetailClient({
               selectedRange={selectedRange}
               onDateClick={handleDateClick}
             />
-          </motion.div>
+          </div>
 
           {/* Reviews — hidden entirely while empty (no submission flow reaches
               real, offline-booked stays yet), rather than showing a
               permanent "no reviews" placeholder. */}
-          {reviews.length > 0 && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.45 }}>
+          {!RENTAL_REVIEWS_HIDDEN && reviews.length > 0 && (
+            <div style={enterUp(0.45)}>
               <div className="mb-4 flex items-center gap-3">
                 <span className="flex shrink-0 items-center gap-1 rounded-[12px] bg-[#0F172A] px-3 py-2 text-[14px] font-black text-white">
                   <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
@@ -412,15 +446,13 @@ export default function ApartmentDetailClient({
                   {t("viewAllReviews", { count: reviews.length })}
                 </button>
               )}
-            </motion.div>
+            </div>
           )}
         </div>
 
         {/* Right sidebar — lg top/max-h mirror Navbar primary (91px) + category rail (94px) */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
+        <div
+          style={enterLeft(0.2)}
           id="booking-sidebar"
           className="lg:sticky lg:top-[calc(91px+94px+12px)] lg:self-start lg:max-h-[calc(100vh-(91px+94px)-24px)] lg:overflow-y-auto lg:pr-1"
         >
@@ -431,9 +463,9 @@ export default function ApartmentDetailClient({
               ownerName={owner?.display_name ?? tDetail("ownerFallback")}
               ownerAvatar={owner?.avatar_url ?? null}
               isOwnerVerified={owner?.is_verified ?? false}
-              ownerPhone={null}
+              ownerPhone={previewContactPhone(property)}
               hasWhatsapp={property.has_whatsapp ?? false}
-              ownerWhatsapp={null}
+              ownerWhatsapp={previewContactWhatsapp(property)}
               propertyId={property.id}
               selectedRange={selectedRange}
               onRangeChange={handleRangeChange}
@@ -446,7 +478,7 @@ export default function ApartmentDetailClient({
               discountExpiresAt={property.discount_expires_at}
             />
           )}
-        </motion.div>
+        </div>
 
         <BannerSlot placement="detail_sidebar" className="lg:col-start-3" />
       </div>

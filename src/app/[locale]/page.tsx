@@ -1,8 +1,26 @@
 import { createPublicClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
+import { buildPageMetadata } from "@/lib/seo";
+import HomeAbout from "@/components/seo/HomeAbout";
+import JsonLd from "@/components/seo/JsonLd";
+import { pathForLocale } from "@/lib/seo/alternates";
+import { siteJsonLd } from "@/lib/seo/jsonld";
+import {
+  SITE_ALTERNATE_NAMES,
+  SITE_LOGO_PATH,
+  SITE_NAME,
+  SITE_URL,
+} from "@/lib/seo/site";
+import { CONTACT_EMAIL, CONTACT_PHONE_E164 } from "@/lib/site-contact";
 import LandingPage from "@/app/[locale]/_landing/LandingPage";
-import { SkierLoader } from "@/components/shared/SkierLoader";
+import {
+  LANDING_BLOG_COLUMNS,
+  LANDING_HOTEL_COLUMNS,
+  LANDING_RENTAL_COLUMNS,
+  LANDING_SALE_COLUMNS,
+  LANDING_SERVICE_COLUMNS,
+} from "@/app/[locale]/_landing/columns";
+import { firstPhotoOnly } from "@/lib/utils/photos";
 import { fetchSlotCreatives } from "@/lib/banner-slots-server";
 import {
   getActiveZones,
@@ -10,16 +28,13 @@ import {
   FALLBACK_ZONES,
   type Zone,
 } from "@/lib/zones/server";
-import {
-  getStatusCards,
-  DEFAULT_STATUS_CARDS,
-} from "@/lib/status-cards/server";
-import { getBakurianiWeather, withLiveWeather } from "@/lib/weather/server";
-import { getRoadCondition, withLiveRoad } from "@/lib/road-condition/server";
+import { getLiveStatusCards } from "@/lib/status-cards/live";
+import { emptySaleResearch } from "@/lib/sale-research";
+import { getSaleResearch } from "@/lib/sale-research-server";
 import { withTimeout } from "@/lib/with-timeout";
 import type { BannerCreative } from "@/lib/banner-creative";
 import type { Metadata } from "next";
-import type { AppLocale } from "@/i18n/routing";
+import { routing, type AppLocale } from "@/i18n/routing";
 
 const LANDING_DATA_TIMEOUT_MS = 15_000;
 const LANDING_DEP_TIMEOUT_MS = 7_000;
@@ -41,17 +56,24 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  return {
+  return buildPageMetadata({
+    locale,
+    path: "/",
     title: t("siteTitle"),
     description: t("siteDescription"),
-  };
+  });
 }
 
 export const revalidate = 120;
 
+// Four rows per category, in the order LandingPage sorts by, so a row built
+// from two categories still gets its true first four. The services row is
+// handyman + cleaning, as on /services: with handyman alone it showed the one
+// handyman listing and none of the cleaning ones (2026-10-13).
 const LANDING_SERVICE_CATEGORIES = [
   "transport",
   "handyman",
+  "cleaning",
   "entertainment",
   "food",
   "employment",
@@ -64,10 +86,11 @@ async function fetchLandingServices(
     LANDING_SERVICE_CATEGORIES.map((category) =>
       supabase
         .from("public_services")
-        .select("*")
+        .select(LANDING_SERVICE_COLUMNS)
         .eq("category", category)
-        .order("has_active_discount", { ascending: false })
+        .order("is_super_vip", { ascending: false })
         .order("is_vip", { ascending: false })
+        .order("has_active_discount", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(4),
     ),
@@ -92,12 +115,13 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
   }
 
   const supabase = createPublicClient();
+  const nowIso = new Date().toISOString();
 
   const criticalQueries = withLandingTimeout(
     Promise.all([
       supabase
         .from("public_properties")
-        .select("*")
+        .select(LANDING_RENTAL_COLUMNS)
         .eq("is_for_sale", false)
         .order("is_super_vip", { ascending: false })
         .order("is_vip", { ascending: false })
@@ -105,21 +129,32 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
         .limit(8),
       supabase
         .from("public_properties")
-        .select("*")
+        .select(LANDING_HOTEL_COLUMNS)
         .eq("type", "hotel")
-        .order("is_vip", { ascending: false })
-        .limit(4),
-      supabase
-        .from("public_properties")
-        .select("*")
-        .eq("is_for_sale", true)
-        .order("is_vip", { ascending: false })
-        .limit(4),
-      supabase
-        .from("public_properties")
-        .select("*")
         .eq("is_for_sale", false)
-        .or("is_vip.eq.true,is_super_vip.eq.true")
+        .order("is_super_vip", { ascending: false })
+        .order("is_vip", { ascending: false })
+        .limit(4),
+      supabase
+        .from("public_properties")
+        .select(LANDING_SALE_COLUMNS)
+        .eq("is_for_sale", true)
+        .order("is_super_vip", { ascending: false })
+        .order("is_vip", { ascending: false })
+        .limit(4),
+      supabase
+        .from("public_properties")
+        .select(LANDING_RENTAL_COLUMNS)
+        .eq("is_for_sale", false)
+        // VIP tiers plus listings with an active discount badge (2026 price
+        // list: the badge places a listing in the special-offers section).
+        // The timestamp is quoted — ISO strings contain PostgREST-reserved
+        // characters.
+        .or(
+          `is_vip.eq.true,is_super_vip.eq.true,and(discount_percent.gt.0,or(discount_expires_at.is.null,discount_expires_at.gt."${nowIso}"))`,
+        )
+        .order("is_super_vip", { ascending: false })
+        .order("is_vip", { ascending: false })
         .order("price_per_night", { ascending: true, nullsFirst: false })
         .limit(12),
       fetchLandingServices(supabase),
@@ -133,13 +168,47 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
   const blogQuery = withLandingTimeout(
     supabase
       .from("blog_posts")
-      .select("*")
+      .select(LANDING_BLOG_COLUMNS)
       .eq("published", true)
-      .order("published_at", { ascending: false })
-      .limit(3),
+      .order("created_at", { ascending: false })
+      .limit(6),
     "blog_posts",
   ).catch((error: unknown) => {
     logOptionalLandingError("blog_posts", error);
+    return null;
+  });
+
+  // Main-page VIP section (2026 price list §2.3; standard VIP joined SUPER VIP
+  // there on 2026-10-12): SUPER VIP first, then VIP, newest first within a
+  // tier. The order is in the query so the limit never drops a SUPER VIP for
+  // a VIP (NULLS LAST: a descending sort would put a NULL flag first).
+  // Rentals and sales are read apart so neither view loses its rows to the
+  // other. Optional like the blog: a failure hides the section instead of
+  // failing the landing render. The public views already drop expired flags.
+  const vipSectionProperties = (isForSale: boolean) =>
+    supabase
+      .from("public_properties")
+      .select(LANDING_SALE_COLUMNS)
+      .eq("is_for_sale", isForSale)
+      .or("is_super_vip.eq.true,is_vip.eq.true")
+      .order("is_super_vip", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(12);
+  const superVipQuery = withLandingTimeout(
+    Promise.all([
+      vipSectionProperties(false),
+      vipSectionProperties(true),
+      supabase
+        .from("public_services")
+        .select(LANDING_SERVICE_COLUMNS)
+        .or("is_super_vip.eq.true,is_vip.eq.true")
+        .order("is_super_vip", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(8),
+    ]),
+    "super_vip",
+  ).catch((error: unknown) => {
+    logOptionalLandingError("super_vip", error);
     return null;
   });
 
@@ -176,23 +245,37 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
   const vipProperties = requireLandingData("vip_properties", vipResult);
   const services = requireLandingData("services", servicesResult);
 
-  const [blogResult, aggregateResult] = await Promise.all([
+  const [blogResult, aggregateResult, superVipResults] = await Promise.all([
     blogQuery,
     aggregateQuery,
+    superVipQuery,
   ]);
   const blogPosts = optionalLandingData("blog_posts", blogResult);
+  // One list for both views: LandingPage keeps the rentals, SaleLandingBody
+  // gets the sales, each still in its query's order.
+  const superVipProperties = [
+    ...optionalLandingData("super_vip_rentals", superVipResults?.[0] ?? null),
+    ...optionalLandingData("super_vip_sales", superVipResults?.[1] ?? null),
+  ];
+  const superVipServices = optionalLandingData(
+    "super_vip_services",
+    superVipResults?.[2] ?? null,
+  );
   const saleAggregateRows = optionalLandingData(
     "sale_price_aggregate",
     aggregateResult,
   );
 
+  // Cards and map pins render photos[0] only (see firstPhotoOnly).
   return {
-    hotOffers,
-    hotels,
-    saleProperties,
-    vipProperties,
-    services,
+    hotOffers: hotOffers.map(firstPhotoOnly),
+    hotels: hotels.map(firstPhotoOnly),
+    saleProperties: saleProperties.map(firstPhotoOnly),
+    vipProperties: vipProperties.map(firstPhotoOnly),
+    services: services.map(firstPhotoOnly),
     blogPosts,
+    superVipProperties: superVipProperties.map((row) => firstPhotoOnly(row)),
+    superVipServices: superVipServices.map((row) => firstPhotoOnly(row)),
     pricePerSqmByZone: aggregateResult
       ? aggregatePricePerSqm(zones, saleAggregateRows)
       : emptyAggregate(zones),
@@ -335,41 +418,49 @@ async function LandingWithData() {
     LANDING_DEP_TIMEOUT_MS,
     FALLBACK_ZONES,
   );
-  const [zones, props, bannerCreatives, statusCards, weather, road] =
+  const [zones, props, bannerCreatives, statusCards, saleResearch] =
     await Promise.all([
       zonesPromise,
       fetchLandingProps(zonesPromise),
       // One fetch covers every home placement. The landing page renders these
       // server-side (no flash, no layout shift above the fold); every other
       // surface gets them client-side from /api/banner-slots.
-      withTimeout(
+      withTimeout<BannerCreative[] | null>(
         fetchSlotCreatives(),
         LANDING_DEP_TIMEOUT_MS,
-        [] as BannerCreative[],
-      ),
+        null,
+      ).then((creatives) => {
+        if (creatives) return creatives;
+        // The slots refill from /api/banner-slots in the browser (C47).
+        logOptionalLandingError(
+          "banner_slots",
+          new Error(`timed out after ${LANDING_DEP_TIMEOUT_MS} ms`),
+        );
+        return [] as BannerCreative[];
+      }),
+      // The admin cards with live weather / road / lift status laid over them,
+      // the same cards every other page shows (src/lib/status-cards/live.ts).
+      getLiveStatusCards(LANDING_DEP_TIMEOUT_MS),
+      // The admin's edits of the sale-mode research section; the defaults
+      // show when there are none or the read is slow.
       withTimeout(
-        getStatusCards(),
+        getSaleResearch(),
         LANDING_DEP_TIMEOUT_MS,
-        DEFAULT_STATUS_CARDS,
+        emptySaleResearch(),
       ),
-      withTimeout(getBakurianiWeather(), LANDING_DEP_TIMEOUT_MS, null),
-      withTimeout(getRoadCondition(), LANDING_DEP_TIMEOUT_MS, null),
     ]);
-
-  // Live weather / road status override their cards' value + detail; each falls
-  // back to the DB/default value when its read failed, timed out, or is still
-  // 'unknown' (road === null / weather === null).
-  const statusCardsWithWeather = withLiveWeather(statusCards, weather);
-  const statusCardsLive = withLiveRoad(statusCardsWithWeather, road);
 
   return (
     <LandingPage
       zones={zones}
-      statusCards={statusCardsLive}
+      statusCards={statusCards}
+      saleResearch={saleResearch}
       hotOffers={props.hotOffers}
       hotels={props.hotels}
       saleProperties={props.saleProperties}
       vipProperties={props.vipProperties}
+      superVipProperties={props.superVipProperties}
+      superVipServices={props.superVipServices}
       services={props.services}
       blogPosts={props.blogPosts}
       bannerCreatives={bannerCreatives}
@@ -378,10 +469,36 @@ async function LandingWithData() {
   );
 }
 
-export default function Home() {
+// No <Suspense> around the landing (C40): a boundary streams the whole page as
+// a `<div hidden>` segment that an inline script swaps in, which crawlers that
+// do not run JavaScript never see as visible content. The page is ISR
+// (`revalidate` above), so the data is awaited at revalidation time, not per
+// visitor.
+export default async function Home({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}) {
+  const { locale } = await params;
   return (
-    <Suspense fallback={<SkierLoader />}>
+    <>
+      <JsonLd
+        data={siteJsonLd({
+          siteUrl: SITE_URL,
+          homeUrl: new URL(
+            pathForLocale("/", locale, routing.defaultLocale),
+            SITE_URL,
+          ).href,
+          name: SITE_NAME,
+          alternateNames: SITE_ALTERNATE_NAMES,
+          inLanguage: locale,
+          logoUrl: `${SITE_URL}${SITE_LOGO_PATH}`,
+          telephone: CONTACT_PHONE_E164,
+          email: CONTACT_EMAIL,
+        })}
+      />
       <LandingWithData />
-    </Suspense>
+      <HomeAbout locale={locale} />
+    </>
   );
 }

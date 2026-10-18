@@ -10,7 +10,10 @@ const DEFAULT_ORIGIN = "https://my-bakuriani.vercel.app";
 /** Exact, deployment-controlled origins only. No wildcard or suffix matching. */
 export function allowedOrigins(): string[] {
   const raw = process.env.ALLOWED_ORIGINS ?? process.env.APP_ORIGIN;
-  if (!raw) return process.env.NODE_ENV === "production" ? [] : [DEFAULT_ORIGIN, "http://localhost:3000"];
+  if (!raw)
+    return process.env.NODE_ENV === "production"
+      ? []
+      : [DEFAULT_ORIGIN, "http://localhost:3000"];
   return raw
     .split(",")
     .map((origin) => origin.trim().replace(/\/$/, ""))
@@ -48,8 +51,32 @@ export function safeInternalPath(value: unknown): string | null {
   return value;
 }
 
+/**
+ * Drops one leading locale segment (`/en/dashboard` -> `/dashboard`).
+ * The middleware sends a signed-out visitor to `/<locale>/auth/login?next=<path
+ * they asked for>` with that path's locale prefix included, while next-intl's
+ * router prefixes the current locale onto whatever it is given, so pushing
+ * `next` as it is lands on `/en/en/dashboard` (404). Pass `routing.locales`.
+ */
+export function stripLocalePrefix(
+  path: string,
+  locales: readonly string[],
+): string {
+  for (const locale of locales) {
+    if (!path.startsWith(`/${locale}`)) continue;
+    const rest = path.slice(locale.length + 1);
+    if (rest === "") return "/";
+    // Never a leading `//`: `/en//evil.example` must not become a
+    // protocol-relative URL (an off-site redirect) once the prefix is gone.
+    if (rest[0] === "/") return `/${rest.replace(/^\/+/, "")}`;
+    if (rest[0] === "?" || rest[0] === "#") return `/${rest}`;
+  }
+  return path;
+}
+
 export function safeHttpsUrl(value: unknown): string | null {
-  if (typeof value !== "string" || CONTROL_OR_BACKSLASH.test(value)) return null;
+  if (typeof value !== "string" || CONTROL_OR_BACKSLASH.test(value))
+    return null;
   try {
     const url = new URL(value);
     return url.protocol === "https:" && !!url.hostname ? url.toString() : null;
@@ -85,9 +112,16 @@ export function normalizeE164Phone(value: unknown): string | null {
 }
 
 export function safeCsvCell(value: unknown): string {
-  const text = String(value ?? "").replace(/\r\n?|\n/g, "\n");
-  const neutralized = /^[=+\-@]/.test(text) ? `'${text}` : text;
-  return `"${neutralized.replace(/"/g, '""')}"`;
+  // A real number stays a number cell (a negative amount is not a formula).
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  const raw = String(value ?? "");
+  // Neutralise spreadsheet formula / DDE triggers on the RAW first character —
+  // including TAB and CR/LF, which some importers strip before evaluating what
+  // follows (OWASP CSV injection). Test before newline normalisation so a
+  // leading CR is still caught.
+  const neutralized = /^[=+\-@\t\r\n]/.test(raw) ? `'${raw}` : raw;
+  const text = neutralized.replace(/\r\n?|\n/g, "\n");
+  return `"${text.replace(/"/g, '""')}"`;
 }
 
 export function toCsv(rows: readonly (readonly unknown[])[]): string {

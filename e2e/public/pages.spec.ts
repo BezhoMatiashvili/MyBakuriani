@@ -39,6 +39,37 @@ test.describe("Landing page", () => {
     await expect(interactable).toBeVisible();
   });
 
+  // Owner PDF "გასასწორებელი3" (2026-10-06): the zone list shows names only,
+  // and the filters field reads ტევადობა.
+  test("hero search lists zone names only and spells ტევადობა", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("search-desktop-filters")).toHaveText(
+      "ფასი, ტევადობა...",
+    );
+    const zoneButton = page
+      .getByRole("button", { name: "დიდველი / კრისტალი", exact: true })
+      .first();
+    // A click before React attaches its handlers is lost.
+    await expect
+      .poll(() =>
+        zoneButton.evaluate((node) =>
+          Object.keys(node).some((key) => key.startsWith("__reactProps$")),
+        ),
+      )
+      .toBe(true);
+    await zoneButton.click();
+    const options = page
+      .getByRole("listbox", { name: "ლოკაციის ვარიანტები" })
+      .getByRole("option");
+    await expect(options.first()).toBeVisible();
+    for (const text of await options.allInnerTexts()) {
+      expect(text.trim()).not.toContain("\n");
+    }
+    await expect(options.filter({ hasText: "ტრასასთან ახლოს" })).toHaveCount(0);
+  });
+
   test("can toggle sale landing discounts-only filter", async ({ page }) => {
     await page.goto("/en");
 
@@ -379,10 +410,12 @@ async function listingLayout(page: import("@playwright/test").Page) {
       '[data-testid="listing-results"]',
     );
     if (!hero || !results) throw new Error("listing layout markers missing");
+    // Document coordinates: opening a panel can make Playwright scroll to its
+    // buttons, which moves every viewport-relative box without moving the layout.
     return {
       heroHeight: hero.getBoundingClientRect().height,
-      heroBottom: hero.getBoundingClientRect().bottom,
-      resultsTop: results.getBoundingClientRect().top,
+      heroBottom: hero.getBoundingClientRect().bottom + window.scrollY,
+      resultsTop: results.getBoundingClientRect().top + window.scrollY,
     };
   });
 }
@@ -394,6 +427,16 @@ for (const path of ["/en/apartments", "/en/hotels", "/en/search?mode=rent"]) {
     }) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto(path);
+      // A click before React attaches its handlers is lost.
+      await expect
+        .poll(() =>
+          page
+            .getByTestId("search-desktop-dates")
+            .evaluate((node) =>
+              Object.keys(node).some((key) => key.startsWith("__reactProps$")),
+            ),
+        )
+        .toBe(true);
       const before = await listingLayout(page);
 
       await page.getByTestId("search-desktop-dates").click();
@@ -759,20 +802,22 @@ test.describe("FAQ page", () => {
 
   test("has expandable FAQ items", async ({ page }) => {
     await page.goto("/faq");
-    // FAQ uses plain buttons with chevron-down icons
-    const triggers = page.locator("button:has(svg.lucide-chevron-down)");
+    // Each question is a native <details>/<summary> with a chevron-down icon;
+    // the answers are in the HTML while collapsed (C40).
+    const triggers = page.locator(
+      "main details > summary:has(svg.lucide-chevron-down)",
+    );
     const count = await triggers.count();
     expect(count).toBeGreaterThan(0);
   });
 
   test("can expand an FAQ item", async ({ page }) => {
     await page.goto("/faq");
-    const trigger = page.locator("button:has(svg.lucide-chevron-down)").first();
-    if (await trigger.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await trigger.click();
-      // After clicking, content should appear
-      await expect(page.locator("main")).toBeVisible();
-    }
+    const item = page.locator("main details").first();
+    await expect(item).not.toHaveAttribute("open", "");
+    await item.locator("summary").click();
+    await expect(item).toHaveAttribute("open", "");
+    await expect(item.locator("summary + *")).toBeVisible();
   });
 });
 
@@ -915,6 +960,36 @@ test.describe("Footer", () => {
     const text = await footer.textContent();
     expect(text).toContain("MyBakuriani");
   });
+
+  // Owner PDF "გასასწორებელი3" (2026-10-06): სასტუმროები and იყიდება became
+  // ბინები, ყიდვა and გაყიდვა.
+  test("platform column lists ბინები, ყიდვა and გაყიდვა", async ({ page }) => {
+    await page.goto("/");
+    const links = page
+      .locator("footer h3", { hasText: "პლატფორმა" })
+      .locator("xpath=following-sibling::ul[1]")
+      .getByRole("link");
+    await expect(links).toHaveText([
+      "ყველა განცხადება",
+      "ბინები",
+      "ყიდვა",
+      "გაყიდვა",
+      "როგორ მუშაობს",
+      "ვერიფიკაცია",
+      "ფასები",
+    ]);
+    expect(
+      await links.evaluateAll((els) => els.map((a) => a.getAttribute("href"))),
+    ).toEqual([
+      "/apartments",
+      "/apartments",
+      "/sales",
+      "/create/sale",
+      "/faq",
+      "/faq",
+      "/pricing",
+    ]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -995,6 +1070,7 @@ test.describe("Viewport responsiveness", () => {
     "/employment",
     "/blog",
     "/faq",
+    "/pricing",
     "/contact",
     "/terms",
     "/search",
@@ -1031,6 +1107,7 @@ test.describe("SEO metadata", () => {
     "/employment",
     "/blog",
     "/faq",
+    "/pricing",
     "/contact",
     "/terms",
   ];
@@ -1049,5 +1126,31 @@ test.describe("SEO metadata", () => {
       .locator('meta[name="description"]')
       .getAttribute("content");
     expect(description && description.length).toBeGreaterThan(0);
+  });
+});
+
+test.describe("Pricing page", () => {
+  test("publishes the 2026 price list with live package prices", async ({
+    page,
+  }) => {
+    await page.goto("/pricing");
+    await expect(page).toHaveTitle(/ფასები და პირობები/);
+    const main = page.locator("main");
+    await expect(
+      main.getByRole("heading", {
+        level: 1,
+        name: "ფასების ცხრილი და მომსახურებების განმარტებები",
+      }),
+    ).toBeVisible();
+    await expect(main.getByText("1.50 ₾").first()).toBeVisible();
+    await expect(main.getByText("PREMIUM+", { exact: true })).toBeVisible();
+    await expect(main.getByText("Pro SMS", { exact: true })).toBeVisible();
+  });
+
+  test("footer links to the pricing page", async ({ page }) => {
+    await page.goto("/faq");
+    await expect(
+      page.locator("footer").getByRole("link", { name: "ფასები" }),
+    ).toHaveAttribute("href", /\/pricing$/);
   });
 });

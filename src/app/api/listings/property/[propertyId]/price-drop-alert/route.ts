@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import type { User } from "@supabase/supabase-js";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { isSmsFeatureEnabled } from "@/lib/sms/feature-flags";
 import { toCanonicalGePhone } from "@/lib/sms/phone";
@@ -16,10 +17,12 @@ export const runtime = "nodejs";
 const MAX_SUBSCRIBERS_PER_LISTING = 50;
 
 async function context(propertyId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Cast: getCurrentUser()'s timeout-fallback identity (getVerifiedSessionUser)
+  // only carries {id, email?}, not the full Supabase User shape this route
+  // needs (phone, phone_confirmed_at) — but on that rare fallback path those
+  // fields just come back undefined, which the checks below already treat as
+  // "no verified phone" (fails closed to 409, never crashes).
+  const user = (await getCurrentUser()) as User | null;
   if (!user)
     return { ok: false as const, status: 401, error: "unauthenticated" };
   if (!isSmsFeatureEnabled("SMS_PRICE_DROP_MODE", user.id)) {
@@ -127,6 +130,16 @@ export async function PUT(
     )
     .select("active")
     .single();
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // The database holds the same cap under a per-listing lock (concurrent
+    // subscribes could all pass the count above): same answer as the check.
+    if (error.hint === "subscriber_limit_reached") {
+      return Response.json(
+        { error: "subscriber_limit_reached" },
+        { status: 409 },
+      );
+    }
+    return Response.json({ error: error.message }, { status: 500 });
+  }
   return Response.json({ subscribed: data.active });
 }

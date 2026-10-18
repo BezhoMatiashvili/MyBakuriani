@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -19,10 +19,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatPhone } from "@/lib/utils/format";
 import type { PendingListing } from "@/app/api/admin/listings/pending/route";
 import ListingAuditPanel from "@/components/admin/ListingAuditPanel";
+import OwnershipVerificationsPanel from "@/components/admin/OwnershipVerificationsPanel";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 
 const PAGE_SIZE = 8;
 
+type ReviewTab = "listings" | "changes" | "ownership";
 type FilterKey = "all" | PendingListing["category"];
 type ContentChangeRequest = {
   id: string;
@@ -32,6 +34,7 @@ type ContentChangeRequest = {
   proposed_values: Record<string, unknown>;
   field_diff: Record<string, { before: unknown; after: unknown }>;
   created_at: string;
+  updated_at: string;
   request_kind: "content" | "food_discount" | "menu_item_discount";
   quoted_amount_gel?: number | null;
   quoted_duration_hours?: number | null;
@@ -89,6 +92,10 @@ const CATEGORY_BADGE: Record<
   },
 };
 
+function tabFromParam(value: string | null): ReviewTab {
+  return value === "changes" || value === "ownership" ? value : "listings";
+}
+
 function initialsOf(name: string | null | undefined): string {
   if (!name) return "მ ს";
   return name
@@ -102,11 +109,11 @@ function initialsOf(name: string | null | undefined): string {
 
 export default function VerificationsPage() {
   // Seeded from the URL so the admin_content_change_pending notification, which
-  // links to ?tab=changes, actually lands on the change-request queue.
+  // links to ?tab=changes, actually lands on the change-request queue (and
+  // admin_ownership_pending, ?tab=ownership, on the ownership queue).
   const searchParams = useSearchParams();
-  const [reviewTab, setReviewTab] = useState<"listings" | "changes">(
-    searchParams.get("tab") === "changes" ? "changes" : "listings",
-  );
+  const tabParam = searchParams.get("tab");
+  const [reviewTab, setReviewTab] = useState<ReviewTab>(tabFromParam(tabParam));
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PendingListing[]>([]);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -115,7 +122,29 @@ export default function VerificationsPage() {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [changesCount, setChangesCount] = useState(0);
+  const [ownershipCount, setOwnershipCount] = useState(0);
   const [nowTick, setNowTick] = useState(() => Date.now());
+
+  // A bell click while already on this page changes only the query string,
+  // which does not remount the page: follow it to the linked queue.
+  useEffect(() => {
+    setReviewTab(tabFromParam(tabParam));
+  }, [tabParam]);
+
+  // Tab clicks write ?tab= too, so the URL always names the open tab: a bell
+  // link to the tab the URL already named would otherwise change nothing.
+  const router = useRouter();
+  const pathname = usePathname();
+  function selectTab(tab: ReviewTab) {
+    setReviewTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "listings") params.delete("tab");
+    else params.set("tab", tab);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  }
 
   useEffect(() => {
     const id = setInterval(() => setNowTick(Date.now()), 60_000);
@@ -124,22 +153,25 @@ export default function VerificationsPage() {
 
   useEffect(() => {
     let active = true;
-    void refreshChangesCount(active);
+    void refreshCounts(active);
     return () => {
       active = false;
     };
   }, []);
 
-  async function refreshChangesCount(active = true) {
+  async function refreshCounts(active = true) {
     try {
       const res = await fetch("/api/admin/listings/pending/count", {
         cache: "no-store",
       });
-      const payload: { changes?: number } | null = res.ok
+      const payload: { changes?: number; ownership?: number } | null = res.ok
         ? await res.json()
         : null;
       if (active && payload && typeof payload.changes === "number") {
         setChangesCount(payload.changes);
+      }
+      if (active && payload && typeof payload.ownership === "number") {
+        setOwnershipCount(payload.ownership);
       }
     } catch {
       // ignore
@@ -296,11 +328,29 @@ export default function VerificationsPage() {
       <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-7 pb-10">
         <VerificationTabs
           active="changes"
-          onChange={setReviewTab}
+          onChange={selectTab}
           listingsCount={items.length}
           changesCount={changesCount}
+          ownershipCount={ownershipCount}
         />
-        <ContentChangeRequestsPanel onModerated={() => refreshChangesCount()} />
+        <ContentChangeRequestsPanel onModerated={() => refreshCounts()} />
+      </div>
+    );
+  }
+
+  // Its own branch, never inside the listings tab: that tab's owner/NAPR
+  // block must stay the only one on the page (e2e/dashboards/admin.spec.ts).
+  if (reviewTab === "ownership") {
+    return (
+      <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-7 pb-10">
+        <VerificationTabs
+          active="ownership"
+          onChange={selectTab}
+          listingsCount={items.length}
+          changesCount={changesCount}
+          ownershipCount={ownershipCount}
+        />
+        <OwnershipVerificationsPanel onChanged={() => refreshCounts()} />
       </div>
     );
   }
@@ -318,12 +368,13 @@ export default function VerificationsPage() {
 
       <VerificationTabs
         active="listings"
-        onChange={setReviewTab}
+        onChange={selectTab}
         listingsCount={items.length}
         changesCount={changesCount}
+        ownershipCount={ownershipCount}
       />
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-jev-public className="flex flex-wrap items-center gap-2">
         {FILTERS.map(({ key, label }) => {
           const isActive = filter === key;
           const count = counts[key];
@@ -484,6 +535,7 @@ export default function VerificationsPage() {
                       }}
                       disabled={busyKey === key}
                       aria-label="დადასტურება"
+                      data-jev-label="დადასტურება"
                       className="inline-flex h-12 min-h-[44px] w-12 items-center justify-center rounded-xl bg-[#059669] text-white shadow-[0px_8px_20px_rgba(5,150,105,0.25)] transition-colors hover:bg-[#047857] disabled:opacity-50"
                     >
                       {busyKey === key ? (
@@ -500,6 +552,7 @@ export default function VerificationsPage() {
                       }}
                       disabled={busyKey === key}
                       aria-label="უარყოფა"
+                      data-jev-label="უარყოფა"
                       className="inline-flex h-12 min-h-[44px] w-12 items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] text-[#DC2626] transition-colors hover:bg-[#FEE2E2] disabled:opacity-50"
                     >
                       <X className="h-5 w-5" />
@@ -586,18 +639,25 @@ function VerificationTabs({
   onChange,
   listingsCount = 0,
   changesCount = 0,
+  ownershipCount = 0,
 }: {
-  active: "listings" | "changes";
-  onChange: (tab: "listings" | "changes") => void;
+  active: ReviewTab;
+  onChange: (tab: ReviewTab) => void;
   listingsCount?: number;
   changesCount?: number;
+  ownershipCount?: number;
 }) {
+  // Three tabs no longer fit a 375 px screen: the strip scrolls sideways
+  // instead of squeezing the labels.
   return (
-    <div className="flex gap-2 border-b border-[#E2E8F0]">
+    <div
+      data-jev-public
+      className="flex gap-2 overflow-x-auto border-b border-[#E2E8F0]"
+    >
       <button
         type="button"
         onClick={() => onChange("listings")}
-        className={`inline-flex items-center gap-1.5 px-4 py-3 text-sm font-bold ${active === "listings" ? "border-b-2 border-[#2563EB] text-[#2563EB]" : "text-[#64748B]"}`}
+        className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-bold ${active === "listings" ? "border-b-2 border-[#2563EB] text-[#2563EB]" : "text-[#64748B]"}`}
       >
         ახალი განცხადებები
         {listingsCount > 0 && (
@@ -609,12 +669,24 @@ function VerificationTabs({
       <button
         type="button"
         onClick={() => onChange("changes")}
-        className={`inline-flex items-center gap-1.5 px-4 py-3 text-sm font-bold ${active === "changes" ? "border-b-2 border-[#2563EB] text-[#2563EB]" : "text-[#64748B]"}`}
+        className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-bold ${active === "changes" ? "border-b-2 border-[#2563EB] text-[#2563EB]" : "text-[#64748B]"}`}
       >
         ცვლილების მოთხოვნები
         {changesCount > 0 && (
           <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[10px] font-extrabold text-white">
             {changesCount}
+          </span>
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("ownership")}
+        className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-bold ${active === "ownership" ? "border-b-2 border-[#2563EB] text-[#2563EB]" : "text-[#64748B]"}`}
+      >
+        მესაკუთრეობა
+        {ownershipCount > 0 && (
+          <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[10px] font-extrabold text-white">
+            {ownershipCount}
           </span>
         )}
       </button>
@@ -666,7 +738,11 @@ function ContentChangeRequestsPanel({
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action, reason }),
+          body: JSON.stringify({
+            action,
+            reason,
+            expectedUpdatedAt: item.updated_at,
+          }),
         },
       );
       const payload = await response.json();
@@ -755,6 +831,7 @@ function ContentChangeRequestsPanel({
                   type="button"
                   disabled={busy === item.id}
                   onClick={() => moderate(item, "approve")}
+                  data-jev-label="დამტკიცება"
                   className="rounded-xl bg-[#059669] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
                 >
                   დამტკიცება
@@ -763,6 +840,7 @@ function ContentChangeRequestsPanel({
                   type="button"
                   disabled={busy === item.id}
                   onClick={() => moderate(item, "reject")}
+                  data-jev-label="უარყოფა"
                   className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-2 text-sm font-bold text-[#DC2626] disabled:opacity-50"
                 >
                   უარყოფა

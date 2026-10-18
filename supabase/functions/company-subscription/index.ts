@@ -6,24 +6,25 @@ import {
   jsonResponse,
   requireUser,
 } from "../_shared/guards.ts";
+import { isPaymentFailure } from "../_shared/payment-failure.ts";
 
-// Activate a company subscription package (ENTRY / PRO / PREMIUM). The price and
+// Activate a company subscription package (START / PRO / PREMIUM / PREMIUM+ —
+// tier codes entry / pro / premium / premium_plus). The price and
 // apartment cap are resolved server-side from pricing_packages by the RPC, and
 // the owner's personal balance is debited atomically. Mirrors purchase-vip:
 // requireUser validates the JWT, and user.id (never client input) is passed as
 // the payer so a caller cannot charge someone else's balance.
-type Tier = "entry" | "pro" | "premium";
-const VALID_TIERS: readonly Tier[] = ["entry", "pro", "premium"];
+type Tier = "entry" | "pro" | "premium" | "premium_plus";
+const VALID_TIERS: readonly Tier[] = [
+  "entry",
+  "pro",
+  "premium",
+  "premium_plus",
+];
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type UserCtx = Awaited<ReturnType<typeof requireUser>>;
-
-function isTierLockedError(error: unknown): boolean {
-  return (
-    error instanceof ApiError && error.code === "SUBSCRIPTION_TIER_LOCKED"
-  );
-}
 
 serve(async (req) => {
   const cors = buildCorsHeaders(req);
@@ -33,6 +34,8 @@ serve(async (req) => {
   }
 
   let ctx: UserCtx | undefined;
+  // Set only when the charge RPC reports a real payment failure.
+  let paymentFailed = false;
 
   try {
     ctx = await requireUser(req);
@@ -65,13 +68,16 @@ serve(async (req) => {
           "SUBSCRIPTION_TIER_LOCKED",
         );
       }
+      paymentFailed = isPaymentFailure(error);
       throw error;
     }
 
     return jsonResponse({ data }, 200, cors);
   } catch (err) {
-    // Best-effort failure notification (skipped when auth itself failed).
-    if (ctx?.user?.id && !isTierLockedError(err)) {
+    // Best-effort failure notification, only for a charge that really failed:
+    // payment_failed is also emailed, so validation, not-found and tier-lock
+    // errors get the HTTP response alone.
+    if (ctx?.user?.id && paymentFailed) {
       try {
         await ctx.supabase.from("notifications").insert({
           user_id: ctx.user.id,

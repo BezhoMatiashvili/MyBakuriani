@@ -1,19 +1,7 @@
 import { getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
-import { getCurrentProfile } from "@/lib/auth/current-user";
-
-const roleToDashboard: Record<string, string> = {
-  guest: "/dashboard/guest",
-  renter: "/dashboard/renter",
-  seller: "/dashboard/seller",
-  cleaner: "/dashboard/cleaner",
-  food: "/dashboard/food",
-  entertainment: "/dashboard/entertainment",
-  transport: "/dashboard/transport",
-  employment: "/dashboard/employment",
-  handyman: "/dashboard/services",
-  admin: "/dashboard/admin",
-};
+import { getCurrentProfile, getCurrentUser } from "@/lib/auth/current-user";
+import { roleHomePath } from "@/lib/cabinets";
 
 // Route to the role-specific dashboard on the server — no client mount,
 // no extra "fetch role then redirect" round-trips, no loader flash.
@@ -25,12 +13,17 @@ export default async function DashboardRedirect() {
   ]);
 
   if (!profile) {
-    redirect({ href: "/auth/login", locale });
+    // Signed in but no profile row: /auth/register was never finished, and the
+    // login page does not forward a signed-in user. The wizard also covers a
+    // failed profile read (it finds the profile and moves on), and its own
+    // fallback is /dashboard/guest, so this cannot loop.
+    const user = await getCurrentUser();
+    redirect({ href: user ? "/auth/register" : "/auth/login", locale });
     return;
   }
 
   redirect({
-    href: roleToDashboard[profile.role] ?? "/dashboard/guest",
+    href: roleHomePath(profile.role),
     locale,
   });
 }

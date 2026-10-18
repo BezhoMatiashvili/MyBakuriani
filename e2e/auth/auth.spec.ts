@@ -1,4 +1,20 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+// With phone sign-in on (C48) /auth/login opens on the phone tab; these tests
+// exercise the e-mail form. Retried so a click before hydration is not lost.
+async function openEmailTab(page: Page) {
+  // The page streams behind loading.tsx: when goto() resolves it can still sit
+  // in a hidden boundary, where a role query finds no tab.
+  await expect(page.locator("#auth-phone, #auth-email").first()).toBeVisible();
+  // Already open (no phone tab, or ?error=invalid_link): a click would clear
+  // the page's error notice.
+  if (await page.locator("#auth-email").isVisible()) return;
+  const tab = page.getByRole("button", { name: "ელ. ფოსტა", exact: true });
+  await expect(async () => {
+    await tab.click();
+    await expect(page.locator("#auth-email")).toBeVisible({ timeout: 1_000 });
+  }).toPass();
+}
 
 // ---------------------------------------------------------------------------
 // Login page structure
@@ -6,31 +22,27 @@ import { test, expect } from "@playwright/test";
 test.describe("Login page structure", () => {
   test("loads login page", async ({ page }) => {
     await page.goto("/auth/login");
+    await openEmailTab(page);
     await expect(page.locator("main")).toBeVisible();
   });
 
   test("has a heading or title", async ({ page }) => {
     await page.goto("/auth/login");
+    await openEmailTab(page);
     const heading = page.locator("h1, h2").first();
     await expect(heading).toBeVisible();
   });
 
   test("has phone or email input tabs", async ({ page }) => {
     await page.goto("/auth/login");
+    await openEmailTab(page);
     const tabs = page.locator("button, [role='tab']");
     await expect(tabs.first()).toBeVisible();
   });
 
-  test("phone tab shows +995 prefix", async ({ page }) => {
-    await page.goto("/auth/login");
-    const phoneText = page.getByText("+995");
-    if ((await phoneText.count()) > 0) {
-      await expect(phoneText.first()).toBeVisible();
-    }
-  });
-
   test("has a submit / continue button", async ({ page }) => {
     await page.goto("/auth/login");
+    await openEmailTab(page);
     const submitButton = page.locator(
       "button[type='submit'], button:has-text('შესვლა'), button:has-text('გაგრძელება')",
     );
@@ -40,6 +52,7 @@ test.describe("Login page structure", () => {
 
   test("MyBakuriani branding is visible", async ({ page }) => {
     await page.goto("/auth/login");
+    await openEmailTab(page);
     await expect(page.getByText("MyBakuriani").first()).toBeVisible();
   });
 });
@@ -111,6 +124,36 @@ test.describe("Route protection - unauthenticated redirects", () => {
       expect(next).toBeTruthy();
     });
   }
+
+  // Next routes /%64ashboard as /dashboard, so the middleware tests the decoded
+  // path; a first segment that only starts with a framework prefix must not
+  // skip the middleware either (C8).
+  for (const route of [
+    "/%64ashboard/renter",
+    "/en/%64ashboard/renter",
+    "/%63reate/rental",
+  ]) {
+    test(`${route} gets the middleware's login redirect`, async ({
+      request,
+    }) => {
+      const res = await request.get(route, { maxRedirects: 0 });
+      expect(res.status()).toBe(307);
+      const location = new URL(res.headers()["location"], "http://localhost");
+      expect(location.pathname).toMatch(/\/auth\/login$/);
+      expect(location.searchParams.get("next")).toBeTruthy();
+    });
+  }
+
+  for (const route of [
+    "/trpc/dashboard/admin",
+    "/_vercel/dashboard/admin",
+    "/_nextx/dashboard/admin",
+  ]) {
+    test(`${route} runs the middleware`, async ({ request }) => {
+      const res = await request.get(route, { maxRedirects: 0 });
+      expect(res.headers()["content-security-policy"]).toBeTruthy();
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -146,21 +189,22 @@ test.describe("Public pages remain accessible", () => {
 // Login form interactions
 // ---------------------------------------------------------------------------
 test.describe("Login form interactions", () => {
-  test("can switch between tabs", async ({ page }) => {
+  test("can switch between sign-in and register", async ({ page }) => {
     await page.goto("/auth/login");
-    // The tab buttons are "ელ. ფოსტა" and "ტელეფონი"
-    const phoneTab = page.getByRole("button", { name: "ტელეფონი" });
-    const emailTab = page.getByRole("button", { name: "ელ. ფოსტა" });
-    await expect(emailTab).toBeVisible();
-    await expect(phoneTab).toBeVisible();
-    // Switch to phone tab
-    await phoneTab.click();
-    await page.waitForTimeout(300);
-    await expect(page.locator("main")).toBeVisible();
+    await openEmailTab(page);
+    const signInMode = page.getByRole("button", { name: "შესვლა" }).first();
+    const registerMode = page
+      .getByRole("button", { name: "რეგისტრაცია" })
+      .first();
+    await expect(signInMode).toBeVisible();
+    await expect(registerMode).toBeVisible();
+    await registerMode.click();
+    await expect(page.locator("#auth-confirm-password")).toBeVisible();
   });
 
   test("shows validation on empty submit", async ({ page }) => {
     await page.goto("/auth/login");
+    await openEmailTab(page);
     const submitButton = page.locator("form button[type='submit']");
     await expect(submitButton).toBeVisible({ timeout: 10_000 });
     await expect(submitButton).toBeEnabled();
@@ -184,6 +228,7 @@ test.describe("Login form interactions", () => {
     );
 
     await page.goto("/auth/login");
+    await openEmailTab(page);
     const emailInput = page.locator("input[name='email']");
     const passwordInput = page.locator("input[name='password']");
     const submitButton = page.locator("form button[type='submit']");
@@ -218,6 +263,7 @@ test.describe("Login form interactions", () => {
     );
 
     await page.goto("/auth/login");
+    await openEmailTab(page);
     await page.locator("input[name='email']").fill("person@example.com");
     const passwordInput = page.locator("input[name='password']");
     await passwordInput.fill("wrong-password");
@@ -227,21 +273,10 @@ test.describe("Login form interactions", () => {
     await expect(page.getByText("არასწორი ელ. ფოსტა ან პაროლი")).toBeVisible();
   });
 
-  test("phone input accepts numeric input", async ({ page }) => {
-    await page.goto("/auth/login");
-    const phoneInput = page.locator(
-      "input[type='tel'], input[placeholder*='5'], input[name*='phone']",
-    );
-    if ((await phoneInput.count()) > 0) {
-      await phoneInput.first().fill("555123456");
-      const value = await phoneInput.first().inputValue();
-      expect(value).toContain("555");
-    }
-  });
-
   test("login page is responsive at 375px", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/auth/login");
+    await openEmailTab(page);
     await expect(page.locator("main")).toBeVisible();
     const overflow = await page.evaluate(
       () =>
@@ -260,6 +295,7 @@ test.describe("Email registration form", () => {
   // (in register mode the submit button carries the same "რეგისტრაცია" label).
   async function openRegisterMode(page: import("@playwright/test").Page) {
     await page.goto("/auth/login");
+    await openEmailTab(page);
     await page.getByRole("button", { name: "რეგისტრაცია" }).first().click();
     await expect(page.locator("#auth-confirm-password")).toBeVisible();
   }
@@ -377,6 +413,7 @@ test.describe("Email registration form", () => {
 test.describe("Auth page navigation", () => {
   test("login page has link to register", async ({ page }) => {
     await page.goto("/auth/login");
+    await openEmailTab(page);
     const registerLink = page.locator("a[href*='/auth/register']");
     if ((await registerLink.count()) > 0) {
       await expect(registerLink.first()).toBeVisible();

@@ -221,11 +221,6 @@ async function main() {
       continue;
     }
     console.log(`${role}: ${loginPath} (${roleRoutes.length} routes)`);
-    if (loginPath.includes("/auth/mfa")) {
-      results.push({ role, loginPath, mfaRequired: true });
-      await context.close();
-      continue;
-    }
     for (const route of roleRoutes) {
       console.log(`  ${route.path}`);
       results.push(await inspectRoute(context, route));

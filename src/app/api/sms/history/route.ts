@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { canUseSmsCenter } from "@/lib/sms/sender-access";
@@ -15,9 +16,7 @@ export type SmsHistoryItem = {
 
 export async function GET() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     return Response.json({ error: "unauthenticated" }, { status: 401 });
   }
@@ -44,7 +43,10 @@ export async function GET() {
     id: row.id,
     kind: "automation",
     automation_kind: row.automation_kind,
-    message: row.message.replace(/https?:\/\/\S+\/review\/\S+/gu, "[secure review link]"),
+    message: row.message.replace(
+      /https?:\/\/\S+\/review\/\S+/gu,
+      "[secure review link]",
+    ),
     status: row.status,
     created_at: row.created_at,
   }));

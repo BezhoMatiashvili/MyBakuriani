@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   startOfMonth,
   endOfMonth,
@@ -30,6 +30,10 @@ const DAY_KEYS = [
   "day7",
 ] as const;
 
+function localDayKey(date: Date) {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
 interface Props {
   dates: CalendarDate[];
   selectedRange: { start: Date | null; end: Date | null };
@@ -57,8 +61,18 @@ export function AvailabilityCalendar({
   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
   const allDays = eachDayOfInterval({ start: gridStart, end: gridEnd });
 
-  const getStatus = (day: Date) =>
-    dates.find((d) => isSameDay(d.date, day))?.status ?? null;
+  // One pass over the rows instead of an isSameDay scan of every row for each
+  // of the 42 cells on every render (each date click). Keyed by LOCAL calendar
+  // day, as isSameDay compares; the first row for a day wins, as with find().
+  const statusByDay = useMemo(() => {
+    const map = new Map<string, CalendarDate["status"]>();
+    for (const d of dates) {
+      const key = localDayKey(d.date);
+      if (!map.has(key)) map.set(key, d.status);
+    }
+    return map;
+  }, [dates]);
+  const getStatus = (day: Date) => statusByDay.get(localDayKey(day)) ?? null;
 
   const canGoPrev = isAfter(monthStart, startOfMonth(today));
 

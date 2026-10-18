@@ -7,6 +7,8 @@ import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { PUBLIC_NAMESPACES, pickMessages } from "@/i18n/namespaces";
 import { LocaleShell } from "@/components/layout/LocaleShell";
+import { SupportAssistantLoader } from "@/components/support/SupportAssistantLoader";
+import { isSupportConfigured } from "@/lib/support/openrouter";
 
 const notoSansGeorgian = Noto_Sans_Georgian({
   subsets: ["georgian", "latin"],
@@ -45,6 +47,7 @@ export default async function LocaleLayout({ children, params }: Props) {
       <body className="flex min-h-dvh flex-col bg-white text-[#1E293B] antialiased">
         <NextIntlClientProvider messages={messages}>
           <LocaleShell>{children}</LocaleShell>
+          {isSupportConfigured() && <SupportAssistantLoader publicSite />}
         </NextIntlClientProvider>
         <Toaster richColors position="top-right" />
       </body>

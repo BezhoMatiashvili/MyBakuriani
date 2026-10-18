@@ -70,7 +70,7 @@ export function CallButton({
       const response = await fetch(`/api/listings/${kind}/${id}/contact`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ device_id: deviceId, turnstile_token: turnstileToken }),
+        body: JSON.stringify({ device_id: deviceId, turnstile_token: turnstileToken, channel: "call" }),
       });
       if (!response.ok) {
         setRevealFailed(true);

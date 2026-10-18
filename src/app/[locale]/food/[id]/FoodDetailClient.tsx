@@ -1,20 +1,26 @@
 "use client";
 
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { useRouter } from "@/i18n/navigation";
-import { motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, Heart, Share2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { FoodPhotoGallery } from "@/components/detail/FoodPhotoGallery";
 import { FoodInfoCard } from "@/components/food-detail/FoodInfoCard";
 import { FoodContactCard } from "@/components/food-detail/FoodContactCard";
+import ServiceLocationMap from "@/components/detail/ServiceLocationMap";
+import { parseServiceCoords } from "@/lib/maps/serviceCoords";
 import { formatPrice } from "@/lib/utils/format";
+import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
+import { ShareMenu } from "@/components/shared/ShareMenu";
+import { useFavorite } from "@/lib/hooks/useFavorite";
+import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import type { PublicMenuItem } from "@/lib/data/getCachedPublicListing";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import {
   FOOD_AMENITIES,
   optionKeyFor,
@@ -24,17 +30,14 @@ import BannerSlot from "@/components/banners/BannerSlot";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 
 interface Props {
-  service: ServiceWithFoodExtras;
+  service: ServiceWithFoodExtras & {
+    /** Ownership badge (C39); absent on base-table preview reads. */
+    ownership_verified?: boolean;
+  };
   menuItems: PublicMenuItem[];
   isMock?: boolean;
   isPending?: boolean;
 }
-
-const fadeIn = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
-};
 
 export default function FoodDetailClient({
   service,
@@ -45,7 +48,13 @@ export default function FoodDetailClient({
   const router = useRouter();
   const t = useTranslations("FoodDetail");
   const tShared = useTranslations("Shared");
+  const tGallery = useTranslations("PhotoGallery");
   const tOpts = useTranslations("ListingOptions");
+  const {
+    isFavorited,
+    busy: favoriteBusy,
+    toggle: toggleFavorite,
+  } = useFavorite({ serviceId: service.id });
 
   // "10:30 - 21:00" → localized "from 10:30 to 21:00"; falls back to the raw string.
   const formatHoursRange = (hours: string | null): string | null => {
@@ -55,11 +64,12 @@ export default function FoodDetailClient({
     return hours;
   };
 
-  useEffect(() => {
-    if (isMock) return;
-    void fetch(`/api/listings/service/${service.id}/view`, { method: "POST" });
-
-  }, [service.id, isMock]);
+  const views = useListingViewCount(
+    "service",
+    service.id,
+    service.views_count,
+    !isMock,
+  );
 
   const categoryKey = optionKeyFor("serviceCategories", service.category);
   const categoryLabel = categoryKey
@@ -74,6 +84,10 @@ export default function FoodDetailClient({
   const cuisineTypeKey = optionKeyFor("cuisineTypes", service.cuisine_type);
 
   const subtitleZone = service.location ?? null;
+  const pin = useMemo(
+    () => parseServiceCoords(service.coords),
+    [service.coords],
+  );
   const subtitleHours = formatHoursRange(service.operating_hours);
 
   const formatAvgCheck = (value: string | null): string | null => {
@@ -108,26 +122,54 @@ export default function FoodDetailClient({
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
-      <motion.button
-        {...fadeIn}
-        onClick={() => router.back()}
-        className="mb-6 flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
+      {/* Back, share and favourite on one row, instead of back alone above a
+          separate share/favourite row. DetailSkeleton's "2col" variant
+          mirrors this row. */}
+      <div
+        style={enterUp()}
+        className="mb-4 flex items-center justify-between gap-3"
       >
-        <ArrowLeft className="h-4 w-4" />
-        {tShared("back")}
-      </motion.button>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-[#64748B] transition-colors hover:text-[#1E293B] lg:min-h-10"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {tShared("back")}
+        </button>
+        <div className="flex items-center gap-2">
+          <ShareMenu
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC] lg:h-10 lg:w-10"
+            label={tGallery("share")}
+          >
+            <Share2 className="h-[18px] w-[18px]" />
+          </ShareMenu>
+          <button
+            type="button"
+            onClick={toggleFavorite}
+            disabled={favoriteBusy}
+            aria-pressed={isFavorited}
+            className={`flex h-11 w-11 items-center justify-center rounded-full border transition-colors disabled:opacity-60 lg:h-10 lg:w-10 ${
+              isFavorited
+                ? "border-red-500 bg-red-50 text-red-500"
+                : "border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F8FAFC] hover:text-red-500"
+            }`}
+            aria-label={tGallery("addToFavorites")}
+          >
+            <Heart
+              className={`h-[18px] w-[18px] ${isFavorited ? "fill-current" : ""}`}
+            />
+          </button>
+        </div>
+      </div>
 
-      <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.1 }}>
-        <FoodPhotoGallery
-          photos={service.photos ?? []}
-          title={service.title}
-          serviceId={service.id}
-        />
-      </motion.div>
+      <div>
+        <FoodPhotoGallery photos={service.photos ?? []} title={service.title} />
+      </div>
 
       <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.15 }}>
+          <div style={enterUp(0.15)}>
             {categoryLabel && (
               <span className="mb-3 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-700">
                 {categoryLabel}
@@ -136,30 +178,38 @@ export default function FoodDetailClient({
             <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
               {service.title}
             </h1>
-            {(subtitleZone || subtitleHours) && (
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[14px] text-[#64748B]">
-                {subtitleZone && <span>{subtitleZone}</span>}
-                {subtitleZone && subtitleHours && (
-                  <span className="text-[#CBD5E1]">•</span>
-                )}
-                {subtitleHours && <span>{subtitleHours}</span>}
-              </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[14px] text-[#64748B]">
+              {subtitleZone && <span>{subtitleZone}</span>}
+              {subtitleZone && subtitleHours && (
+                <span className="text-[#CBD5E1]">•</span>
+              )}
+              {subtitleHours && <span>{subtitleHours}</span>}
+              {(subtitleZone || subtitleHours) && (
+                <span className="text-[#CBD5E1]">•</span>
+              )}
+              <span className="flex items-center gap-1.5 font-medium">
+                <Eye className="h-4 w-4" />
+                {tShared("views", { count: views })}
+              </span>
+            </div>
+            {service.ownership_verified === true && (
+              <OwnershipVerifiedBadge variant="detail" className="mt-3" />
             )}
-          </motion.div>
+          </div>
 
           {service.description && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.2 }}>
+            <div style={enterUp(0.2)}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("description")}
               </h2>
               <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
                 {service.description}
               </p>
-            </motion.div>
+            </div>
           )}
 
           {amenityTags.length > 0 && (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.25 }}>
+            <div style={enterUp(0.25)}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("servicesAndDetails")}
               </h2>
@@ -173,11 +223,11 @@ export default function FoodDetailClient({
                   </span>
                 ))}
               </div>
-            </motion.div>
+            </div>
           )}
 
           {menuItems.length > 0 ? (
-            <motion.div {...fadeIn} transition={{ duration: 0.4, delay: 0.3 }}>
+            <div style={enterUp(0.3)}>
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("menu")}
               </h2>
@@ -230,15 +280,24 @@ export default function FoodDetailClient({
                   );
                 })}
               </div>
-            </motion.div>
+            </div>
           ) : null}
+
+          {pin && (
+            <div style={enterUp(0.35)}>
+              <ServiceLocationMap
+                id={service.id}
+                title={service.title}
+                coords={pin}
+                photo={service.photos?.[0]}
+              />
+            </div>
+          )}
         </div>
 
-        <motion.aside
+        <aside
+          style={enterLeft(0.2)}
           id="contact-sidebar"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
           className="lg:col-span-1"
         >
           <div className="sticky top-24 space-y-4">
@@ -262,11 +321,12 @@ export default function FoodDetailClient({
               phone={service.phone}
               menuUrl={service.menu_url}
               location={service.location}
+              coords={pin}
               serviceId={service.id}
             />
             <BannerSlot placement="detail_sidebar" />
           </div>
-        </motion.aside>
+        </aside>
       </div>
 
       <MobileStickyCTA

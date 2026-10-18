@@ -8,11 +8,13 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 import { formatNumber } from "@/lib/utils/format";
+import { cardEnter } from "@/lib/utils/enterAnimation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import { FavoriteButton } from "@/components/shared/FavoriteButton";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { ListingCardAction } from "@/components/shared/ListingCardAction";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import {
   ListingAgeBadge,
   NewlyAddedBadge,
@@ -29,6 +31,7 @@ interface SalePropertyCardProps {
   area?: number | null;
   rooms?: number | null;
   isVip?: boolean;
+  isSuperVip?: boolean;
   roi?: number;
   constructionStatus?: string | null;
   constructionProgressPercent?: number | null;
@@ -37,6 +40,8 @@ interface SalePropertyCardProps {
   /** house_rules.payment_options codes; read via readPaymentOptions(). */
   paymentOptions?: string[];
   createdAt: string | null;
+  /** `public_properties.ownership_verified` (C39). */
+  isOwnershipVerified?: boolean;
 }
 
 function formatUsd(n: number): string {
@@ -53,6 +58,7 @@ export default function SalePropertyCard({
   area,
   rooms,
   isVip,
+  isSuperVip,
   roi,
   constructionStatus,
   constructionProgressPercent,
@@ -60,6 +66,7 @@ export default function SalePropertyCard({
   discountExpiresAt,
   paymentOptions,
   createdAt,
+  isOwnershipVerified = false,
 }: SalePropertyCardProps) {
   const t = useTranslations("SalePropertyCard");
   const tOpts = useTranslations("ListingOptions");
@@ -97,8 +104,7 @@ export default function SalePropertyCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
+      style={cardEnter}
       transition={{ duration: 0.3 }}
       whileHover={{ scale: 1.02 }}
       className="group h-full"
@@ -126,16 +132,16 @@ export default function SalePropertyCard({
             {t("forSale")}
           </ListingBadge>
 
-          {isVip && (
+          {(isSuperVip || isVip) && (
             <ListingBadge variant="vip" className="absolute left-3 top-12">
-              VIP
+              {isSuperVip ? "SUPER VIP" : "VIP"}
             </ListingBadge>
           )}
 
           {discountActive && (
             <ListingBadge
               variant="discount"
-              className={`absolute left-3 ${isVip ? "top-20" : "top-12"}`}
+              className={`absolute left-3 ${isVip || isSuperVip ? "top-20" : "top-12"}`}
             >
               -{discountPercent}%
             </ListingBadge>
@@ -149,10 +155,13 @@ export default function SalePropertyCard({
             className="absolute right-3 top-3"
           />
 
-          <NewlyAddedBadge
-            createdAt={createdAt}
-            className="absolute bottom-3 left-3"
-          />
+          {/* A phone-width card cannot fit the "new" chip and the ownership
+              badge on one line, so the badge stacks above the chip on the
+              same side. */}
+          <div className="absolute bottom-3 left-3 flex flex-col items-start gap-1.5">
+            {isOwnershipVerified && <OwnershipVerifiedBadge variant="card" />}
+            <NewlyAddedBadge createdAt={createdAt} />
+          </div>
         </div>
 
         <div className="flex flex-1 flex-col p-4 lg:p-5">
@@ -171,7 +180,7 @@ export default function SalePropertyCard({
             </div>
           </div>
 
-          <h3 className="mt-1 line-clamp-2 text-[16px] font-black leading-[20px] text-[#1E293B]">
+          <h3 className="mt-1 line-clamp-2 min-h-[40px] text-[16px] font-black leading-[20px] text-[#1E293B]">
             {title}
           </h3>
 

@@ -322,7 +322,7 @@ export default function RenterGuestsPage() {
         </div>
 
         {/* Rows */}
-        <div>
+        <div data-jev-private data-jev-section={t("title")}>
           {loading ? (
             Array.from({ length: 3 }).map((_, i) => (
               <div
@@ -537,6 +537,7 @@ function GuestRow({
                 }}
                 className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#F3E8FF] text-[#9333EA] transition-colors hover:bg-[#E9D5FF] lg:h-8 lg:w-8"
                 aria-label={tShared("edit")}
+                data-jev-label={tShared("edit")}
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -548,6 +549,7 @@ function GuestRow({
                 }}
                 className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#DBEAFE] text-[#2563EB] transition-colors hover:bg-[#BFDBFE] lg:h-8 lg:w-8"
                 aria-label={tShared("add")}
+                data-jev-label={tShared("add")}
               >
                 <CalendarPlus className="h-3.5 w-3.5" />
               </button>
@@ -559,6 +561,7 @@ function GuestRow({
                 }}
                 className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#FEE2E2] text-[#DC2626] transition-colors hover:bg-[#FECACA] lg:h-8 lg:w-8"
                 aria-label={t("block")}
+                data-jev-label={t("block")}
               >
                 <Ban className="h-3.5 w-3.5" />
               </button>
@@ -573,6 +576,7 @@ function GuestRow({
                 }}
                 className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#F3E8FF] text-[#9333EA] transition-colors hover:bg-[#E9D5FF] lg:h-8 lg:w-8"
                 aria-label={tShared("edit")}
+                data-jev-label={tShared("edit")}
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -582,6 +586,7 @@ function GuestRow({
                   e.stopPropagation();
                   onRestore();
                 }}
+                data-jev-label={t("restore")}
                 className="text-[12px] font-bold text-[#64748B] hover:text-[#2563EB] hover:underline"
               >
                 {t("restore")}

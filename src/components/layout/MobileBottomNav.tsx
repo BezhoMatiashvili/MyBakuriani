@@ -4,19 +4,27 @@ import { useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import {
+  BadgeCheck,
   BarChart3,
   Bell,
+  BookOpen,
   Building,
+  CalendarClock,
   CalendarDays,
   ChevronRight,
   Ellipsis,
   ClipboardList,
+  CreditCard,
   FileText,
   Home,
   IdCard,
+  KeyRound,
   LayoutGrid,
+  Link2,
   LogOut,
   MapPin,
+  MessageSquare,
+  PieChart,
   Settings,
   ShieldCheck,
   ShoppingBag,
@@ -27,27 +35,37 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toServiceSegment } from "@/lib/dashboard/serviceSegments";
+import {
+  hasOrdersPage,
+  toServiceSegment,
+} from "@/lib/dashboard/serviceSegments";
 import { MobileServiceSwitcherGrid } from "@/components/layout/MobileServiceSwitcherGrid";
+import { CopyUserIdButton } from "@/components/layout/CopyUserIdButton";
 import BottomSheet from "@/components/shared/BottomSheet";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
 
 interface MobileBottomNavProps {
   currentPath: string;
   userRole?: string;
   onSignOut?: () => void;
-  notificationCount?: number;
   leadsCount?: number;
   canUseSms?: boolean;
   availableCabinets?: string[];
   balance?: number;
   companies?: { id: string; name: string; role: string; status: string }[];
+  /** The signed-in account, shown at the top of the More sheet the way the
+   *  desktop sidebar shows it (name + "ID: MB-XXXXX"). */
+  profile?: { name: string; avatarUrl?: string; userCode: string };
 }
 
 interface NavItem {
   labelKey: string;
   href: string;
   icon: LucideIcon;
-  badge?: "notifications" | "leads";
+  badge?: "leads";
+  /** Already-translated label, for an entry outside DashboardSidebar.nav. */
+  label?: string;
 }
 
 interface RoleNavigation {
@@ -63,16 +81,12 @@ const serviceItems = (role: string): RoleNavigation => {
   return {
     tabs: [
       { labelKey: "home", href: base, icon: LayoutGrid },
-      { labelKey: orderLabel, href: `${base}/orders`, icon: orderIcon },
-      { labelKey: "balance", href: `${base}/balance`, icon: Wallet },
+      ...(hasOrdersPage(segment)
+        ? [{ labelKey: orderLabel, href: `${base}/orders`, icon: orderIcon }]
+        : []),
+      { labelKey: "balanceAndVip", href: `${base}/balance`, icon: Wallet },
     ],
     more: [
-      {
-        labelKey: "notificationsItem",
-        href: `${base}/notifications`,
-        icon: Bell,
-        badge: "notifications",
-      },
       { labelKey: "settings", href: `${base}/parameters`, icon: Settings },
     ],
   };
@@ -90,11 +104,13 @@ function getNavigation(role: string): RoleNavigation {
             icon: ShieldCheck,
           },
           {
-            labelKey: "clients",
+            labelKey: "users",
             href: "/dashboard/admin/clients",
             icon: Users,
           },
         ],
+        // AdminSidebar order. No "analytics" entry: that route only
+        // redirects to /dashboard/admin, and desktop dropped it.
         more: [
           {
             labelKey: "memberships",
@@ -102,9 +118,9 @@ function getNavigation(role: string): RoleNavigation {
             icon: IdCard,
           },
           {
-            labelKey: "analytics",
-            href: "/dashboard/admin/analytics",
-            icon: BarChart3,
+            labelKey: "statuses",
+            href: "/dashboard/admin/statuses",
+            icon: CalendarClock,
           },
           {
             labelKey: "companies",
@@ -112,9 +128,19 @@ function getNavigation(role: string): RoleNavigation {
             icon: Building,
           },
           {
+            labelKey: "verifiedUsers",
+            href: "/dashboard/admin/verified-users",
+            icon: BadgeCheck,
+          },
+          {
             labelKey: "listings",
             href: "/dashboard/admin/listings",
             icon: Building,
+          },
+          {
+            labelKey: "logs",
+            href: "/dashboard/admin/logs",
+            icon: ClipboardList,
           },
           { labelKey: "reviews", href: "/dashboard/admin/reviews", icon: Star },
           {
@@ -133,14 +159,39 @@ function getNavigation(role: string): RoleNavigation {
             icon: LayoutGrid,
           },
           {
+            labelKey: "guide",
+            href: "/dashboard/admin/guide",
+            icon: BookOpen,
+          },
+          {
+            labelKey: "saleResearch",
+            href: "/dashboard/admin/sale-research",
+            icon: PieChart,
+          },
+          {
             labelKey: "finances",
             href: "/dashboard/admin/finances",
             icon: Wallet,
           },
           {
+            labelKey: "smsControl",
+            href: "/dashboard/admin/finances/sms",
+            icon: MessageSquare,
+          },
+          {
+            labelKey: "payments",
+            href: "/dashboard/admin/payments",
+            icon: CreditCard,
+          },
+          {
             labelKey: "ads",
             href: "/dashboard/admin/moderation",
             icon: ClipboardList,
+          },
+          {
+            labelKey: "adAnalytics",
+            href: "/dashboard/admin/ad-analytics",
+            icon: BarChart3,
           },
           {
             labelKey: "broadcast",
@@ -153,16 +204,16 @@ function getNavigation(role: string): RoleNavigation {
             icon: Sparkles,
           },
           {
+            labelKey: "signupLinks",
+            href: "/dashboard/admin/signup-links",
+            icon: Link2,
+          },
+          {
             labelKey: "banners",
             href: "/dashboard/admin/banners",
             icon: LayoutGrid,
           },
           { labelKey: "news", href: "/dashboard/admin/seo", icon: FileText },
-          {
-            labelKey: "logs",
-            href: "/dashboard/admin/logs",
-            icon: ClipboardList,
-          },
         ],
       };
     case "renter":
@@ -204,12 +255,6 @@ function getNavigation(role: string): RoleNavigation {
             icon: Sparkles,
           },
           {
-            labelKey: "notificationsItem",
-            href: "/dashboard/renter/notifications",
-            icon: Bell,
-            badge: "notifications",
-          },
-          {
             labelKey: "settings",
             href: "/dashboard/renter/profile",
             icon: Settings,
@@ -221,15 +266,15 @@ function getNavigation(role: string): RoleNavigation {
         tabs: [
           { labelKey: "home", href: "/dashboard/seller", icon: Home },
           {
-            labelKey: "myListings",
-            href: "/dashboard/seller/listings",
-            icon: Building,
-          },
-          {
             labelKey: "clientsDatabase",
             href: "/dashboard/seller/leads",
             icon: IdCard,
             badge: "leads",
+          },
+          {
+            labelKey: "propertiesAndProjects",
+            href: "/dashboard/seller/listings",
+            icon: Building,
           },
         ],
         more: [
@@ -254,12 +299,6 @@ function getNavigation(role: string): RoleNavigation {
             icon: Bell,
           },
           {
-            labelKey: "notificationsItem",
-            href: "/dashboard/seller/notifications",
-            icon: Bell,
-            badge: "notifications",
-          },
-          {
             labelKey: "settings",
             href: "/dashboard/seller/settings",
             icon: Settings,
@@ -272,7 +311,7 @@ function getNavigation(role: string): RoleNavigation {
         tabs: [
           { labelKey: "home", href: "/dashboard/cleaner", icon: Home },
           {
-            labelKey: "schedule",
+            labelKey: "graphic",
             href: "/dashboard/cleaner/schedule",
             icon: CalendarDays,
           },
@@ -289,23 +328,17 @@ function getNavigation(role: string): RoleNavigation {
         tabs: [
           { labelKey: "home", href: "/dashboard/food", icon: Home },
           {
-            labelKey: "orders",
+            labelKey: "myMenuPdf",
             href: "/dashboard/food/orders",
             icon: ShoppingBag,
           },
           {
-            labelKey: "balance",
+            labelKey: "balanceAndVip",
             href: "/dashboard/food/balance",
             icon: Wallet,
           },
         ],
         more: [
-          {
-            labelKey: "notificationsItem",
-            href: "/dashboard/food/notifications",
-            icon: Bell,
-            badge: "notifications",
-          },
           {
             labelKey: "settings",
             href: "/dashboard/food/parameters",
@@ -331,9 +364,9 @@ function getNavigation(role: string): RoleNavigation {
             icon: ClipboardList,
           },
           {
-            labelKey: "profile",
+            labelKey: "settings",
             href: "/dashboard/guest/profile",
-            icon: Users,
+            icon: Settings,
           },
         ],
         more: [
@@ -343,7 +376,7 @@ function getNavigation(role: string): RoleNavigation {
             icon: Star,
           },
           {
-            labelKey: "reviews",
+            labelKey: "history",
             href: "/dashboard/guest/reviews",
             icon: MapPin,
           },
@@ -368,26 +401,18 @@ export function MobileBottomNav({
   currentPath,
   userRole = "guest",
   onSignOut,
-  notificationCount = 0,
   leadsCount = 0,
   canUseSms = false,
   availableCabinets = [],
   balance = 0,
   companies = [],
+  profile,
 }: MobileBottomNavProps) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const navigation = getNavigation(userRole);
-  const tabs = navigation.tabs;
-  const more = navigation.more.filter(
-    (item) =>
-      (item.href !== "/dashboard/sms" &&
-        item.href !== "/dashboard/seller/sms") ||
-      canUseSms,
-  );
   const t = useTranslations("DashboardSidebar.nav");
   const tSidebar = useTranslations("DashboardSidebar");
-  const hasMoreActive = more.some((item) => isActive(item, currentPath));
-  const navVisibility = "lg:hidden";
+  const navigation = getNavigation(userRole);
+  const tabs = navigation.tabs;
   // `userRole` is the URL cabinet segment (or the profile role), so
   // service/services/handyman all mean the "services" cabinet. Deliberately not
   // roleToCabinetKey — its `default: return "guest"` would put the check on
@@ -397,6 +422,33 @@ export function MobileBottomNav({
   // (see AdminSidebar.tsx) — mirror that here instead of restricting mobile
   // cross-cabinet switching to just renter/seller.
   const showCabinets = activeCabinetKey !== "admin";
+  // The desktop CabinetSwitcher dropdown links to the account-wide settings
+  // (sign-in methods + marketing notification channels). Mobile had no route
+  // there at all, so the same entry is listed in the More sheet.
+  const accountItem: NavItem = {
+    labelKey: "linkedAccounts",
+    label: tSidebar("switcher.linkedAccounts"),
+    href: "/dashboard/account",
+    icon: KeyRound,
+  };
+  // Notifications are not listed here for renter/seller/food/services: those
+  // cabinets reach them from the header bell (all cabinets' notices; its
+  // "view all" opens /notifications) or their own inbox via the sidebar.
+  const more = [
+    ...navigation.more.filter(
+      (item) =>
+        ((item.href !== "/dashboard/sms" &&
+          item.href !== "/dashboard/seller/sms") ||
+          canUseSms) &&
+        // Rental reviews are temporarily hidden (see RENTAL_REVIEWS_HIDDEN).
+        (item.href !== "/dashboard/renter/reviews" || !RENTAL_REVIEWS_HIDDEN),
+    ),
+    // Admin too: it has no cabinet switcher, and that page is where it
+    // changes its password.
+    accountItem,
+  ];
+  const hasMoreActive = more.some((item) => isActive(item, currentPath));
+  const navVisibility = "lg:hidden";
   const isSeller = userRole === "seller";
   const memberCompanies = companies.filter(
     (company) => company.role === "owner" || company.role === "agent",
@@ -407,8 +459,9 @@ export function MobileBottomNav({
       : "/dashboard/seller/organizations";
   const sellerSheetItems: Array<{
     labelKey: string;
+    label?: string;
     href: string;
-    detail?: "balance" | "notifications";
+    detail?: "balance";
     active?: (path: string) => boolean;
   }> = [
     {
@@ -451,20 +504,26 @@ export function MobileBottomNav({
       href: "/dashboard/seller/balance",
       detail: "balance" as const,
     },
-    {
-      labelKey: "notificationsItem",
-      href: "/dashboard/seller/notifications",
-      detail: "notifications" as const,
-    },
+    // SellerSidebar appends this to its "efficiency" group under the same flag.
+    ...(canUseSms
+      ? [{ labelKey: "priceDropSms", href: "/dashboard/seller/sms" }]
+      : []),
     { labelKey: "settings", href: "/dashboard/seller/settings" },
+    {
+      labelKey: accountItem.labelKey,
+      label: accountItem.label,
+      href: accountItem.href,
+    },
+    {
+      labelKey: "backToHome",
+      label: tSidebar("backToHome"),
+      href: "/",
+      // Every path starts with "/", so the prefix match would always fire.
+      active: () => false,
+    },
   ];
 
-  const badgeFor = (item: NavItem) =>
-    item.badge === "leads"
-      ? leadsCount
-      : item.badge === "notifications"
-        ? notificationCount
-        : 0;
+  const badgeFor = (item: NavItem) => (item.badge === "leads" ? leadsCount : 0);
 
   return (
     <>
@@ -488,12 +547,18 @@ export function MobileBottomNav({
                 <Link
                   href={tab.href}
                   className={cn(
-                    "relative flex min-h-[56px] flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-medium transition-colors",
+                    "relative flex min-h-[56px] flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-medium transition-colors max-[359px]:px-0",
                     active ? "text-brand-accent" : "text-[#64748B]",
                   )}
                 >
                   <Icon className="size-5" aria-hidden />
-                  <span className="max-w-full truncate">{t(tab.labelKey)}</span>
+                  {/* Desktop labels, so some are long ("ობიექტები და
+                      პროექტები"): wrap to two lines rather than truncate.
+                      Below 360px the tab loses its padding and the text
+                      tightens slightly, or that label would need three. */}
+                  <span className="line-clamp-2 max-w-full text-center leading-3 max-[359px]:tracking-tight">
+                    {t(tab.labelKey)}
+                  </span>
                   {badge > 0 && (
                     <span className="absolute top-1.5 ml-5 flex min-w-4 items-center justify-center rounded-full bg-[#EF4444] px-1 text-[9px] font-bold leading-4 text-white">
                       {badge > 99 ? "99+" : badge}
@@ -533,6 +598,42 @@ export function MobileBottomNav({
           id="dashboard-more-sheet"
           className={isSeller ? "space-y-4" : "space-y-1"}
         >
+          {profile && (
+            <div
+              data-testid="mobile-account-row"
+              className={cn(
+                "flex items-center gap-3 rounded-[18px] border border-[#E2E8F0] bg-white p-3",
+                !isSeller && "mb-3",
+              )}
+            >
+              <Avatar className="h-11 w-11">
+                {profile.avatarUrl && (
+                  <AvatarImage src={profile.avatarUrl} alt={profile.name} />
+                )}
+                <AvatarFallback className="bg-[#2563EB] text-[14px] font-extrabold text-white">
+                  {profile.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+              <div data-jev-private className="min-w-0 flex-1">
+                <p className="truncate text-[15px] font-extrabold text-[#0F172A]">
+                  {profile.name}
+                </p>
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  <p className="text-[11px] font-bold tracking-wide text-[#2563EB]">
+                    {tSidebar("userIdPrefix")} {profile.userCode}
+                  </p>
+                  <CopyUserIdButton
+                    userId={profile.userCode}
+                    className="-my-1"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
           {showCabinets && (
             <MobileServiceSwitcherGrid
               activeCabinetKey={activeCabinetKey}
@@ -563,7 +664,9 @@ export function MobileBottomNav({
                         : "text-[#1E293B] hover:bg-[#F8FAFC]",
                     )}
                   >
-                    <span className="min-w-0 flex-1">{t(item.labelKey)}</span>
+                    <span className="min-w-0 flex-1">
+                      {item.label ?? t(item.labelKey)}
+                    </span>
                     {item.detail === "balance" && (
                       <span
                         className={cn(
@@ -574,17 +677,6 @@ export function MobileBottomNav({
                         {balance.toFixed(2)} ₾
                       </span>
                     )}
-                    {item.detail === "notifications" &&
-                      notificationCount > 0 && (
-                        <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2 py-1 text-[10px] font-extrabold text-[#EA580C]">
-                          {tSidebar("newCount", {
-                            count:
-                              notificationCount > 99
-                                ? "99+"
-                                : notificationCount,
-                          })}
-                        </span>
-                      )}
                     <ChevronRight
                       className={cn(
                         "size-4 shrink-0",
@@ -609,35 +701,9 @@ export function MobileBottomNav({
               )}
             </div>
           ) : (
-            more.map((item) => {
-              const Icon = item.icon;
-              const badge = badgeFor(item);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMoreOpen(false)}
-                  className={cn(
-                    "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold",
-                    isActive(item, currentPath)
-                      ? "bg-[#EFF6FF] text-[#2563EB]"
-                      : "text-[#334155] hover:bg-[#F8FAFC]",
-                  )}
-                >
-                  <Icon className="size-5 shrink-0" aria-hidden />
-                  <span className="flex-1">{t(item.labelKey)}</span>
-                  {badge > 0 && (
-                    <span className="rounded-full bg-[#EF4444] px-2 py-0.5 text-[10px] text-white">
-                      {badge > 99 ? "99+" : badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })
-          )}
-          {!isSeller && (
             <>
-              <div className="my-3 border-t border-[#E2E8F0]" />
+              {/* Above the list, not after it: admin's ~20 entries pushed it
+                  below the fold, so the sheet looked like it had no way home. */}
               <Link
                 href="/"
                 onClick={() => setMoreOpen(false)}
@@ -646,19 +712,50 @@ export function MobileBottomNav({
                 <Home className="size-5" aria-hidden />
                 {tSidebar("backToHome")}
               </Link>
-              {onSignOut && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMoreOpen(false);
-                    onSignOut();
-                  }}
-                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"
-                >
-                  <LogOut className="size-5" aria-hidden />
-                  {tSidebar("logout")}
-                </button>
-              )}
+              <div className="my-3 border-t border-[#E2E8F0]" />
+              {more.map((item) => {
+                const Icon = item.icon;
+                const badge = badgeFor(item);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMoreOpen(false)}
+                    className={cn(
+                      "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold",
+                      isActive(item, currentPath)
+                        ? "bg-[#EFF6FF] text-[#2563EB]"
+                        : "text-[#334155] hover:bg-[#F8FAFC]",
+                    )}
+                  >
+                    <Icon className="size-5 shrink-0" aria-hidden />
+                    <span className="flex-1">
+                      {item.label ?? t(item.labelKey)}
+                    </span>
+                    {badge > 0 && (
+                      <span className="rounded-full bg-[#EF4444] px-2 py-0.5 text-[10px] text-white">
+                        {badge > 99 ? "99+" : badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </>
+          )}
+          {!isSeller && onSignOut && (
+            <>
+              <div className="my-3 border-t border-[#E2E8F0]" />
+              <button
+                type="button"
+                onClick={() => {
+                  setMoreOpen(false);
+                  onSignOut();
+                }}
+                className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#DC2626] hover:bg-[#FEF2F2]"
+              >
+                <LogOut className="size-5" aria-hidden />
+                {tSidebar("logout")}
+              </button>
             </>
           )}
         </div>

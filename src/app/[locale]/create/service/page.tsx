@@ -31,17 +31,13 @@ import {
 } from "@/lib/content-change/client";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { watermarkFile } from "@/lib/utils/watermark";
-
-const SERVICE_SPHERES = [
-  { value: "cleaning", dbLabel: "დასუფთავება/დამლაგებელი" },
-  { value: "handymen", dbLabel: "ხელოსნები" },
-  { value: "staff", dbLabel: "მომსახურე პერსონალი" },
-  { value: "tourism", dbLabel: "ტურიზმი" },
-  { value: "sales", dbLabel: "გაყიდვები/ვაჭრობა" },
-  { value: "other", dbLabel: "სხვა" },
-] as const;
-
-type SphereValue = (typeof SERVICE_SPHERES)[number]["value"];
+import {
+  SERVICE_SPHERES,
+  categoryForSphere,
+  parseCategoryHint,
+  spheresFor,
+  type SphereValue,
+} from "@/lib/service-spheres";
 
 const LANGUAGES = [
   { value: "ქართული", key: "ka" },
@@ -75,15 +71,6 @@ function CreateServicePageInner() {
   const supabase = useMemo(() => createClient(), []);
   const { zones } = useActiveZones();
 
-  const sphereOptions = useMemo(
-    () =>
-      SERVICE_SPHERES.map((s) => ({
-        value: s.value,
-        label: tOpts(`serviceSpheres.${s.value}`),
-      })),
-    [tOpts],
-  );
-
   const [loading, setLoading] = useState(false);
   const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +85,30 @@ function CreateServicePageInner() {
   const [name, setName] = useState("");
   const [serviceTitle, setServiceTitle] = useState("");
   const [experienceYears, setExperienceYears] = useState("");
-  const [sphere, setSphere] = useState<SphereValue>("cleaning");
+  // The sphere decides the listing's category (cleaner cabinet vs services
+  // cabinet), so it starts empty and the owner must choose. Only a link that
+  // already fixes the category narrows it: a cleaner's own "add" link leaves
+  // Cleaning as the single valid option, so it is preselected.
+  const categoryHint = parseCategoryHint(searchParams.get("category"));
+  const [sphere, setSphere] = useState<SphereValue | "">(
+    categoryHint === "cleaning" ? "cleaning" : "",
+  );
+  // Editing never changes the category, so only spheres of the loaded category
+  // are offered (a cleaning listing saved as "handymen" would show the wrong
+  // field while staying in the cleaner directory).
+  const sphereCategory = isEditMode
+    ? loadedCategory === "cleaning"
+      ? "cleaning"
+      : "handyman"
+    : categoryHint;
+  const sphereOptions = useMemo(
+    () =>
+      spheresFor(sphereCategory).map((s) => ({
+        value: s.value,
+        label: tOpts(`serviceSpheres.${s.value}`),
+      })),
+    [tOpts, sphereCategory],
+  );
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [coverageZones, setCoverageZones] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>(["ქართული", "რუსული"]);
@@ -161,14 +171,20 @@ function CreateServicePageInner() {
         (data.experience_required ?? "").replace(/\s*წელი\s*$/u, "").trim(),
       );
 
+      // Only a stored sphere that agrees with the listing's category counts:
+      // category cannot change here, and an older edit could have saved a
+      // cleaning listing with another sphere's label.
+      const loaded = data.category === "cleaning" ? "cleaning" : "handyman";
       const matchedSphere = SERVICE_SPHERES.find(
-        (s) => s.dbLabel === data.service_field,
+        (s) => s.dbLabel === data.service_field && s.category === loaded,
       );
-      if (matchedSphere) {
-        setSphere(matchedSphere.value);
-      } else {
-        setSphere(data.category === "cleaning" ? "cleaning" : "handymen");
-      }
+      setSphere(
+        matchedSphere
+          ? matchedSphere.value
+          : loaded === "cleaning"
+            ? "cleaning"
+            : "handymen",
+      );
 
       setProfilePhoto(
         Array.isArray(data.photos) && data.photos.length > 0
@@ -247,6 +263,7 @@ function CreateServicePageInner() {
     if (!name.trim()) errs.push({ key: "name", message: t("enterName") });
     if (!experienceYears.trim())
       errs.push({ key: "experienceYears", message: t("enterExperience") });
+    if (!sphere) errs.push({ key: "sphere", message: t("chooseSphere") });
     if (!serviceTitle.trim())
       errs.push({ key: "serviceTitle", message: t("enterServiceTitle") });
     if (!profilePhoto)
@@ -277,6 +294,9 @@ function CreateServicePageInner() {
       return;
     }
     setInvalidFields(new Set());
+    // validate() has already refused an empty sphere; this narrows the type so
+    // the category below can never be guessed.
+    if (!sphere) return;
 
     if (submittingRef.current) return;
     submittingRef.current = true;
@@ -285,17 +305,17 @@ function CreateServicePageInner() {
     setError(null);
 
     try {
-      const categoryValue: "cleaning" | "handyman" =
-        sphere === "cleaning" ? "cleaning" : "handyman";
+      const categoryValue = categoryForSphere(sphere);
       const resolvedCategory =
         editId && loadedCategory ? loadedCategory : categoryValue;
 
       if (is24_7 && resolvedCategory === "cleaning") {
-        const { data: ownedCleaning, error: hoursConflictError } = await supabase
-          .from("services")
-          .select("id, title, schedule, operating_hours")
-          .eq("owner_id", user.id)
-          .eq("category", "cleaning");
+        const { data: ownedCleaning, error: hoursConflictError } =
+          await supabase
+            .from("services")
+            .select("id, title, schedule, operating_hours")
+            .eq("owner_id", user.id)
+            .eq("category", "cleaning");
         if (hoursConflictError) throw hoursConflictError;
         const conflict = (ownedCleaning ?? []).find(
           (service) =>
@@ -306,6 +326,7 @@ function CreateServicePageInner() {
         if (conflict) {
           setExisting247Service({ id: conflict.id, title: conflict.title });
           setError(t("existing247Conflict"));
+          scrollToField("mode247");
           setLoading(false);
           submittingRef.current = false;
           return;
@@ -353,16 +374,19 @@ function CreateServicePageInner() {
         );
       }
     } catch (err) {
-      setError(
+      const is247Conflict =
         typeof err === "object" &&
-          err !== null &&
-          "code" in err &&
-          err.code === "23505"
+        err !== null &&
+        "code" in err &&
+        err.code === "23505";
+      setError(
+        is247Conflict
           ? t("existing247Conflict")
           : isContentChangeError(err)
-          ? tShared(contentChangeErrorKey(err))
-          : formatSupabaseError(err, tShared("genericError")),
+            ? tShared(contentChangeErrorKey(err))
+            : formatSupabaseError(err, tShared("genericError")),
       );
+      if (is247Conflict) scrollToField("mode247");
       submittingRef.current = false;
       setLoading(false);
     }
@@ -382,7 +406,11 @@ function CreateServicePageInner() {
         <WizardFooter
           accent="blue"
           backHref="/create"
-          submitLabel={isEditMode ? tShared("contentChange.submitForReview") : tShared("publishListing")}
+          submitLabel={
+            isEditMode
+              ? tShared("contentChange.submitForReview")
+              : tShared("publishListing")
+          }
           submitDisabled={loading}
           loading={loading}
           error={error}
@@ -432,13 +460,23 @@ function CreateServicePageInner() {
               </Field>
             </div>
 
-            <Field label={t("serviceSphere")} required>
-              <StyledSelect
+            <Field
+              label={t("serviceSphere")}
+              required
+              fieldKey="sphere"
+              error={invalidFields.has("sphere")}
+            >
+              <StyledSelect<SphereValue | "">
                 value={sphere}
-                onValueChange={(v) => setSphere(v as SphereValue)}
+                onValueChange={setSphere}
                 options={sphereOptions}
                 accent="blue"
               />
+              {isEditMode && (
+                <p className="text-xs font-medium text-[#64748B]">
+                  {t("sphereLockedHint")}
+                </p>
+              )}
             </Field>
 
             <Field
@@ -539,15 +577,11 @@ function CreateServicePageInner() {
                 />
               </Field>
 
-              <div className="flex items-end">
+              <div data-field="mode247" className="flex scroll-mt-24 items-end">
                 <button
                   type="button"
                   onClick={() => {
-                    if (
-                      !is24_7 &&
-                      isCleaningListing &&
-                      existing247Service
-                    ) {
+                    if (!is24_7 && isCleaningListing && existing247Service) {
                       setError(t("existing247Conflict"));
                       return;
                     }
@@ -810,6 +844,7 @@ function ProfilePhotoUpload({
         .upload(path, watermarked, {
           contentType: "image/jpeg",
           upsert: false,
+          cacheControl: "31536000",
         });
       if (upErr) throw upErr;
       const { data: pub } = client.storage

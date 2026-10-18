@@ -1,10 +1,31 @@
 import { createServerClient } from "@supabase/ssr";
-import { isAuthRetryableFetchError } from "@supabase/supabase-js";
+import { AuthSessionMissingError } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from "@/i18n/routing";
-import { timeoutFetch } from "@/lib/with-timeout";
+import {
+  clearAuthCookies,
+  describeAuthCookies,
+  hasSupabaseAuthCookie,
+  isAuthJarParseable,
+} from "@/lib/supabase/auth-cookies";
+import {
+  isTransientAuthFailure,
+  refusalAwareFetch,
+  timeoutFetch,
+} from "@/lib/with-timeout";
 
 const MIDDLEWARE_FETCH_TIMEOUT_MS = 5_000;
+
+// Next decodes percent-escapes when it routes (/%64ashboard renders
+// /dashboard), so the protected-route test reads the decoded path; a
+// malformed escape keeps the raw one.
+export function decodedPathname(pathname: string): string {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return pathname;
+  }
+}
 
 function getSafeNextPath(request: NextRequest) {
   const redirectTo = request.nextUrl.pathname + request.nextUrl.search;
@@ -14,10 +35,7 @@ function getSafeNextPath(request: NextRequest) {
   return redirectTo;
 }
 
-function redirectToLogin(
-  request: NextRequest,
-  sessionResponse: NextResponse,
-) {
+function redirectToLogin(request: NextRequest, sessionResponse: NextResponse) {
   const url = request.nextUrl.clone();
   const requestedLocale = routing.locales.find(
     (locale) =>
@@ -46,11 +64,21 @@ function redirectToLogin(
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
+  // Snapshot the incoming jar BEFORE the client can touch it: `setAll` mutates
+  // `request.cookies` in place and rebuilds `supabaseResponse`, so by the time a
+  // failure surfaces, both carry auth-js's maxAge:0 deletion cookies and the
+  // original values are gone. Letting a transient failure "through" while still
+  // returning that poisoned response would delete the session anyway — the same
+  // logout, one request later.
+  const originalCookies = request.cookies.getAll();
+  let sessionMutated = false;
+  const auth = refusalAwareFetch(timeoutFetch(MIDDLEWARE_FETCH_TIMEOUT_MS));
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      global: { fetch: timeoutFetch(MIDDLEWARE_FETCH_TIMEOUT_MS) },
+      global: { fetch: auth.fetch },
       cookieOptions: {
         path: "/",
         sameSite: "lax",
@@ -61,6 +89,10 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          // A refresh the hosted limiter refused is "try again later", not a
+          // sign-out: keep the browser's cookie (C8).
+          if (auth.dropsDeletion(cookiesToSet)) return;
+          sessionMutated = true;
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
@@ -78,7 +110,7 @@ export async function updateSession(request: NextRequest) {
       path.startsWith(`/${locale}/`) || path === `/${locale}`
         ? path.replace(`/${locale}`, "") || "/"
         : path,
-    request.nextUrl.pathname,
+    decodedPathname(request.nextUrl.pathname),
   );
 
   const isProtected =
@@ -103,20 +135,91 @@ export async function updateSession(request: NextRequest) {
       // — it does NOT throw. Booting the user then is a false logout. Only
       // redirect on a confirmed signed-out state; let transient failures through
       // so page guards (and the client) re-validate.
-      if (isAuthRetryableFetchError(error)) {
+      if (error instanceof AuthSessionMissingError || !error) {
+        // No claims and no error. That covers two different situations, and
+        // conflating them is what made this failure permanent.
+        if (hasSupabaseAuthCookie(request)) {
+          // Auth cookies WERE sent and still produced no claims, so the stored
+          // session is unusable — interleaved chunk writes from concurrent
+          // refreshes (see the note in lib/supabase/client.ts) or simply dead.
+          // Nothing in the normal flow rewrites those chunks, so the browser
+          // would keep re-sending the same bytes on every navigation while its
+          // own in-memory session keeps the header looking signed in: every
+          // protected route bounces to the login card, every single time.
+          // Expiring the jar makes the next sign-in write a clean one.
+          console.warn(
+            "[middleware] unusable auth cookies, clearing jar:",
+            JSON.stringify(describeAuthCookies(request)),
+          );
+          const response = redirectToLogin(request, supabaseResponse);
+          // After redirectToLogin, so these win over the cookies it copied over.
+          clearAuthCookies(
+            request,
+            response,
+            request.nextUrl.protocol === "https:",
+          );
+          return response;
+        }
+        // Ordinary anonymous visitor: no session in the jar at all. Stay strict
+        // — /create/* and /dashboard/* have no other server gate for anonymous
+        // visitors (C8).
+        return redirectToLogin(request, supabaseResponse);
+      }
+      if (isTransientAuthFailure(error)) {
         console.warn(
           "[middleware] transient auth check, letting request through:",
           error.message,
         );
+        // Restore the caller's own cookies so the browser KEEPS its session and
+        // simply retries on the next request. Returning `supabaseResponse` here
+        // would hand back the deletion cookies and undo this entirely.
+        if (sessionMutated) {
+          originalCookies.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          );
+          return NextResponse.next({ request });
+        }
       } else {
+        // A definitive, non-transient auth error (e.g. a 4xx that is not a
+        // rotation loser). This is the OTHER way a signed-in-looking browser
+        // gets bounced, so it has to report the jar too — otherwise the
+        // diagnostic above has a blind spot exactly where the answer may be.
+        console.warn(
+          "[middleware] auth check failed, redirecting to login:",
+          error.message,
+          JSON.stringify(describeAuthCookies(request)),
+        );
         return redirectToLogin(request, supabaseResponse);
       }
     }
   } catch (err) {
-    // A genuine throw (e.g. lock-acquire timeout) is also transient — never boot.
-    // The browser client still has a valid session; let the request through and let
-    // client-side guards re-validate. Only confirmed "user === null" gates protected routes.
-    console.error("[middleware] supabase.auth.getUser threw:", err);
+    // An unreadable jar throws instead of erroring: @supabase/ssr's storage
+    // adapter raises "Invalid UTF-8 sequence" from getItem when a chunk
+    // boundary lands mid multi-byte sequence. That is not transient — it
+    // recurs on every navigation, escapes as an unhandled rejection, and
+    // leaves protected routes rendering their error boundary. Treat it like
+    // any other unusable jar: clear it so the next sign-in starts clean.
+    if (
+      isProtected &&
+      hasSupabaseAuthCookie(request) &&
+      !isAuthJarParseable(request)
+    ) {
+      console.warn(
+        "[middleware] unreadable auth cookies, clearing jar:",
+        JSON.stringify(describeAuthCookies(request)),
+      );
+      const response = redirectToLogin(request, supabaseResponse);
+      clearAuthCookies(
+        request,
+        response,
+        request.nextUrl.protocol === "https:",
+      );
+      return response;
+    }
+    // Any other genuine throw (e.g. lock-acquire timeout) IS transient — never
+    // boot. The browser client still has a valid session; let the request
+    // through and let client-side guards re-validate.
+    console.error("[middleware] supabase.auth.getClaims threw:", err);
   }
 
   return supabaseResponse;

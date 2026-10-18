@@ -115,9 +115,35 @@ export default function RenterSmartMatchPage() {
   useEffect(() => {
     if (!user) return;
 
+    // Mirrors the noActiveListings gate below so the realtime INSERT handler
+    // can skip appending while this renter has no active listing (fetchData's
+    // early return already keeps `requests` empty in that case).
+    let hasActiveListings = false;
+
     async function fetchData() {
       setLoadError(false);
       setNoActiveListings(false);
+
+      // The gate below needs the properties, but the requests and offers reads
+      // don't depend on them, so all three start together. The .catch()es only
+      // mark the two for the early returns that never await them.
+      const requestsQuery = Promise.resolve(
+        supabase
+          .from("smart_match_requests")
+          .select("*, profiles(display_name, phone, avatar_url)")
+          .eq("status", "active")
+          .order("created_at", { ascending: false })
+          .limit(30),
+      );
+      requestsQuery.catch(() => {});
+      const offersQuery = Promise.resolve(
+        supabase
+          .from("smart_match_offers")
+          .select(SENT_OFFER_SELECT)
+          .eq("renter_id", user!.id)
+          .order("created_at", { ascending: false }),
+      );
+      offersQuery.catch(() => {});
 
       const { data: properties, error: propertiesError } = await supabase
         .from("properties")
@@ -143,6 +169,8 @@ export default function RenterSmartMatchPage() {
         return;
       }
 
+      hasActiveListings = true;
+
       // Resolve each property's zone from location text + sane coords. A null
       // zone means "unknown" and acts as a wildcard (fail-open) downstream.
       const matchProps: MatchProperty[] = properties.map((p) => ({
@@ -165,23 +193,31 @@ export default function RenterSmartMatchPage() {
       }
       setOwnerZones(zoneSet);
 
+      // An offer must point at a page the guest can open: a rental is public
+      // only while its owner holds an active membership (C31), and the
+      // database refuses offers from any other listing. A failed read leaves
+      // every listing selectable; the database still decides.
+      const { data: publicRows, error: publicError } = await supabase
+        .from("public_properties")
+        .select("id")
+        .in(
+          "id",
+          properties.map((p) => p.id),
+        );
+      const publicIds = new Set((publicRows ?? []).map((r) => r.id));
       setOwnerProperties(
         properties.map((p) => ({
           id: p.id,
           title: p.title,
           price: Number(p.price_per_night ?? 0),
+          hidden: !publicError && !publicIds.has(p.id),
         })),
       );
 
       // Fetch active requests and keep the fresh ones. Zone mismatches are NOT
       // hidden: property zones are often coord-derived guesses (seeded coords),
       // so scoreRequest only ranks them lower instead.
-      const { data: reqData, error: reqError } = await supabase
-        .from("smart_match_requests")
-        .select("*, profiles(display_name, phone, avatar_url)")
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(30);
+      const { data: reqData, error: reqError } = await requestsQuery;
 
       if (reqError) {
         setLoadError(true);
@@ -197,11 +233,7 @@ export default function RenterSmartMatchPage() {
       // set (below) and the sent-offers list. Unconditional: unlike `requests`
       // above (limited to currently-active ones), a sent offer stays visible
       // even after its target request goes stale/matched/cancelled.
-      const { data: offersData, error: offersError } = await supabase
-        .from("smart_match_offers")
-        .select(SENT_OFFER_SELECT)
-        .eq("renter_id", user!.id)
-        .order("created_at", { ascending: false });
+      const { data: offersData, error: offersError } = await offersQuery;
 
       if (offersError) {
         setLoadError(true);
@@ -269,8 +301,24 @@ export default function RenterSmartMatchPage() {
           schema: "public",
           table: "smart_match_requests",
         },
-        () => {
-          fetchData();
+        (payload) => {
+          // Unfiltered subscription (no renter-facing FK to filter on) fires
+          // for every guest's request platform-wide, so this must not refetch
+          // — append the row the payload already carries instead. `profiles`
+          // is an embedded join the payload doesn't include; leaving it null
+          // just falls back to the existing defaultGuest label until the next
+          // natural refetch, same as any other unresolved guest name.
+          if (!hasActiveListings) return;
+
+          const newRow = payload.new as Tables<"smart_match_requests">;
+          const mreq = toMatchRequest(newRow as SmartMatchRequest);
+          const today = new Date().toISOString().slice(0, 10);
+          if (newRow.status !== "active" || isStale(mreq, today)) return;
+
+          setRequests((prev) => {
+            if (prev.some((r) => r.id === newRow.id)) return prev;
+            return [{ ...newRow, profiles: null }, ...prev].slice(0, 30);
+          });
         },
       )
       .subscribe();
@@ -340,7 +388,8 @@ export default function RenterSmartMatchPage() {
     if (!user) return false;
     // Look up the real DB id by short id
     const requestRow = modalRequests.find((r) => r.id === requestId) as
-      (SmartMatchRequestItem & { _dbId: string }) | undefined;
+      | (SmartMatchRequestItem & { _dbId: string })
+      | undefined;
     const realRequestId = requestRow?._dbId ?? requestId;
 
     const guestRequest = requests.find((r) => r.id === realRequestId);
@@ -360,6 +409,15 @@ export default function RenterSmartMatchPage() {
       if (error.code === "23505") {
         setSubmittedRequestIds((prev) => new Set(prev).add(realRequestId));
         return true;
+      }
+      // The listing is not public (no active membership, C31): matched by its
+      // token, since 22023 is shared with the request rules.
+      if (error.message?.includes("smart_match_listing_not_public")) {
+        setOwnerProperties((prev) =>
+          prev.map((p) => (p.id === propertyId ? { ...p, hidden: true } : p)),
+        );
+        toast.error(tModal("listingHiddenError"));
+        return false;
       }
       console.error("Failed to submit offer", error);
       toast.error(tModal("offerError"));

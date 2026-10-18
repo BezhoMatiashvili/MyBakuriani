@@ -9,7 +9,12 @@ import {
   getCachedPublicMenuItems,
   type PublicMenuItem,
 } from "@/lib/data/getCachedPublicListing";
-import { buildListingMetadata } from "@/lib/seo";
+import { pickDescription } from "@/lib/seo/description";
+import { buildListingMetadata, redirectToCanonicalListing } from "@/lib/seo";
+import { serviceViewUrl } from "@/lib/utils/listingUrls";
+import ListingBreadcrumbs from "@/components/seo/ListingBreadcrumbs";
+import RelatedListings from "@/components/seo/RelatedListings";
+import { RestaurantJsonLd } from "@/components/seo/ListingJsonLd";
 import FoodDetailClient from "./FoodDetailClient";
 
 interface Props {
@@ -37,17 +42,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "Metadata" });
   // Cached public listing only — the cookie-aware metadata fallback lives on
   // the /preview route. A miss (pending/blocked/deleted) gets the not-found title.
+  // A transient error rethrows, as in the page body, instead of being cached as
+  // a not-found title.
   const data = isMockServiceId(id)
     ? getMockService(id)
-    : await getCachedPublicService(id).catch(() => null);
+    : await getCachedPublicService(id).catch((err: unknown) => {
+        unstable_rethrow(err);
+        throw err;
+      });
 
   if (!data) {
     return { title: t("detail.foodNotFound") };
   }
 
   const title = t("detail.foodTitle", { title: data.title });
-  const description =
-    data.description ?? t("detail.foodDesc", { title: data.title });
+  const description = pickDescription(
+    data.description,
+    t("detail.foodDesc", { title: data.title }),
+  );
 
   return {
     title,
@@ -63,7 +75,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function FoodDetailPage({ params }: Props) {
-  const { id } = await params;
+  const { locale, id } = await params;
 
   // Mock ids are non-UUID, so the cached fetch below would return null for
   // them; branch explicitly to keep demo listings rendering.
@@ -99,12 +111,36 @@ export default async function FoodDetailPage({ params }: Props) {
     notFound();
   }
 
+  redirectToCanonicalListing(
+    `/food/${id}`,
+    serviceViewUrl(cached),
+    locale,
+  );
+
   return (
-    <FoodDetailClient
-      service={cached}
-      menuItems={cachedMenuItems}
-      isMock={false}
-      isPending={false}
-    />
+    <>
+      <ListingBreadcrumbs
+        locale={locale}
+        kind="food"
+        title={cached.title}
+        path={`/food/${id}`}
+      />
+      <RestaurantJsonLd
+        locale={locale}
+        path={`/food/${id}`}
+        service={cached}
+      />
+      <FoodDetailClient
+        service={cached}
+        menuItems={cachedMenuItems}
+        isMock={false}
+        isPending={false}
+      />
+      <RelatedListings
+        locale={locale}
+        kind="food"
+        excludeId={id}
+      />
+    </>
   );
 }

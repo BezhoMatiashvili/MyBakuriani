@@ -17,6 +17,10 @@ export const routing = defineRouting({
   // This also no-ops syncLocaleCookie in the navigation helpers — harmless for the
   // same reason.
   localeCookie: false,
+  // hreflang is declared once, in each page's <head> and in the sitemap, from the
+  // same function (src/lib/seo/alternates.ts). next-intl's own HTTP `Link` header
+  // would be a second source that could disagree with them (C40).
+  alternateLinks: false,
 });
 
 export type AppLocale = (typeof routing.locales)[number];

@@ -5,7 +5,11 @@ import type { AppLocale } from "@/i18n/routing";
 import { getMockService, isMockServiceId } from "@/lib/mock/services";
 import type { ServiceWithFoodExtras } from "@/lib/mock/services";
 import { getCachedPublicService } from "@/lib/data/getCachedPublicListing";
-import { buildListingMetadata } from "@/lib/seo";
+import { pickDescription } from "@/lib/seo/description";
+import { buildListingMetadata, redirectToCanonicalListing } from "@/lib/seo";
+import { serviceViewUrl } from "@/lib/utils/listingUrls";
+import ListingBreadcrumbs from "@/components/seo/ListingBreadcrumbs";
+import RelatedListings from "@/components/seo/RelatedListings";
 import TransportDetailClient from "./TransportDetailClient";
 
 interface Props {
@@ -33,17 +37,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "Metadata" });
   // Cached public listing only — the cookie-aware metadata fallback lives on
   // the /preview route. A miss (pending/blocked/deleted) gets the not-found title.
+  // A transient error rethrows, as in the page body, instead of being cached as
+  // a not-found title.
   const data = isMockServiceId(id)
     ? getMockService(id)
-    : await getCachedPublicService(id).catch(() => null);
+    : await getCachedPublicService(id).catch((err: unknown) => {
+        unstable_rethrow(err);
+        throw err;
+      });
 
   if (!data) {
     return { title: t("detail.transportNotFound") };
   }
 
   const title = t("detail.transportTitle", { title: data.title });
-  const description =
-    data.description ?? t("detail.transportDesc", { title: data.title });
+  const description = pickDescription(
+    data.description,
+    t("detail.transportDesc", { title: data.title }),
+  );
 
   return {
     title,
@@ -59,7 +70,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function TransportDetailPage({ params }: Props) {
-  const { id } = await params;
+  const { locale, id } = await params;
 
   // Mock ids are non-UUID, so the cached fetch below would return null for
   // them; branch explicitly to keep demo listings rendering.
@@ -84,5 +95,26 @@ export default async function TransportDetailPage({ params }: Props) {
     notFound();
   }
 
-  return <TransportDetailClient service={cached} isMock={false} isPending={false} />;
+  redirectToCanonicalListing(
+    `/transport/${id}`,
+    serviceViewUrl(cached),
+    locale,
+  );
+
+  return (
+    <>
+      <ListingBreadcrumbs
+        locale={locale}
+        kind="transport"
+        title={cached.title}
+        path={`/transport/${id}`}
+      />
+      <TransportDetailClient service={cached} isMock={false} isPending={false} />
+      <RelatedListings
+        locale={locale}
+        kind="transport"
+        excludeId={id}
+      />
+    </>
+  );
 }

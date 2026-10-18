@@ -17,6 +17,7 @@ import { useTranslations } from "next-intl";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import TimeRangePicker, {
@@ -27,6 +28,8 @@ import {
   updateCleanerWorkingHours,
   updateSelfServiceProfile,
 } from "@/lib/self-service/client";
+import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
+import { createServiceHref } from "@/lib/service-spheres";
 
 type FormValues = {
   firstName: string;
@@ -67,8 +70,7 @@ function hoursFromService(service: CleaningService): ServiceHours {
     service.operating_hours?.trim() ||
     DEFAULT_WORKING_HOURS;
   return {
-    workingHours:
-      storedHours === "24/7" ? DEFAULT_WORKING_HOURS : storedHours,
+    workingHours: storedHours === "24/7" ? DEFAULT_WORKING_HOURS : storedHours,
     is24_7: storedHours === "24/7",
   };
 }
@@ -285,8 +287,14 @@ export default function CleanerParametersPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
-    if (form.phone && !isValidGePhone(form.phone)) return;
-    if (form.whatsapp && !isValidGePhone(form.whatsapp)) return;
+    const invalid = [
+      ...(form.phone && !isValidGePhone(form.phone) ? ["phone"] : []),
+      ...(form.whatsapp && !isValidGePhone(form.whatsapp) ? ["whatsapp"] : []),
+    ];
+    if (invalid.length) {
+      scrollToFirstInvalid(invalid);
+      return;
+    }
     setSaving(true);
     setSaved(false);
     setReviewError("");
@@ -345,6 +353,7 @@ export default function CleanerParametersPage() {
         .upload(path, file, {
           upsert: true,
           contentType: file.type,
+          cacheControl: "31536000",
         });
       if (upErr) throw upErr;
 
@@ -483,6 +492,7 @@ export default function CleanerParametersPage() {
 
             <ParameterField
               label={t("phone")}
+              fieldKey="phone"
               icon={<Phone className="h-4 w-4 text-[#94A3B8]" />}
               loading={loading}
               error={
@@ -508,6 +518,7 @@ export default function CleanerParametersPage() {
 
             <ParameterField
               label={t("whatsapp")}
+              fieldKey="whatsapp"
               icon={<MessageCircle className="h-4 w-4 text-[#22C55E]" />}
               loading={loading}
               error={
@@ -619,7 +630,7 @@ export default function CleanerParametersPage() {
               {t("workingHoursEmptyDescription")}
             </p>
             <Link
-              href="/create/service"
+              href={createServiceHref("cleaning")}
               className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#2563EB] px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-[#1D4ED8] lg:min-h-0"
             >
               {t("createCleaningService")}
@@ -737,6 +748,8 @@ export default function CleanerParametersPage() {
           </div>
         )}
       </motion.section>
+
+      <ChangePasswordCard />
     </div>
   );
 }
@@ -748,6 +761,7 @@ function ParameterField({
   loading,
   children,
   error,
+  fieldKey,
 }: {
   label: string;
   labelExtra?: React.ReactNode;
@@ -755,9 +769,11 @@ function ParameterField({
   loading: boolean;
   children: React.ReactNode;
   error?: string | null;
+  /** Scroll anchor for scrollToFirstInvalid. */
+  fieldKey?: string;
 }) {
   return (
-    <div>
+    <div data-field={fieldKey} className="scroll-mt-24">
       <label className="mb-1.5 flex items-center gap-2 text-[12px] font-bold text-[#475569]">
         {label}
         {labelExtra}

@@ -1,12 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Car, Check, Clock, MapPin, Star, Users } from "lucide-react";
+import { Car, Check, Clock, MapPin, Users } from "lucide-react";
 import Image from "next/image";
 import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
+import { cardEnter } from "@/lib/utils/enterAnimation";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import {
   optionKeyFor,
@@ -17,12 +18,16 @@ import { Badge } from "@/components/ui/badge";
 import { FavoriteButton } from "@/components/shared/FavoriteButton";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { CallButton } from "@/components/shared/CallButton";
-import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
+import {
+  WhatsAppButton,
+  WhatsAppIcon,
+} from "@/components/shared/WhatsAppButton";
 import { cn } from "@/lib/utils";
 import {
   ListingAgeBadge,
   NewlyAddedBadge,
 } from "@/components/shared/ListingRecency";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 
 interface ServiceCardProps {
   id: string;
@@ -35,6 +40,8 @@ interface ServiceCardProps {
   discountPercent: number;
   discountExpiresAt: string | null;
   isVip: boolean;
+  /** SUPER VIP is a separate flag: the C23 trigger clears is_vip on SUPER VIP rows. */
+  isSuperVip?: boolean;
   variant?: "photo" | "avatar" | "overlay";
   schedule?: string | null;
   operatingHours?: string | null;
@@ -55,6 +62,8 @@ interface ServiceCardProps {
   description?: string | null;
   mobilePresentation?: "default" | "compact-grid";
   createdAt: string | null;
+  /** `public_services.ownership_verified` (C39). */
+  isOwnershipVerified?: boolean;
 }
 
 const categoryRouteMap: Record<string, string> = {
@@ -78,6 +87,7 @@ export default function ServiceCard({
   discountPercent,
   discountExpiresAt,
   isVip,
+  isSuperVip = false,
   variant = "photo",
   schedule,
   operatingHours,
@@ -95,6 +105,7 @@ export default function ServiceCard({
   description,
   mobilePresentation = "default",
   createdAt,
+  isOwnershipVerified = false,
 }: ServiceCardProps) {
   const compactGrid = mobilePresentation === "compact-grid";
   const isFood = category === "food";
@@ -139,8 +150,7 @@ export default function ServiceCard({
     const showWhatsApp = !isBusy && hasWhatsapp;
     return (
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
+        style={cardEnter}
         transition={{ duration: 0.3 }}
         whileHover={{ scale: 1.02 }}
         className="group h-full"
@@ -156,7 +166,7 @@ export default function ServiceCard({
           onFocus={prefetchDetail}
           data-mobile-presentation={mobilePresentation}
           className={cn(
-            "flex h-full min-h-[260px] cursor-pointer flex-col overflow-hidden border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 md:h-auto lg:h-[300px] lg:min-h-0 lg:p-5",
+            "flex h-full min-h-[260px] cursor-pointer flex-col overflow-hidden border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 lg:h-[300px] lg:min-h-0 lg:p-5",
             compactGrid
               ? "rounded-[16px] p-2.5 sm:rounded-[20px] sm:p-4"
               : "rounded-[20px] p-4",
@@ -206,28 +216,22 @@ export default function ServiceCard({
                   size={compactGrid ? "card" : "compact"}
                 />
               </div>
-              <div className="flex items-center gap-1">
-                <NewlyAddedBadge
-                  createdAt={createdAt}
-                  className={
-                    compactGrid
-                      ? "max-w-[72px] truncate px-1.5 text-[7px] sm:max-w-none sm:px-2.5 sm:text-[9px]"
-                      : undefined
-                  }
-                />
-                <span className="flex items-center gap-1 text-[12px] font-bold text-[#1E293B]">
-                  <Star className="h-3.5 w-3.5 fill-[#F97316] text-[#F97316]" />
-                  4.9
-                </span>
-              </div>
+              <NewlyAddedBadge
+                createdAt={createdAt}
+                className={
+                  compactGrid
+                    ? "max-w-[72px] truncate sm:max-w-none max-sm:h-4 max-sm:px-1.5 max-sm:text-[7px]"
+                    : undefined
+                }
+              />
             </div>
           </div>
           <h3
             className={cn(
               "mt-3 font-black text-[#1E293B] line-clamp-2",
               compactGrid
-                ? "text-[14px] leading-[18px] sm:text-[16px] sm:leading-[20px]"
-                : "text-[16px] leading-[20px]",
+                ? "min-h-[36px] text-[14px] leading-[18px] sm:min-h-[40px] sm:text-[16px] sm:leading-[20px]"
+                : "min-h-[40px] text-[16px] leading-[20px]",
             )}
           >
             {title}
@@ -269,6 +273,15 @@ export default function ServiceCard({
               )
             ) : (
               <span />
+            )}
+            {/* h-5 like the age chip, so the row keeps its height. The hours
+                text gives way first; the pill's label truncates only once
+                the hours are gone (a 2- or 3-column grid at sm or lg). */}
+            {isOwnershipVerified && (
+              <OwnershipVerifiedBadge
+                variant="card"
+                className="ml-auto min-w-0 shrink-[0.01]"
+              />
             )}
             <ListingAgeBadge
               createdAt={createdAt}
@@ -325,6 +338,7 @@ export default function ServiceCard({
                   hasWhatsApp={hasWhatsapp}
                   whatsapp={null}
                   serviceId={id}
+                  listingPath={href}
                   onClick={stop}
                   className="size-11 rounded-[12px]"
                 />
@@ -339,8 +353,7 @@ export default function ServiceCard({
   if (variant === "overlay") {
     return (
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
+        style={cardEnter}
         transition={{ duration: 0.3 }}
         whileHover={{ scale: 1.02 }}
         className="group h-full"
@@ -383,12 +396,12 @@ export default function ServiceCard({
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex gap-2">
-                {isVip && (
+                {(isSuperVip || isVip) && (
                   <ListingBadge
                     variant="vip"
                     className="rounded-md px-2.5 py-1 text-[11px]"
                   >
-                    VIP {t("partner")}
+                    {isSuperVip ? "SUPER VIP" : `VIP ${t("partner")}`}
                   </ListingBadge>
                 )}
                 {discountActive && (
@@ -414,10 +427,6 @@ export default function ServiceCard({
                   size="compact"
                   className="border-0 bg-white/90 backdrop-blur-sm"
                 />
-                <span className="inline-flex items-center gap-1 rounded-[6px] bg-[#0F172A]/70 px-2 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
-                  <Star className="h-3 w-3 fill-[#F97316] text-[#F97316]" />
-                  4.9
-                </span>
               </div>
             </div>
             <div className="mt-auto">
@@ -474,8 +483,7 @@ export default function ServiceCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
+      style={cardEnter}
       transition={{ duration: 0.3 }}
       whileHover={{ scale: 1.02 }}
       className="group h-full"
@@ -491,7 +499,7 @@ export default function ServiceCard({
         onFocus={prefetchDetail}
         data-mobile-presentation={mobilePresentation}
         className={cn(
-          "flex h-full cursor-pointer flex-col overflow-hidden border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 md:h-auto lg:h-[420px] lg:rounded-[24px]",
+          "flex h-full cursor-pointer flex-col overflow-hidden border border-[#E2E8F0] bg-white shadow-[0px_4px_20px_-2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[var(--shadow-card-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] focus-visible:ring-offset-2 lg:h-[420px] lg:rounded-[24px]",
           compactGrid ? "rounded-[16px] sm:rounded-[20px]" : "rounded-[20px]",
         )}
       >
@@ -522,7 +530,11 @@ export default function ServiceCard({
               compactGrid ? "left-2 top-2 sm:left-3 sm:top-3" : "left-3 top-3",
             )}
           >
-            {isVip && <ListingBadge variant="vip">VIP</ListingBadge>}
+            {(isSuperVip || isVip) && (
+              <ListingBadge variant="vip">
+                {isSuperVip ? "SUPER VIP" : "VIP"}
+              </ListingBadge>
+            )}
             {isVerified && !isTransport && (
               <span className="inline-flex items-center gap-1 rounded-[4px] bg-[#2563EB] px-2 py-1 text-[10px] font-black uppercase tracking-[0.25px] text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
                 <Check className="h-3 w-3" strokeWidth={3} />
@@ -551,13 +563,25 @@ export default function ServiceCard({
             className={cn(
               "absolute flex flex-col items-start gap-1",
               compactGrid ? "bottom-2 left-2" : "bottom-3 left-3",
+              compactGrid &&
+                isOwnershipVerified &&
+                "max-w-[calc(100%-2.75rem)] sm:max-w-none",
             )}
           >
+            {/* The ownership badge tops this stack: a narrow card cannot fit
+                it beside the stack's chips. The 2-column food grid shows only
+                the icon on phones, bottom-right. */}
+            {isOwnershipVerified && (
+              <OwnershipVerifiedBadge
+                variant="card"
+                className={compactGrid ? "hidden sm:inline-flex" : undefined}
+              />
+            )}
             <NewlyAddedBadge
               createdAt={createdAt}
               className={
                 compactGrid
-                  ? "max-w-[calc(100%-0.5rem)] truncate px-1.5 text-[8px] sm:px-2.5 sm:text-[9px]"
+                  ? "max-w-full truncate max-sm:h-4 max-sm:px-1.5 max-sm:text-[8px]"
                   : undefined
               }
             />
@@ -572,6 +596,12 @@ export default function ServiceCard({
               </Badge>
             )}
           </div>
+          {isOwnershipVerified && compactGrid && (
+            <OwnershipVerifiedBadge
+              variant="icon"
+              className="absolute bottom-2 right-2 sm:hidden"
+            />
+          )}
         </div>
         <div
           className={cn(
@@ -584,18 +614,12 @@ export default function ServiceCard({
               className={cn(
                 "min-w-0 flex-1 font-black text-[#1E293B] line-clamp-2 lg:min-h-[44px] lg:text-[18px] lg:leading-[22px]",
                 compactGrid
-                  ? "text-[14px] leading-[18px] sm:text-[17px] sm:leading-[21px]"
-                  : "text-[17px] leading-[21px]",
+                  ? "min-h-[36px] text-[14px] leading-[18px] sm:min-h-[42px] sm:text-[17px] sm:leading-[21px]"
+                  : "min-h-[42px] text-[17px] leading-[21px]",
               )}
             >
               {title}
             </h3>
-            {!isTransport && (
-              <span className="flex shrink-0 items-center gap-1 rounded-[6px] bg-[#0F172A] px-2 py-1 text-[11px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-                <Star className="h-3 w-3 fill-white text-white" />
-                4.9
-              </span>
-            )}
           </div>
           {isTransport ? (
             <div className="mt-2 space-y-1">
@@ -718,10 +742,21 @@ export default function ServiceCard({
               </div>
             </>
           )}
+          {/* Non-food rows may add an icon-only WhatsApp button as a third
+              item. A flex row keeps Details and Call equal shares of the space
+              that is left; a fixed grid-cols-2 gave Details a whole half and
+              squeezed "დარეკვა" onto 3 lines. Call is min-w-min, not nowrap:
+              the one-word label never breaks, while a revealed number or the
+              longer reveal-failed text still wraps inside the button instead
+              of pushing WhatsApp off the card. Below lg the row gap and Call's
+              icon gap are 6px, not 8px: at 8px the three items need 264px, but
+              at 360px the landing-rail card (296px) only has 262px, which
+              ellipsised "დეტალები". */}
           <div
             className={cn(
-              "mt-auto grid grid-cols-2 pt-3 lg:gap-2 lg:pt-4",
-              compactGrid ? "gap-1" : "gap-2",
+              "mt-auto pt-3 lg:gap-2 lg:pt-4",
+              isFood ? "grid grid-cols-2" : "flex",
+              compactGrid ? "gap-1" : isFood ? "gap-2" : "gap-1.5",
             )}
           >
             <Link
@@ -729,10 +764,11 @@ export default function ServiceCard({
               onClick={stop}
               className={cn(
                 "flex min-w-0 items-center justify-center rounded-[12px] border border-[#E2E8F0] bg-white px-2 py-2.5 text-[12px] font-bold text-[#334155] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-[#F8FAFC]",
+                !isFood && "flex-1 basis-0",
                 compactGrid && "h-11 px-1 text-[9px] sm:px-2 sm:text-[12px]",
               )}
             >
-              {t("details")}
+              <span className="truncate">{t("details")}</span>
             </Link>
             {isFood ? (
               <CallButton
@@ -750,7 +786,7 @@ export default function ServiceCard({
                 )}
               />
             ) : (
-              <div className="flex min-w-0 items-center gap-2">
+              <>
                 <CallButton
                   phone={phone}
                   serviceId={id}
@@ -759,18 +795,29 @@ export default function ServiceCard({
                   layout="card"
                   size="default"
                   onClick={stop}
-                  className="min-w-0 flex-1 px-2 shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2)]"
+                  className="min-w-min flex-1 basis-0 gap-1.5 px-2 shadow-[0px_4px_6px_-1px_rgba(34,197,94,0.2)] lg:gap-2"
                 />
-                {!(isTransport && isBusy) && (
+                {/* The WhatsApp slot is always present so Details and Call
+                    keep the same width on every card; without WhatsApp it
+                    holds a muted, non-interactive icon. */}
+                {hasWhatsapp && !(isTransport && isBusy) ? (
                   <WhatsAppButton
                     hasWhatsApp={hasWhatsapp}
                     whatsapp={null}
                     serviceId={id}
+                    listingPath={href}
                     onClick={stop}
-                    className="shadow-[0px_4px_6px_-1px_rgba(37,211,102,0.2)]"
+                    className="size-12 self-center rounded-xl shadow-[0px_4px_6px_-1px_rgba(37,211,102,0.2)]"
                   />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex size-12 shrink-0 items-center justify-center self-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-[#CBD5E1]"
+                  >
+                    <WhatsAppIcon />
+                  </span>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>

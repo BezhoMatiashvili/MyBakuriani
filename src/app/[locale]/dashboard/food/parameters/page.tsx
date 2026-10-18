@@ -16,6 +16,8 @@ import { StyledSelect } from "@/components/ui/styled-select";
 import { CUISINE_TYPES } from "@/lib/constants/listing-options";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
+import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
+import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 
 type Service = Tables<"services">;
 
@@ -88,10 +90,12 @@ export default function FoodParametersPage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!service) return;
-    if (
-      (phone && !isValidGePhone(phone)) ||
-      (whatsapp && !isValidGePhone(whatsapp))
-    ) {
+    const invalid = [
+      ...(phone && !isValidGePhone(phone) ? ["phone"] : []),
+      ...(whatsapp && !isValidGePhone(whatsapp) ? ["whatsapp"] : []),
+    ];
+    if (invalid.length) {
+      scrollToFirstInvalid(invalid);
       return;
     }
     setSaving(true);
@@ -193,7 +197,7 @@ export default function FoodParametersPage() {
               )}
             </div>
 
-            <div>
+            <div data-field="phone" className="scroll-mt-24">
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
                 ტელეფონის ნომერი
               </label>
@@ -218,7 +222,7 @@ export default function FoodParametersPage() {
               )}
             </div>
 
-            <div>
+            <div data-field="whatsapp" className="scroll-mt-24">
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
                 WhatsApp-ის ნომერი
               </label>
@@ -282,7 +286,7 @@ export default function FoodParametersPage() {
               {
                 key: "newOrder" as const,
                 title: "ახალი შეკვეთა",
-                sub: "ვებ-შეტყობინება და SMS",
+                sub: "მხოლოდ ვებ-შეტყობინება",
               },
               {
                 key: "newReview" as const,
@@ -316,6 +320,8 @@ export default function FoodParametersPage() {
           </div>
         </motion.div>
       </div>
+
+      <ChangePasswordCard />
     </div>
   );
 }

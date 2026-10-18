@@ -1,8 +1,7 @@
 import { cache } from "react";
-import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { getVerifiedSessionUser } from "@/lib/auth/verified-session-user";
 import { createClient } from "@/lib/supabase/server";
-import { withTimeout } from "@/lib/with-timeout";
+import { isTransientAuthFailure, withTimeout } from "@/lib/with-timeout";
 
 /**
  * Request-memoized current user. React `cache()` dedupes the Supabase Auth
@@ -50,15 +49,26 @@ export const getCurrentUser = cache(async () => {
     data: { user },
     error,
   } = result;
-  if (!user && isAuthRetryableFetchError(error)) {
+  // Must use the SAME predicate the middleware gate uses. It deliberately lets
+  // a transient auth failure through rather than falsely logging the user out;
+  // if this second gate disagreed about what "transient" means, it would boot
+  // the very requests the middleware just waved through — which is exactly the
+  // asymmetry that made `create/layout.tsx`'s "genuinely revoked" comment
+  // untrue. isAuthRetryableFetchError alone misses plain GoTrue 500s and the
+  // refresh-token rotation-loser 400s.
+  if (!user && isTransientAuthFailure(error)) {
     return getVerifiedSessionUser(supabase.auth);
   }
   return user;
 });
 
 /**
- * Request-memoized profile (id, role, display_name, avatar_url) for the current
- * user, reusing the cached user. Returns null when signed out.
+ * Request-memoized profile for the current user, reusing the cached user.
+ * Returns null when signed out.
+ *
+ * The consent columns are selected here rather than in a second query because
+ * this is already awaited by dashboard/layout.tsx and create/layout.tsx, which
+ * both gate on them via requireConsent() - see src/lib/auth/require-consent.ts.
  */
 export const getCurrentProfile = cache(async () => {
   const user = await getCurrentUser();
@@ -67,7 +77,9 @@ export const getCurrentProfile = cache(async () => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("id, role, display_name, avatar_url")
+    .select(
+      "id, role, display_name, avatar_url, terms_accepted_at, privacy_accepted_at, marketing_sms_consent, marketing_email_consent, push_consent",
+    )
     .eq("id", user.id)
     .maybeSingle();
   return data;

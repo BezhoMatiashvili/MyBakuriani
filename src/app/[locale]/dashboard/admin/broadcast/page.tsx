@@ -19,6 +19,7 @@ import type { Enums } from "@/lib/types/database";
 
 type Severity = "info" | "warning" | "critical";
 type Channel = "push" | "email";
+type EmailKind = "marketing" | "service";
 type Role = Enums<"user_role">;
 
 interface SeverityOption {
@@ -77,8 +78,24 @@ const CHANNELS: {
   {
     id: "email",
     label: "ელ. ფოსტის დაგზავნა (უფასო)",
-    helper: "გაფართოებული კონტენტი ბმულებით",
+    helper: "შეთავაზება ან სერვისული შეტყობინება",
     icon: Mail,
+  },
+];
+
+// An email broadcast is marketing (opt-in only) or a service notice (C33).
+const EMAIL_KINDS: { id: EmailKind; label: string; helper: string }[] = [
+  {
+    id: "marketing",
+    label: "შეთავაზება / რეკლამა",
+    helper:
+      "ფასდაკლებები, აქციები, სიახლეები. მხოლოდ მათ, ვისაც ჩართული აქვს „შეთავაზებები ელფოსტით“.",
+  },
+  {
+    id: "service",
+    label: "სერვისული შეტყობინება",
+    helper:
+      "ტექნიკური სამუშაოები, წესების ან პირობების ცვლილება, ანგარიშის საკითხები. ყველას, ვისაც დადასტურებული ელფოსტა აქვს. არა შეთავაზებებისთვის ან ფასდაკლებებისთვის.",
   },
 ];
 
@@ -123,6 +140,43 @@ const ROLE_PRESETS: { id: string; label: string; roles: Role[] }[] = [
   },
 ];
 
+// What /api/admin/broadcasts reports for an email broadcast (C33).
+interface EmailCounts {
+  queued: number;
+  no_consent: number;
+  no_email: number;
+  suppressed: number;
+  not_allowed: number;
+  sendable_today: number;
+  capacity: number;
+}
+
+function emailSkipped(c: EmailCounts): string {
+  const parts = [
+    c.no_consent > 0 &&
+      `${c.no_consent} — გამორთული აქვს „შეთავაზებები ელფოსტით“`,
+    c.no_email > 0 && `${c.no_email} — დადასტურებული ელფოსტის გარეშე`,
+    c.suppressed > 0 && `${c.suppressed} — მისამართი დაბლოკილია (bounce/spam)`,
+    c.not_allowed > 0 &&
+      `${c.not_allowed} — ამ გარემოში დაშვებული მისამართების გარეთ`,
+  ].filter(Boolean);
+  return parts.length ? ` გამოტოვებულია: ${parts.join("; ")}.` : "";
+}
+
+function broadcastError(payload: {
+  error?: string;
+  email?: EmailCounts;
+}): string {
+  const c = payload.email;
+  if (payload.error === "email_not_configured")
+    return "ელ. ფოსტის დაგზავნა ამ გარემოში ჩართული არ არის.";
+  if (payload.error === "no_email_recipients" && c)
+    return `ელ. ფოსტა ვერცერთ ადრესატს ვერ გაეგზავნება.${emailSkipped(c)}`;
+  if (payload.error === "over_email_capacity" && c)
+    return `ადრესატები (${c.queued}) აღემატება ელ. ფოსტის ლიმიტს (${c.capacity} სამ დღეში). შეამცირეთ აუდიტორია.`;
+  return payload.error ?? "დაგზავნა ვერ მოხერხდა";
+}
+
 interface UserOption {
   id: string;
   display_name: string;
@@ -135,6 +189,7 @@ export default function AdminBroadcastPage() {
 
   const [severity, setSeverity] = useState<Severity>("info");
   const [channel, setChannel] = useState<Channel>("push");
+  const [emailKind, setEmailKind] = useState<EmailKind>("marketing");
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState(
@@ -305,6 +360,7 @@ export default function AdminBroadcastPage() {
         body: JSON.stringify({
           severity,
           channel,
+          email_kind: channel === "email" ? emailKind : undefined,
           title: title.trim(),
           subject: subject.trim() || undefined,
           message: message.trim(),
@@ -314,10 +370,22 @@ export default function AdminBroadcastPage() {
         }),
       });
       const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error ?? "დაგზავნა ვერ მოხერხდა");
-      toast.success(
-        `დაგზავნილია ${payload.broadcast?.recipient_count ?? 0} მომხმარებელზე`,
-      );
+      if (!res.ok) throw new Error(broadcastError(payload));
+      const c: EmailCounts | undefined = payload.email;
+      if (c) {
+        const later =
+          c.sendable_today < c.queued
+            ? ` დღეს გავა ${c.sendable_today}, დანარჩენი — მომდევნო დღეებში (დღიური ლიმიტი).`
+            : "";
+        toast.success(
+          `ელ. ფოსტა რიგშია ${c.queued} ადრესატისთვის და გაიგზავნება 5 წუთში.${later}${emailSkipped(c)}`,
+          { duration: 12000 },
+        );
+      } else {
+        toast.success(
+          `დაგზავნილია ${payload.broadcast?.recipient_count ?? 0} მომხმარებელზე`,
+        );
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "შეცდომა");
     } finally {
@@ -660,6 +728,50 @@ export default function AdminBroadcastPage() {
                   );
                 })}
               </div>
+              {channel === "email" ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {EMAIL_KINDS.map((kind) => {
+                    const checked = emailKind === kind.id;
+                    return (
+                      <label
+                        key={kind.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 px-4 py-3 transition ${
+                          checked
+                            ? "border-[#2563EB] bg-[#EFF6FF]"
+                            : "border-[#E2E8F0] bg-white hover:bg-[#F8FAFC]"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="email_kind"
+                          checked={checked}
+                          onChange={() => setEmailKind(kind.id)}
+                          className="sr-only"
+                        />
+                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-[#CBD5E1] bg-white">
+                          {checked ? (
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB]" />
+                          ) : null}
+                        </span>
+                        <span className="flex flex-col gap-0.5">
+                          <span
+                            className={`text-[13px] leading-5 ${
+                              checked
+                                ? "font-bold text-[#2563EB]"
+                                : "font-medium text-[#334155]"
+                            }`}
+                          >
+                            {kind.label}
+                          </span>
+                          <span className="text-[11px] font-medium leading-[15px] text-[#64748B]">
+                            {kind.helper}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
 
             {/* 4. Title */}

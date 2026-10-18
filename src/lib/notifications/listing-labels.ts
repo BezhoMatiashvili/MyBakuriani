@@ -9,11 +9,13 @@
 import type { Enums } from "@/lib/types/database";
 
 const PROPERTY_TYPE_LABEL_KA: Record<Enums<"property_type">, string> = {
+  flat: "ბინა",
   apartment: "აპარტამენტი",
   studio: "სტუდიო",
   cottage: "კოტეჯი",
   hotel: "სასტუმრო ოთახი",
   villa: "ვილა",
+  house: "სახლი",
   land: "მიწის ნაკვეთი",
 };
 

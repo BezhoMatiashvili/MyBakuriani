@@ -7,7 +7,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 // Client-detail page data: profile + owned properties + this seller's own
 // manual bookings (public.bookings has no writers anywhere in the repo — see
-// memory-bank/contracts.md C25 / the no-online-booking-flow memory note).
+// docs/contracts.md C25 / the no-online-booking-flow memory note).
 export async function GET(_req: Request, ctx: RouteContext) {
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;

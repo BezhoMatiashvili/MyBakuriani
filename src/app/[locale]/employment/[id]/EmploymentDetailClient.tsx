@@ -8,10 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import {
   ArrowLeft,
-  BadgeCheck,
   Briefcase,
   MapPin,
   Banknote,
@@ -19,6 +17,7 @@ import {
   Building2,
   Upload,
   CheckCircle2,
+  Eye,
   FileText,
   Leaf,
   Users,
@@ -28,25 +27,39 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   optionKeyFor,
   type OptionGroup,
 } from "@/lib/constants/listing-options";
 import { revalidatePublicService } from "@/app/actions/revalidateListing";
-import { shareListing } from "@/lib/share";
+import { ShareMenu } from "@/components/shared/ShareMenu";
 import type { Tables } from "@/lib/types/database";
 import PhoneInput from "@/components/forms/PhoneInput";
-import { formatDate } from "@/lib/utils/format";
+import { formatDate, getDateFnsLocale } from "@/lib/utils/format";
+import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
+import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
+import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import DateField, { toISODate } from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
+import { useSalaryText } from "@/components/cards/EmploymentCard";
+import {
+  describeSalary,
+  salaryModelOf,
+  type SalaryModel,
+} from "@/lib/employment/salary";
+import { MAX_CV_BYTES } from "@/lib/employment/cv-file";
+import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
+  /** Ownership badge (C39); absent on base-table preview reads. */
+  ownership_verified?: boolean;
 };
 
 interface Props {
@@ -110,18 +123,12 @@ function SidebarRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-// DB `salary_type` values mapped to translation keys.
-const SALARY_MODEL_KEYS: Record<string, string> = {
-  ფიქსირებული: "fixed",
-  "ფიქსირებული + ბონუსი/Tips": "fixedBonus",
-  "გამომუშავებით (%)": "commission",
-  შეთანხმებით: "negotiable",
-};
-
-const fadeIn = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 },
+// Salary model → EmploymentDetail.salaryModels key.
+const SALARY_MODEL_KEYS: Record<SalaryModel, string> = {
+  fixed: "fixed",
+  fixed_bonus: "fixedBonus",
+  commission: "commission",
+  negotiable: "negotiable",
 };
 
 // `value` strings are stored in the DB and must stay Georgian; labels are translated.
@@ -135,7 +142,6 @@ const LANGUAGE_OPTIONS = [
   { value: "ინგლისური", key: "english" },
   { value: "რუსული", key: "russian" },
 ] as const;
-const MAX_CV_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_CV_MIME = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -177,13 +183,15 @@ export default function EmploymentDetailClient({
 }: Props) {
   const router = useRouter();
   const t = useTranslations("EmploymentDetail");
+  const tShared = useTranslations("Shared");
   const tShare = useTranslations("ShareListing");
   const locale = useLocale();
-  const owner = service.profiles;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const salaryText = useSalaryText();
+
   const salaryModelLabel = (salaryType: string | null): string => {
-    const key = SALARY_MODEL_KEYS[salaryType?.trim() ?? ""] ?? "fixed";
+    const key = SALARY_MODEL_KEYS[salaryModelOf(salaryType) ?? "fixed"];
     return t(`salaryModels.${key}`);
   };
 
@@ -195,6 +203,33 @@ export default function EmploymentDetailClient({
     return key ? tOpts(`${group}.${key}`) : value;
   };
   const scheduleRaw = service.work_schedule ?? service.employment_schedule;
+
+  // "Additional conditions" renders twice: a compact card under the stat tiles
+  // below `lg` (where the aside would otherwise stack under the whole form)
+  // and the sticky sidebar card from `lg`. Both read these rows.
+  const conditionRows = [
+    {
+      label: t("sidebar.salaryModel"),
+      value: salaryModelLabel(service.salary_type),
+    },
+    ...(service.accommodation
+      ? [
+          {
+            label: t("sidebar.accommodation"),
+            value: optLabel("accommodationOptions", service.accommodation),
+          },
+        ]
+      : []),
+    ...(service.meals
+      ? [
+          {
+            label: t("sidebar.meals"),
+            value: optLabel("mealsOptions", service.meals),
+          },
+        ]
+      : []),
+  ];
+  const conditionLanguages = service.languages ?? [];
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [cvFile, setCvFile] = useState<File | null>(null);
@@ -209,10 +244,12 @@ export default function EmploymentDetailClient({
     setDisplayedApplicationsCount(applicationsCount);
   }, [applicationsCount]);
 
-  useEffect(() => {
-    if (isMock) return;
-    void fetch(`/api/listings/service/${service.id}/view`, { method: "POST" });
-  }, [service.id, isMock]);
+  const views = useListingViewCount(
+    "service",
+    service.id,
+    service.views_count,
+    !isMock,
+  );
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -237,7 +274,12 @@ export default function EmploymentDetailClient({
   function handleCvChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!ACCEPTED_CV_MIME.includes(file.type)) {
+    // Android pickers often report "" or application/octet-stream for a
+    // .docx, so the extension also counts; the server checks the bytes.
+    if (
+      !ACCEPTED_CV_MIME.includes(file.type) &&
+      !/\.(pdf|docx)$/i.test(file.name)
+    ) {
       toast.error(t("errors.cvFormat"));
       e.target.value = "";
       return;
@@ -255,7 +297,8 @@ export default function EmploymentDetailClient({
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  function validate(): boolean {
+  /** Sets the field errors and returns the keys of the invalid fields. */
+  function validate(): string[] {
     const next: Record<string, string> = {};
     // Name + phone are always required: NOT NULL in the DB and the only way an
     // employer can contact the applicant.
@@ -270,13 +313,15 @@ export default function EmploymentDetailClient({
       if (!form.desired_salary.trim()) next.desired_salary = t("errors.salary");
     }
     setErrors(next);
-    return Object.keys(next).length === 0;
+    return Object.keys(next);
   }
 
   async function handleSubmit() {
     if (submitting) return;
-    if (!validate()) {
+    const invalid = validate();
+    if (invalid.length > 0) {
       toast.error(t("errors.fillRequired"));
+      scrollToFirstInvalid(invalid);
       return;
     }
     if (isMock) {
@@ -287,13 +332,6 @@ export default function EmploymentDetailClient({
     }
 
     setSubmitting(true);
-    // CV binaries are deliberately disabled until an asynchronous malware
-    // scanner is deployed. Structured applications remain available.
-    if (cvFile) {
-      setSubmitting(false);
-      toast.error(t("errors.cvUpload"));
-      return;
-    }
     const payload = {
       service_id: service.id,
       full_name: form.full_name.trim(),
@@ -309,16 +347,46 @@ export default function EmploymentDetailClient({
       desired_salary: form.desired_salary ? Number(form.desired_salary) : null,
     };
 
-    const response = await fetch("/api/job-applications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    // With a CV the same payload travels as one multipart part next to the
+    // file (the browser sets the multipart boundary itself).
+    let body: BodyInit = JSON.stringify(payload);
+    if (cvFile) {
+      body = new FormData();
+      body.append("payload", JSON.stringify(payload));
+      body.append("cv", cvFile);
+    }
+
+    let response: Response;
+    try {
+      response = await fetch("/api/job-applications", {
+        method: "POST",
+        headers: cvFile ? undefined : { "Content-Type": "application/json" },
+        body,
+      });
+    } catch {
+      setSubmitting(false);
+      toast.error(t("errors.submitFailed"));
+      return;
+    }
 
     setSubmitting(false);
 
     if (!response.ok) {
-      toast.error(t("errors.submitFailed"));
+      // A proxy's 413 may not be JSON, so the status counts on its own too.
+      const code = (
+        (await response.json().catch(() => null)) as { error?: string } | null
+      )?.error;
+      toast.error(
+        t(
+          response.status === 413 || code === "cv_too_large"
+            ? "errors.cvSize"
+            : code === "invalid_cv"
+              ? "errors.cvFormat"
+              : code === "cv_upload_failed"
+                ? "errors.cvUpload"
+                : "errors.submitFailed",
+        ),
+      );
       return;
     }
 
@@ -334,62 +402,57 @@ export default function EmploymentDetailClient({
   const inputClass = (key: keyof FormState) =>
     `${inputBase} ${errors[key as string] ? "border-[#EF4444]" : "border-[#E2E8F0]"}`;
 
-  const salaryDisplay =
-    service.salary_range ??
-    (service.salary_min != null && service.salary_max != null
-      ? `${service.salary_min} - ${service.salary_max} ₾`
-      : service.salary_min != null
-        ? `${service.salary_min} ₾`
-        : service.salary_daily != null
-          ? t("salaryDaily", { amount: service.salary_daily })
-          : null);
+  // Same text as the vacancy's card: commission/negotiable show the type even
+  // when stale min/max are still stored.
+  const salary = describeSalary(service);
+  const salaryDisplay = salaryText(salary);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
-      <div className="mb-6 flex items-center justify-between">
-        <motion.button
-          {...fadeIn}
+      {/* One line on phones: an icon-only share button and a compact date
+          ("24 სექ 2026") keep back + share + date within 360px; from `sm` the
+          full pill and "გამოქვეყნდა: …" text fit, as before. Screen readers
+          get the full published text at every width. */}
+      <div className="mb-6 flex items-center justify-between gap-2">
+        <button
+          style={enterUp()}
           onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-sm text-[#64748B] transition-colors hover:text-[#1E293B]"
+          className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-[#64748B] transition-colors hover:text-[#1E293B] sm:min-h-0"
         >
           <ArrowLeft className="h-4 w-4" />
-          {t("backToSearch")}
-        </motion.button>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() =>
-              shareListing(service.title, {
-                copied: tShare("copied"),
-                error: tShare("error"),
-              })
-            }
-            aria-label={tShare("label")}
-            className="flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3.5 py-2 text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
-          >
+          {tShared("back")}
+        </button>
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <ShareMenu className="flex size-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F8FAFC] sm:size-auto sm:px-3.5 sm:py-2">
             <Share2 className="h-4 w-4" />
-            {tShare("label")}
-          </button>
+            <span className="hidden sm:inline">{tShare("label")}</span>
+          </ShareMenu>
           {service.created_at && (
-            <motion.div
-              {...fadeIn}
-              className="flex items-center gap-1.5 text-[12px] font-medium text-[#94A3B8]"
+            <div
+              style={enterUp()}
+              className="flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-[#94A3B8]"
             >
-              <ClockIcon className="h-3.5 w-3.5" />
-              {t("publishedAt", {
-                date: formatDate(service.created_at, locale),
-              })}
-            </motion.div>
+              <ClockIcon className="h-3.5 w-3.5 shrink-0" />
+              <span aria-hidden className="min-w-0 truncate sm:hidden">
+                {format(new Date(service.created_at), "d MMM yyyy", {
+                  locale: getDateFnsLocale(locale),
+                })}
+              </span>
+              <span className="sr-only sm:not-sr-only">
+                {t("publishedAt", {
+                  date: formatDate(service.created_at, locale),
+                })}
+              </span>
+            </div>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] lg:gap-8">
         <div>
-          <motion.div
-            {...fadeIn}
-            transition={{ duration: 0.4, delay: 0.1 }}
+          <div
+            style={enterUp(0.1)}
             className="mb-4 flex flex-wrap items-center gap-2"
           >
             <span className="inline-flex items-center gap-1.5 rounded-md bg-[#DCFCE7] px-2.5 py-1 text-[12px] font-black text-[#16A34A]">
@@ -401,38 +464,43 @@ export default function EmploymentDetailClient({
                 VIP
               </span>
             )}
-          </motion.div>
+          </div>
 
-          <motion.h1
-            {...fadeIn}
-            transition={{ duration: 0.4, delay: 0.15 }}
+          <h1
+            style={enterUp(0.15)}
             className="break-words text-[30px] font-black leading-[38px] text-[#0F172A] sm:text-[44px] sm:leading-[52px]"
           >
             {service.position ?? service.title}
-          </motion.h1>
+          </h1>
 
-          <motion.div
-            {...fadeIn}
-            transition={{ duration: 0.4, delay: 0.2 }}
+          <div
+            style={enterUp(0.2)}
             className="mt-5 flex flex-wrap items-center gap-3"
           >
             <span className="inline-flex items-center gap-2 rounded-[12px] border border-[#E2E8F0] bg-white px-3 py-2 text-[14px] font-bold text-[#1E293B]">
               <Building2 className="h-4 w-4 text-[#2563EB]" />
               {service.title ?? "Crystal Resort Management"}
-              {(owner?.is_verified ?? true) && (
-                <BadgeCheck className="h-4 w-4 fill-[#22C55E] text-white" />
-              )}
             </span>
             <span className="text-[#CBD5E1]">·</span>
             <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
               <Users className="h-4 w-4" />
               {t("applications", { count: displayedApplicationsCount })}
             </span>
-          </motion.div>
+            <span className="text-[#CBD5E1]">·</span>
+            <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
+              <Eye className="h-4 w-4" />
+              {tShared("views", { count: views })}
+            </span>
+          </div>
 
-          <motion.div
-            {...fadeIn}
-            transition={{ duration: 0.4, delay: 0.25 }}
+          {service.ownership_verified === true && (
+            <div style={enterUp(0.2)} className="mt-3">
+              <OwnershipVerifiedBadge variant="detail" />
+            </div>
+          )}
+
+          <div
+            style={enterUp(0.25)}
             className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4"
           >
             <StatCard
@@ -449,7 +517,7 @@ export default function EmploymentDetailClient({
             <StatCard
               icon={<Banknote />}
               label={t("stats.salary")}
-              value={salaryDisplay ?? t("stats.negotiable")}
+              value={salaryDisplay}
               accent
             />
             <StatCard
@@ -470,29 +538,59 @@ export default function EmploymentDetailClient({
                   : t("stats.preferred")
               }
             />
-          </motion.div>
+          </div>
+
+          <div
+            style={enterUp(0.28)}
+            className="mt-3 rounded-[16px] border border-[#E2E8F0] bg-white p-4 lg:hidden"
+          >
+            <h2 className="mb-3 text-[15px] font-black text-[#0F172A]">
+              {t("sidebar.title")}
+            </h2>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+              {conditionRows.map((row) => (
+                <div key={row.label} className="min-w-0">
+                  <dt className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+                    {row.label}
+                  </dt>
+                  <dd className="mt-1 text-[14px] font-black leading-[18px] text-[#0F172A]">
+                    {row.value}
+                  </dd>
+                </div>
+              ))}
+              {conditionLanguages.length > 0 && (
+                <div className="min-w-0">
+                  <dt className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+                    {t("sidebar.preferredLanguages")}
+                  </dt>
+                  <dd className="mt-1.5 flex flex-wrap gap-1">
+                    {conditionLanguages.map((lang) => (
+                      <span
+                        key={lang}
+                        className="rounded-[6px] border border-[#E2E8F0] bg-white px-2 py-0.5 text-[11px] font-bold text-[#475569]"
+                      >
+                        {optLabel("languages", lang)}
+                      </span>
+                    ))}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
 
           {service.description && (
-            <motion.div
-              {...fadeIn}
-              transition={{ duration: 0.4, delay: 0.3 }}
-              className="mt-8"
-            >
+            <div style={enterUp(0.3)} className="mt-8">
               <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("jobDescription")}
               </h2>
               <p className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
                 {service.description}
               </p>
-            </motion.div>
+            </div>
           )}
 
           {service.requirements?.trim() && (
-            <motion.div
-              {...fadeIn}
-              transition={{ duration: 0.4, delay: 0.35 }}
-              className="mt-8"
-            >
+            <div style={enterUp(0.35)} className="mt-8">
               <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
                 {t("requirements")}
               </h2>
@@ -510,13 +608,12 @@ export default function EmploymentDetailClient({
                     </li>
                   ))}
               </ul>
-            </motion.div>
+            </div>
           )}
 
-          {(owner?.is_verified ?? true) && (
-            <motion.div
-              {...fadeIn}
-              transition={{ duration: 0.4, delay: 0.4 }}
+          {service.ownership_verified === true && (
+            <div
+              style={enterUp(0.4)}
               className="mt-8 rounded-[16px] border border-[#A7F3D0] bg-[#ECFDF5] p-5"
             >
               <p className="mb-1 text-[15px] font-black text-[#0F766E]">
@@ -525,14 +622,13 @@ export default function EmploymentDetailClient({
               <p className="text-[13px] leading-[20px] text-[#475569]">
                 {t("verifiedEmployerBody")}
               </p>
-            </motion.div>
+            </div>
           )}
 
           {/* Application form */}
-          <motion.div
+          <div
+            style={enterUp(0.45)}
             id="contact-sidebar"
-            {...fadeIn}
-            transition={{ duration: 0.4, delay: 0.45 }}
             className="mt-10 rounded-[24px] border border-[#E2E8F0] bg-gradient-to-b from-[#F8FAFC] to-white p-6 sm:p-8"
           >
             <h2 className="mb-2 text-center text-[28px] font-black text-[#1E293B] sm:text-[32px]">
@@ -607,7 +703,7 @@ export default function EmploymentDetailClient({
             )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
+              <div data-field="full_name">
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
                   {t("form.fullName")} <span className="text-[#EF4444]">*</span>
                 </label>
@@ -625,7 +721,7 @@ export default function EmploymentDetailClient({
                 )}
               </div>
 
-              <div>
+              <div data-field="phone">
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
                   {t("form.phone")} <span className="text-[#EF4444]">*</span>
                 </label>
@@ -636,7 +732,7 @@ export default function EmploymentDetailClient({
                 />
               </div>
 
-              <div>
+              <div data-field="birth_date">
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
                   {t("form.birthDate")}{" "}
                   {!detailsOptional && (
@@ -658,7 +754,7 @@ export default function EmploymentDetailClient({
                 )}
               </div>
 
-              <div>
+              <div data-field="current_location">
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
                   {t("form.currentLocation")}{" "}
                   {!detailsOptional && (
@@ -684,7 +780,7 @@ export default function EmploymentDetailClient({
                 )}
               </div>
 
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-2" data-field="housing_choice">
                 <div className="mb-2 text-[13px] font-bold text-[#1E293B]">
                   {t("form.housing")}{" "}
                   {!detailsOptional && (
@@ -854,7 +950,10 @@ export default function EmploymentDetailClient({
                 </div>
               )}
 
-              <div className={form.has_experience ? "" : "sm:col-span-2"}>
+              <div
+                className={form.has_experience ? "" : "sm:col-span-2"}
+                data-field="desired_salary"
+              >
                 <label className="mb-1.5 block text-[13px] font-bold text-[#1E293B]">
                   {t("form.desiredSalary")}{" "}
                   <span className="text-[12px] font-medium text-[#94A3B8]">
@@ -891,46 +990,29 @@ export default function EmploymentDetailClient({
               <Send className="h-4 w-4" />
               {submitting ? t("form.submitting") : t("form.submit")}
             </Button>
-          </motion.div>
+          </div>
         </div>
 
-        <motion.aside
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
-          className="space-y-4"
-        >
-          <div className="sticky top-24 rounded-[20px] border border-[#E2E8F0] bg-white p-6">
+        <aside style={enterLeft(0.2)} className="space-y-4">
+          <div className="sticky top-24 hidden rounded-[20px] border border-[#E2E8F0] bg-white p-6 lg:block">
             <h3 className="mb-5 text-[18px] font-black text-[#0F172A]">
               {t("sidebar.title")}
             </h3>
             <dl className="divide-y divide-[#E2E8F0]">
-              <SidebarRow
-                label={t("sidebar.salaryModel")}
-                value={salaryModelLabel(service.salary_type)}
-              />
-              {service.accommodation && (
+              {conditionRows.map((row) => (
                 <SidebarRow
-                  label={t("sidebar.accommodation")}
-                  value={optLabel(
-                    "accommodationOptions",
-                    service.accommodation,
-                  )}
+                  key={row.label}
+                  label={row.label}
+                  value={row.value}
                 />
-              )}
-              {service.meals && (
-                <SidebarRow
-                  label={t("sidebar.meals")}
-                  value={optLabel("mealsOptions", service.meals)}
-                />
-              )}
-              {service.languages?.length ? (
+              ))}
+              {conditionLanguages.length > 0 ? (
                 <div className="pt-4">
                   <dt className="text-[11px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
                     {t("sidebar.preferredLanguages")}
                   </dt>
                   <dd className="mt-2 flex flex-wrap gap-2">
-                    {service.languages.map((lang) => (
+                    {conditionLanguages.map((lang) => (
                       <span
                         key={lang}
                         className="rounded-[8px] border border-[#E2E8F0] bg-white px-3 py-1.5 text-[12px] font-bold text-[#475569]"
@@ -943,12 +1025,15 @@ export default function EmploymentDetailClient({
               ) : null}
             </dl>
           </div>
-          <BannerSlot placement="detail_sidebar" />
-        </motion.aside>
+          {/* Below lg the conditions card above is hidden, so this banner is
+              the aside's only content; its own margin (not the grid gap)
+              separates it from the form, leaving no gap when no banner runs. */}
+          <BannerSlot placement="detail_sidebar" className="mt-8 lg:mt-0" />
+        </aside>
       </div>
 
       <MobileStickyCTA
-        primary={salaryDisplay ?? service.title}
+        primary={salary.kind === "model" ? service.title : salaryDisplay}
         secondary={service.location ?? undefined}
         ctaLabel={t("apply")}
         onClick={() =>

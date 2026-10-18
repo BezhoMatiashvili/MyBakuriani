@@ -131,9 +131,9 @@ test.describe("Hotels page filters", () => {
 // Search page
 // ---------------------------------------------------------------------------
 test.describe("Search page", () => {
+  // One "ბინები" entry covers apartments and hotels (no /hotels link).
   const categoryPaths = [
     "/apartments",
-    "/hotels",
     "/transport",
     "/employment",
     "/services",

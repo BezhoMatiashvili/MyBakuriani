@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import { supabaseAdmin } from "./supabase";
 import { configureIsolatedE2E } from "./env";
 import type { Database } from "../../src/lib/types/database";
+import { CONSENT_POLICY_VERSION } from "../../src/lib/consent/channels";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
 
@@ -163,12 +164,21 @@ export async function createTestUser(opts: {
   if (authError)
     throw new Error(`Failed to create auth user: ${authError.message}`);
 
+  // Terms/privacy acceptance is stamped here because requireConsent() gates the
+  // whole /dashboard/* and /create/* trees (C30). Both columns are nullable with
+  // no default, so a seeded profile is "unconsented" and every authenticated
+  // route would redirect to /consent-required instead of rendering.
+  const consentedAt = new Date().toISOString();
   const { error: profileError } = await supabaseAdmin.from("profiles").upsert({
     id: opts.id,
     phone: opts.phone,
     display_name: opts.displayName,
     role: opts.role,
     is_verified: true,
+    terms_accepted_at: consentedAt,
+    terms_version: CONSENT_POLICY_VERSION,
+    privacy_accepted_at: consentedAt,
+    privacy_version: CONSENT_POLICY_VERSION,
   });
   if (profileError)
     throw new Error(`Failed to create profile: ${profileError.message}`);

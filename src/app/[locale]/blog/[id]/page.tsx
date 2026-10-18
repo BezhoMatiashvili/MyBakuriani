@@ -1,18 +1,27 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { cache } from "react";
-import { getLocale, getTranslations } from "next-intl/server";
-import type { AppLocale } from "@/i18n/routing";
+import { getTranslations } from "next-intl/server";
+import { routing, type AppLocale } from "@/i18n/routing";
+import { Link } from "@/i18n/navigation";
 import { createPublicClient } from "@/lib/supabase/server";
 import { buildListingMetadata } from "@/lib/seo";
+import { pathForLocale } from "@/lib/seo/alternates";
 import { formatDate } from "@/lib/utils/format";
 import { isUuid } from "@/lib/utils/uuid";
 import BannerSlot from "@/components/banners/BannerSlot";
+import Breadcrumbs from "@/components/seo/Breadcrumbs";
+import JsonLd from "@/components/seo/JsonLd";
+import { optimizedImageUrls } from "@/lib/seo/image-url";
+import { blogPostingJsonLd } from "@/lib/seo/jsonld";
+import { SITE_LOGO_PATH, SITE_NAME, SITE_URL } from "@/lib/seo/site";
+import { sanitizePhotos } from "@/lib/utils/photos";
 
 interface Props {
+  // The segment is the post's slug (canonical). The older uuid links still
+  // resolve and 308 to the slug URL (C40), so shared links keep working.
   params: Promise<{ locale: AppLocale; id: string }>;
 }
 
@@ -23,39 +32,53 @@ export async function generateStaticParams() {
   return [];
 }
 
-const getBlogPostMetadata = cache(async (id: string) => {
+// Slugs are Georgian script, which can reach the route percent-encoded.
+function decodeKey(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+// A uuid segment is an old link; anything else is looked up by slug. Never
+// compare a non-uuid against the uuid column: Postgres rejects it (22P02).
+const lookupColumn = (key: string) => (isUuid(key) ? "id" : "slug");
+
+const getBlogPostMetadata = cache(async (key: string) => {
   const supabase = createPublicClient();
   return supabase
     .from("blog_posts")
-    .select("title, excerpt, image_url")
-    .eq("id", id)
-    .single();
+    .select("slug, title, excerpt, image_url")
+    .eq(lookupColumn(key), key)
+    .eq("published", true)
+    .maybeSingle();
 });
 
-const getBlogPostDetail = cache(async (id: string) => {
+const getBlogPostDetail = cache(async (key: string) => {
   const supabase = createPublicClient();
   return supabase
     .from("blog_posts")
-    .select("*, profiles!blog_posts_author_id_fkey(display_name, avatar_url)")
-    .eq("id", id)
+    .select("*")
+    .eq(lookupColumn(key), key)
     .eq("published", true)
-    .single();
+    .maybeSingle();
 });
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, id } = await params;
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  if (!isUuid(id)) {
-    return { title: t("detail.blogNotFound") };
-  }
-  const { data } = await getBlogPostMetadata(id);
+  const { data, error } = await getBlogPostMetadata(decodeKey(id));
+  // A failed read must fail the render (uncached), not be cached as a
+  // not-found title for the next 120 s.
+  if (error) throw error;
 
   if (!data) {
     return { title: t("detail.blogNotFound") };
   }
 
   const title = t("detail.blogTitle", { title: data.title });
-  const description = data.excerpt ?? data.title;
+  const description = data.excerpt?.trim() || data.title;
 
   return {
     title,
@@ -65,35 +88,73 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       images: [data.image_url],
-      path: `/blog/${id}`,
+      path: `/blog/${data.slug}`,
       type: "article",
     }),
   };
 }
 
 export default async function BlogDetailPage({ params }: Props) {
-  const { id } = await params;
-  const t = await getTranslations("BlogPage");
-  const locale = await getLocale();
+  const { locale, id } = await params;
+  const key = decodeKey(id);
+  // Explicit locale: the bare string form reads headers(), which flips this ISR
+  // page to dynamic (E132).
+  const t = await getTranslations({ locale, namespace: "BlogPage" });
+  const tFooter = await getTranslations({ locale, namespace: "Footer" });
 
-  if (!isUuid(id)) {
+  const { data: post, error } = await getBlogPostDetail(key);
+  // Errors propagate (uncached 500) instead of becoming a cacheable 404.
+  if (error) throw error;
+
+  if (!post) {
     notFound();
   }
 
-  try {
-    const { data: post } = await getBlogPostDetail(id);
+  if (isUuid(key)) {
+    // A Location header must be ASCII: the slug is Georgian script, so it is
+    // percent-encoded here (a raw one made Node throw and the route answer 500).
+    permanentRedirect(
+      pathForLocale(
+        `/blog/${encodeURIComponent(post.slug)}`,
+        locale,
+        routing.defaultLocale,
+      ),
+    );
+  }
 
-    if (!post) {
-      notFound();
-    }
+  const postUrl = new URL(
+    pathForLocale(`/blog/${post.slug}`, locale, routing.defaultLocale),
+    SITE_URL,
+  ).href;
 
-    const author = post.profiles as {
-      display_name: string;
-      avatar_url: string | null;
-    } | null;
-
-    return (
-      <article className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
+  return (
+    <>
+      <Breadcrumbs
+        locale={locale}
+        narrow
+        items={[
+          { name: tFooter("blog"), path: "/blog" },
+          { name: post.title, path: `/blog/${post.slug}` },
+        ]}
+      />
+      {/* Posts are written in Georgian whatever the page's UI locale is. */}
+      <JsonLd
+        data={blogPostingJsonLd({
+          url: postUrl,
+          headline: post.title,
+          description: post.excerpt,
+          images: optimizedImageUrls(
+            SITE_URL,
+            sanitizePhotos([post.image_url]),
+          ),
+          datePublished: post.published_at,
+          // No byline on the page, so the post is credited to the site (C40).
+          inLanguage: "ka",
+          publisherName: SITE_NAME,
+          publisherLogoUrl: `${SITE_URL}${SITE_LOGO_PATH}`,
+        })}
+      />
+      <article className="mx-auto max-w-3xl px-4 pb-8 pt-4 sm:pb-12 sm:pt-6">
         {/* Back link */}
         <Link
           href="/blog"
@@ -111,13 +172,9 @@ export default async function BlogDetailPage({ params }: Props) {
         {/* Meta */}
         <div className="mt-4 flex items-center gap-3 text-sm text-[#64748B]">
           {post.published_at && (
-            <time>{formatDate(post.published_at, locale)}</time>
-          )}
-          {author && (
-            <>
-              <span>·</span>
-              <span>{author.display_name}</span>
-            </>
+            <time dateTime={post.published_at}>
+              {formatDate(post.published_at, locale)}
+            </time>
           )}
         </div>
 
@@ -144,8 +201,6 @@ export default async function BlogDetailPage({ params }: Props) {
 
         <BannerSlot placement="blog_inline" bare className="mt-10" />
       </article>
-    );
-  } catch {
-    notFound();
-  }
+    </>
+  );
 }

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { motion } from "framer-motion";
-import { ArrowDownLeft, ArrowUpRight, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,16 +12,21 @@ import VipInfoModal, {
 } from "@/components/renter/VipInfoModal";
 import VipPropertyPickerModal from "@/components/renter/VipPropertyPickerModal";
 import BalancePackageCard from "@/components/balance/BalancePackageCard";
+import SmsBalanceStat from "@/components/balance/SmsBalanceStat";
+import TransactionList from "@/components/balance/TransactionList";
 import ConfirmPaymentModal from "@/components/shared/ConfirmPaymentModal";
 import {
   fetchPricingPackages,
   getPackageDisplay,
+  packageDescription,
   type PricingPackage,
 } from "@/lib/pricing-packages";
-import { formatDate } from "@/lib/utils/format";
 import { isSuperVipActive } from "@/lib/utils/pricing";
-import { promotionPurchaseError } from "@/lib/promotion-purchase";
-import SandboxTopUpLauncher from "@/components/payments/SandboxTopUpLauncher";
+import {
+  promotionPurchaseError,
+  purchaseReasonMessages,
+} from "@/lib/promotion-purchase";
+import CardTopUpLauncher from "@/components/payments/CardTopUpLauncher";
 import type { Tables } from "@/lib/types/database";
 
 type Transaction = Tables<"transactions">;
@@ -41,16 +45,6 @@ function durationHoursFromMeta(meta: Record<string, unknown> | null): number {
   return 24;
 }
 
-const transactionTypeKeys = [
-  "topup",
-  "vip_boost",
-  "super_vip",
-  "sms_package",
-  "discount_badge",
-  "withdrawal",
-  "commission",
-] as const;
-
 /**
  * Balance & VIP page body shared by the renter and seller dashboards. Both own
  * `properties`, so VIP purchases route through the property picker while SMS
@@ -65,6 +59,7 @@ export default function PropertyBalanceClient() {
   const [balance, setBalance] = useState<Balance | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [listingsFailed, setListingsFailed] = useState(false);
   const [packages, setPackages] = useState<PricingPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
@@ -79,8 +74,19 @@ export default function PropertyBalanceClient() {
   }>({ open: false, tier: "super-vip", packageId: "" });
   const [confirmPkg, setConfirmPkg] = useState<PricingPackage | null>(null);
 
+  // fetchPricingPackages answers [] on failure; there is always at least one
+  // enabled package, so an empty list is shown as a retryable load failure.
+  const [packagesLoaded, setPackagesLoaded] = useState(false);
+  const loadPackages = () => {
+    setPackagesLoaded(false);
+    void fetchPricingPackages(["vip", "sms"]).then((rows) => {
+      setPackages(rows);
+      setPackagesLoaded(true);
+    });
+  };
+
   useEffect(() => {
-    fetchPricingPackages(["vip", "sms"]).then(setPackages);
+    loadPackages();
   }, []);
 
   useEffect(() => {
@@ -109,43 +115,14 @@ export default function PropertyBalanceClient() {
       if (balanceRes.data) setBalance(balanceRes.data);
       if (txRes.data) setTransactions(txRes.data);
       if (propRes.data) setProperties(propRes.data);
+      setListingsFailed(Boolean(propRes.error));
       setLoading(false);
     }
 
     fetchData();
-
-    const channel = supabase
-      .channel("balance-updates")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "balances",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          if (payload.new) setBalance(payload.new as Balance);
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "transactions",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          // New transaction (top-up, commission, purchase) — refresh the history.
-          fetchData();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // No realtime here: `balances` and `transactions` are not in the
+    // supabase_realtime publication (trimmed 2026-07-12, contract C7), so the
+    // wallet is refetched explicitly after each purchase instead.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -171,22 +148,35 @@ export default function PropertyBalanceClient() {
   };
 
   const purchaseSmsPackage = async (pkg: PricingPackage) => {
-    if (!user || !balance) return;
+    if (!user) throw new Error(t("genericRetry"));
     setPurchasing(pkg.id);
     try {
       const { error } = await supabase.functions.invoke("purchase-vip", {
         body: { package_id: pkg.id, quantity: 1 },
       });
       if (error) {
-        throw await promotionPurchaseError(error, t("superVipBlocksVip"));
+        throw await promotionPurchaseError(error, {
+          vipConflict: t("superVipBlocksVip"),
+          network: t("purchaseNetworkError"),
+          generic: t("genericRetry"),
+          reasons: purchaseReasonMessages(t),
+        });
       }
-      const { data: txData } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (txData) setTransactions(txData);
+      const [balRes, txRes] = await Promise.all([
+        supabase
+          .from("balances")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("transactions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
+      if (balRes.data) setBalance(balRes.data);
+      if (txRes.data) setTransactions(txRes.data);
     } finally {
       setPurchasing(null);
     }
@@ -197,7 +187,7 @@ export default function PropertyBalanceClient() {
     quantity: number,
     discountPercent?: number,
   ) => {
-    if (!user || !balance) return;
+    if (!user) throw new Error(t("genericRetry"));
     const packageId = pickerModal.packageId;
     setPurchasing(packageId);
 
@@ -213,16 +203,29 @@ export default function PropertyBalanceClient() {
         },
       });
       if (error) {
-        throw await promotionPurchaseError(error, t("superVipBlocksVip"));
+        throw await promotionPurchaseError(error, {
+          vipConflict: t("superVipBlocksVip"),
+          network: t("purchaseNetworkError"),
+          generic: t("genericRetry"),
+          reasons: purchaseReasonMessages(t),
+        });
       }
 
-      const { data: txData } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (txData) setTransactions(txData);
+      const [balRes, txRes] = await Promise.all([
+        supabase
+          .from("balances")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("transactions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
+      if (balRes.data) setBalance(balRes.data);
+      if (txRes.data) setTransactions(txRes.data);
       const { data: property } = await supabase
         .from("properties")
         .select("*")
@@ -256,22 +259,28 @@ export default function PropertyBalanceClient() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="flex flex-col items-start justify-between gap-4 rounded-[20px] bg-[#0F172A] px-8 py-7 text-white shadow-[0px_10px_30px_-8px_rgba(15,23,42,0.25)] sm:flex-row sm:items-center"
+        className="flex flex-col items-start justify-between gap-4 rounded-[20px] bg-[#0F172A] px-8 py-7 text-white shadow-[0px_10px_30px_-8px_rgba(15,23,42,0.25)] sm:flex-row sm:flex-wrap sm:items-center"
       >
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">
-            {t("currentBalance")}
-          </p>
-          {loading ? (
-            <Skeleton className="mt-2 h-10 w-32 bg-white/20" />
-          ) : (
-            <p className="mt-2 text-[36px] font-black leading-[44px]">
-              {(balance?.amount ?? 0).toFixed(2)}{" "}
-              <span className="text-[28px] text-white/60">₾</span>
+        <div className="flex w-full flex-col gap-4 sm:w-auto sm:flex-row sm:gap-8">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">
+              {t("currentBalance")}
             </p>
-          )}
+            {loading ? (
+              <Skeleton className="mt-2 h-10 w-32 bg-white/20" />
+            ) : (
+              <p className="mt-2 text-[36px] font-black leading-[44px]">
+                {(balance?.amount ?? 0).toFixed(2)}{" "}
+                <span className="text-[28px] text-white/60">₾</span>
+              </p>
+            )}
+          </div>
+          <SmsBalanceStat
+            remaining={balance?.sms_remaining ?? 0}
+            loading={loading}
+          />
         </div>
-        <SandboxTopUpLauncher />
+        <CardTopUpLauncher />
       </motion.div>
 
       <motion.section
@@ -280,46 +289,66 @@ export default function PropertyBalanceClient() {
         transition={{ delay: 0.2 }}
         className="grid grid-cols-2 gap-3 sm:gap-4"
       >
-        {sortedPackages.length === 0 ? (
-          <p className="col-span-full text-center text-sm text-[#94A3B8]">
-            {t("noPackages")}
-          </p>
-        ) : (
-          sortedPackages.map((pkg) => {
-            const display = getPackageDisplay(pkg, locale);
-            const tier = inferVipInfoTier(pkg);
-            const standardVipAvailable =
-              tier !== "vip" ||
-              properties.some(
-                (property) =>
-                  !isSuperVipActive(
-                    property.is_super_vip,
-                    property.vip_expires_at,
-                  ),
+        {sortedPackages.length === 0
+          ? packagesLoaded && (
+              <div
+                role="alert"
+                className="col-span-full flex items-center justify-center gap-3 text-sm text-[#94A3B8]"
+              >
+                <span>{t("packagesUnavailable")}</span>
+                <button
+                  type="button"
+                  onClick={loadPackages}
+                  className="min-h-11 px-2 font-bold text-[#2563EB] underline"
+                >
+                  {t("packagesRetry")}
+                </button>
+              </div>
+            )
+          : sortedPackages.map((pkg) => {
+              const display = getPackageDisplay(pkg, locale);
+              const tier = inferVipInfoTier(pkg);
+              // Every package needs a listing, SMS too. A failed read must not
+              // claim there is none.
+              const noListings =
+                !loading && !listingsFailed && properties.length === 0;
+              const standardVipAvailable =
+                tier !== "vip" ||
+                listingsFailed ||
+                properties.some(
+                  (property) =>
+                    !isSuperVipActive(
+                      property.is_super_vip,
+                      property.vip_expires_at,
+                    ),
+                );
+              return (
+                <BalancePackageCard
+                  key={pkg.id}
+                  icon={display.icon}
+                  iconBg={display.iconBg}
+                  iconColor={display.iconColor}
+                  title={pkg.name}
+                  description={packageDescription(pkg, locale)}
+                  price={pkg.amount_gel}
+                  unit={display.unit}
+                  ctaColor={display.ctaColor}
+                  available={!loading && !noListings && standardVipAvailable}
+                  disabledReason={
+                    loading
+                      ? undefined
+                      : noListings
+                        ? t("noListingsYet")
+                        : standardVipAvailable
+                          ? undefined
+                          : t("noVipEligibleListings")
+                  }
+                  purchasing={purchasing === pkg.id}
+                  onHowItWorks={() => setVipModal({ open: true, tier })}
+                  onActivate={() => handlePurchaseClick(pkg)}
+                />
               );
-            return (
-              <BalancePackageCard
-                key={pkg.id}
-                icon={display.icon}
-                iconBg={display.iconBg}
-                iconColor={display.iconColor}
-                title={pkg.name}
-                description={pkg.description ?? pkg.label ?? ""}
-                price={pkg.amount_gel}
-                unit={display.unit}
-                ctaColor={display.ctaColor}
-                canAfford={(balance?.amount ?? 0) >= pkg.amount_gel}
-                available={standardVipAvailable}
-                disabledReason={
-                  standardVipAvailable ? undefined : t("noVipEligibleListings")
-                }
-                purchasing={purchasing === pkg.id}
-                onHowItWorks={() => setVipModal({ open: true, tier })}
-                onActivate={() => handlePurchaseClick(pkg)}
-              />
-            );
-          })
-        )}
+            })}
       </motion.section>
 
       <motion.section
@@ -330,65 +359,13 @@ export default function PropertyBalanceClient() {
         <h2 className="text-[18px] font-black text-[#0F172A]">
           {t("transactionsTitle")}
         </h2>
-        <div className="mt-3 space-y-2">
-          {loading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 w-full rounded-xl" />
-            ))
-          ) : transactions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EEF1F4] bg-white py-12 shadow-[0px_1px_3px_rgba(0,0,0,0.04)]">
-              <History className="h-10 w-10 text-[#94A3B8]" />
-              <p className="mt-2 text-sm text-[#94A3B8]">
-                {t("noTransactions")}
-              </p>
-            </div>
-          ) : (
-            transactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center justify-between rounded-xl border border-[#EEF1F4] bg-white px-4 py-3 shadow-[0px_1px_2px_rgba(15,23,42,0.03)]"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                      tx.amount >= 0
-                        ? "bg-[#DCFCE7] text-[#16A34A]"
-                        : "bg-[#FEE2E2] text-[#DC2626]"
-                    }`}
-                  >
-                    {tx.amount >= 0 ? (
-                      <ArrowDownLeft className="h-4 w-4" />
-                    ) : (
-                      <ArrowUpRight className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-[#0F172A]">
-                      {transactionTypeKeys.includes(
-                        tx.type as (typeof transactionTypeKeys)[number],
-                      )
-                        ? t(
-                            `txTypes.${tx.type as (typeof transactionTypeKeys)[number]}`,
-                          )
-                        : tx.type}
-                    </p>
-                    <p className="text-[11px] text-[#94A3B8]">
-                      {formatDate(tx.created_at)}
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`text-sm font-extrabold ${
-                    tx.amount >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"
-                  }`}
-                >
-                  {tx.amount >= 0 ? "+" : ""}
-                  {tx.amount.toFixed(2)} ₾
-                </span>
-              </div>
-            ))
+        <TransactionList
+          transactions={transactions}
+          loading={loading}
+          listingTitles={Object.fromEntries(
+            properties.map((p) => [p.id, p.title]),
           )}
-        </div>
+        />
       </motion.section>
 
       <VipInfoModal
@@ -412,12 +389,25 @@ export default function PropertyBalanceClient() {
             p.is_super_vip,
             p.vip_expires_at,
           ),
+          notLive: p.status !== "active",
         }))}
         pkg={{
           amountGel: pickerPkg?.amount_gel ?? 0,
           durationHours: durationHoursFromMeta(pickerPkg?.meta ?? null),
         }}
         onConfirm={handleConfirmPurchase}
+        balance={loading ? undefined : (balance?.amount ?? 0)}
+        buildCardIntent={(propertyId, quantity, discountPercent) => ({
+          kind: "purchase-vip",
+          body: {
+            package_id: pickerModal.packageId,
+            property_id: propertyId,
+            quantity,
+            ...(discountPercent !== undefined && {
+              discount_percent: discountPercent,
+            }),
+          },
+        })}
       />
 
       <ConfirmPaymentModal
@@ -427,9 +417,30 @@ export default function PropertyBalanceClient() {
           if (confirmPkg) await purchaseSmsPackage(confirmPkg);
         }}
         title={confirmPkg?.name ?? ""}
-        description={confirmPkg?.description ?? confirmPkg?.label ?? ""}
+        description={confirmPkg ? packageDescription(confirmPkg, locale) : ""}
         priceLabel={confirmPkg ? `${confirmPkg.amount_gel.toFixed(2)} ₾` : ""}
-        balance={balance?.amount}
+        balance={loading ? undefined : (balance?.amount ?? 0)}
+        amount={confirmPkg?.amount_gel}
+        cardPayment={
+          confirmPkg
+            ? {
+                resume: {
+                  kind: "purchase-vip",
+                  body: { package_id: confirmPkg.id, quantity: 1 },
+                },
+              }
+            : undefined
+        }
+        validity={
+          confirmPkg?.category === "sms"
+            ? t("purchaseTerms.smsNoExpiry")
+            : undefined
+        }
+        conditions={
+          confirmPkg?.category === "sms"
+            ? [t("purchaseTerms.smsCredits"), t("purchaseTerms.smsConsent")]
+            : undefined
+        }
       />
     </div>
   );

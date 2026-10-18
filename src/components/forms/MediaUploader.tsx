@@ -4,6 +4,8 @@ import { ChangeEvent, useRef, useState } from "react";
 import { ImageOff, ImagePlus, Loader2, Video, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { createUploadClient } from "@/lib/supabase/client";
+import { parseStorageObjectUrl } from "@/lib/utils/photos";
 
 export type MediaValue = { url: string; type: "image" | "video" } | null;
 
@@ -26,6 +28,23 @@ const VIDEO_TYPES = new Set(["video/mp4", "video/webm"]);
 const IMAGE_MAX = 5 * 1024 * 1024;
 const VIDEO_MAX = 50 * 1024 * 1024;
 
+// Best-effort delete of the underlying Storage object for a removed/replaced
+// media file. Fire-and-forget: a failed delete must never block the
+// user-facing remove/replace action, and a stale cross-origin URL (left over
+// from a past Supabase project migration) can't be deleted from this
+// project's bucket anyway, so it's skipped rather than risk touching the
+// wrong object. Uses the caller's own browser session — this bucket's
+// "landing-media admin delete" RLS policy allows it directly, without a
+// server route.
+function deleteStorageObject(url: string) {
+  const parsed = parseStorageObjectUrl(url);
+  if (!parsed?.sameOrigin) return;
+  createUploadClient()
+    .storage.from(parsed.bucket)
+    .remove([parsed.path])
+    .catch(() => {});
+}
+
 type Props = {
   value: MediaValue;
   onChange: (v: MediaValue) => void;
@@ -34,6 +53,9 @@ type Props = {
   helper?: string;
   poster?: string | null;
   onPosterChange?: (url: string | null) => void;
+  // Files a saved row still points at (an edit that may be cancelled): never
+  // deleted here; the save route removes them once the row stops using them.
+  keepUrls?: (string | null)[];
 };
 
 export default function MediaUploader({
@@ -44,6 +66,7 @@ export default function MediaUploader({
   helper,
   poster,
   onPosterChange,
+  keepUrls,
 }: Props) {
   const t = useTranslations("MediaUploader");
   const displayLabel = label ?? t("defaultLabel");
@@ -55,6 +78,10 @@ export default function MediaUploader({
   // External URLs may be blocked by CSP (next.config.ts img-src/media-src);
   // keyed on the current url so it self-resets when the value changes.
   const [errorUrl, setErrorUrl] = useState<string | null>(null);
+
+  function discard(url: string) {
+    if (!keepUrls?.includes(url)) deleteStorageObject(url);
+  }
 
   async function uploadFile(
     file: File,
@@ -127,7 +154,11 @@ export default function MediaUploader({
     setUploading(true);
     const next = await uploadFile(file, {});
     setUploading(false);
-    if (next) onChange(next);
+    if (next) {
+      const previous = value;
+      onChange(next);
+      if (previous) discard(previous.url);
+    }
   }
 
   async function onPoster(e: ChangeEvent<HTMLInputElement>) {
@@ -137,16 +168,26 @@ export default function MediaUploader({
     setPosterUploading(true);
     const next = await uploadFile(file, { posterOnly: true });
     setPosterUploading(false);
-    if (next) onPosterChange(next.url);
+    if (next) {
+      const previousPoster = poster;
+      onPosterChange(next.url);
+      if (previousPoster) discard(previousPoster);
+    }
   }
 
   function clearMain() {
+    const previous = value;
+    const previousPoster = poster;
     onChange(null);
     if (onPosterChange) onPosterChange(null);
+    if (previous) discard(previous.url);
+    if (previousPoster) discard(previousPoster);
   }
 
   function clearPoster() {
+    const previousPoster = poster;
     if (onPosterChange) onPosterChange(null);
+    if (previousPoster) discard(previousPoster);
   }
 
   return (

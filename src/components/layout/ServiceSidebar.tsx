@@ -18,6 +18,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
+import { hasOrdersPage } from "@/lib/dashboard/serviceSegments";
 
 interface ServiceSidebarProps {
   userName: string;
@@ -48,11 +49,15 @@ function buildNavItems(basePath: string, cabinetKey: string): NavItem[] {
   const isEmployment = cabinetKey === "employment";
   return [
     { labelKey: "myCabinet", href: basePath, icon: LayoutGrid },
-    {
-      labelKey: isEmployment ? "cvs" : "orders",
-      href: `${basePath}/orders`,
-      icon: isEmployment ? FileText : ClipboardList,
-    },
+    ...(hasOrdersPage(cabinetKey)
+      ? [
+          {
+            labelKey: isEmployment ? "cvs" : "orders",
+            href: `${basePath}/orders`,
+            icon: isEmployment ? FileText : ClipboardList,
+          },
+        ]
+      : []),
     { labelKey: "balanceAndVip", href: `${basePath}/balance`, icon: Wallet },
     {
       labelKey: "notificationsItem",
@@ -69,8 +74,8 @@ function BrandLogo() {
     <Image
       src="/logo.png"
       alt="MyBakuriani"
-      width={300}
-      height={199}
+      width={124}
+      height={50}
       className="h-10 w-auto"
     />
   );

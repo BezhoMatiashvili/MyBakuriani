@@ -141,6 +141,7 @@ export function CriticalNotificationGate() {
         </div>
         <h2
           id="critical-notif-title"
+          data-jev-private
           className="text-[20px] font-black leading-7 tracking-[-0.4px] text-slate-900 sm:text-[22px]"
         >
           {current.title}

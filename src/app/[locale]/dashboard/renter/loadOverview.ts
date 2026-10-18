@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/lib/types/database";
+import {
+  deriveMembershipState,
+  type MembershipWindow,
+} from "@/lib/membership/plans";
 
 export type OwnerStats =
   Database["public"]["Functions"]["owner_dashboard_stats"]["Returns"][number];
@@ -13,16 +17,22 @@ export type RenterOverview = {
   membershipExpiresAt: string | null;
   /** A paid membership exists but cannot grant access before admin review. */
   membershipPending: boolean;
+  membershipPendingStartsAt: string | null;
   membershipPendingExpiresAt: string | null;
+  /** An approved membership for a later season (e.g. winter bought in summer). */
+  membershipUpcoming: MembershipWindow | null;
+  /** Remaining windows already paid for; plans overlapping them are not sold. */
+  membershipCovered: MembershipWindow[];
   membershipPlans: RenterMembershipPlan[];
 };
 
-export type RenterMembershipPlan = Pick<
-  Tables<"pricing_packages">,
-  "id" | "name" | "label" | "description" | "amount_gel" | "sort_order"
-> & {
-  billingPeriod: "seasonal";
-};
+/**
+ * One enabled seasonal plan (2026 price list: summer / winter × FB-group VIP
+ * member / other user) with its current-or-next season window — computed in
+ * SQL by renter_membership_plans(), never in the browser.
+ */
+export type RenterMembershipPlan =
+  Database["public"]["Functions"]["renter_membership_plans"]["Returns"][number];
 
 /**
  * Computes the renter dashboard overview. Shared by the server component (initial
@@ -41,7 +51,7 @@ export async function loadRenterOverview(
     statsRes,
     balanceRes,
     subscriptionsRes,
-    packagesRes,
+    plansRes,
   ] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", userId).single(),
     supabase
@@ -61,59 +71,25 @@ export async function loadRenterOverview(
       .select("starts_at, expires_at, status")
       .eq("user_id", userId)
       .in("status", ["active", "pending_approval"]),
-    supabase
-      .from("pricing_packages")
-      .select("id, name, label, description, amount_gel, sort_order, meta")
-      .eq("category", "subscription")
-      .eq("is_enabled", true)
-      .order("sort_order", { ascending: true }),
+    supabase.rpc("renter_membership_plans"),
   ]);
 
-  const now = new Date().toISOString();
-  const activeSubscriptions = (subscriptionsRes.data ?? []).filter(
-    (subscription) =>
-      subscription.status === "active" &&
-      subscription.starts_at <= now &&
-      subscription.expires_at > now,
+  const membership = deriveMembershipState(
+    subscriptionsRes.data ?? [],
+    Date.now(),
   );
-  const membershipExpiresAt = activeSubscriptions.reduce<
-    string | null
-  >(
-    (latest, subscription) =>
-      !latest || subscription.expires_at > latest
-        ? subscription.expires_at
-        : latest,
-    null,
-  );
-  const pendingMemberships = (subscriptionsRes.data ?? []).filter(
-    (subscription) => subscription.status === "pending_approval",
-  );
-  const membershipPendingExpiresAt = pendingMemberships.reduce<string | null>(
-    (latest, subscription) =>
-      !latest || subscription.expires_at > latest
-        ? subscription.expires_at
-        : latest,
-    null,
-  );
-  const membershipPlans = (packagesRes.data ?? []).flatMap((pkg) => {
-    const meta = pkg.meta as Record<string, unknown> | null;
-    if (
-      meta?.subscription_scope !== "renter" ||
-      meta?.billing_period !== "seasonal"
-    ) {
-      return [];
-    }
-    return [{ ...pkg, billingPeriod: "seasonal" as const }];
-  }).slice(0, 1);
 
   return {
     profile: profileRes.data ?? null,
     properties: propertiesRes.data ?? [],
     stats: statsRes.data?.[0] ?? null,
     walletBalance: Number(balanceRes.data?.amount ?? 0),
-    membershipExpiresAt,
-    membershipPending: pendingMemberships.length > 0,
-    membershipPendingExpiresAt,
-    membershipPlans,
+    membershipExpiresAt: membership.activeUntil,
+    membershipPending: membership.pending !== null,
+    membershipPendingStartsAt: membership.pending?.startsAt ?? null,
+    membershipPendingExpiresAt: membership.pending?.expiresAt ?? null,
+    membershipUpcoming: membership.upcoming,
+    membershipCovered: membership.covered,
+    membershipPlans: plansRes.data ?? [],
   };
 }

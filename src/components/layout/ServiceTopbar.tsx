@@ -5,10 +5,15 @@ import { Home, MessageSquare, Plus, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { DashboardNotificationBell } from "@/components/layout/DashboardNotificationBell";
 
 interface ServiceTopbarProps {
   balance: number;
   smsRemaining: number;
+  /** False for a cabinet without SMS (transport, see cabinetSms.ts): no SMS chip. */
+  showSms?: boolean;
+  /** Unread notifications across all cabinets, shown on the header bell until it loads. */
+  notificationCount?: number;
   searchPlaceholder?: string;
   /** Cabinet root, e.g. "/dashboard/transport", for the balance link. */
   basePath: string;
@@ -17,6 +22,8 @@ interface ServiceTopbarProps {
 export function ServiceTopbar({
   balance,
   smsRemaining,
+  showSms = true,
+  notificationCount = 0,
   searchPlaceholder,
   basePath,
 }: ServiceTopbarProps) {
@@ -26,7 +33,7 @@ export function ServiceTopbar({
 
   return (
     <header className="sticky top-0 z-30 border-b border-[#E2E8F0] bg-white px-5 py-4 shadow-[0px_1px_2px_rgba(0,0,0,0.04)] sm:px-10">
-      <div className="flex w-full items-center gap-4">
+      <div className="flex w-full items-center gap-2 sm:gap-4">
         <label className="relative hidden w-full min-w-0 max-w-[480px] flex-1 lg:block">
           <Search className="pointer-events-none absolute left-5 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[#94A3B8]" />
           <input
@@ -39,18 +46,18 @@ export function ServiceTopbar({
         <Link
           href="/"
           aria-label={tSidebar("backToHome")}
-          className="flex h-[44px] shrink-0 items-center gap-2 rounded-full bg-[#2563EB] px-3 text-[13px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8] sm:px-4 lg:hidden"
+          className="flex h-[44px] shrink-0 items-center gap-2 rounded-full bg-[#2563EB] px-3 text-[13px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(37,99,235,0.45)] transition-colors hover:bg-[#1D4ED8] md:px-4 lg:hidden"
         >
           <Home className="size-4" />
-          <span className="hidden sm:inline">{tSidebar("backToHome")}</span>
+          <span className="hidden md:inline">{tSidebar("backToHome")}</span>
         </Link>
 
         <div className="flex-1" />
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <Link
             href={`${basePath}/balance`}
-            className="group flex h-[44px] items-center gap-2.5 rounded-full border border-[#E2E8F0] bg-white pl-4 pr-1.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB]"
+            className="group flex h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-[#E2E8F0] bg-white pl-3 pr-1.5 text-[13px] font-bold text-[#0F172A] transition-colors hover:border-[#2563EB] sm:gap-2.5 sm:pl-4"
           >
             <span>{formatPrice(balance)}</span>
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F1F5F9] text-[#0F172A] transition-colors group-hover:bg-[#EFF6FF] group-hover:text-[#2563EB]">
@@ -58,18 +65,25 @@ export function ServiceTopbar({
             </span>
           </Link>
 
-          <div className="hidden h-[44px] items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold sm:flex">
-            <MessageSquare
-              className="h-[15px] w-[15px] text-[#2563EB]"
-              strokeWidth={2.4}
-            />
-            <span>
-              <span className="text-[#0F172A]">{smsRemaining}</span>
-              <span className="text-[#94A3B8]">{t("topbar.smsSuffix")}</span>
-            </span>
-          </div>
+          {showSms && (
+            <div className="hidden h-[44px] items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold sm:flex">
+              <MessageSquare
+                className="h-[15px] w-[15px] text-[#2563EB]"
+                strokeWidth={2.4}
+              />
+              <span>
+                <span className="text-[#0F172A]">{smsRemaining}</span>
+                <span className="text-[#94A3B8]">{t("topbar.smsSuffix")}</span>
+              </span>
+            </div>
+          )}
 
-          <LanguageSelector />
+          <LanguageSelector className="px-2.5 sm:px-3.5" />
+          {/* One bell for every cabinet the user holds, at every breakpoint. */}
+          <DashboardNotificationBell
+            initialUnreadCount={notificationCount}
+            triggerClassName="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A] transition-colors hover:border-[#2563EB] hover:text-[#2563EB] lg:h-[44px] lg:w-[44px]"
+          />
         </div>
       </div>
     </header>
