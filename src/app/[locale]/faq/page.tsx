@@ -1,18 +1,15 @@
 import type { Metadata } from "next";
-import { NextIntlClientProvider } from "next-intl";
-import {
-  getMessages,
-  getTranslations,
-  setRequestLocale,
-} from "next-intl/server";
-import { FAQ_NAMESPACES, pickMessages } from "@/i18n/namespaces";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
+import { resolveFaq } from "@/lib/faq";
+import { loadFaqContent } from "@/lib/faq-content";
 import { buildPageMetadata } from "@/lib/seo";
-import FAQPageClient from "./FAQPageClient";
+import FAQPageContent from "./FAQPageContent";
 
-// Static page: revalidate daily so the edge TTL is a day, not the default year,
-// and a copy or metadata fix reaches Cloudflare without a manual purge (C40).
-export const revalidate = 86400;
+// Static page, revalidated every minute: an admin's edit (C40) reaches every
+// instance and, with the edge rule in next.config.ts, the edge within minutes,
+// like the blog index (C28).
+export const revalidate = 60;
 
 export async function generateMetadata({
   params,
@@ -29,9 +26,9 @@ export async function generateMetadata({
   });
 }
 
-// FAQ is the only page that uses its namespace, so the root provider no longer
-// ships it to every page; this nested provider replaces the root messages for
-// the FAQ client tree. setRequestLocale keeps the route static (C1).
+// The copy comes from loadFaqContent (the admin's saved set, else the catalog)
+// and goes to the page as plain props, so no message namespace is shipped for
+// it. setRequestLocale keeps the route static (C1).
 export default async function FAQPage({
   params,
 }: {
@@ -39,10 +36,6 @@ export default async function FAQPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const messages = pickMessages(await getMessages({ locale }), FAQ_NAMESPACES);
-  return (
-    <NextIntlClientProvider locale={locale} messages={messages}>
-      <FAQPageClient />
-    </NextIntlClientProvider>
-  );
+  const faq = resolveFaq(await loadFaqContent(), locale);
+  return <FAQPageContent faq={faq} />;
 }

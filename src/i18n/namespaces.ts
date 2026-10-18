@@ -3,7 +3,7 @@
 // The root `[locale]/layout.tsx` provider ships ONLY PUBLIC_NAMESPACES to the
 // browser, in every HTML document and every static RSC payload. Route trees
 // whose namespaces nobody else needs re-provide them in a nested provider
-// instead: /create, /auth, /faq, /review/[token], /sms-consent/[token] and
+// instead: /create, /auth, /review/[token], /sms-consent/[token] and
 // /dashboard (see the constants below). A nested NextIntlClientProvider
 // REPLACES the messages above it rather than merging, so each constant lists
 // every namespace reachable under its provider, shell components included.
@@ -114,10 +114,6 @@ export const AUTH_NAMESPACES = [
   "Shared",
 ] as const;
 
-// Re-provided by src/app/[locale]/faq/page.tsx (the page only: faq/loading.tsx
-// and faq/error.tsx render outside it, under the root provider).
-export const FAQ_NAMESPACES = ["FAQ"] as const;
-
 // Re-provided by src/app/[locale]/review/[token]/page.tsx.
 export const MANUAL_REVIEW_NAMESPACES = ["ManualReview"] as const;
 
@@ -133,6 +129,7 @@ export const DASHBOARD_NAMESPACES = [
   "AdminClientDetail",
   "AdminClients",
   "AdminDashboard",
+  "AdminFaq",
   "AdminFinances",
   "AdminGuide",
   "AdminInvoices",

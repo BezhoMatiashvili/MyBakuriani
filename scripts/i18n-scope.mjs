@@ -172,11 +172,6 @@ const SCOPES = [
     covers: (rel) => rel.startsWith("auth/"),
   },
   {
-    constant: "FAQ_NAMESPACES",
-    provider: "faq/page.tsx",
-    covers: (rel) => rel === "faq/page.tsx",
-  },
-  {
     constant: "MANUAL_REVIEW_NAMESPACES",
     provider: "review/[token]/page.tsx",
     covers: (rel) => rel === "review/[token]/page.tsx",

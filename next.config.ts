@@ -102,6 +102,12 @@ const nextConfig: NextConfig = {
         source: "/:locale(ka|en|ru)?/blog",
         ...edgeCached,
       },
+      // The FAQ copy is admin-editable (C40) and the page is ISR
+      // (revalidate = 60): same bound, so an edit shows within minutes.
+      {
+        source: "/:locale(ka|en|ru)?/faq",
+        ...edgeCached,
+      },
       // An RSC request without the `_rsc` cache-busting param never comes from
       // a real Next client (fetch-server-response always appends it). The CDN
       // keys on the URL and ignores Vary, so with a public Cache-Control its

@@ -1944,6 +1944,26 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (guideBypass.length) fail(`C40: these files read the Guide namespace without getGuideTranslator, so admin edits of the guide never reach them: ${guideBypass.join(", ")}`);
   else if (guideSurfaces.length < 6) fail(`C40: expected the four guide pages, GuideEnd and ZoneListings to read Guide through getGuideTranslator; found ${guideSurfaces.length}`);
   else ok(`C40: ${guideSurfaces.length} guide surfaces read the admin-editable copy through getGuideTranslator`);
+
+  // The admin edits the /faq copy (site_settings faq_content): it reaches only a page that reads it through
+  // src/lib/faq-content.ts:loadFaqContent, so nothing else may read the `FAQ` namespace or spell the setting key (src/lib/faq.ts
+  // defines FAQ_CONTENT_SETTING_KEY, the admin route imports it). The page is ISR with a one-minute
+  // revalidate and sits in next.config.ts's bounded edge-cache group (C28), or an edit would wait on a year-long
+  // stale-while-revalidate; both admin navs link the editor.
+  const faqReader = "src/lib/faq-content.ts";
+  const faqModel = "src/lib/faq.ts";
+  const faqPage = "src/app/[locale]/faq/page.tsx";
+  const faqBypass = srcFiles.filter((f) => f !== faqReader && f !== faqModel && /namespace:\s*"FAQ"|Translations\(\s*"FAQ"|["'`]faq_content["'`]/.test(noComments(srcText.get(f))));
+  const faqProblems = [];
+  if (faqBypass.length) faqProblems.push(`these files read the FAQ copy without loadFaqContent, so admin edits never reach them: ${faqBypass.join(", ")}`);
+  if (!/loadFaqContent\(/.test(read(faqPage))) faqProblems.push(`${faqPage} must read the copy through loadFaqContent`);
+  if (!/export const revalidate = 60;/.test(read(faqPage))) faqProblems.push(`${faqPage} must keep revalidate = 60`);
+  if (!/source:\s*"\/:locale\(ka\|en\|ru\)\?\/faq",\s*\.\.\.edgeCached/.test(read("next.config.ts"))) faqProblems.push("next.config.ts must put /faq in the edgeCached group");
+  for (const nav of ["src/components/layout/AdminSidebar.tsx", "src/components/layout/MobileBottomNav.tsx"]) {
+    if (!read(nav).includes('"/dashboard/admin/faq"')) faqProblems.push(`${nav} must link /dashboard/admin/faq`);
+  }
+  if (faqProblems.length) for (const p of faqProblems) fail(`C40: ${p}`);
+  else ok("C40: /faq reads its admin-editable copy through loadFaqContent, revalidates every minute and is edge-cached like the blog index");
 }
 
 // ---------------------------------------------------------------------------

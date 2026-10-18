@@ -95,6 +95,49 @@
       "invalid_format": "The text format is invalid: check braces and apostrophes"
     }
   },
+  "AdminFaq": {
+    "title": "Frequently asked questions",
+    "subtitle": "The title, subtitle and questions of the site's /faq page in Georgian, English and Russian. Saved text replaces the standard text.",
+    "lastSaved": "Last saved: {date}",
+    "defaultsShown": "Not edited yet: the page shows the standard text",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Changes saved",
+    "loadError": "Could not load the texts",
+    "saveError": "Could not save",
+    "pending": "Unsaved changes",
+    "fixProblems": "Fix the highlighted fields ({count})",
+    "languageLabel": "Language",
+    "viewPage": "View page",
+    "note": "After saving, the page is rebuilt, but visitors may see the old version for a few minutes. If a language's text is empty, visitors see the Georgian text. A blank line in an answer starts a new paragraph.",
+    "languages": {
+      "ka": "ქართული",
+      "en": "English",
+      "ru": "Русский"
+    },
+    "fields": {
+      "title": "Page title",
+      "subtitle": "Subtitle",
+      "question": "Question",
+      "answer": "Answer"
+    },
+    "itemLabel": "Question {n}",
+    "addItem": "Add a question",
+    "removeItem": "Delete question",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "restore": "Restore the standard text",
+    "restored": "Standard text loaded. Press Save to apply it",
+    "fallbackHint": "The question or answer is empty in this language: visitors see the Georgian version",
+    "noItems": "There are no questions: add at least one",
+    "problems": {
+      "required": "The Georgian text is required",
+      "too_long": "The text is too long",
+      "too_many": "There are too many questions",
+      "invalid_id": "The question's identifier is invalid",
+      "duplicate_id": "Two questions share an identifier"
+    }
+  },
   "AdminSaleResearch": {
     "title": "Investment section",
     "subtitle": "The research block on the home page in “Buy” mode: heading, text, two figures and a chart, in Georgian, English and Russian. An edited text replaces the standard one; an empty field brings the standard text back.",
@@ -338,6 +381,7 @@
       "locationZones": "Location Zones",
       "statusCards": "Status cards",
       "guide": "Resort guide",
+      "faq": "FAQ",
       "saleResearch": "Investment section",
       "finances": "Finances",
       "ads": "Ads",

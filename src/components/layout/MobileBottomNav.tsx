@@ -12,6 +12,7 @@ import {
   CalendarClock,
   CalendarDays,
   ChevronRight,
+  CircleHelp,
   Ellipsis,
   ClipboardList,
   CreditCard,
@@ -162,6 +163,11 @@ function getNavigation(role: string): RoleNavigation {
             labelKey: "guide",
             href: "/dashboard/admin/guide",
             icon: BookOpen,
+          },
+          {
+            labelKey: "faq",
+            href: "/dashboard/admin/faq",
+            icon: CircleHelp,
           },
           {
             labelKey: "saleResearch",
