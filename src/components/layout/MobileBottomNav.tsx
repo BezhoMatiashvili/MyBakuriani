@@ -17,6 +17,7 @@ import {
   ClipboardList,
   CreditCard,
   FileText,
+  Gift,
   Home,
   IdCard,
   KeyRound,
@@ -213,6 +214,11 @@ function getNavigation(role: string): RoleNavigation {
             labelKey: "signupLinks",
             href: "/dashboard/admin/signup-links",
             icon: Link2,
+          },
+          {
+            labelKey: "freePeriods",
+            href: "/dashboard/admin/free-periods",
+            icon: Gift,
           },
           {
             labelKey: "banners",

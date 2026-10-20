@@ -400,6 +400,7 @@
       "statuses": "Memberships & VIP",
       "payments": "Card payments",
       "signupLinks": "Sign-up links",
+      "freePeriods": "Free periods",
       "adAnalytics": "Ad analytics",
       "verifiedUsers": "Verified users",
       "smsControl": "SMS control"
@@ -6487,6 +6488,105 @@
       "MEMBERSHIP_ALREADY_ACTIVE": "The user already has an active membership for this period.",
       "MEMBERSHIP_ALREADY_REVIEWED": "This request has already been reviewed.",
       "MEMBERSHIP_REQUEST_NOT_FOUND": "Request not found."
+    }
+  },
+  "AdminFreePeriods": {
+    "title": "Free periods",
+    "subtitle": "Create a rule: everyone who registers within the chosen dates automatically gets free membership, VIP or SUPER VIP until the date you pick. You can change both periods at any time.",
+    "create": "New free period",
+    "empty": "No free period has been created yet.",
+    "retry": "Try again",
+    "how": {
+      "title": "How it works",
+      "rule": "The rule covers everyone who registered inside the registration period, including people who registered before the rule was created.",
+      "timing": "New users get the benefit the moment they register. Existing users get it within 5 minutes, or at once with “Apply now”.",
+      "vip": "VIP and SUPER VIP go to the user’s published (active) listings. A paid VIP or SUPER VIP is never changed.",
+      "edits": "Changing a date also updates benefits that are already running. Nothing already granted is taken away; to cancel one, use the “Memberships & VIP” page."
+    },
+    "benefit": {
+      "membership": "Free membership",
+      "vip": "Free VIP",
+      "super_vip": "Free SUPER VIP"
+    },
+    "states": {
+      "scheduled": "Scheduled",
+      "running": "Running",
+      "ended": "Ended",
+      "paused": "Paused"
+    },
+    "card": {
+      "registration": "Registration",
+      "until": "Last day of the benefit",
+      "roles": "Applies to",
+      "allRoles": "All roles",
+      "listings": "Listings",
+      "listingsAll": "All active listings",
+      "listingsMax": "Up to {count} listings per user",
+      "granted": "Granted",
+      "membersUnit": "users",
+      "listingsUnit": "listings",
+      "waiting": "Waiting",
+      "waitingHint": "Qualify already, not granted yet",
+      "edit": "Edit",
+      "pause": "Pause",
+      "activate": "Switch on",
+      "applyNow": "Apply now"
+    },
+    "form": {
+      "createTitle": "New free period",
+      "editTitle": "Edit free period",
+      "name": "Name (only admins see it)",
+      "namePlaceholder": "e.g. Winter launch",
+      "benefit": "What the user gets",
+      "benefitLocked": "The benefit cannot change after the period is created.",
+      "registrationFrom": "Registration starts",
+      "registrationTo": "Registration ends",
+      "windowHint": "Both days included (Tbilisi time). A date in the past works too: people who already registered then get the benefit.",
+      "endDate": "Benefit lasts until",
+      "endDateHint": "Until the end of that day, included (Tbilisi time). Today or later, at most two years ahead.",
+      "endedNote": "This period has ended, so its last day can no longer change. Create a new period for a new date.",
+      "seasonHint": "This is not the last day of a season (31 October or 31 March). While the benefit runs the user cannot pre-buy the next season’s membership, and once it ends their rental listings are hidden until they get a new membership.",
+      "roles": "Who it applies to (roles)",
+      "rolesHint": "Only users with a ticked role are covered.",
+      "allRoles": "All roles",
+      "maxListings": "Max listings per user",
+      "maxListingsPlaceholder": "Empty = all",
+      "maxListingsHint": "The oldest listings are served first (1–100). Empty = every active listing.",
+      "active": "Switched on",
+      "activeHint": "A switched-off rule gives no new benefits. Benefits already granted stay.",
+      "summary": "Whoever registers between {from} and {to} ({roles}) gets: {benefit}, until {date}.",
+      "cancel": "Cancel",
+      "create": "Create",
+      "save": "Save"
+    },
+    "toast": {
+      "created": "Free period created.",
+      "saved": "Changes saved.",
+      "paused": "Period paused.",
+      "activated": "Period switched on.",
+      "pausedNote": "The period is paused.",
+      "applied": "Granted: {members} users, {listings} listings; end date updated on {redated}.",
+      "nothing": "Nobody new qualifies right now.",
+      "more": "{count} more are left; the system adds them within 5 minutes.",
+      "busy": "An apply is already running, try again in a minute.",
+      "ended": "The period has ended."
+    },
+    "errors": {
+      "invalid_request": "The request is not valid.",
+      "invalid_id": "Period not found.",
+      "invalid_name": "Enter a name (up to 80 characters).",
+      "invalid_benefit": "Choose a benefit.",
+      "invalid_window": "The registration dates are not valid: the start cannot be after the end.",
+      "invalid_end_date": "The last day of the benefit must be today or later, within two years.",
+      "end_before_window_end": "The benefit cannot end before registration ends.",
+      "invalid_roles": "Choose at least one role.",
+      "invalid_max_listings": "The number of listings must be between 1 and 100, and only for VIP.",
+      "benefit_locked": "The benefit cannot change after the period is created.",
+      "period_ended": "The period has ended, so its last day can no longer change.",
+      "not_found": "Period not found.",
+      "forbidden": "Access denied.",
+      "rate_limited": "Too many requests — try again in a minute.",
+      "server_error": "Server error. Please try again."
     }
   },
   "AdminStatuses": {

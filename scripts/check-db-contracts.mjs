@@ -265,12 +265,13 @@ for (const [table, values, name] of [
 // (20260927091000, C37) prune cron run history and strip personal data after 90 days. The
 // ownership-document purge (20261001200200, C39) deletes ID scans and registry extracts no
 // pending request needs and bounds abandoned uploads. The SMS finance job (20261007200000, C50)
-// keeps the SMS ledger synced and sends the low-balance warning.
+// keeps the SMS ledger synced and sends the low-balance warning. The free-period sweep
+// (20261020120000, C53) is SQL-only: it grants what the sign-up trigger missed.
 {
   const expected = [
     "rate-limit-gc", "booking-finalize-daily", "sms-automation-daily", "sms-dispatch-frequent", "vip-lifecycle-hourly",
     "keepz-reconcile-10min", "email-dispatch-5min", "cron-history-gc", "pii-retention-daily",
-    "ownership-document-purge-hourly", "sms-finance-hourly",
+    "ownership-document-purge-hourly", "sms-finance-hourly", "free-period-apply-5min",
   ];
   const present = snapshot.cron_jobs.filter((j) => j.active).map((j) => j.name);
   const missing = onlyIn(expected, present);
@@ -779,6 +780,70 @@ if (posture) {
   }
   if (problems.length) problems.forEach((p) => fail(`C52: ${p}`));
   else ok(`C52: ${tables.length} group tables answer the service role and are refused to anon (42501), ${rpc} refuses a non-admin actor and is refused to anon, no client role reaches it, RLS is on`);
+}
+
+// C53 — admin free periods (migration 20261020120000). The benefit CHECK equals FREE_PERIOD_BENEFITS; both period tables
+// answer the service role and are refused to anon with a permission error (a 200, even with no rows, would mean a client
+// grant); admin_free_period_stats refuses a non-admin actor with its FORBIDDEN token before it reads anything (the all-zero
+// uuid is no profile); the three service-role entry points are refused to anon (a refused call runs nothing); and the
+// posture snapshot shows no client route to any free-period function and RLS on for both tables. The service role never
+// calls free_period_apply here (it writes to the project), and authenticated cannot be probed without a session: its denial
+// is the static check-contracts C53 plus the posture lists below (C34).
+{
+  const { FREE_PERIOD_BENEFITS } = await import("../src/lib/free-periods.ts");
+  const tables = ["free_periods", "free_period_grants"];
+  const token = "ADMIN_STATUS_FORBIDDEN";
+  const nobody = "00000000-0000-0000-0000-000000000000";
+  const entryPoints = [
+    ["free_period_apply", { p_period: nobody, p_limit: 1 }],
+    ["free_period_apply_all", { p_limit: 1 }],
+    ["admin_free_period_stats", { p_admin_id: nobody }],
+  ];
+  const call = async (apikey, path, body) => {
+    const res = await fetch(`${url}/rest/v1/${path}`, {
+      method: body ? "POST" : "GET",
+      headers: { apikey, Authorization: `Bearer ${apikey}`, "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { status: res.status, text: await res.text() };
+  };
+  // A permission error (401/403 with SQLSTATE 42501), not just "not 200": a missing object answers 404.
+  const refusedToClient = (res) => [401, 403].includes(res.status) && res.text.includes('"code":"42501"');
+
+  const benefits = checkList("free_periods", "benefit");
+  if (!benefits) fail("C53: free_periods.benefit CHECK not found (migration 20261020120000)");
+  else compareSets("C53 free_periods.benefit", benefits, [...FREE_PERIOD_BENEFITS], "CHECK constraint", "FREE_PERIOD_BENEFITS");
+
+  const problems = [];
+  for (const table of tables) {
+    const res = await call(key, `${table}?select=id&limit=1`);
+    if (res.status !== 200) problems.push(`${table} is not readable by the service role (HTTP ${res.status}: ${res.text.slice(0, 120)}) — apply migration 20261020120000`);
+  }
+  const refused = await call(key, "rpc/admin_free_period_stats", { p_admin_id: nobody });
+  if (refused.status !== 403 || !refused.text.includes(token)) problems.push(`admin_free_period_stats did not refuse a non-admin actor with ${token} (HTTP ${refused.status}: ${refused.text.slice(0, 120)})`);
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anon) warn("C53: NEXT_PUBLIC_SUPABASE_ANON_KEY not set — skipped the anon checks");
+  else {
+    for (const table of tables) {
+      const res = await call(anon, `${table}?select=id&limit=1`);
+      if (!refusedToClient(res)) problems.push(`anon was not refused on ${table} (HTTP ${res.status}: ${res.text.slice(0, 120)}); a 200 means a client grant`);
+    }
+    for (const [rpc, args] of entryPoints) {
+      const res = await call(anon, `rpc/${rpc}`, args);
+      if (!refusedToClient(res) || res.text.includes(token)) problems.push(`anon was not refused on ${rpc} (HTTP ${res.status}: ${res.text.slice(0, 120)})`);
+    }
+  }
+  if (posture) {
+    const reachable = [["anon", posture.anon_definer_functions], ["PUBLIC", posture.public_definer_functions], ["authenticated", posture.authenticated_definer_functions]]
+      .map(([who, list]) => [who, (list ?? []).filter((f) => /free_period/.test(f))])
+      .filter(([, list]) => list.length)
+      .map(([who, list]) => `${who}: ${list.join(", ")}`);
+    if (reachable.length) problems.push(`free-period functions are executable by a client role (${reachable.join("; ")}); service_role only, C34`);
+    const noRls = (posture.rls_disabled_tables ?? []).filter((t) => tables.some((name) => String(t).endsWith(name)));
+    if (noRls.length) problems.push(`RLS is off on ${noRls.join(", ")}`);
+  }
+  if (problems.length) problems.forEach((p) => fail(`C53: ${p}`));
+  else ok(`C53: benefit CHECK = FREE_PERIOD_BENEFITS, ${tables.length} period tables answer the service role and are refused to anon (42501), admin_free_period_stats refuses a non-admin actor, ${entryPoints.length} entry points refused to anon, no client role reaches a free-period function, RLS is on`);
 }
 
 finish();

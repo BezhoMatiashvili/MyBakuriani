@@ -131,6 +131,7 @@ export const DASHBOARD_NAMESPACES = [
   "AdminDashboard",
   "AdminFaq",
   "AdminFinances",
+  "AdminFreePeriods",
   "AdminGuide",
   "AdminInvoices",
   "AdminListings",

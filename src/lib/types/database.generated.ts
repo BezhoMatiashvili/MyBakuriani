@@ -1948,6 +1948,198 @@ export type Database = {
           },
         ];
       };
+      free_period_grants: {
+        Row: {
+          created_at: string;
+          free_period_id: string;
+          granted_expires_at: string;
+          id: string;
+          property_id: string | null;
+          service_id: string | null;
+          subscription_id: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          free_period_id: string;
+          granted_expires_at: string;
+          id?: string;
+          property_id?: string | null;
+          service_id?: string | null;
+          subscription_id?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          free_period_id?: string;
+          granted_expires_at?: string;
+          id?: string;
+          property_id?: string | null;
+          service_id?: string | null;
+          subscription_id?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "free_period_grants_free_period_id_fkey";
+            columns: ["free_period_id"];
+            isOneToOne: false;
+            referencedRelation: "free_periods";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "free_period_grants_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "free_period_grants_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "public_properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "free_period_grants_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "public_services";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "free_period_grants_service_id_fkey";
+            columns: ["service_id"];
+            isOneToOne: false;
+            referencedRelation: "services";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "free_period_grants_subscription_id_fkey";
+            columns: ["subscription_id"];
+            isOneToOne: false;
+            referencedRelation: "admin_membership_overview_v";
+            referencedColumns: ["coverage_id"];
+          },
+          {
+            foreignKeyName: "free_period_grants_subscription_id_fkey";
+            columns: ["subscription_id"];
+            isOneToOne: false;
+            referencedRelation: "admin_membership_overview_v";
+            referencedColumns: ["current_id"];
+          },
+          {
+            foreignKeyName: "free_period_grants_subscription_id_fkey";
+            columns: ["subscription_id"];
+            isOneToOne: false;
+            referencedRelation: "admin_membership_overview_v";
+            referencedColumns: ["next_id"];
+          },
+          {
+            foreignKeyName: "free_period_grants_subscription_id_fkey";
+            columns: ["subscription_id"];
+            isOneToOne: false;
+            referencedRelation: "admin_membership_overview_v";
+            referencedColumns: ["pending_id"];
+          },
+          {
+            foreignKeyName: "free_period_grants_subscription_id_fkey";
+            columns: ["subscription_id"];
+            isOneToOne: false;
+            referencedRelation: "user_subscriptions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "free_period_grants_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "admin_membership_overview_v";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "free_period_grants_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "free_period_grants_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      free_periods: {
+        Row: {
+          benefit: string;
+          benefit_ends_at: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          is_active: boolean;
+          max_listings: number | null;
+          name: string;
+          registration_ends_at: string;
+          registration_starts_at: string;
+          roles: Database["public"]["Enums"]["user_role"][];
+          updated_at: string;
+        };
+        Insert: {
+          benefit: string;
+          benefit_ends_at: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          max_listings?: number | null;
+          name: string;
+          registration_ends_at: string;
+          registration_starts_at: string;
+          roles: Database["public"]["Enums"]["user_role"][];
+          updated_at?: string;
+        };
+        Update: {
+          benefit?: string;
+          benefit_ends_at?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          max_listings?: number | null;
+          name?: string;
+          registration_ends_at?: string;
+          registration_starts_at?: string;
+          roles?: Database["public"]["Enums"]["user_role"][];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "free_periods_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "admin_membership_overview_v";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "free_periods_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "free_periods_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       invoice_counters: {
         Row: {
           last_number: number;
@@ -7181,6 +7373,28 @@ export type Database = {
         Args: { p_kind: string; p_message: string; p_user_id: string };
         Returns: undefined;
       };
+      _free_period_grant_listing: {
+        Args: { p_kind: string; p_listing: string; p_period: string };
+        Returns: string;
+      };
+      _free_period_grant_membership: {
+        Args: { p_period: string; p_user: string };
+        Returns: string;
+      };
+      _free_period_listing_candidates: {
+        Args: { p_owner?: string; p_period: string };
+        Returns: {
+          l_id: string;
+          l_kind: string;
+          l_owner: string;
+        }[];
+      };
+      _free_period_member_candidates: {
+        Args: { p_period: string; p_user?: string };
+        Returns: {
+          member_id: string;
+        }[];
+      };
       _notice_text: { Args: { p_text: string }; Returns: string };
       _notify: {
         Args: {
@@ -7356,6 +7570,7 @@ export type Database = {
         Returns: Json;
       };
       admin_clients_with_stats: { Args: never; Returns: Json };
+      admin_free_period_stats: { Args: { p_admin_id: string }; Returns: Json };
       admin_gift_sms_credits: {
         Args: {
           p_admin_id: string;
@@ -7901,6 +8116,11 @@ export type Database = {
           revenue_type: string;
         }[];
       };
+      free_period_apply: {
+        Args: { p_limit?: number; p_period: string };
+        Returns: Json;
+      };
+      free_period_apply_all: { Args: { p_limit?: number }; Returns: Json };
       get_cleaner_renter_counts: {
         Args: never;
         Returns: {

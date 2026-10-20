@@ -176,7 +176,7 @@ export default defineConfig({
     // Admin role tests
     {
       name: "admin",
-      testMatch: /dashboards\/admin\.spec\.ts/,
+      testMatch: /dashboards\/admin(?:-free-periods)?\.spec\.ts/,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"] },
     },

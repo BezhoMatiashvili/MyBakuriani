@@ -2946,6 +2946,215 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C52: ${tables.length} group tables and ${rpc} service_role only (RLS on, audited, no policy); role CHECK = USER_GROUP_ROLES; ${handlerCount} handlers in ${routeFiles.length + 1} route files start with requireAdmin and write under the admin's id; tables named only by the admin API; is_verified written by 2 admin routes, the toggle stamps verified_at on a transition; no body/name/note logged, no select("*"); ${disableable} of ${buttonCount} buttons can be disabled and none interpolates a name; pure module bare; namespace, nav label and both menus wired`);
 }
 
+// ---------------------------------------------------------------------------
+// C53 — admin free periods (/dashboard/admin/free-periods): (a) free_periods and free_period_grants are created once,
+// RLS on, REVOKE ALL from PUBLIC/anon/authenticated, GRANT to service_role only, no policy, no client grant (free_periods
+// is audited); (b) every free-period function pins search_path = '' (definers except the guard trigger), is revoked from
+// PUBLIC/anon/authenticated where it is created and is never granted to a client role; only the three entry points are
+// granted (to service_role); (c) FREE_PERIOD_BENEFITS / ROLES / NAME_MAX / MAX_LISTINGS_LIMIT equal the CHECKs and the
+// user_role enum minus admin; (d) every token the migration raises maps to a request error code that is worded in all
+// three locales; (e) every handler of the routes starts with the requireAdmin guard, a writing handler is rate-limited
+// and runs under the admin's id; (f) the tables and RPCs are named as strings only in the admin API, the server helper
+// and the generated types; no log line of those files carries an object, no select("*"); (g) the sign-up trigger swallows
+// every error, no trigger on properties/services applies a period, the cron job is SQL-only, the migration writes no
+// transactions row and notifies only with the two bell-only admin types; (h) src/lib/free-periods.ts has no runtime
+// import; namespace, nav label, both menus and the page are wired; the cron job is in check-db-contracts' list.
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  const tables = ["free_periods", "free_period_grants"];
+  const entryPoints = ["free_period_apply", "free_period_apply_all", "admin_free_period_stats"];
+  const functions = ["free_periods_guard", "_free_period_member_candidates", "_free_period_listing_candidates", "_free_period_grant_membership", "_free_period_grant_listing", "free_period_on_profile_insert", ...entryPoints];
+  const apiDir = "src/app/api/admin/free-periods";
+  const pureFile = "src/lib/free-periods.ts";
+  const serverFile = "src/lib/free-periods-server.ts";
+  const pageFile = "src/app/[locale]/dashboard/admin/free-periods/page.tsx";
+  const generatedTypes = join("src/lib/types", "database");
+  const sources = new Map();
+  const source = (f) => {
+    if (!sources.has(f)) {
+      if (!existsSync(join(root, f))) problems.push(`${f} is missing`);
+      sources.set(f, existsSync(join(root, f)) ? read(f) : "");
+    }
+    return sources.get(f);
+  };
+  const asCode = (code) => code.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|`(?:[^`\\]|\\.)*`|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g, (m) => (m[0] === "/" ? " " : m));
+  const migrations = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .map((f) => [f, read(join("supabase/migrations", f)).replace(/\/\*[\s\S]*?\*\/|--[^\n]*|'(?:[^']|'')*'/g, (m) => (m[0] === "'" ? m : " "))]);
+  const grantsOn = (sql, name) => sql.match(new RegExp(`\\bGRANT\\b[^;]*\\b(?:public\\.)?${name}\\b[^;]*;`, "gi")) ?? [];
+  const toClient = (grant) => /\bTO\b[^;]*\b(?:anon|authenticated|PUBLIC)\b/i.test(grant);
+  const listIn = (text, name) => [...(text.match(new RegExp(`export const ${name} = \\[([\\s\\S]*?)\\]`))?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  const creatorsOf = (pattern) => migrations.filter(([, sql]) => pattern.test(sql));
+
+  // (a) one creating migration per table, which also closes it off; no later policy, RLS-off or client grant.
+  for (const table of tables) {
+    const creators = creatorsOf(new RegExp(`\\bCREATE TABLE (?:IF NOT EXISTS )?public\\.${table}\\b`, "i"));
+    if (creators.length !== 1) problems.push(`public.${table} must be created by exactly one migration (found ${creators.length})`);
+    else {
+      const [file, sql] = creators[0];
+      for (const [pattern, what] of [
+        [`ALTER TABLE public\\.${table}\\s+ENABLE ROW LEVEL SECURITY`, "ENABLE ROW LEVEL SECURITY"],
+        [`REVOKE ALL ON (?:TABLE )?public\\.${table}\\b[^;]*FROM PUBLIC, anon, authenticated`, "REVOKE ALL FROM PUBLIC, anon, authenticated"],
+        [`GRANT [A-Z, ]+ ON (?:TABLE )?public\\.${table}\\s+TO service_role\\s*;`, "GRANT to service_role only"],
+        ...(table === "free_periods" ? [[`CREATE TRIGGER trg_audit_row\\s+AFTER[^;]*\\bON public\\.${table}\\s+FOR EACH ROW EXECUTE FUNCTION public\\.audit_row_change\\(\\)`, "CREATE TRIGGER trg_audit_row (an admin's edit is audited)"]] : []),
+      ]) {
+        if (!new RegExp(pattern, "i").test(sql)) problems.push(`${file} must ${what} on public.${table}`);
+      }
+    }
+    for (const [file, sql] of migrations) {
+      if (new RegExp(`CREATE POLICY[^;]*\\bON public\\.${table}\\b`, "i").test(sql)) problems.push(`${file} adds a policy on public.${table} (service role only: no client path)`);
+      if (new RegExp(`ALTER TABLE (?:ONLY )?public\\.${table} (?:DISABLE|NO FORCE) ROW LEVEL SECURITY`, "i").test(sql)) problems.push(`${file} switches RLS off on public.${table}`);
+      if (grantsOn(sql, table).some(toClient)) problems.push(`${file} grants public.${table} to a client role`);
+    }
+  }
+
+  // (b) the functions: search_path pinned, definer (the guard trigger is invoker), closed to client roles.
+  for (const fn of functions) {
+    const header = new RegExp(`CREATE (?:OR REPLACE )?FUNCTION public\\.${fn}\\(`, "i");
+    const creators = creatorsOf(header);
+    if (!creators.length) {
+      problems.push(`no migration creates public.${fn}`);
+      continue;
+    }
+    const [first, firstSql] = creators[0];
+    if (!new RegExp(`REVOKE ALL ON FUNCTION public\\.${fn}\\b[^;]*FROM PUBLIC, anon, authenticated`, "i").test(firstSql)) problems.push(`${first} must REVOKE ALL on public.${fn} FROM PUBLIC, anon, authenticated`);
+    const [newest, newestSql] = creators.at(-1);
+    const head = newestSql.slice(newestSql.search(header)).match(/^[\s\S]*?\bAS\s+\$[a-z_]*\$/i)?.[0] ?? "";
+    if (!/\bSET search_path\s*=\s*''/i.test(head)) problems.push(`${newest} must define public.${fn} with SET search_path = ''`);
+    if (fn !== "free_periods_guard" && !/\bSECURITY DEFINER\b/i.test(head)) problems.push(`${newest} must define public.${fn} as SECURITY DEFINER`);
+    for (const [file, sql] of migrations) {
+      const grants = grantsOn(sql, fn);
+      if (grants.some(toClient)) problems.push(`${file} grants public.${fn} to a client role`);
+      if (!entryPoints.includes(fn) && grants.length) problems.push(`${file} grants public.${fn}, which is an internal helper (only ${entryPoints.join(", ")} are granted, to service_role)`);
+    }
+    if (entryPoints.includes(fn) && !new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${fn}\\b[^;]*TO service_role\\s*;`, "i").test(firstSql)) problems.push(`${first} must GRANT EXECUTE on public.${fn} TO service_role only`);
+  }
+
+  // (c) vocabulary and limits against the CHECKs and the enum.
+  const pure = source(pureFile);
+  const tableSql = creatorsOf(/\bCREATE TABLE (?:IF NOT EXISTS )?public\.free_periods\b/i)[0]?.[1] ?? "";
+  const dbBenefits = [...(tableSql.match(/free_periods_benefit_check\s+CHECK\s*\(benefit IN \(([^)]*)\)/i)?.[1] ?? "").matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  const tsBenefits = listIn(pure, "FREE_PERIOD_BENEFITS");
+  if (!dbBenefits.length || !tsBenefits.length) problems.push("could not read free_periods_benefit_check or FREE_PERIOD_BENEFITS");
+  else if (!setEq(new Set(dbBenefits), new Set(tsBenefits))) problems.push(`free_periods_benefit_check [${dbBenefits.join(", ")}] ≠ FREE_PERIOD_BENEFITS [${tsBenefits.join(", ")}]`);
+  const enumRoles = [...(source(join("src/lib/types", "database.generated.ts")).match(/user_role: \[([^\]]*)\]/)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]).filter((role) => role !== "admin");
+  const tsRoles = listIn(pure, "FREE_PERIOD_ROLES");
+  if (!enumRoles.length || !tsRoles.length) problems.push("could not read the user_role enum or FREE_PERIOD_ROLES");
+  else if (!setEq(new Set(enumRoles), new Set(tsRoles))) problems.push(`FREE_PERIOD_ROLES [${tsRoles.join(", ")}] ≠ enum user_role without admin [${enumRoles.join(", ")}]`);
+  if (!/NOT \('admin'::public\.user_role = ANY \(roles\)\)/i.test(tableSql)) problems.push("free_periods_roles_check must refuse the admin role");
+  const nameMax = Number(tableSql.match(/char_length\(btrim\(name\)\) BETWEEN 1 AND (\d+)/i)?.[1]);
+  if (nameMax !== Number(pure.match(/export const FREE_PERIOD_NAME_MAX = (\d+)/)?.[1])) problems.push(`free_periods_name_check (${nameMax}) ≠ FREE_PERIOD_NAME_MAX`);
+  const listingsMax = Number(tableSql.match(/max_listings BETWEEN 1 AND (\d+)/i)?.[1]);
+  if (listingsMax !== Number(pure.match(/export const FREE_PERIOD_MAX_LISTINGS_LIMIT = (\d+)/)?.[1])) problems.push(`free_periods_max_listings_check (${listingsMax}) ≠ FREE_PERIOD_MAX_LISTINGS_LIMIT`);
+
+  // (d) database tokens → request error codes → wording in every locale.
+  const codes = listIn(pure, "FREE_PERIOD_ERROR_CODES");
+  const dbErrors = new Map([...(pure.match(/export const FREE_PERIOD_DB_ERRORS[^=]*=\s*\{([\s\S]*?)\};/)?.[1] ?? "").matchAll(/([A-Z_]+):\s*"([a-z_]+)"/g)].map((m) => [m[1], m[2]]));
+  const raised = new Set(creatorsOf(/FREE_PERIOD_/).flatMap(([, sql]) => [...sql.matchAll(/RAISE EXCEPTION '(FREE_PERIOD_[A-Z_]+|ADMIN_STATUS_FORBIDDEN)'/g)].map((m) => m[1])));
+  raised.delete("FREE_PERIOD_LEDGER_CONFLICT"); // internal: never reaches a response (the trigger swallows it, the sweep counts it as skipped)
+  for (const token of raised) if (!dbErrors.has(token)) problems.push(`the migration raises ${token} but FREE_PERIOD_DB_ERRORS has no code for it (the admin would get a 500)`);
+  if (!dbErrors.has("ADMIN_STATUS_FORBIDDEN")) problems.push("FREE_PERIOD_DB_ERRORS must map ADMIN_STATUS_FORBIDDEN (admin_free_period_stats)");
+  for (const [token, code] of dbErrors) if (!codes.includes(code)) problems.push(`FREE_PERIOD_DB_ERRORS maps ${token} to ${code}, which is not in FREE_PERIOD_ERROR_CODES`);
+  for (const locale of ["ka", "en", "ru"]) {
+    const messages = JSON.parse(source(`messages/${locale}.json`) || "{}");
+    for (const code of codes) if (typeof messages.AdminFreePeriods?.errors?.[code] !== "string" || !messages.AdminFreePeriods.errors[code].trim()) problems.push(`messages/${locale}.json lacks AdminFreePeriods.errors.${code}`);
+    if (typeof messages.DashboardSidebar?.nav?.freePeriods !== "string" || !messages.DashboardSidebar.nav.freePeriods.trim()) problems.push(`messages/${locale}.json lacks DashboardSidebar.nav.freePeriods (both admin menus use it)`);
+  }
+
+  // (e) requireAdmin first in every handler; a writing handler is rate-limited and runs under the admin's id.
+  const routeFiles = existsSync(join(root, apiDir)) ? [...walk(apiDir, [".ts"])].filter((f) => /(^|\/)route\.ts$/.test(f)) : [];
+  if (!routeFiles.length) problems.push(`no routes under ${apiDir}`);
+  const handlersOf = (code) => {
+    const found = [...code.matchAll(/export (?:async )?function (GET|POST|PUT|PATCH|DELETE)\s*\(/g)];
+    return found.map((m, i) => {
+      let depth = 0;
+      let at = m.index + m[0].length - 1;
+      for (; at < code.length; at += 1) {
+        if (code[at] === "(") depth += 1;
+        else if (code[at] === ")" && --depth === 0) break;
+      }
+      return { method: m[1], body: code.slice(code.indexOf("{", at) + 1, found[i + 1]?.index ?? code.length) };
+    });
+  };
+  const guardFirst = /^\s*const guard = await requireAdmin\(\);\s*if \(!guard\.ok\) return guard\.response;/;
+  let handlerCount = 0;
+  for (const file of routeFiles) {
+    const handlers = handlersOf(asCode(source(file)));
+    if (!handlers.length) problems.push(`${file} exports no HTTP handler`);
+    for (const { method, body } of handlers) {
+      handlerCount += 1;
+      if (!guardFirst.test(body)) problems.push(`${file} ${method} must start with const guard = await requireAdmin(); if (!guard.ok) return guard.response;`);
+      if (method === "GET") continue;
+      if (!/\bconst adminId = guard\.admin\.userId;/.test(body)) problems.push(`${file} ${method} must take the actor from const adminId = guard.admin.userId (never the body)`);
+      if (!/\bwithinRateLimit\(\s*adminId\s*\)/.test(body)) problems.push(`${file} ${method} writes without withinRateLimit(adminId)`);
+      if (!/createServiceClient\(\s*adminId\s*\)|\bapplyPeriod\(\s*adminId\b/.test(body)) problems.push(`${file} ${method} writes without createServiceClient(adminId) or applyPeriod(adminId, …) (the audit row would have no actor)`);
+    }
+  }
+
+  // (f) who names the tables and RPCs; what may be logged; no select("*").
+  const named = new RegExp(`["'\`](?:${[...tables, ...entryPoints].join("|")})["'\`]`);
+  const strangers = srcFiles.filter((f) => !f.startsWith(`${apiDir}/`) && f !== serverFile && !f.startsWith(generatedTypes) && named.test(asCode(srcText.get(f))));
+  if (strangers.length) problems.push(`the free-period tables / RPCs are named outside ${apiDir} and ${serverFile}: ${strangers.join(", ")}`);
+  const callArgs = (code, opener) => [...code.matchAll(opener)].map((m) => {
+    let depth = 1;
+    let i = m.index + m[0].length;
+    for (; i < code.length && depth > 0; i += 1) {
+      if (code[i] === "(") depth += 1;
+      else if (code[i] === ")") depth -= 1;
+    }
+    return code.slice(m.index + m[0].length, i - 1);
+  });
+  const exprsOf = (args) => args.replace(/`((?:[^`\\]|\\.)*)`|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g, (_, template) => (template === undefined ? " " : [...template.matchAll(/\$\{([^}]*)\}/g)].map((m) => ` ${m[1]} `).join("")));
+  const unsafeLog = /(?<![.\w])(?:body|name|parsed|input|row|data|details)(?!\w)|(?<![.\w])(?:error|err)(?![\w.])/;
+  const selectsAll = /\.select\(\s*\)|\.select\(\s*(["'`])[^"'`]*\*[^"'`]*\1|\b[A-Z][A-Z_]*(?:SELECT|COLUMNS)\s*=\s*(["'`])[^"'`]*\*[^"'`]*\2/;
+  for (const file of [...routeFiles, serverFile]) {
+    const code = asCode(source(file));
+    for (const args of callArgs(code, /console\.(?:error|warn|log|info|debug)\(/g)) {
+      const hit = exprsOf(args).match(unsafeLog)?.[0];
+      if (hit) problems.push(`${file} logs "${hit}" (log only a fixed label and the error's code, message and hint)`);
+    }
+    if (selectsAll.test(code)) problems.push(`${file} selects every column (name the columns)`);
+  }
+
+  // (g) how the benefit is applied.
+  const allSql = creatorsOf(/FREE_PERIOD|free_period/i);
+  const profileFn = allSql.map(([, sql]) => sql.match(/CREATE (?:OR REPLACE )?FUNCTION public\.free_period_on_profile_insert\(\)[\s\S]*?\$fn\$[\s\S]*?\$fn\$/i)?.[0]).find(Boolean) ?? "";
+  if (!/EXCEPTION WHEN OTHERS THEN/i.test(profileFn)) problems.push("free_period_on_profile_insert must swallow every error (EXCEPTION WHEN OTHERS): a registration must never fail because of a free period");
+  const applyFn = allSql.map(([, sql]) => sql.match(/CREATE (?:OR REPLACE )?FUNCTION public\.free_period_apply\(p_period[\s\S]*?\$fn\$[\s\S]*?\$fn\$/i)?.[0]).filter(Boolean).at(-1) ?? "";
+  if ((applyFn.match(/WHEN OTHERS THEN/gi) ?? []).length < 4) problems.push("free_period_apply must isolate every per-row grant and re-date with WHEN OTHERS (one poisoned row would abort the chunk and be first in line again on every sweep)");
+  if (!allSql.some(([, sql]) => /CREATE TRIGGER profiles_free_period_grant\s+AFTER INSERT ON public\.profiles\b/i.test(sql))) problems.push("trigger profiles_free_period_grant must be AFTER INSERT ON public.profiles");
+  for (const [file, sql] of allSql) {
+    for (const m of sql.matchAll(/CREATE TRIGGER (\w+)[\s\S]*?\bON public\.(properties|services)\b[\s\S]*?EXECUTE FUNCTION public\.(\w+)\(/gi)) {
+      if (/free_period/i.test(m[3])) problems.push(`${file}: trigger ${m[1]} runs ${m[3]} on public.${m[2]} (VIP is applied only by the sweep; the listing write path and its guard triggers stay untouched)`);
+    }
+    if (/INSERT INTO public\.transactions\b/i.test(sql) && /free_period/i.test(sql)) problems.push(`${file} writes a transactions row from a free-period migration (a free benefit is never revenue, C26)`);
+    for (const m of sql.matchAll(/PERFORM public\._notify\(\s*[^,]+,\s*'([a-z_]+)'/gi)) {
+      if (!["membership_admin_update", "promotion_admin_update"].includes(m[1])) problems.push(`${file} notifies with ${m[1]}; free periods use only the bell-only types membership_admin_update and promotion_admin_update`);
+    }
+    for (const m of sql.matchAll(/cron\.schedule\(\s*'(free-period-[a-z0-9-]+)'[\s\S]*?\$job\$([\s\S]*?)\$job\$/gi)) {
+      if (/net\.http_|http_post/i.test(m[2])) problems.push(`${file}: cron job ${m[1]} must be SQL-only (an HTTP job needs a timeout and a secret, C4)`);
+    }
+  }
+  if (!allSql.some(([, sql]) => /cron\.schedule\(\s*'free-period-apply-5min'/i.test(sql))) problems.push("no migration schedules the cron job free-period-apply-5min");
+  if (!/"free-period-apply-5min"/.test(read("scripts/check-db-contracts.mjs"))) problems.push("scripts/check-db-contracts.mjs must list free-period-apply-5min among the active cron jobs (C4)");
+
+  // (h) the pure module, the namespace, both menus, the page.
+  if (/^\s*import\s+(?!type\b)|^\s*export\s+(?:\*|\{[^}]*\})\s+from\b/m.test(asCode(pure))) problems.push(`${pureFile} has a runtime import or re-export (it is loaded bare by scripts/unit: use import type)`);
+  if (!/"AdminFreePeriods"/.test(source("src/i18n/namespaces.ts").match(/DASHBOARD_NAMESPACES = \[([\s\S]*?)\]/)?.[1] ?? "")) problems.push("AdminFreePeriods is missing from DASHBOARD_NAMESPACES (src/i18n/namespaces.ts)");
+  for (const locale of ["ka", "en", "ru"]) {
+    if (!JSON.parse(source(`messages/${locale}.json`) || "{}").AdminFreePeriods) problems.push(`messages/${locale}.json lacks the AdminFreePeriods namespace`);
+  }
+  for (const menu of ["src/components/layout/AdminSidebar.tsx", "src/components/layout/MobileBottomNav.tsx"]) {
+    if (!/labelKey:\s*"freePeriods"[\s\S]{0,80}href:\s*"\/dashboard\/admin\/free-periods"/.test(source(menu))) problems.push(`${menu} must list the page (labelKey "freePeriods", href /dashboard/admin/free-periods)`);
+  }
+  if (/@\/lib\/supabase\/admin|getAdminStats/.test(source(pageFile))) problems.push(`${pageFile} must not import the service-role client or getAdminStats (every figure comes from ${apiDir})`);
+
+  if (problems.length) problems.forEach((p) => fail(`C53: ${p}`));
+  else ok(`C53: ${tables.length} period tables and ${entryPoints.length} entry points service_role only (RLS on, no policy), ${functions.length} functions pinned to search_path '' and closed to client roles; benefit/role/name/listing limits = CHECKs and enum; ${raised.size + 1} database tokens → ${codes.length} worded error codes; ${handlerCount} handlers start with requireAdmin, writers rate-limited under the admin's id; tables named only by the admin API; sign-up trigger swallows errors, no trigger on properties/services, cron SQL-only, no transactions row, bell-only notices; pure module bare; namespace, nav label and both menus wired`);
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);
