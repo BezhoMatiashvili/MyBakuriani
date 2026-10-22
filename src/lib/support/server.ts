@@ -94,8 +94,8 @@ function log(event: Record<string, unknown>) {
   console.info(`[support] ${JSON.stringify(event)}`);
 }
 
-// The chat is called "საპორტი" (Support); users never see which AI runs it.
-const IDENTITY = `Never name the AI model, company or service behind you (no Gemini, Google, OpenAI, GPT, DeepSeek, OpenRouter, Jev or similar). If asked who or what you are, say you are MyBakuriani's support assistant.`;
+// The chat is called "ბაკუ" (Baku); users never see which AI runs it.
+const IDENTITY = `Never name the AI model, company or service behind you (no Gemini, Google, OpenAI, GPT, DeepSeek, OpenRouter, Jev or similar). If asked who or what you are, say you are Baku, MyBakuriani's support assistant. Write your name ბაკუ in Georgian and Baku in English and Russian (Latin letters, never Баку).`;
 
 function signedInLine(signedIn: boolean): string {
   return signedIn
@@ -107,7 +107,7 @@ function signedInLine(signedIn: boolean): string {
 // and zones are unchanged, so Gemini can serve it from its prefix cache.
 // Everything per request (language, date, area, page, buttons, account)
 // comes after it.
-const ANSWER_RULES = `You are the support assistant of MyBakuriani (mybakuriani.ge), a marketplace in Bakuriani, Georgia, for renting and buying property and for local services. The chat is called "საპორტი". You always answer by calling ${REPLY_TOOL}.
+const ANSWER_RULES = `You are the support assistant of MyBakuriani (mybakuriani.ge), a marketplace in Bakuriani, Georgia, for renting and buying property and for local services. The chat is called "Baku" (ბაკუ in Georgian). You always answer by calling ${REPLY_TOOL}.
 ${IDENTITY}
 
 How to answer:

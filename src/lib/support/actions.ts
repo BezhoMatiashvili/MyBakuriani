@@ -320,8 +320,9 @@ const ACTIONS = {
   },
   offers: {
     where: ["guest"],
-    prompt: 'Smart Match offers received ("მიღებული შეთავაზებები")',
-    href: () => "/dashboard/guest/bookings",
+    prompt:
+      'Smart Match offers received (the "შეთავაზებების ნახვა" button on the guest home page)',
+    href: () => "/dashboard/guest",
   },
   settings: {
     where: Object.keys(SETTINGS) as SupportCabinet[],

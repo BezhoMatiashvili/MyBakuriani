@@ -664,6 +664,9 @@ export default function ChangeForm({
       {preview && !previewFresh && !applied && (
         <Notice tone="warning">{t("dialog.stale")}</Notice>
       )}
+      {!preview && !applied && !uncertain && (
+        <Notice>{t("dialog.applyHint")}</Notice>
+      )}
 
       {shown && (
         <ResultSection

@@ -26,13 +26,13 @@ test.describe("Guest Dashboard", () => {
     await expect(guestPage).toHaveURL(/\/dashboard\/guest/);
   });
 
-  test("bookings page loads", async ({ guestPage }) => {
+  test("the retired bookings page redirects to the overview", async ({
+    guestPage,
+  }) => {
     await guestPage.goto("/dashboard/guest/bookings");
-    if (!(await assertDashboard(guestPage, "/dashboard/guest/bookings")))
-      return;
+    if (!(await assertDashboard(guestPage, "/dashboard/guest"))) return;
 
-    await expect(guestPage.locator("main")).toBeVisible();
-    await expect(guestPage).toHaveURL(/\/dashboard\/guest\/bookings/);
+    await expect(guestPage).toHaveURL(/\/dashboard\/guest$/);
   });
 
   test("reviews page loads", async ({ guestPage }) => {
@@ -71,7 +71,11 @@ test.describe("Guest Dashboard", () => {
 test.describe("Guest favorites", () => {
   test.describe.configure({ mode: "serial" });
 
-  async function clearGuestFavorites(userId: string, propertyId: string, serviceId: string) {
+  async function clearGuestFavorites(
+    userId: string,
+    propertyId: string,
+    serviceId: string,
+  ) {
     const [properties, services] = await Promise.all([
       supabaseAdmin
         .from("favorites")
@@ -89,7 +93,11 @@ test.describe("Guest favorites", () => {
   }
 
   test.beforeEach(async ({ testIds }) => {
-    await clearGuestFavorites(testIds.guest, testIds.villa, testIds.foodService);
+    await clearGuestFavorites(
+      testIds.guest,
+      testIds.villa,
+      testIds.foodService,
+    );
     const { error } = await supabaseAdmin
       .from("services")
       .update({ status: "active" })
@@ -98,7 +106,11 @@ test.describe("Guest favorites", () => {
   });
 
   test.afterEach(async ({ testIds }) => {
-    await clearGuestFavorites(testIds.guest, testIds.villa, testIds.foodService);
+    await clearGuestFavorites(
+      testIds.guest,
+      testIds.villa,
+      testIds.foodService,
+    );
     await supabaseAdmin
       .from("services")
       .update({ status: "active" })
@@ -128,7 +140,9 @@ test.describe("Guest favorites", () => {
     await expect(serviceHeart).toHaveAttribute("aria-pressed", "true");
 
     await guestPage.goto("/dashboard/guest/favorites");
-    await expect(guestPage.getByText("აქ ინახება ფავორიტი განცხადებები")).toBeVisible();
+    await expect(
+      guestPage.getByText("აქ ინახება ფავორიტი განცხადებები"),
+    ).toBeVisible();
     await expect(guestPage.getByText("E2E ვილა ბაკურიანში")).toBeVisible();
     await expect(guestPage.getByText("E2E რესტორანი")).toBeVisible();
     await expect(guestPage.getByText("ყველას ნახვა")).toHaveCount(0);
@@ -166,18 +180,19 @@ test.describe("Guest favorites", () => {
 
     // The client has completed its empty hydration. Insert a row externally
     // to reproduce another tab/device favoriting the same listing first.
-    const { error: insertError } = await supabaseAdmin.from("favorites").insert({
-      user_id: testIds.guest,
-      property_id: testIds.villa,
-    });
+    const { error: insertError } = await supabaseAdmin
+      .from("favorites")
+      .insert({
+        user_id: testIds.guest,
+        property_id: testIds.villa,
+      });
     expect(insertError).toBeNull();
 
     await propertyHeart.click();
-    await expect(propertyHeart).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    await expect(guestPage.getByText("ვერ მოხერხდა, სცადეთ ხელახლა")).toHaveCount(0);
+    await expect(propertyHeart).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      guestPage.getByText("ვერ მოხერხდა, სცადეთ ხელახლა"),
+    ).toHaveCount(0);
 
     const { count, error } = await supabaseAdmin
       .from("favorites")
@@ -192,10 +207,12 @@ test.describe("Guest favorites", () => {
     guestPage,
     testIds,
   }) => {
-    const { error: favoriteError } = await supabaseAdmin.from("favorites").insert({
-      user_id: testIds.guest,
-      service_id: testIds.foodService,
-    });
+    const { error: favoriteError } = await supabaseAdmin
+      .from("favorites")
+      .insert({
+        user_id: testIds.guest,
+        service_id: testIds.foodService,
+      });
     expect(favoriteError).toBeNull();
     const { error: statusError } = await supabaseAdmin
       .from("services")
@@ -204,14 +221,16 @@ test.describe("Guest favorites", () => {
     expect(statusError).toBeNull();
 
     await guestPage.goto("/dashboard/guest/favorites");
-    await expect(guestPage.getByText("განცხადება აღარ არის ხელმისაწვდომი")).toBeVisible();
+    await expect(
+      guestPage.getByText("განცხადება აღარ არის ხელმისაწვდომი"),
+    ).toBeVisible();
     await expect(guestPage.getByText("E2E რესტორანი")).toHaveCount(0);
 
-    await guestPage
-      .getByRole("button", { name: "წაშლა რჩეულებიდან" })
-      .click();
+    await guestPage.getByRole("button", { name: "წაშლა რჩეულებიდან" }).click();
     await guestPage.reload();
-    await expect(guestPage.getByText("განცხადება აღარ არის ხელმისაწვდომი")).toHaveCount(0);
+    await expect(
+      guestPage.getByText("განცხადება აღარ არის ხელმისაწვდომი"),
+    ).toHaveCount(0);
   });
 });
 

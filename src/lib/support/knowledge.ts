@@ -50,7 +50,6 @@ ${orders ? `- ${base}/orders ${orders}\n` : ""}- ${base}/balance "ბალა�
 
 const CABINET_MAPS: Record<SupportCabinet, string> = {
   guest: `- /dashboard/guest "მთავარი გვერდი": Smart Match requests ("ახალი მოთხოვნა"), offers received, recently viewed listings.
-- /dashboard/guest/bookings "მიღებული შეთავაზებები": Smart Match offers (phone tab "ჯავშნები").
 - /dashboard/guest/favorites "რჩეულები": saved listings.
 - /dashboard/guest/reviews "ისტორია": past services and reviews.
 - /dashboard/guest/profile "პარამეტრები": name, phone, profile photo.`,

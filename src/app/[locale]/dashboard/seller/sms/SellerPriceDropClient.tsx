@@ -10,6 +10,9 @@ import type { SellerPriceAlertListing } from "@/app/api/seller/price-drop-alerts
 
 type Payload = { sms_remaining: number; listings: SellerPriceAlertListing[] };
 
+const HOW_IT_WORKS_STEPS = ["subscribe", "confirm", "window", "check", "send", "charge"] as const;
+const STATUS_KEYS = ["open", "awaiting_credit", "queued", "cancelled", "expired"] as const;
+
 export function SellerPriceDropClient() {
   const t = useTranslations("PriceDropSms");
   const [payload, setPayload] = useState<Payload | null>(null);
@@ -96,6 +99,33 @@ export function SellerPriceDropClient() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="rounded-[20px] border border-[#EEF1F4] bg-white p-5 shadow-sm sm:p-6">
+        <h2 className="text-lg font-black text-[#0F172A]">{t("howItWorks.title")}</h2>
+        <p className="mt-2 text-sm leading-6 text-[#64748B]">{t("howItWorks.intro")}</p>
+        <ol className="mt-5 grid gap-x-8 gap-y-5 md:grid-cols-2">
+          {HOW_IT_WORKS_STEPS.map((step, index) => (
+            <li key={step} className="flex gap-3">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF] text-sm font-black text-[#2563EB]">{index + 1}</span>
+              <div className="min-w-0">
+                <p className="font-black text-[#0F172A]">{t(`howItWorks.steps.${step}.title`)}</p>
+                <p className="mt-1 text-sm leading-6 text-[#475569]">{t(`howItWorks.steps.${step}.text`)}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-6 border-t border-[#EEF1F4] pt-5">
+          <h3 className="font-black text-[#0F172A]">{t("howItWorks.statusesTitle")}</h3>
+          <dl className="mt-3 space-y-3">
+            {STATUS_KEYS.map((status) => (
+              <div key={status}>
+                <dt className="text-sm font-bold text-[#1E3A8A] first-letter:uppercase">{t(`statuses.${status}`)}</dt>
+                <dd className="text-sm leading-6 text-[#475569]">{t(`howItWorks.statusDescriptions.${status}`)}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       </section>
     </div>
   );

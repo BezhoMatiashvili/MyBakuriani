@@ -371,11 +371,6 @@ function getNavigation(role: string): RoleNavigation {
         tabs: [
           { labelKey: "home", href: "/dashboard/guest", icon: Home },
           {
-            labelKey: "bookings",
-            href: "/dashboard/guest/bookings",
-            icon: ClipboardList,
-          },
-          {
             labelKey: "settings",
             href: "/dashboard/guest/profile",
             icon: Settings,

@@ -12,7 +12,6 @@ import {
   ChevronLeft,
   Sparkles,
   Star,
-  ClipboardList,
   ShoppingBag,
   Settings,
   Users,
@@ -153,11 +152,6 @@ function getNavItems(role: string): NavItem[] {
     default:
       return [
         { labelKey: "home", href: "/dashboard/guest", icon: Home },
-        {
-          labelKey: "bookings",
-          href: "/dashboard/guest/bookings",
-          icon: ClipboardList,
-        },
         {
           labelKey: "reviews",
           href: "/dashboard/guest/reviews",

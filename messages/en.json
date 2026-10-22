@@ -656,8 +656,7 @@
     "total": "Total",
     "minBookingNotice": "Min. booking: {count, plural, =1 {# day} other {# days}}",
     "callOwner": "Call the owner",
-    "verifiedOwner": "Verified owner",
-    "hostStats": "Host for 3 years • Response: 1hr"
+    "verifiedOwner": "Verified owner"
   },
   "ContactReveal": {
     "failed": "Couldn’t reveal the number — try again"
@@ -1278,10 +1277,48 @@
     "subtitle": "Notify interested buyers automatically after an approved price decrease.",
     "balanceLabel": "SMS balance",
     "balance": "{count} credits",
-    "chargeNotice": "One credit is charged only after the provider confirms delivery.",
+    "chargeNotice": "One credit is charged when the provider accepts an SMS for sending, and returned only if the provider reports a delivery failure or an error.",
     "fixedTemplateTitle": "Fixed message template",
     "fixedTemplate": "Price dropped! [Property]: [Old price]→[New price]₾. [Link] — MyBakuriani",
     "windowNotice": "Multiple decreases are combined during a fixed 24-hour window.",
+    "howItWorks": {
+      "title": "How it works",
+      "intro": "The alert runs automatically — all you do is switch it on. The switch is per listing; switching it off immediately cancels the current period and any SMS not yet sent.",
+      "steps": {
+        "subscribe": {
+          "title": "A buyer turns the alert on",
+          "text": "On your listing's page a buyer taps “Notify me if price drops”. They need a verified Georgian mobile number and marketing SMS switched on. A listing can have at most 50 subscribers, and you can't subscribe to your own listing."
+        },
+        "confirm": {
+          "title": "The price drop is confirmed",
+          "text": "When you lower the sale price, the change is reviewed by the administration like any other listing edit. The alert reacts only to a confirmed decrease — and only while the listing is active, for sale and the alert is on. A price increase never triggers it."
+        },
+        "window": {
+          "title": "A 24-hour period starts",
+          "text": "The 24 hours count from the first confirmed decrease. If the price drops again during that time, no extra SMS is created — the new price goes into the same message. The period is fixed: a new decrease does not extend it."
+        },
+        "check": {
+          "title": "The system checks before sending",
+          "text": "When the period ends, the system checks that the listing is still active and for sale, the alert is on, the current price is still below the price before the first decrease, and there is someone to notify. If anything no longer holds (for example, you set the price back), the message is cancelled and no credit is spent."
+        },
+        "send": {
+          "title": "Buyers receive one SMS",
+          "text": "The SMS goes to subscribers who signed up before the last decrease, have a verified Georgian number and haven't switched off marketing SMS. It contains the first 25 characters of the listing title, the price before the first decrease, the current price and the listing link. Sending runs every 10 minutes, so the SMS goes out shortly after the period ends."
+        },
+        "charge": {
+          "title": "Credits come from your balance",
+          "text": "Each recipient costs 1 SMS credit from your balance — the buyer pays nothing. The credit is charged when the provider accepts the SMS for sending, and returned only if the provider reports a delivery failure or an error. If your balance can't cover every recipient (counting other automatic SMS already waiting to be sent), nothing is sent: top up within 24 hours after the period ends and the system retries by itself."
+        }
+      },
+      "statusesTitle": "What the status under each listing means",
+      "statusDescriptions": {
+        "open": "The 24-hour period is running; further decreases are added to it.",
+        "awaiting_credit": "The period ended but your balance doesn't cover every recipient. Top up — the system retries by itself for 24 hours, then the event expires.",
+        "queued": "The check passed and the SMS are queued for sending.",
+        "cancelled": "At sending time a condition no longer held (price set back, listing no longer active, alert off or no recipients). No credit was spent.",
+        "expired": "The balance wasn't topped up within 24 hours, so no SMS were sent."
+      }
+    },
     "listingsTitle": "Personal sale listings",
     "subscribers": "{count} subscribers",
     "eventStatus": "Latest event: {status}",
@@ -8023,8 +8060,8 @@
     "priceSale": "price {price}"
   },
   "Support": {
-    "launcher": "Support — help",
-    "name": "Support",
+    "launcher": "Baku — help",
+    "name": "Baku",
     "subtitle": "Your MyBakuriani assistant",
     "greetingTitle": "Hi! How can we help?",
     "greetingBody": "Ask me anything about the site. If something is hard to do, I'll show you on screen where to tap and what to type.",

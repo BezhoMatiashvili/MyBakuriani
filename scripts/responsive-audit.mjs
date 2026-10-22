@@ -36,7 +36,10 @@ const PRODUCTION_HOSTS = new Set([
   "www.mybakuriani.ge",
   "my-bakuriani.vercel.app",
 ]);
-const PRODUCTION_PROJECT_REFS = new Set(["yuwyrmxccrpfjvidwhhg"]);
+const PRODUCTION_PROJECT_REFS = new Set([
+  "yuwyrmxccrpfjvidwhhg",
+  "wlkmyxyaocvgqomrrbfs",
+]);
 
 function requireTestEnv(name) {
   const value = process.env[name]?.trim();
@@ -170,7 +173,6 @@ const PUBLIC_ROUTES = [
 const DASHBOARD_ROUTES = [
   // guest
   { path: "/dashboard/guest", label: "guest-home", role: "guest" },
-  { path: "/dashboard/guest/bookings", label: "guest-bookings", role: "guest" },
   {
     path: "/dashboard/guest/favorites",
     label: "guest-favorites",

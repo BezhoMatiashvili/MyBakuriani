@@ -112,14 +112,16 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     const sharedInConfig =
       /import \{[^}]*\bSUPABASE_MEDIA_HOSTS\b[^}]*\} from "\.\/src\/lib\/media-hosts"/.test(cfg) &&
       /\.\.\.SUPABASE_MEDIA_HOSTS\.map\(/.test(patterns);
-    const prodHosts = [...hostsModule.matchAll(/"([a-z0-9]{20}\.supabase\.co)"/g)].map((m) => m[1]);
+    const literalHosts = [...hostsModule.matchAll(/"([a-z0-9]{20}\.supabase\.co)"/g)].map((m) => m[1]);
+    const legacyHost = hostsModule.match(/LEGACY_PROD_SUPABASE_HOST = "([a-z0-9]{20}\.supabase\.co)"/)?.[1];
+    const prodHosts = literalHosts.filter((h) => h !== legacyHost);
     const derivesProject = /new URL\(process\.env\.NEXT_PUBLIC_SUPABASE_URL\)\.hostname/.test(hostsModule);
     if (hardCoded) fail("C6: a Supabase host is hard-coded or wildcarded in the CSP or remotePatterns; take it from src/lib/media-hosts.ts");
     else if (!sharedInCsp) fail("C6: img-src, media-src and connect-src (https + wss) must use SUPABASE_ORIGINS / SUPABASE_PROJECT_HOST from @/lib/media-hosts");
     else if (!sharedInConfig) fail("C6: next.config.ts remotePatterns must spread SUPABASE_MEDIA_HOSTS from ./src/lib/media-hosts");
-    else if (prodHosts.length !== 1 || !derivesProject || /\*\.supabase\.co/.test(hostsModule))
-      fail("C6: src/lib/media-hosts.ts must derive the project host from NEXT_PUBLIC_SUPABASE_URL and pin exactly one literal prod host (no wildcard)");
-    else ok(`C6: CSP and remotePatterns share the Supabase hosts of media-hosts.ts (NEXT_PUBLIC_SUPABASE_URL + ${prodHosts[0]})`);
+    else if (literalHosts.length > 2 || prodHosts.length !== 1 || !derivesProject || /\*\.supabase\.co/.test(hostsModule))
+      fail("C6: src/lib/media-hosts.ts must derive the project host from NEXT_PUBLIC_SUPABASE_URL and pin exactly one literal prod host plus at most the LEGACY_PROD_SUPABASE_HOST (no wildcard)");
+    else ok(`C6: CSP and remotePatterns share the Supabase hosts of media-hosts.ts (NEXT_PUBLIC_SUPABASE_URL + ${prodHosts[0]}${legacyHost ? ` + legacy ${legacyHost}` : ""})`);
 
     const stripComments = (code) => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/[^\n]*/g, "$1");
     const ownHostTests = [...walk("src", [".ts", ".tsx"])].filter(
@@ -822,7 +824,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   const form = read("src/app/[locale]/dashboard/renter/smart-match/page.tsx");
   if (form.includes(`"${token}"`)) ok("C31: the offer form matches the hidden-listing token");
   else fail(`C31: dashboard/renter/smart-match/page.tsx no longer matches '${token}' (a refused offer shows the generic error)`);
-  for (const file of ["src/app/[locale]/dashboard/guest/loadData.ts", "src/app/[locale]/dashboard/guest/bookings/page.tsx"]) {
+  for (const file of ["src/app/[locale]/dashboard/guest/loadData.ts"]) {
     const text = read(file);
     if (/(^|[\s,"'`(])properties\(/.test(text)) fail(`C31: ${file} embeds base properties(...) (null for other owners' listings: their offers vanish)`);
     else if (/from\("public_properties"\)/.test(text)) ok(`C31: ${file} reads offered listings from public_properties`);
@@ -968,6 +970,33 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
+// C18 — the number a mirrored SMS goes to. profiles.phone is empty for every e-mail
+// sign-up, so a cleaner registered that way was never texted a new call-out (prod,
+// 2026-10-20). 20261022140000 makes cleaning_task_new fall back to the cleaner's newest
+// active cleaning listing (services.phone) after the profile number and before the
+// "no number = no SMS" return, so the e2e skip and every cap key on the number chosen.
+// A migration after the newest full definition of the mirror must carry it.
+// ---------------------------------------------------------------------------
+{
+  const files = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
+  const text = (f) => read(join("supabase/migrations", f));
+  const fullDef = files.filter((f) => /create\s+or\s+replace\s+function\s+public\.notifications_enqueue_sms\(/i.test(text(f))).at(-1);
+  const carrier = files.filter((f) => f >= (fullDef ?? "~") && /sms_canonical_ge_phone\(s\.phone\)/.test(text(f))).at(-1);
+  const sql = carrier ? text(carrier) : "";
+  const block = /v_block\s+text\s*:=\s*\$block\$([\s\S]*?)\$block\$/i.exec(sql)?.[1] ?? "";
+  const problems = [];
+  if (!carrier) problems.push(`no migration after ${fullDef} gives notifications_enqueue_sms() the listing-number fallback (a cleaner without a profile phone is never texted)`);
+  else {
+    if (!/v_phone\s+is\s+null\s+and\s+new\.type\s*=\s*'cleaning_task_new'/i.test(block)) problems.push(`${carrier}: the fallback must apply to cleaning_task_new only (the other cleaning_task_* notices go to the renter)`);
+    if (!/from\s+public\.services\s+s[\s\S]*s\.owner_id\s*=\s*new\.user_id[\s\S]*s\.category\s*=\s*'cleaning'[\s\S]*s\.status\s*=\s*'active'/i.test(block)) problems.push(`${carrier}: the fallback must read the recipient's own active cleaning listing`);
+    if (!/order\s+by\s+s\.created_at\s+desc\s*,\s*s\.id\s+desc[\s\S]*limit\s+1/i.test(block)) problems.push(`${carrier}: the fallback must pick one listing deterministically (newest, then id)`);
+    if (!/replace\(\s*v_def\s*,\s*v_anchor\s*,\s*v_block\s*\|\|\s*v_anchor\s*\)/i.test(sql)) problems.push(`${carrier}: the fallback must be inserted BEFORE the "no number = no SMS" return, so the profile number stays first and the caps and e2e skip see the chosen number`);
+  }
+  if (problems.length) problems.forEach((p) => fail(`C18/call-out number: ${p}`));
+  else ok(`C18/call-out number: ${carrier} falls back to the cleaner's newest active cleaning listing phone for cleaning_task_new, after the profile number and before the caps`);
+}
+
+// ---------------------------------------------------------------------------
 // C18 — one SMS per purchase (20261004150000). _enqueue_system_sms deletes the
 // payment_success mirror row queued earlier in the same transaction, so the
 // newest purchase_package / purchase_vip must write 'payment_success' BEFORE
@@ -1075,6 +1104,60 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     ok(
       `C18: owner SMS credits are charged at submit (${subKinds.size} kinds, same as the delivery charge) and refunded only on uBill status 2/4`,
     );
+}
+
+// ---------------------------------------------------------------------------
+// C18 — the guest's SMS consent follows the number, per host (20261022150000).
+// manual_sms_consent_inherit is the one definition of a standing acceptance (an
+// accepted, link-issued row — not v1, not inherited — on another live booking,
+// no later decline) and writes an accepted 'manual-sms-v2-inherited' row with a
+// hash nobody holds (the accepted state needs one and the revoke paths filter
+// on token_hash). The review/win-back texts carry no opt-out, so the guest's
+// link is the only withdrawal: manual_sms_consent_reconcile withdraws the host's
+// inherited rows when the last link-issued source is cancelled, re-phoned or
+// deleted (without accepted_at, so the booking is not read as the guest
+// declining). The manual_bookings triggers (insert, number or status change,
+// delete) call both; the newest respond_manual_booking_sms_consent covers the
+// host's open bookings on accept and withdraws every accepted row of the host +
+// number on a decline or revoke. All four functions stay closed to client roles.
+// ---------------------------------------------------------------------------
+{
+  const migs = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
+  const bodyOf = (fn) => {
+    const re = new RegExp(`create\\s+(or\\s+replace\\s+)?function\\s+public\\.${fn}\\(`, "i");
+    const file = migs.filter((f) => re.test(read(join("supabase/migrations", f)))).at(-1);
+    if (!file) return { file: null, body: "" };
+    const text = read(join("supabase/migrations", file));
+    const from = text.search(re);
+    const tag = /\$[a-z_]*\$/i.exec(text.slice(from))?.[0];
+    const start = tag ? text.indexOf(tag, from) + tag.length : -1;
+    const end = tag ? text.indexOf(tag, start) : -1;
+    return { file, body: start > 0 && end > start ? text.slice(start, end).replace(/--[^\n]*/g, "") : "" };
+  };
+  const linkIssued = /consent_version not in \('manual-sms-v1', 'manual-sms-v2-inherited'\)/i;
+  const problems = [];
+  const inherit = bodyOf("manual_sms_consent_inherit");
+  if (!linkIssued.test(inherit.body)) problems.push(`manual_sms_consent_inherit (${inherit.file ?? "not found"}) must take its source from link-issued rows only (not v1, not inherited): an inherited row has no link the guest can answer`);
+  if (!/d\.declined_at > c\.accepted_at/i.test(inherit.body)) problems.push("manual_sms_consent_inherit must not inherit past a later decline of the number");
+  if (!/'manual-sms-v2-inherited', 'accepted'/i.test(inherit.body) || !/sha256\(/i.test(inherit.body)) problems.push("manual_sms_consent_inherit must write an accepted 'manual-sms-v2-inherited' row with a hash");
+  if (!/coalesce\(v_prev/i.test(inherit.body)) problems.push("manual_sms_consent_inherit must hand app.manual_booking_sms_consent_write back (its caller may hold it 'allowed')");
+  const reconcile = bodyOf("manual_sms_consent_reconcile");
+  if (!linkIssued.test(reconcile.body) || !/accepted_at = null/i.test(reconcile.body)) problems.push(`manual_sms_consent_reconcile (${reconcile.file ?? "not found"}) must keep the inherited rows only while a link-issued source stands, and withdraw them WITHOUT accepted_at (else the booking reads as a guest withdrawal)`);
+  if (!/coalesce\(v_prev/i.test(reconcile.body)) problems.push("manual_sms_consent_reconcile must hand app.manual_booking_sms_consent_write back");
+  const follow = bodyOf("manual_booking_sms_consent_follow_trg");
+  if (!/manual_sms_consent_reconcile\(/i.test(follow.body) || !/manual_sms_consent_inherit\(/i.test(follow.body)) problems.push(`manual_booking_sms_consent_follow_trg (${follow.file ?? "not found"}) must call both manual_sms_consent_reconcile and manual_sms_consent_inherit`);
+  const respond = bodyOf("respond_manual_booking_sms_consent");
+  if (!/manual_sms_consent_cover\(/i.test(respond.body)) problems.push(`respond_manual_booking_sms_consent (${respond.file ?? "not found"}) must cover the host's other open bookings on accept`);
+  if (!/with withdrawn as \(\s*update public\.manual_booking_sms_consents[\s\S]*c\.status = 'accepted'/i.test(respond.body)) problems.push("respond_manual_booking_sms_consent must withdraw every accepted row of the host and number on a decline or revoke");
+  const sql = migs.map((f) => read(join("supabase/migrations", f))).join("\n").replace(/--[^\n]*/g, "");
+  for (const [name, event] of [["follow_ins", "insert"], ["follow_upd", "update of guest_phone, status"], ["follow_del", "delete"]]) {
+    if (!new RegExp(`create trigger manual_booking_sms_consent_${name}\\s+after ${event} on public\\.manual_bookings`, "i").test(sql)) problems.push(`no migration creates trigger manual_booking_sms_consent_${name} (after ${event}) on manual_bookings`);
+  }
+  for (const sig of ["manual_sms_consent_inherit\\(uuid, uuid\\)", "manual_sms_consent_cover\\(uuid, text\\)", "manual_sms_consent_reconcile\\(uuid, text\\)", "manual_booking_sms_consent_follow_trg\\(\\)"]) {
+    if (!new RegExp(`revoke all on function public\\.${sig} from public, anon, authenticated`, "i").test(sql)) problems.push(`no migration revokes ${sig.replace(/\\/g, "")} from the client roles`);
+  }
+  if (problems.length) problems.forEach((p) => fail(`C18/consent: ${p}`));
+  else ok(`C18/consent: ${inherit.file} inherits only from link-issued acceptances, reconciles when the last one goes, the manual_bookings triggers call both, ${respond.file} covers on accept and withdraws on decline/revoke, and the functions are closed to client roles`);
 }
 
 // ---------------------------------------------------------------------------

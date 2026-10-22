@@ -140,7 +140,7 @@ test.describe("support assistant (Jev)", () => {
     await page.goto("/");
     await openAssistant(page);
     const panel = page.getByTestId("jev-panel");
-    await expect(panel.getByRole("heading", { name: "საპორტი" })).toBeVisible();
+    await expect(panel.getByRole("heading", { name: "ბაკუ" })).toBeVisible();
     await expect(panel).not.toContainText("Jev");
     await expect(
       panel.getByRole("button", { name: "როგორ დავრეგისტრირდე?" }),

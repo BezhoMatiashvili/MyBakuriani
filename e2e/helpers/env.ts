@@ -3,7 +3,10 @@ const PRODUCTION_HOSTS = new Set([
   "www.mybakuriani.ge",
   "my-bakuriani.vercel.app",
 ]);
-const PRODUCTION_PROJECT_REFS = new Set(["yuwyrmxccrpfjvidwhhg"]);
+const PRODUCTION_PROJECT_REFS = new Set([
+  "yuwyrmxccrpfjvidwhhg",
+  "wlkmyxyaocvgqomrrbfs",
+]);
 
 function requireTestEnv(name: string): string {
   const value = process.env[name]?.trim();

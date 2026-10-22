@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { Check, Settings, ShieldCheck } from "lucide-react";
+import { Check, ChevronsUpDown, Settings, ShieldCheck } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { AddListingButton } from "@/components/shared/AddListingButton";
@@ -83,9 +83,10 @@ export function CabinetSwitcher({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
+        title={t("switcher.switchWorkspace")}
         data-jev-label={t("switcher.switchWorkspace")}
         className={cn(
-          "flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-colors",
+          "group flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-colors",
           open
             ? (openClassName ?? "border-[#2563EB] bg-[#EFF6FF]")
             : (triggerClassName ??
@@ -93,6 +94,21 @@ export function CabinetSwitcher({
         )}
       >
         {children}
+        {/* Without this the profile card reads as a static label. With an
+            accessory the copy-ID button owns the right edge below the name
+            line, so the hint moves up to the name line. */}
+        <span
+          aria-hidden
+          className={cn(
+            "flex size-6 shrink-0 items-center justify-center rounded-lg transition-colors",
+            accessory && "-mt-1 self-start",
+            open
+              ? "bg-[#DBEAFE] text-[#2563EB]"
+              : "bg-[#EFF6FF] text-[#2563EB] group-hover:bg-[#DBEAFE]",
+          )}
+        >
+          <ChevronsUpDown className="size-3.5" />
+        </span>
       </button>
       {accessory}
 

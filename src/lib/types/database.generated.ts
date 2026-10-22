@@ -8289,6 +8289,18 @@ export type Database = {
         Returns: Json;
       };
       manual_review_token_details: { Args: { p_token: string }; Returns: Json };
+      manual_sms_consent_cover: {
+        Args: { p_owner_id: string; p_phone: string };
+        Returns: number;
+      };
+      manual_sms_consent_inherit: {
+        Args: { p_booking_id: string; p_owner_id: string };
+        Returns: boolean;
+      };
+      manual_sms_consent_reconcile: {
+        Args: { p_owner_id: string; p_phone: string };
+        Returns: number;
+      };
       normalize_ge_phone: { Args: { p: string }; Returns: string };
       owner_dashboard_stats: {
         Args: {

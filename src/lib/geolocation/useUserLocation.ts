@@ -23,6 +23,8 @@ import {
 
 const POSITION_TIMEOUT_MS = 8000;
 const POSITION_MAX_AGE_MS = 5 * 60 * 1000;
+// GeolocationPositionError.PERMISSION_DENIED
+const PERMISSION_DENIED = 1;
 
 export type UserCoords = { lat: number; lng: number };
 
@@ -101,10 +103,9 @@ export async function requestUserLocation(): Promise<UserCoords | null> {
     writeLocationConsent(true);
     return { lat: position.coords.latitude, lng: position.coords.longitude };
   } catch (error) {
-    if (
-      error instanceof GeolocationPositionError &&
-      error.code === GeolocationPositionError.PERMISSION_DENIED
-    ) {
+    // By code, not `instanceof GeolocationPositionError`: a browser or WebView
+    // without that global would throw a ReferenceError from inside this catch.
+    if ((error as { code?: number } | null)?.code === PERMISSION_DENIED) {
       writeLocationConsent(false);
     }
     return null;
