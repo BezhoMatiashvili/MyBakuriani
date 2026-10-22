@@ -1120,6 +1120,10 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // delete) call both; the newest respond_manual_booking_sms_consent covers the
 // host's open bookings on accept and withdraws every accepted row of the host +
 // number on a decline or revoke. All four functions stay closed to client roles.
+// Only OPEN stays inherit (check-out today or later, Tbilisi): the gate lives inside
+// manual_sms_consent_inherit (20261022160000) so the triggers, cover and the backfill
+// share it; the triggers call inherit directly, so no stay from the past starts
+// queueing review or win-back texts.
 // ---------------------------------------------------------------------------
 {
   const migs = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
@@ -1141,6 +1145,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (!/d\.declined_at > c\.accepted_at/i.test(inherit.body)) problems.push("manual_sms_consent_inherit must not inherit past a later decline of the number");
   if (!/'manual-sms-v2-inherited', 'accepted'/i.test(inherit.body) || !/sha256\(/i.test(inherit.body)) problems.push("manual_sms_consent_inherit must write an accepted 'manual-sms-v2-inherited' row with a hash");
   if (!/coalesce\(v_prev/i.test(inherit.body)) problems.push("manual_sms_consent_inherit must hand app.manual_booking_sms_consent_write back (its caller may hold it 'allowed')");
+  if (!/check_out\s*<\s*\(now\(\) at time zone 'Asia\/Tbilisi'\)::date\s+then\s+return false/i.test(inherit.body)) problems.push(`manual_sms_consent_inherit (${inherit.file ?? "not found"}) must refuse a stay that already ended (check_out before today, Tbilisi): the manual_bookings triggers call it directly, so cover's filter alone lets a past-dated booking inherit`);
   const reconcile = bodyOf("manual_sms_consent_reconcile");
   if (!linkIssued.test(reconcile.body) || !/accepted_at = null/i.test(reconcile.body)) problems.push(`manual_sms_consent_reconcile (${reconcile.file ?? "not found"}) must keep the inherited rows only while a link-issued source stands, and withdraw them WITHOUT accepted_at (else the booking reads as a guest withdrawal)`);
   if (!/coalesce\(v_prev/i.test(reconcile.body)) problems.push("manual_sms_consent_reconcile must hand app.manual_booking_sms_consent_write back");
@@ -1157,7 +1162,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     if (!new RegExp(`revoke all on function public\\.${sig} from public, anon, authenticated`, "i").test(sql)) problems.push(`no migration revokes ${sig.replace(/\\/g, "")} from the client roles`);
   }
   if (problems.length) problems.forEach((p) => fail(`C18/consent: ${p}`));
-  else ok(`C18/consent: ${inherit.file} inherits only from link-issued acceptances, reconciles when the last one goes, the manual_bookings triggers call both, ${respond.file} covers on accept and withdraws on decline/revoke, and the functions are closed to client roles`);
+  else ok(`C18/consent: ${inherit.file} inherits only from link-issued acceptances onto open stays, reconciles when the last one goes, the manual_bookings triggers call both, ${respond.file} covers on accept and withdraws on decline/revoke, and the functions are closed to client roles`);
 }
 
 // ---------------------------------------------------------------------------
