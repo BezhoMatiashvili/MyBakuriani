@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
-import { isSmsFeatureEnabled } from "@/lib/sms/feature-flags";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser, getCurrentProfile } from "@/lib/auth/current-user";
 import { requireConsent } from "@/lib/auth/require-consent";
@@ -68,7 +67,6 @@ export default async function DashboardLayout({
   await requireConsent();
 
   const t = await getTranslations("DashboardLayout");
-  const sellerSmsFlag = isSmsFeatureEnabled("SMS_PRICE_DROP_MODE", user.id);
 
   // One RPC instead of 7 parallel REST queries — counts, balance and
   // cabinet-derivation flags arrive in a single round trip.
@@ -76,21 +74,10 @@ export default async function DashboardLayout({
   // dashboard subtree's namespaces (DASHBOARD_NAMESPACES, derived by
   // scripts/i18n-scope.mjs; nested providers replace, not merge —
   // locale/timeZone/formats are still inherited from the parent).
-  // sellerSmsCount only depends on user.id (already resolved above), so it runs
-  // alongside the rest of this request's Supabase calls instead of adding a
-  // separate round-trip to the tail of the critical path.
-  const [profile, layoutRes, messages, sellerSmsCount] = await Promise.all([
+  const [profile, layoutRes, messages] = await Promise.all([
     profilePromise,
     layoutPromise,
     getMessages(),
-    sellerSmsFlag
-      ? supabase
-          .from("properties")
-          .select("id", { count: "exact", head: true })
-          .eq("owner_id", user.id)
-          .eq("is_for_sale", true)
-          .is("organization_id", null)
-      : Promise.resolve({ count: 0 }),
   ]);
 
   // Defensive: fall back to safe defaults if the RPC errors (e.g. code
@@ -116,7 +103,6 @@ export default async function DashboardLayout({
   const canUseSms = (data.is_for_sale_flags ?? []).some(
     (isForSale) => isForSale !== true,
   );
-  const canUseSellerSms = sellerSmsFlag && (sellerSmsCount.count ?? 0) > 0;
 
   return (
     <NextIntlClientProvider
@@ -131,7 +117,6 @@ export default async function DashboardLayout({
         balance={balance}
         smsRemaining={smsRemaining}
         canUseSms={canUseSms}
-        canUseSellerSms={canUseSellerSms}
         smartMatchCount={smartMatchCount}
         availableCabinets={availableCabinets}
         cleanerOnline={data.cleaner_online ?? true}

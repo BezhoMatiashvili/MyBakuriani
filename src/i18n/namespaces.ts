@@ -180,7 +180,6 @@ export const DASHBOARD_NAMESPACES = [
   "Payments",
   "PhoneOtp",
   "PhotoUploader",
-  "PriceDropSms",
   "RenterCalendar",
   "RenterCleaners",
   "RenterDashboard",

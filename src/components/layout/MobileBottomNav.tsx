@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 import {
   BadgeCheck,
   BarChart3,
-  Bell,
   BookOpen,
   Building,
   CalendarClock,
@@ -306,11 +305,6 @@ function getNavigation(role: string): RoleNavigation {
             icon: Wallet,
           },
           {
-            labelKey: "priceDropSms",
-            href: "/dashboard/seller/sms",
-            icon: Bell,
-          },
-          {
             labelKey: "settings",
             href: "/dashboard/seller/settings",
             icon: Settings,
@@ -444,9 +438,7 @@ export function MobileBottomNav({
   const more = [
     ...navigation.more.filter(
       (item) =>
-        ((item.href !== "/dashboard/sms" &&
-          item.href !== "/dashboard/seller/sms") ||
-          canUseSms) &&
+        (item.href !== "/dashboard/sms" || canUseSms) &&
         // Rental reviews are temporarily hidden (see RENTAL_REVIEWS_HIDDEN).
         (item.href !== "/dashboard/renter/reviews" || !RENTAL_REVIEWS_HIDDEN),
     ),
@@ -511,10 +503,6 @@ export function MobileBottomNav({
       href: "/dashboard/seller/balance",
       detail: "balance" as const,
     },
-    // SellerSidebar appends this to its "efficiency" group under the same flag.
-    ...(canUseSms
-      ? [{ labelKey: "priceDropSms", href: "/dashboard/seller/sms" }]
-      : []),
     { labelKey: "settings", href: "/dashboard/seller/settings" },
     {
       labelKey: accountItem.labelKey,

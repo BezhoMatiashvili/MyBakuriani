@@ -11,7 +11,6 @@ import {
   TrendingUp,
   Wallet,
   Bell,
-  MessageSquare,
   Settings,
   LogOut,
   Home,
@@ -43,7 +42,6 @@ interface SellerSidebarProps {
   availableCabinets: string[];
   /** Approved organizations the user belongs to (drives company nav items). */
   companies?: SellerCompany[];
-  canUseSellerSms?: boolean;
 }
 
 interface NavItem {
@@ -148,7 +146,6 @@ export function SellerSidebar({
   onSignOut,
   availableCabinets,
   companies = [],
-  canUseSellerSms = false,
 }: SellerSidebarProps) {
   const t = useTranslations("DashboardSidebar");
   const scope = useActiveOrgScope();
@@ -170,19 +167,6 @@ export function SellerSidebar({
       : "/dashboard/seller/organizations";
   const sections: NavSection[] = SECTIONS.map((section) => {
     if (section.titleKey !== "managementPanel") {
-      if (section.titleKey === "efficiency" && canUseSellerSms) {
-        return {
-          ...section,
-          items: [
-            ...section.items,
-            {
-              labelKey: "priceDropSms",
-              href: "/dashboard/seller/sms",
-              icon: MessageSquare,
-            },
-          ],
-        };
-      }
       return section;
     }
     const items: NavItem[] = [

@@ -68,7 +68,7 @@ const CABINET_MAPS: Record<SupportCabinet, string> = {
 - /dashboard/seller/organizations "ჩემი ორგანიზაციები": register a company or join an agency.
 - "ჩემი კომპანია" (only for members of a company): that company's own cabinet.
 - /dashboard/seller/analytics "ანალიტიკა და უკუგება": views, phone reveals, favorites.
-- /dashboard/seller/balance "ბალანსი და VIP"; /dashboard/seller/sms "ფასის კლების SMS" (when enabled).
+- /dashboard/seller/balance "ბალანსი და VIP".
 - /dashboard/seller/notifications; /dashboard/seller/settings "პარამეტრები".`,
   cleaner: `- /dashboard/cleaner "მთავარი გვერდი": incoming call-outs, "დადასტურება" (accept) or "უარყოფა" (decline).
 - /dashboard/cleaner/schedule "გრაფიკი": platform jobs and jobs the cleaner added.
