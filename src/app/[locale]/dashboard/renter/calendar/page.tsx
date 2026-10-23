@@ -51,7 +51,6 @@ type ManualBooking = Tables<"manual_bookings">;
 type BookingResult = {
   ok: boolean;
   errorCode?: BookingErrorCode;
-  bookingId?: string;
 };
 
 // A platform (guest-made) booking joined with the guest's contact profile.
@@ -761,7 +760,7 @@ export default function RenterCalendarPage() {
       return { ok: false, errorCode: "generic" };
     if (!payload.checkIn || !payload.checkOut || !payload.guestName.trim())
       return { ok: false, errorCode: "generic" };
-    const { data, error } = await supabase.rpc("create_manual_booking", {
+    const { error } = await supabase.rpc("create_manual_booking", {
       p_property_id: selectedPropertyId,
       p_check_in: payload.checkIn,
       p_check_out: payload.checkOut,
@@ -784,7 +783,7 @@ export default function RenterCalendarPage() {
       fetchBookingList(),
     ]);
     await revalidatePublicProperty(selectedPropertyId);
-    return { ok: true, bookingId: data.id };
+    return { ok: true };
   };
 
   // Save edits to an existing manual booking via the overlap-safe RPC. It frees

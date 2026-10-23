@@ -53,7 +53,6 @@ export type BookingMode = "create" | "edit" | "view";
 export type BookingSubmitResult = {
   ok: boolean;
   errorCode?: "datesUnavailable" | "generic";
-  bookingId?: string;
 };
 
 export interface AddBookingPayload {
@@ -130,7 +129,6 @@ export default function AddBookingModal({
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<"booked" | "manual">("manual");
   const [clientListKey, setClientListKey] = useState<ClientListKey>("platform");
-  const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -141,7 +139,6 @@ export default function AddBookingModal({
     setConfirmingDelete(false);
     setSubmitError(null);
     setSubmitting(false);
-    setCreatedBookingId(null);
     if (mode === "edit" && existing) {
       setCheckIn(existing.check_in);
       setCheckOut(existing.check_out);
@@ -274,10 +271,6 @@ export default function AddBookingModal({
         );
         return;
       }
-      if (mode === "create" && res?.bookingId) {
-        setCreatedBookingId(res.bookingId);
-        return;
-      }
       onClose();
     } catch {
       setSubmitError(t("genericError"));
@@ -343,17 +336,6 @@ export default function AddBookingModal({
 
             {mode === "view" && viewBooking ? (
               <ViewBody booking={viewBooking} t={t} tShared={tShared} />
-            ) : createdBookingId ? (
-              <div className="mt-5">
-                <SmsConsentLinkPanel bookingId={createdBookingId} />
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#0F172A] px-4 text-[13px] font-black text-white"
-                >
-                  {tShared("closeAria")}
-                </button>
-              </div>
             ) : (
               <>
                 <form

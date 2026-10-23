@@ -8,7 +8,6 @@ import { Ban, X, UserPlus } from "lucide-react";
 import DateField from "@/components/shared/DateField";
 import NumberField from "@/components/shared/NumberField";
 import PhoneInput from "@/components/forms/PhoneInput";
-import { SmsConsentLinkPanel } from "@/components/renter/SmsConsentLinkPanel";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import {
   datesInRange,
@@ -67,7 +66,6 @@ export default function GuestFormModal({
   const [depositPaidOn, setDepositPaidOn] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -84,7 +82,6 @@ export default function GuestFormModal({
       setDepositAmount("");
       setDepositPaidOn("");
       setError(null);
-      setCreatedBookingId(null);
     }
   }, [isOpen, activeGuest, bookingGuest, properties]);
 
@@ -213,7 +210,7 @@ export default function GuestFormModal({
         );
       } else if (bookingGuest) {
         if (!propertyId) return;
-        const { data: booking, error: bookingError } = await supabase.rpc(
+        const { error: bookingError } = await supabase.rpc(
           "create_manual_booking",
           {
             p_property_id: propertyId,
@@ -238,11 +235,10 @@ export default function GuestFormModal({
             .eq("id", bookingGuest.id);
           if (clearError) throw clearError;
         }
-        setCreatedBookingId(booking.id);
       } else {
         if (!user) return;
         if (!propertyId) return;
-        const { data: booking, error: bookingError } = await supabase.rpc(
+        const { error: bookingError } = await supabase.rpc(
           "create_guest_manual_booking",
           {
             p_property_id: propertyId,
@@ -257,11 +253,10 @@ export default function GuestFormModal({
           },
         );
         if (bookingError) throw bookingError;
-        setCreatedBookingId(booking.id);
       }
 
       onSaved();
-      if (!requiresBooking) onClose();
+      onClose();
     } catch (submitError) {
       console.error("Failed to save guest", submitError);
       // A date clash is the one failure the owner can actually act on, so name
@@ -346,188 +341,173 @@ export default function GuestFormModal({
               </button>
             </div>
 
-            {createdBookingId ? (
-              <div className="mt-5">
-                <SmsConsentLinkPanel bookingId={createdBookingId} />
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#0F172A] px-4 text-[13px] font-black text-white"
-                >
-                  {tShared("closeAria")}
-                </button>
-              </div>
-            ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSubmit();
-                }}
-                noValidate
-              >
-                <div className="mt-5 space-y-3">
-                  <Field label={tShared("name")}>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      disabled={Boolean(bookingGuest)}
-                      placeholder={t("namePlaceholder")}
-                      className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                    />
-                  </Field>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit();
+              }}
+              noValidate
+            >
+              <div className="mt-5 space-y-3">
+                <Field label={tShared("name")}>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={Boolean(bookingGuest)}
+                    placeholder={t("namePlaceholder")}
+                    className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                  />
+                </Field>
 
-                  <Field label={tShared("phone")}>
-                    <PhoneInput
-                      value={phone}
-                      onChange={setPhone}
-                      error={
-                        phone && !isValidGePhone(phone)
-                          ? tShared("invalidPhone")
-                          : null
-                      }
-                    />
-                    {isPhoneBlacklisted && (
-                      <p className="mt-1.5 text-[11px] font-semibold text-[#B45309]">
-                        {tShared("phoneBlacklistedWarning")}
-                      </p>
-                    )}
-                  </Field>
-
-                  {requiresBooking && (
-                    <>
-                      <Field label={tShared("defaultProperty")}>
-                        <select
-                          value={propertyId}
-                          onChange={(e) => setPropertyId(e.target.value)}
-                          className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                        >
-                          <option value="" disabled>
-                            {tShared("selectProperty")}
-                          </option>
-                          {properties.map((property) => (
-                            <option key={property.id} value={property.id}>
-                              {property.title}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <Field label={t("checkIn")}>
-                          <DateField
-                            value={checkIn}
-                            onChange={(v) => {
-                              setCheckIn(v);
-                              if (checkOut && checkOut < v) setCheckOut("");
-                            }}
-                            occupied={occupied}
-                          />
-                        </Field>
-                        <Field label={t("checkOut")}>
-                          <DateField
-                            value={checkOut}
-                            onChange={setCheckOut}
-                            min={checkIn || undefined}
-                            max={checkOutMax}
-                            occupied={occupied}
-                          />
-                        </Field>
-                      </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <Field label={tBooking("amountLabel")}>
-                          <NumberField
-                            value={amount}
-                            onChange={(value) => {
-                              setAmount(value);
-                              if (value.trim() && depositAmount === "") {
-                                setDepositAmount("0");
-                              }
-                            }}
-                            min={0}
-                            max={999999}
-                            decimals={2}
-                            suffix="₾"
-                            placeholder={tBooking("amountPlaceholder")}
-                          />
-                        </Field>
-                        <Field label={tBooking("depositLabel")}>
-                          <NumberField
-                            value={depositAmount}
-                            onChange={(value) => {
-                              setDepositAmount(value);
-                              if (!value || Number(value) <= 0)
-                                setDepositPaidOn("");
-                            }}
-                            min={0}
-                            max={999999}
-                            decimals={2}
-                            suffix="₾"
-                            placeholder={tBooking("depositPlaceholder")}
-                          />
-                        </Field>
-                      </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <Field label={tBooking("depositPaidOnLabel")}>
-                          <DateField
-                            value={depositPaidOn}
-                            onChange={setDepositPaidOn}
-                            disabled={
-                              depositNumber == null || depositNumber <= 0
-                            }
-                          />
-                        </Field>
-                        <Field label={tBooking("remainingLabel")}>
-                          <div className="flex h-[42px] items-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-black text-[#334155]">
-                            {remainingAmount == null
-                              ? tBooking("notSpecified")
-                              : `${remainingAmount.toFixed(2)} ₾`}
-                          </div>
-                        </Field>
-                      </div>
-                    </>
+                <Field label={tShared("phone")}>
+                  <PhoneInput
+                    value={phone}
+                    onChange={setPhone}
+                    error={
+                      phone && !isValidGePhone(phone)
+                        ? tShared("invalidPhone")
+                        : null
+                    }
+                  />
+                  {isPhoneBlacklisted && (
+                    <p className="mt-1.5 text-[11px] font-semibold text-[#B45309]">
+                      {tShared("phoneBlacklistedWarning")}
+                    </p>
                   )}
+                </Field>
 
-                  <Field label={tShared("note")}>
-                    <textarea
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      rows={3}
-                      placeholder={t("notePlaceholder")}
-                      className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
-                    />
-                  </Field>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={
-                    !name.trim() ||
-                    (requiresBooking && (!datesValid || !propertyId)) ||
-                    Boolean(financeError) ||
-                    saving ||
-                    (phone && !isValidGePhone(phone))
-                      ? true
-                      : false
-                  }
-                  className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13px] font-black text-white transition-colors disabled:opacity-50 ${
-                    isBlacklistCreate
-                      ? "bg-[#DC2626] hover:bg-[#B91C1C]"
-                      : "bg-[#2563EB] hover:bg-[#1E40AF]"
-                  }`}
-                >
-                  {saving
-                    ? tShared("saving")
-                    : isBlacklistCreate
-                      ? t("blacklistSave")
-                      : tShared("save")}
-                </button>
-                {(financeError || error) && (
-                  <p className="mt-3 text-center text-[12px] font-semibold text-[#B91C1C]">
-                    {financeError ?? error}
-                  </p>
+                {requiresBooking && (
+                  <>
+                    <Field label={tShared("defaultProperty")}>
+                      <select
+                        value={propertyId}
+                        onChange={(e) => setPropertyId(e.target.value)}
+                        className="w-full rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                      >
+                        <option value="" disabled>
+                          {tShared("selectProperty")}
+                        </option>
+                        {properties.map((property) => (
+                          <option key={property.id} value={property.id}>
+                            {property.title}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Field label={t("checkIn")}>
+                        <DateField
+                          value={checkIn}
+                          onChange={(v) => {
+                            setCheckIn(v);
+                            if (checkOut && checkOut < v) setCheckOut("");
+                          }}
+                          occupied={occupied}
+                        />
+                      </Field>
+                      <Field label={t("checkOut")}>
+                        <DateField
+                          value={checkOut}
+                          onChange={setCheckOut}
+                          min={checkIn || undefined}
+                          max={checkOutMax}
+                          occupied={occupied}
+                        />
+                      </Field>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Field label={tBooking("amountLabel")}>
+                        <NumberField
+                          value={amount}
+                          onChange={(value) => {
+                            setAmount(value);
+                            if (value.trim() && depositAmount === "") {
+                              setDepositAmount("0");
+                            }
+                          }}
+                          min={0}
+                          max={999999}
+                          decimals={2}
+                          suffix="₾"
+                          placeholder={tBooking("amountPlaceholder")}
+                        />
+                      </Field>
+                      <Field label={tBooking("depositLabel")}>
+                        <NumberField
+                          value={depositAmount}
+                          onChange={(value) => {
+                            setDepositAmount(value);
+                            if (!value || Number(value) <= 0)
+                              setDepositPaidOn("");
+                          }}
+                          min={0}
+                          max={999999}
+                          decimals={2}
+                          suffix="₾"
+                          placeholder={tBooking("depositPlaceholder")}
+                        />
+                      </Field>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Field label={tBooking("depositPaidOnLabel")}>
+                        <DateField
+                          value={depositPaidOn}
+                          onChange={setDepositPaidOn}
+                          disabled={depositNumber == null || depositNumber <= 0}
+                        />
+                      </Field>
+                      <Field label={tBooking("remainingLabel")}>
+                        <div className="flex h-[42px] items-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[13px] font-black text-[#334155]">
+                          {remainingAmount == null
+                            ? tBooking("notSpecified")
+                            : `${remainingAmount.toFixed(2)} ₾`}
+                        </div>
+                      </Field>
+                    </div>
+                  </>
                 )}
-              </form>
-            )}
+
+                <Field label={tShared("note")}>
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={3}
+                    placeholder={t("notePlaceholder")}
+                    className="w-full resize-none rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F172A] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10"
+                  />
+                </Field>
+              </div>
+
+              <button
+                type="submit"
+                disabled={
+                  !name.trim() ||
+                  (requiresBooking && (!datesValid || !propertyId)) ||
+                  Boolean(financeError) ||
+                  saving ||
+                  (phone && !isValidGePhone(phone))
+                    ? true
+                    : false
+                }
+                className={`mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13px] font-black text-white transition-colors disabled:opacity-50 ${
+                  isBlacklistCreate
+                    ? "bg-[#DC2626] hover:bg-[#B91C1C]"
+                    : "bg-[#2563EB] hover:bg-[#1E40AF]"
+                }`}
+              >
+                {saving
+                  ? tShared("saving")
+                  : isBlacklistCreate
+                    ? t("blacklistSave")
+                    : tShared("save")}
+              </button>
+              {(financeError || error) && (
+                <p className="mt-3 text-center text-[12px] font-semibold text-[#B91C1C]">
+                  {financeError ?? error}
+                </p>
+              )}
+            </form>
           </motion.div>
         </div>
       )}
