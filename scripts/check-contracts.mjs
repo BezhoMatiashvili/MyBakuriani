@@ -1010,7 +1010,10 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // in the notice's cabinet (dashboard_scope_for_listing), else in any. A new call-out is
 // not mirrored: notify_cleaner_of_new_task queues the renter's paid cleaner_call text
 // (C24), and a free mirror row would take the notice's unique source_notification_id
-// first. One number gets at most 8 texts a day across both kinds (20261023110000).
+// first. One number gets at most 8 texts a day across both kinds (20261023110000). A pending
+// listing's number is never read (20261023120000): typed freely, nobody has reviewed it, so it
+// could be anyone's. Call-out answers read ACTIVE listings only; a moderation notice, which only
+// the admin moderate route writes, also reads its blocked listing (a first listing's rejection).
 // ---------------------------------------------------------------------------
 {
   const files = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
@@ -1033,8 +1036,8 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   const problems = [];
   if (/'cleaning_task_new'/.test(types.body)) problems.push(`sms_notification_types() (${types.file}) mirrors cleaning_task_new again: its free row takes the notice's source_notification_id before notify_cleaner_of_new_task queues the renter's paid cleaner_call text`);
   if (!/v_ref\s*:=\s*substring\(\s*new\.action_url/i.test(b)) problems.push(`${mirror.file}: without a profile number the mirror must read the listing or call-out id from the notice's action_url`);
-  if (!/new\.type\s*=\s*'listing_moderation'[\s\S]*?public\.properties\s+pr\s+where\s+pr\.id\s*=\s*v_ref\s+and\s+pr\.owner_id\s*=\s*new\.user_id[\s\S]*?public\.services\s+sv\s+where\s+sv\.id\s*=\s*v_ref\s+and\s+sv\.owner_id\s*=\s*new\.user_id/i.test(b)) problems.push(`${mirror.file}: a moderation notice must fall back to the moderated listing's own number, only if the recipient owns it`);
-  if (!/from\s+public\.cleaning_tasks\s+t[\s\S]*?sv\.id\s*=\s*t\.cleaner_service_id\s+and\s+sv\.owner_id\s*=\s*new\.user_id[\s\S]*?pr\.id\s*=\s*t\.property_id\s+and\s+pr\.owner_id\s*=\s*new\.user_id/i.test(b)) problems.push(`${mirror.file}: a call-out answer must fall back to the recipient's own listing on the task in its ?task= link (the called listing for the cleaner, the apartment for the renter)`);
+  if (!/new\.type\s*=\s*'listing_moderation'[\s\S]*?public\.properties\s+pr\s+where\s+pr\.id\s*=\s*v_ref\s+and\s+pr\.owner_id\s*=\s*new\.user_id\s+and\s+pr\.status\s+in\s*\(\s*'active'\s*,\s*'blocked'\s*\)\s+union\s+all\s+select\s+sv\.phone\s+from\s+public\.services\s+sv\s+where\s+sv\.id\s*=\s*v_ref\s+and\s+sv\.owner_id\s*=\s*new\.user_id\s+and\s+sv\.status\s+in\s*\(\s*'active'\s*,\s*'blocked'\s*\)\s*\)\s*x/i.test(b)) problems.push(`${mirror.file}: a moderation notice must fall back to the moderated listing's own number, only if the recipient owns it and an admin has decided it (active or blocked; never a pending listing's number nobody has reviewed)`);
+  if (!/from\s+public\.cleaning_tasks\s+t[\s\S]*?sv\.id\s*=\s*t\.cleaner_service_id\s+and\s+sv\.owner_id\s*=\s*new\.user_id\s+and\s+sv\.status\s*=\s*'active'\s+left\s+join\s+public\.properties\s+pr\s+on\s+pr\.id\s*=\s*t\.property_id\s+and\s+pr\.owner_id\s*=\s*new\.user_id\s+and\s+pr\.status\s*=\s*'active'\s+where\s+t\.id\s*=\s*v_ref/i.test(b)) problems.push(`${mirror.file}: a call-out answer must fall back to the recipient's own ACTIVE listing on the task in its ?task= link (the called listing for the cleaner, the apartment for the renter; a pending apartment's number nobody has reviewed)`);
   if (!/dashboard_scope_for_listing\(/i.test(b) || !/order\s+by\s+\(x\.scope\s+is\s+not\s+distinct\s+from\s+new\.dashboard_scope\)\s+desc\s*,\s*x\.created_at\s+desc\s*,\s*x\.id\s+desc/i.test(b)) problems.push(`${mirror.file}: the last fallback must be the newest active listing in the notice's cabinet (dashboard_scope_for_listing), then in any, picked deterministically`);
   if (!/from\s+public\.properties\s+pr\s+where\s+pr\.owner_id\s*=\s*new\.user_id\s+and\s+pr\.status\s*=\s*'active'/i.test(b) || !/from\s+public\.services\s+sv\s+where\s+sv\.owner_id\s*=\s*new\.user_id\s+and\s+sv\.status\s*=\s*'active'/i.test(b)) problems.push(`${mirror.file}: the cabinet fallback must read only the recipient's own ACTIVE listings (never someone else's or an unreviewed number)`);
   if ((b.match(/sms_canonical_ge_phone\(/gi) ?? []).length < 5) problems.push(`${mirror.file}: every number the mirror reads (profile, moderated listing, call-out listing, both cabinet branches) must go through sms_canonical_ge_phone`);
@@ -1046,7 +1049,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   const taskLinks = (path) => (status.body.match(new RegExp(`'${path}\\?task='\\s*\\|\\|\\s*NEW\\.id`, "gi")) ?? []).length;
   if (taskLinks("/dashboard/cleaner") < 2 || taskLinks("/dashboard/renter/cleaners") < 1) problems.push(`notify_owner_of_task_status (${status.file ?? "not found"}) must link every call-out notice with ?task=<id> (the mirror finds the listing by it)`);
   if (problems.length) problems.forEach((p) => fail(`C18/call-out number: ${p}`));
-  else ok(`C18/call-out number: ${mirror.file} texts a recipient without a profile number on the listing the notice is about (moderation, ?task=), else the cabinet's newest active listing, before the e2e skip and the caps; a new call-out is left to the paid cleaner_call text`);
+  else ok(`C18/call-out number: ${mirror.file} texts a recipient without a profile number on the listing the notice is about (moderation: active or blocked; ?task=: active), else the cabinet's newest active listing, never a pending one, before the e2e skip and the caps; a new call-out is left to the paid cleaner_call text`);
 }
 
 // ---------------------------------------------------------------------------
@@ -1871,7 +1874,8 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     // (8) the cleaner's SMS (C18 + C24, 2026-10-23): the renter's, paid with 1 SMS credit (kind cleaner_call,
     // charged when uBill accepts it). This trigger queues it after the bell notice, in its own BEGIN … EXCEPTION
     // block (a failure there must keep the bell and the call-out): sender = the renter, recipient = the cleaner,
-    // one text per call-out, on the cleaner's profile number else the listing the renter CALLED, only while the
+    // one text per call-out, on the cleaner's profile number else the listing the renter CALLED (an ACTIVE cleaning
+    // listing of theirs only, 20261023120000: a pending or blocked listing's number nobody has reviewed), only while the
     // renter has a free credit, at most 3 a day from one renter to one cleaner, never to an e2e account, under
     // the mirror's per-number try-lock and daily cap.
     const insAt = trigBody.search(/INSERT\s+INTO\s+public\.notifications/i);
@@ -1890,11 +1894,11 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     else if (!/ORDER\s+BY\s+\(\s*s\.id\s+IS\s+NOT\s+DISTINCT\s+FROM\s+NEW\.cleaner_service_id\s*\)\s+DESC/i.test(trigBody))
       fail(`C24: ${trigFile} must text a cleaner without a profile number on the listing the renter called (cleaner_service_id first), not on their newest one`);
     else if (
-      !/FROM\s+public\.services\s+s\s+WHERE\s+s\.owner_id\s*=\s*NEW\.cleaner_id\s+AND\s+s\.category\s*=\s*'cleaning'\s+AND\s+\(\s*s\.id\s*=\s*NEW\.cleaner_service_id\s+OR\s+s\.status\s*=\s*'active'\s*\)/i.test(trigBody) ||
+      !/FROM\s+public\.services\s+s\s+WHERE\s+s\.owner_id\s*=\s*NEW\.cleaner_id\s+AND\s+s\.category\s*=\s*'cleaning'\s+AND\s+s\.status\s*=\s*'active'\s+AND\s+public\.sms_canonical_ge_phone\(\s*s\.phone\s*\)\s+IS\s+NOT\s+NULL\s+ORDER\s+BY/i.test(trigBody) ||
       !/sms_canonical_ge_phone\(\s*p\.phone\s*\)/i.test(trigBody) ||
       !/sms_canonical_ge_phone\(\s*s\.phone\s*\)/i.test(trigBody)
     )
-      fail(`C24: ${trigFile} must text only the cleaner's own number: the profile one, else the called (or an active) cleaning listing of theirs, through sms_canonical_ge_phone`);
+      fail(`C24: ${trigFile} must text only the cleaner's own number: the profile one, else an ACTIVE cleaning listing of theirs (the called one first; a pending or blocked listing's number nobody has reviewed), through sms_canonical_ge_phone`);
     else if (!/automation_kind\s*=\s*'cleaner_call'\s+AND\s+s\.sender_id\s*=\s*NEW\.owner_id\s+AND\s+s\.recipient_id\s*=\s*NEW\.cleaner_id[\s\S]*?>=\s*3\s+THEN\s+RETURN\s+NEW/i.test(trigBody))
       fail(`C24: ${trigFile} must text at most 3 call-outs a day from one renter to one cleaner (one renter must not use up the number's daily budget)`);
     else if (
