@@ -14,7 +14,6 @@ import type { Tables } from "@/lib/types/database";
 import { updateSelfServiceProfile } from "@/lib/self-service/client";
 import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
 import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
-import { showsSms } from "@/lib/dashboard/cabinetSms";
 import { dashboardScopeForPath } from "@/lib/notifications/scopes";
 
 interface NotifPrefs {
@@ -28,8 +27,9 @@ export default function ServiceParametersPage() {
   const tCreate = useTranslations("CreateShared");
   const { user } = useAuth();
   const supabase = createClient();
-  // Shared by the four service cabinets; transport has no SMS (cabinetSms.ts).
-  const showSms = showsSms(dashboardScopeForPath(usePathname()));
+  // Shared by the four service cabinets. Only a job application (employment) is
+  // texted; the others get the website notice only (C18 mirror).
+  const newRequestBySms = dashboardScopeForPath(usePathname()) === "employment";
 
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -346,7 +346,9 @@ export default function ServiceParametersPage() {
               {
                 key: "newInquiry" as const,
                 title: tShared("notifNewRequest"),
-                sub: tShared(showSms ? "channelWebSms" : "channelWebOnly"),
+                sub: tShared(
+                  newRequestBySms ? "channelWebSms" : "channelWebOnly",
+                ),
               },
               {
                 key: "dailyReport" as const,

@@ -8,7 +8,7 @@ export const TEMPLATES = {
   // One line per part. buildCheckIn drops the " — name" clause and every line
   // whose value is missing; each URL ends its own line, so nothing is glued to it.
   check_in:
-    "გამარჯობა, [Guest_Name]! გელოდებით ხვალ [Check_In_Time]-დან — [Property_Name].\n🔗 [Listing_Link]\n📍 [Location]\n☎️ [Host_Phone]",
+    "გამარჯობა, [Guest_Name]! გელოდებით [Check_In_Day] [Check_In_Time]-დან — [Property_Name].\n🔗 [Listing_Link]\n📍 [Location]\n☎️ [Host_Phone]",
   review_request:
     "[Guest_Name], მადლობა! შეგვიფასეთ ბინა: [Property_Review_Link] — MyBakuriani",
   win_back:
@@ -91,6 +91,53 @@ export function tbilisiDate(offsetDays: number, now = Date.now()): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** The day the check-in text names: the daily run says tomorrow, short notice may say today. */
+export type CheckInDay = "today" | "tomorrow";
+
+const CHECK_IN_DAY_WORD: Record<CheckInDay, string> = {
+  today: "დღეს",
+  tomorrow: "ხვალ",
+};
+
+// sms-automation-daily is `0 6 * * *` UTC, which is this time in Tbilisi (C18).
+const DAILY_RUN_TIME = "10:00:00";
+/** A short-notice text goes out once the booking is this old. */
+export const SHORT_NOTICE_DELAY_MS = 3600_000;
+
+/** The moment the daily run that texts `checkIn` (the day before) fires. */
+function dailyRunBefore(checkIn: string): number {
+  return Date.parse(`${checkIn}T${DAILY_RUN_TIME}+04:00`) - 86_400_000;
+}
+
+/**
+ * True when the daily run for this check-in had already fired when the booking was
+ * made, so only the short-notice run can text it. `>=`, not `>`: a booking made in
+ * the second of the run may or may not be in its scan, and a duplicate costs
+ * nothing (one row per booking and kind in the database) while a gap loses the text.
+ */
+export function missedDailyRun(
+  checkIn: string,
+  createdAt: string | null,
+): boolean {
+  const created = createdAt ? Date.parse(createdAt) : NaN;
+  return Number.isFinite(created) && created >= dailyRunBefore(checkIn);
+}
+
+/**
+ * What one short-notice run looks at: stays that begin today or tomorrow, made at
+ * least SHORT_NOTICE_DELAY_MS ago and no earlier than the daily run for a stay
+ * today (the earlier of the two; `missedDailyRun` then decides each row).
+ */
+export function shortNoticeWindow(now = Date.now()) {
+  const today = tbilisiDate(0, now);
+  return {
+    today,
+    tomorrow: tbilisiDate(1, now),
+    from: new Date(dailyRunBefore(today)).toISOString(),
+    to: new Date(now - SHORT_NOTICE_DELAY_MS).toISOString(),
+  };
+}
+
 // Owner-typed text gets what public._notice_text gives user-typed text in a
 // notification (C33): control, space, zero-width and bidi characters become one
 // space (the C24 class), a dot between two non-space characters becomes U+2024
@@ -142,6 +189,7 @@ export function buildCheckIn(
   rule: Rule,
   siteUrl: string,
   listingVisible: boolean,
+  day: CheckInDay = "tomorrow",
 ): string {
   const p = c.property;
   const time = (p?.check_in_time ?? "14:00").slice(0, 5);
@@ -164,6 +212,7 @@ export function buildCheckIn(
 
   const values: Record<string, string | null> = {
     Guest_Name: clampName(c.guest_name),
+    Check_In_Day: CHECK_IN_DAY_WORD[day],
     Check_In_Time: time,
     Property_Name: title,
     Listing_Link: listingLink,

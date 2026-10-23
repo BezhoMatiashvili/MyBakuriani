@@ -34,6 +34,11 @@ function isTxType(type: string): type is TxType {
   return (TX_TYPES as readonly string[]).includes(type);
 }
 
+// `sms_send` rows move one SMS credit, never money (amount 0). Only
+// sms_mark_provider_undelivered writes a refund, starting with this text
+// (C18, check-contracts); every other `sms_send` row spent a credit.
+const SMS_REFUND_PREFIX = "SMS ვერ მიეწოდა, კრედიტი დაბრუნდა";
+
 /**
  * Wallet transaction history shared by the renter/seller, food and service
  * balance pages. Each row expands to show the stored description, the listing
@@ -79,6 +84,13 @@ export default function TransactionList({
           const listingTitle = tx.reference_id
             ? listingTitles[tx.reference_id]
             : undefined;
+          const smsCredit =
+            tx.type === "sms_send"
+              ? tx.description?.startsWith(SMS_REFUND_PREFIX)
+                ? 1
+                : -1
+              : null;
+          const incoming = smsCredit === null ? tx.amount >= 0 : smsCredit > 0;
           return (
             <div
               key={tx.id}
@@ -94,12 +106,12 @@ export default function TransactionList({
                 <div className="flex min-w-0 items-center gap-3">
                   <div
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                      tx.amount >= 0
+                      incoming
                         ? "bg-[#DCFCE7] text-[#16A34A]"
                         : "bg-[#FEE2E2] text-[#DC2626]"
                     }`}
                   >
-                    {tx.amount >= 0 ? (
+                    {incoming ? (
                       <ArrowDownLeft className="h-4 w-4" />
                     ) : (
                       <ArrowUpRight className="h-4 w-4" />
@@ -107,7 +119,11 @@ export default function TransactionList({
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-[#0F172A]">
-                      {isTxType(tx.type) ? t(`txTypes.${tx.type}`) : tx.type}
+                      {smsCredit === 1
+                        ? t("txSmsRefund")
+                        : isTxType(tx.type)
+                          ? t(`txTypes.${tx.type}`)
+                          : tx.type}
                     </p>
                     <p className="text-[11px] text-[#94A3B8]">
                       {formatDate(tx.created_at, locale)}
@@ -117,11 +133,12 @@ export default function TransactionList({
                 <div className="flex shrink-0 items-center gap-2">
                   <span
                     className={`text-sm font-extrabold ${
-                      tx.amount >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"
+                      incoming ? "text-[#16A34A]" : "text-[#DC2626]"
                     }`}
                   >
-                    {tx.amount >= 0 ? "+" : ""}
-                    {tx.amount.toFixed(2)} ₾
+                    {smsCredit === null
+                      ? `${tx.amount >= 0 ? "+" : ""}${tx.amount.toFixed(2)} ₾`
+                      : `${smsCredit > 0 ? "+" : "-"}1 SMS`}
                   </span>
                   <motion.span
                     animate={{ rotate: open ? 180 : 0 }}

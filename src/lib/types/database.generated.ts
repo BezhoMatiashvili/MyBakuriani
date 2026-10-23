@@ -5964,6 +5964,7 @@ export type Database = {
           sender_id: string;
           sent_at: string | null;
           source_booking_id: string | null;
+          source_cleaning_task_id: string | null;
           source_manual_booking_id: string | null;
           source_notification_id: string | null;
           status: Database["public"]["Enums"]["sms_outbound_status"];
@@ -5995,6 +5996,7 @@ export type Database = {
           sender_id: string;
           sent_at?: string | null;
           source_booking_id?: string | null;
+          source_cleaning_task_id?: string | null;
           source_manual_booking_id?: string | null;
           source_notification_id?: string | null;
           status?: Database["public"]["Enums"]["sms_outbound_status"];
@@ -6026,6 +6028,7 @@ export type Database = {
           sender_id?: string;
           sent_at?: string | null;
           source_booking_id?: string | null;
+          source_cleaning_task_id?: string | null;
           source_manual_booking_id?: string | null;
           source_notification_id?: string | null;
           status?: Database["public"]["Enums"]["sms_outbound_status"];
@@ -6121,6 +6124,13 @@ export type Database = {
             columns: ["source_booking_id"];
             isOneToOne: false;
             referencedRelation: "bookings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sms_outbound_source_cleaning_task_id_fkey";
+            columns: ["source_cleaning_task_id"];
+            isOneToOne: false;
+            referencedRelation: "cleaning_tasks";
             referencedColumns: ["id"];
           },
           {
@@ -8613,6 +8623,7 @@ export type Database = {
         Args: { p_kind: string; p_reason?: string; p_sender_id: string };
         Returns: number;
       };
+      sms_cancel_resolved_cleaner_calls: { Args: never; Returns: number };
       sms_canonical_ge_phone: { Args: { p: string }; Returns: string };
       sms_claim_dispatch_batch: {
         Args: { p_claim_token: string; p_limit?: number };

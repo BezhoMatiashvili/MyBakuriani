@@ -266,12 +266,13 @@ for (const [table, values, name] of [
 // ownership-document purge (20261001200200, C39) deletes ID scans and registry extracts no
 // pending request needs and bounds abandoned uploads. The SMS finance job (20261007200000, C50)
 // keeps the SMS ledger synced and sends the low-balance warning. The free-period sweep
-// (20261020120000, C53) is SQL-only: it grants what the sign-up trigger missed.
+// (20261020120000, C53) is SQL-only: it grants what the sign-up trigger missed. The
+// short-notice check-in job (20261023100000, C18) texts a booking the daily run cannot reach.
 {
   const expected = [
     "rate-limit-gc", "booking-finalize-daily", "sms-automation-daily", "sms-dispatch-frequent", "vip-lifecycle-hourly",
     "keepz-reconcile-10min", "email-dispatch-5min", "cron-history-gc", "pii-retention-daily",
-    "ownership-document-purge-hourly", "sms-finance-hourly", "free-period-apply-5min",
+    "ownership-document-purge-hourly", "sms-finance-hourly", "free-period-apply-5min", "sms-check-in-short-notice",
   ];
   const present = snapshot.cron_jobs.filter((j) => j.active).map((j) => j.name);
   const missing = onlyIn(expected, present);

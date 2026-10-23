@@ -20,6 +20,8 @@
 //
 // Trigger sources:
 //   * pg_cron via net.http_post (see 20260801132000_schedule_sms_pipeline.sql)
+//   * pg_cron every 5 minutes with {"mode":"short_notice"} (20261023100000): only the
+//     check-in text for a booking the daily run cannot reach (see T1 SHORT NOTICE)
 //   * Manual: curl -X POST .../sms-automation-run -H "Authorization: Bearer $SECRET"
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
@@ -38,8 +40,11 @@ import {
   buildReviewRequest,
   buildWinBack,
   type Candidate,
+  type CheckInDay,
+  missedDailyRun,
   type PropertyRef,
   type Rule,
+  shortNoticeWindow,
   tbilisiDate,
   toCanonicalGePhone,
 } from "./domain.ts";
@@ -82,6 +87,23 @@ function requireSiteUrl(): string {
     );
   }
   return raw.replace(/\/+$/, "");
+}
+
+// The body picks the run. pg_cron posts `{}` for the daily job and a manual curl
+// posts nothing: both are the daily run. An unknown mode is a 400, never a silent
+// full pass (the 5-minute job would then send tomorrow's texts at midnight).
+async function readMode(req: Request): Promise<"daily" | "short_notice"> {
+  const raw = (await req.text()).trim();
+  if (!raw) return "daily";
+  let mode: unknown;
+  try {
+    mode = (JSON.parse(raw) as { mode?: unknown } | null)?.mode;
+  } catch {
+    throw new ApiError("Body must be JSON", 400, "BAD_REQUEST");
+  }
+  if (mode === undefined || mode === "daily") return "daily";
+  if (mode === "short_notice") return mode;
+  throw new ApiError("Unknown mode", 400, "BAD_REQUEST");
 }
 
 type SkipReason =
@@ -142,6 +164,8 @@ serve(async (req: Request) => {
 
   try {
     await requireSharedSecret(req);
+    const mode = await readMode(req);
+    const daily = mode === "daily";
     const featureMode = (Deno.env.get("SMS_RENTAL_MODE") ?? "off").toLowerCase();
     if (featureMode === "off") {
       return jsonResponse({ ok: true, feature_enabled: false, processed_users: 0 }, 200, cors);
@@ -188,6 +212,7 @@ serve(async (req: Request) => {
         owner_phone: prof?.phone ?? null,
       };
     });
+    if (!daily) rules = rules.filter((rule) => rule.check_in_reminder_enabled);
     if (featureMode === "qa") {
       const allowed = new Set(
         (Deno.env.get("SMS_QA_USER_IDS") ?? "").split(",").map((id) => id.trim()).filter(Boolean),
@@ -201,10 +226,10 @@ serve(async (req: Request) => {
     //    A phone with no profile at all cannot opt out and will still receive T3 - a
     //    real gap, owned by follow-up sms-f3 (SMS STOP keyword).
     //    Canonicalized with the same exact Georgian-mobile contract as the queue RPC.
-    const { data: optOutRows, error: optOutErr } = await db
-      .from("profiles")
-      .select("phone")
-      .eq("marketing_opt_out", true);
+    //    Only the marketing kinds read it; the short-notice run sends none.
+    const { data: optOutRows, error: optOutErr } = daily
+      ? await db.from("profiles").select("phone").eq("marketing_opt_out", true)
+      : { data: null, error: null };
     if (optOutErr) throw optOutErr;
     const optedOut = new Set(
       ((optOutRows as { phone: string | null }[] | null) ?? [])
@@ -240,12 +265,22 @@ serve(async (req: Request) => {
       console.log(JSON.stringify({ skip: reason, ...detail }));
     };
 
-    const { error: maintenanceErr } = await db.rpc(
-      "sms_expire_stale_automation",
-    );
-    if (maintenanceErr) throw maintenanceErr;
+    // The dispatcher runs this too; the short-notice run only enqueues.
+    if (daily) {
+      const { error: maintenanceErr } = await db.rpc(
+        "sms_expire_stale_automation",
+      );
+      if (maintenanceErr) throw maintenanceErr;
+    }
+
+    const notice = shortNoticeWindow();
 
     for (const rule of rules) {
+      // Short notice looks before anything else: a run with nothing due costs the
+      // scan and no more.
+      const due = daily ? [] : await scanShortNotice(db, rule.user_id, notice);
+      if (!daily && due.length === 0) continue;
+
       // 3. Credit preflight, ONCE per owner (spec section 6). A 0-credit owner must
       //    never have a send attempted. balances rows are created LAZILY, so "no row"
       //    is a common state and must read as 0 - sms_consume_credit raises P0002 on it.
@@ -355,9 +390,10 @@ serve(async (req: Request) => {
       // (tomorrow), so any other window would make the SMS lie.
       // The legacy timing column is fixed at 24 by a DB CHECK and is deliberately
       // absent from the owner UI. P2(e)'s 36h expiry window depends on this pinning;
-      // change one and the other must change.
+      // change one and the other must change. A booking made after this run fired for
+      // its check-in (or for today) is T1 SHORT NOTICE's, below.
       // T1 ignores marketing_consent - it is transactional, not marketing (spec §2).
-      if (rule.check_in_reminder_enabled) {
+      if (daily && rule.check_in_reminder_enabled) {
         const tomorrow = tbilisiDate(1);
         const checkIns = [
           ...await scanPlatform(db, {
@@ -384,8 +420,33 @@ serve(async (req: Request) => {
         }
       }
 
+      // ---- T1 CHECK-IN, SHORT NOTICE (mode short_notice) -------------------
+      // A booking the run above can never reach: made after that run fired for its
+      // check-in (10:00 the day before, `missedDailyRun`), or for today. It is texted
+      // once it is an hour old. The word follows the day it is SENT, so a booking made
+      // at 23:30 for tomorrow is texted "დღეს" at 00:30 and the text never lies. The
+      // 36h expiry above still fits: a row is created minutes before it is sent.
+      // Manual bookings only: public.bookings has no writer (C26). The same
+      // booking + kind dedup in sms_enqueue_automation keeps the two runs from
+      // texting one booking twice. Transactional, like T1: no consent, no opt-out.
+      if (!daily) {
+        const visible = await publicPropertyIds(db, due);
+        for (const c of due) {
+          if (!reachable(c, false)) continue;
+          const day: CheckInDay = c.check_in === notice.today
+            ? "today"
+            : "tomorrow";
+          const listingVisible = !!c.property && visible.has(c.property.id);
+          await enqueue(
+            "check_in",
+            c,
+            () => buildCheckIn(c, rule, siteUrl, listingVisible, day),
+          );
+        }
+      }
+
       // ---- T2 REVIEW REQUEST ----------------------------------------------
-      if (rule.review_request_enabled) {
+      if (daily && rule.review_request_enabled) {
         const day = tbilisiDate(-1);
         for (
           const c of await scanPlatform(db, {
@@ -445,7 +506,7 @@ serve(async (req: Request) => {
       }
 
       // ---- T3 WIN-BACK -----------------------------------------------------
-      if (rule.win_back_enabled) {
+      if (daily && rule.win_back_enabled) {
         const day = tbilisiDate(-90);
         for (
           const c of await scanPlatform(db, {
@@ -510,7 +571,7 @@ serve(async (req: Request) => {
       }
     }
 
-    return jsonResponse({ ok: true, ...summary }, 200, cors);
+    return jsonResponse({ ok: true, mode, ...summary }, 200, cors);
   } catch (err) {
     return errorResponse(err, cors);
   }
@@ -580,15 +641,21 @@ async function scanPlatform(
   });
 }
 
+type ManualCandidate = Candidate & {
+  check_in: string;
+  created_at: string | null;
+};
+
 async function scanManual(
   db: SbClient,
   opts: {
     owner_id: string;
     dateCol: "check_in" | "check_out";
-    date: string;
+    date: string | string[];
+    createdBetween?: { from: string; to: string };
     requireConsent?: boolean;
   },
-): Promise<Candidate[]> {
+): Promise<ManualCandidate[]> {
   // Active manual_bookings.status is 'booked' or 'manual' - NEVER 'completed'
   // (create_manual_booking writes CASE WHEN p_status='booked' THEN 'booked' ELSE
   // 'manual' END; cancelled rows are retained for history). Filtering on 'completed' here
@@ -596,6 +663,8 @@ async function scanManual(
   type Row = {
     id: string;
     owner_id: string;
+    check_in: string;
+    created_at: string | null;
     guest_name: string | null;
     guest_phone: string | null;
     property: PropertyRef | PropertyRef[] | null;
@@ -607,15 +676,22 @@ async function scanManual(
       .from("manual_bookings")
       .select(
         `id, owner_id, check_in, check_out, status, marketing_consent,
-         guest_name, guest_phone,
+         created_at, guest_name, guest_phone,
          ${PROPERTY_EMBED}`,
       )
       .eq("owner_id", opts.owner_id)
-      .eq(opts.dateCol, opts.date)
       .neq("status", "cancelled")
       .or(RENTAL_ONLY, { referencedTable: "property" })
       .order("id")
       .limit(200);
+    q = typeof opts.date === "string"
+      ? q.eq(opts.dateCol, opts.date)
+      : q.in(opts.dateCol, opts.date);
+    if (opts.createdBetween) {
+      q = q
+        .gte("created_at", opts.createdBetween.from)
+        .lte("created_at", opts.createdBetween.to);
+    }
     if (opts.requireConsent) q = q.eq("marketing_consent", true);
     if (cursor) q = q.gt("id", cursor);
     const { data, error } = await q;
@@ -629,6 +705,8 @@ async function scanManual(
   return rows.map((r) => ({
     source: "manual" as const,
     booking_id: r.id,
+    check_in: r.check_in,
+    created_at: r.created_at,
     owner_id: r.owner_id,
     // An offline guest has no profiles row, hence no valid uuid. sms_outbound
     // .recipient_id was made nullable for exactly this (P2a). Do NOT substitute
@@ -638,4 +716,38 @@ async function scanManual(
     guest_name: r.guest_name,
     property: one(r.property),
   }));
+}
+
+// The manual bookings only the short-notice run can text, and nobody has yet:
+// made after the daily run for their check-in fired, with a number a text can reach.
+// The window keeps a booking in view until its stay is over, so the ones already
+// texted are dropped here (the database would refuse them anyway) and a quiet run
+// stays quiet. Everything not decided by `shortNoticeWindow` is `missedDailyRun`'s.
+async function scanShortNotice(
+  db: SbClient,
+  owner_id: string,
+  w: ReturnType<typeof shortNoticeWindow>,
+): Promise<ManualCandidate[]> {
+  const late = (await scanManual(db, {
+    owner_id,
+    dateCol: "check_in",
+    date: [w.today, w.tomorrow],
+    createdBetween: { from: w.from, to: w.to },
+  })).filter((c) =>
+    missedDailyRun(c.check_in, c.created_at) &&
+    toCanonicalGePhone(c.guest_phone)
+  );
+  if (late.length === 0) return late;
+  const { data, error } = await db
+    .from("sms_outbound")
+    .select("source_manual_booking_id")
+    .eq("sender_id", owner_id)
+    .eq("automation_kind", "check_in")
+    .in("source_manual_booking_id", late.map((c) => c.booking_id));
+  if (error) throw error;
+  const texted = new Set(
+    ((data as { source_manual_booking_id: string }[] | null) ?? [])
+      .map((r) => r.source_manual_booking_id),
+  );
+  return late.filter((c) => !texted.has(c.booking_id));
 }

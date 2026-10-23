@@ -6,9 +6,10 @@
  * renter and seller cabinets still sell and show SMS credits (C18).
  *
  * Food has its own top bar and balance page that simply never render SMS, so it
- * does not ask. Transport shares `ServiceTopbar`, `service/balance`,
- * `ServiceDashboardClient` and `service/parameters` with entertainment,
- * employment and services, which keep SMS, so those four ask here.
+ * does not ask. Transport shares `ServiceTopbar`, `service/balance` and
+ * `ServiceDashboardClient` with entertainment, employment and services, which
+ * keep SMS, so those three ask here. (`service/parameters` words its "New
+ * request" line by cabinet instead: only employment's is texted.)
  *
  * Pure module (no imports): `scripts/check-contracts.mjs` (C18/cabinets) pins
  * the list.

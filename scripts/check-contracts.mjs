@@ -721,6 +721,37 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok("C18/pin: the SMS pin takes finite numbers only, enqueue guards the message build, and coordinates are range-checked in the database");
 }
 
+// C18 — a booking the daily SMS run cannot reach (made after its 10:00 run for the
+// check-in, or for today) is texted by a second job of the same function an hour after
+// it was made (20261023100000). The two runs differ only by the request body, so: the
+// daily time of day is the one domain.ts assumes, an unknown mode is refused (never a
+// silent full pass every five minutes), the short-notice run touches no daily kind,
+// and the job posts exactly that mode and is in the C4 job list.
+{
+  const problems = [];
+  const domain = read("supabase/functions/sms-automation-run/domain.ts");
+  const index = read("supabase/functions/sms-automation-run/index.ts");
+  const cron = read("supabase/migrations/20260801132000_schedule_sms_pipeline.sql").match(/'sms-automation-daily',\s*'(\d+) (\d+) \* \* \*'/);
+  const assumed = domain.match(/DAILY_RUN_TIME = "(\d\d):(\d\d):00"/);
+  if (!cron || !assumed) problems.push("cannot read the sms-automation-daily schedule or domain.ts DAILY_RUN_TIME");
+  else if (`${String((Number(cron[2]) + 4) % 24).padStart(2, "0")}:${cron[1].padStart(2, "0")}` !== `${assumed[1]}:${assumed[2]}`)
+    problems.push(`domain.ts DAILY_RUN_TIME ${assumed[1]}:${assumed[2]} is not when sms-automation-daily fires (${cron[2]}:${cron[1]} UTC + 4 h)`);
+  if (!/throw new ApiError\("Unknown mode", 400/.test(index)) problems.push("index.ts must answer 400 to an unknown mode");
+  for (const flag of ["check_in_reminder_enabled", "review_request_enabled", "win_back_enabled"])
+    if (!new RegExp(`if \\(daily && rule\\.${flag}\\)`).test(index)) problems.push(`index.ts must run ${flag} only in the daily mode`);
+  const job = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort()
+    .map((f) => [f, read(join("supabase/migrations", f))])
+    .filter(([, t]) => /cron\.schedule\(\s*'sms-check-in-short-notice'/.test(t)).pop();
+  if (!job) problems.push("no migration schedules sms-check-in-short-notice");
+  else {
+    if (!/body := '\{"mode":"short_notice"\}'::jsonb/.test(job[1])) problems.push(`${job[0]} must post {"mode":"short_notice"}`);
+    if (!/timeout_milliseconds := \d+/.test(job[1])) problems.push(`${job[0]} must set timeout_milliseconds (C4)`);
+  }
+  if (!read("scripts/check-db-contracts.mjs").includes('"sms-check-in-short-notice"')) problems.push("check-db-contracts.mjs C4 does not expect sms-check-in-short-notice");
+  if (problems.length) problems.forEach((p) => fail(`C18/short-notice: ${p}`));
+  else ok(`C18/short-notice: the short-notice run (${job[0]}) posts its own mode, touches no daily kind, and DAILY_RUN_TIME matches the daily cron`);
+}
+
 // C15 — a guest's Smart Match request dates and budgets are range-checked in
 // the database (F-V5-R9-01): 'infinity', a year past 5 million or a NaN budget
 // reached every renter who answered the request (a thrown RangeError took the
@@ -970,30 +1001,52 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
-// C18 — the number a mirrored SMS goes to. profiles.phone is empty for every e-mail
-// sign-up, so a cleaner registered that way was never texted a new call-out (prod,
-// 2026-10-20). 20261022140000 makes cleaning_task_new fall back to the cleaner's newest
-// active cleaning listing (services.phone) after the profile number and before the
-// "no number = no SMS" return, so the e2e skip and every cap key on the number chosen.
-// A migration after the newest full definition of the mirror must carry it.
+// C18 — the number a mirrored SMS goes to. profiles.phone is empty for every e-mail or
+// Google sign-up, so the newest notifications_enqueue_sms() falls back, after the profile
+// number and before the e2e skip and the caps (both must see the number chosen), to the
+// listing the notice is about: a moderated listing (its UUID in action_url, owner-checked)
+// or a call-out answer (?task=, which notify_owner_of_task_status appends: the called
+// listing for the cleaner, the apartment for the renter), else the newest active listing
+// in the notice's cabinet (dashboard_scope_for_listing), else in any. A new call-out is
+// not mirrored: notify_cleaner_of_new_task queues the renter's paid cleaner_call text
+// (C24), and a free mirror row would take the notice's unique source_notification_id
+// first. One number gets at most 8 texts a day across both kinds (20261023110000).
 // ---------------------------------------------------------------------------
 {
   const files = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
   const text = (f) => read(join("supabase/migrations", f));
-  const fullDef = files.filter((f) => /create\s+or\s+replace\s+function\s+public\.notifications_enqueue_sms\(/i.test(text(f))).at(-1);
-  const carrier = files.filter((f) => f >= (fullDef ?? "~") && /sms_canonical_ge_phone\(s\.phone\)/.test(text(f))).at(-1);
-  const sql = carrier ? text(carrier) : "";
-  const block = /v_block\s+text\s*:=\s*\$block\$([\s\S]*?)\$block\$/i.exec(sql)?.[1] ?? "";
+  const bodyOf = (fn) => {
+    const re = new RegExp(`create\\s+or\\s+replace\\s+function\\s+public\\.${fn}\\(`, "i");
+    const file = files.filter((f) => re.test(text(f))).at(-1);
+    if (!file) return { file: null, body: "" };
+    const sql = text(file);
+    const from = sql.search(re);
+    const tag = /\$[a-z_]*\$/i.exec(sql.slice(from))?.[0];
+    const start = tag ? sql.indexOf(tag, from) + tag.length : -1;
+    const end = tag ? sql.indexOf(tag, start) : -1;
+    return { file, body: start > 0 && end > start ? sql.slice(start, end).replace(/--[^\n]*/g, "") : "" };
+  };
+  const mirror = bodyOf("notifications_enqueue_sms");
+  const types = bodyOf("sms_notification_types");
+  const status = bodyOf("notify_owner_of_task_status");
+  const b = mirror.body;
   const problems = [];
-  if (!carrier) problems.push(`no migration after ${fullDef} gives notifications_enqueue_sms() the listing-number fallback (a cleaner without a profile phone is never texted)`);
-  else {
-    if (!/v_phone\s+is\s+null\s+and\s+new\.type\s*=\s*'cleaning_task_new'/i.test(block)) problems.push(`${carrier}: the fallback must apply to cleaning_task_new only (the other cleaning_task_* notices go to the renter)`);
-    if (!/from\s+public\.services\s+s[\s\S]*s\.owner_id\s*=\s*new\.user_id[\s\S]*s\.category\s*=\s*'cleaning'[\s\S]*s\.status\s*=\s*'active'/i.test(block)) problems.push(`${carrier}: the fallback must read the recipient's own active cleaning listing`);
-    if (!/order\s+by\s+s\.created_at\s+desc\s*,\s*s\.id\s+desc[\s\S]*limit\s+1/i.test(block)) problems.push(`${carrier}: the fallback must pick one listing deterministically (newest, then id)`);
-    if (!/replace\(\s*v_def\s*,\s*v_anchor\s*,\s*v_block\s*\|\|\s*v_anchor\s*\)/i.test(sql)) problems.push(`${carrier}: the fallback must be inserted BEFORE the "no number = no SMS" return, so the profile number stays first and the caps and e2e skip see the chosen number`);
-  }
+  if (/'cleaning_task_new'/.test(types.body)) problems.push(`sms_notification_types() (${types.file}) mirrors cleaning_task_new again: its free row takes the notice's source_notification_id before notify_cleaner_of_new_task queues the renter's paid cleaner_call text`);
+  if (!/v_ref\s*:=\s*substring\(\s*new\.action_url/i.test(b)) problems.push(`${mirror.file}: without a profile number the mirror must read the listing or call-out id from the notice's action_url`);
+  if (!/new\.type\s*=\s*'listing_moderation'[\s\S]*?public\.properties\s+pr\s+where\s+pr\.id\s*=\s*v_ref\s+and\s+pr\.owner_id\s*=\s*new\.user_id[\s\S]*?public\.services\s+sv\s+where\s+sv\.id\s*=\s*v_ref\s+and\s+sv\.owner_id\s*=\s*new\.user_id/i.test(b)) problems.push(`${mirror.file}: a moderation notice must fall back to the moderated listing's own number, only if the recipient owns it`);
+  if (!/from\s+public\.cleaning_tasks\s+t[\s\S]*?sv\.id\s*=\s*t\.cleaner_service_id\s+and\s+sv\.owner_id\s*=\s*new\.user_id[\s\S]*?pr\.id\s*=\s*t\.property_id\s+and\s+pr\.owner_id\s*=\s*new\.user_id/i.test(b)) problems.push(`${mirror.file}: a call-out answer must fall back to the recipient's own listing on the task in its ?task= link (the called listing for the cleaner, the apartment for the renter)`);
+  if (!/dashboard_scope_for_listing\(/i.test(b) || !/order\s+by\s+\(x\.scope\s+is\s+not\s+distinct\s+from\s+new\.dashboard_scope\)\s+desc\s*,\s*x\.created_at\s+desc\s*,\s*x\.id\s+desc/i.test(b)) problems.push(`${mirror.file}: the last fallback must be the newest active listing in the notice's cabinet (dashboard_scope_for_listing), then in any, picked deterministically`);
+  if (!/from\s+public\.properties\s+pr\s+where\s+pr\.owner_id\s*=\s*new\.user_id\s+and\s+pr\.status\s*=\s*'active'/i.test(b) || !/from\s+public\.services\s+sv\s+where\s+sv\.owner_id\s*=\s*new\.user_id\s+and\s+sv\.status\s*=\s*'active'/i.test(b)) problems.push(`${mirror.file}: the cabinet fallback must read only the recipient's own ACTIVE listings (never someone else's or an unreviewed number)`);
+  if ((b.match(/sms_canonical_ge_phone\(/gi) ?? []).length < 5) problems.push(`${mirror.file}: every number the mirror reads (profile, moderated listing, call-out listing, both cabinet branches) must go through sms_canonical_ge_phone`);
+  const fallbackAt = b.search(/dashboard_scope_for_listing\(/i);
+  const e2eAt = b.indexOf("@e2e.mybakuriani.test");
+  const lockAt = b.search(/pg_try_advisory_xact_lock\(/i);
+  if (!(fallbackAt > -1 && e2eAt > fallbackAt && lockAt > e2eAt)) problems.push(`${mirror.file}: the listing fallback must come before the e2e skip and the caps, so both see the number chosen`);
+  if (!/automation_kind\s+in\s*\(\s*'notification'\s*,\s*'cleaner_call'\s*\)\s+and\s+s\.recipient_phone\s*=\s*v_phone/i.test(b)) problems.push(`${mirror.file}: the per-number cap must count the call-out texts too (automation_kind in ('notification', 'cleaner_call'))`);
+  const taskLinks = (path) => (status.body.match(new RegExp(`'${path}\\?task='\\s*\\|\\|\\s*NEW\\.id`, "gi")) ?? []).length;
+  if (taskLinks("/dashboard/cleaner") < 2 || taskLinks("/dashboard/renter/cleaners") < 1) problems.push(`notify_owner_of_task_status (${status.file ?? "not found"}) must link every call-out notice with ?task=<id> (the mirror finds the listing by it)`);
   if (problems.length) problems.forEach((p) => fail(`C18/call-out number: ${p}`));
-  else ok(`C18/call-out number: ${carrier} falls back to the cleaner's newest active cleaning listing phone for cleaning_task_new, after the profile number and before the caps`);
+  else ok(`C18/call-out number: ${mirror.file} texts a recipient without a profile number on the listing the notice is about (moderation, ?task=), else the cabinet's newest active listing, before the e2e skip and the caps; a new call-out is left to the paid cleaner_call text`);
 }
 
 // ---------------------------------------------------------------------------
@@ -1041,6 +1094,10 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // (20261007150000). The newest sms_mark_claim_submitted debits the same kinds
 // the delivery charge does; the newest sms_mark_provider_undelivered refunds
 // only for uBill's report status 2/4, which both callers pass as report_status.
+// Every other list of charged kinds names the same kinds (the claim batch, the
+// consent and call-out credit gates; the expiry a superset), a cleaner_call row
+// carries no number (the renter reads it, C25), and only the refund starts with
+// the prefix TransactionList reads as +1 SMS (20261023110000).
 // ---------------------------------------------------------------------------
 {
   const latestBody = (fn) => {
@@ -1099,10 +1156,35 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
       !/report_status:\s*status\b/.test(read(caller))
     )
       problems.push(`${caller} must pass report_status to sms_mark_provider_undelivered`);
+  const lists = (body) =>
+    [...body.matchAll(/automation_kind\s+in\s*\(([^)]*)\)/gi)].map((m) => new Set([...m[1].matchAll(/'([a-z_]+)'/g)].map((k) => k[1])));
+  const claim = latestBody("sms_claim_dispatch_batch");
+  const claimLists = lists(claim.body).filter((l) => l.has("check_in"));
+  if (claimLists.length < 2 || claimLists.some((l) => !setEq(l, subKinds)))
+    problems.push(`sms_claim_dispatch_batch (${claim.file ?? "not found"}) must reserve and rank exactly the kinds sms_mark_claim_submitted charges [${[...subKinds]}]`);
+  for (const fn of ["request_manual_booking_sms_consent", "notify_cleaner_of_new_task"]) {
+    const { file, body } = latestBody(fn);
+    const gate = lists(body).find((l) => l.has("check_in"));
+    if (!gate || !setEq(gate, subKinds)) problems.push(`${fn} (${file ?? "not found"}) must count every unsettled charged kind [${[...subKinds]}] against the owner's credits`);
+  }
+  const expire = latestBody("sms_expire_stale_automation");
+  const expired = lists(expire.body).find((l) => l.has("check_in")) ?? new Set();
+  const notExpired = [...subKinds].filter((k) => !expired.has(k));
+  if (notExpired.length) problems.push(`sms_expire_stale_automation (${expire.file ?? "not found"}) never retires charged kind(s) ${notExpired.join(", ")}`);
+  for (const { file, body } of [submitted, delivered, undelivered])
+    if (!lists(body).find((l) => l.has("price_drop") && !l.has("check_in"))?.has("cleaner_call"))
+      problems.push(`${file}: a cleaner_call transaction must be described without the recipient's number (the renter reads it)`);
+  const refundPrefix = "SMS ვერ მიეწოდა, კრედიტი დაბრუნდა";
+  if (!undelivered.body.includes(`'${refundPrefix}`))
+    problems.push(`sms_mark_provider_undelivered (${undelivered.file}) no longer starts its refund row with '${refundPrefix}' (TransactionList shows it as a charge)`);
+  for (const fn of ["sms_mark_claim_submitted", "sms_mark_provider_delivered", "sms_mark_sent", "sms_mark_claim_sent", "sms_consume_credit", "sms_consume_credits_bulk"])
+    if (latestBody(fn).body.includes(refundPrefix)) problems.push(`${fn} writes the refund prefix '${refundPrefix}' on a charge`);
+  if (!read("src/components/balance/TransactionList.tsx").includes(`"${refundPrefix}"`))
+    problems.push(`TransactionList.tsx must tell a refund ("${refundPrefix}") from a charge`);
   if (problems.length) problems.forEach((p) => fail(`C18: ${p}`));
   else
     ok(
-      `C18: owner SMS credits are charged at submit (${subKinds.size} kinds, same as the delivery charge) and refunded only on uBill status 2/4`,
+      `C18: owner SMS credits are charged at submit (${subKinds.size} kinds, the same in the delivery charge, the claim batch, both credit gates and the expiry), refunded only on uBill status 2/4 under the prefix TransactionList reads; cleaner_call rows carry no number`,
     );
 }
 
@@ -1170,10 +1252,11 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // balance in the wallet card, no SMS packages and no "web notification & SMS"
 // wording (the owner's call 2026-10-17). Food has its own topbar, balance page
 // and parameters page, which must never mention SMS (any "sms" in them fails).
-// Transport shares ServiceTopbar, service/balance, ServiceDashboardClient and
-// service/parameters with entertainment, employment and services, so those four
-// ask src/lib/dashboard/cabinetSms.ts:showsSms (false for exactly food and
-// transport), and the other cabinets must keep their SMS.
+// Transport shares ServiceTopbar, service/balance and ServiceDashboardClient with
+// entertainment, employment and services, so those three ask
+// src/lib/dashboard/cabinetSms.ts:showsSms (false for exactly food and transport),
+// and the other cabinets must keep their SMS. service/parameters words its "New
+// request" line by cabinet: only employment's (a job application) is texted.
 {
   const problems = [];
   if (!/const CABINETS_WITHOUT_SMS = \["food", "transport"\];/.test(read("src/lib/dashboard/cabinetSms.ts")))
@@ -1195,12 +1278,12 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (!/showsSms\(category\)/.test(home) || !home.includes('"stats.spent"') || !home.includes('"stats.spentVip"'))
     problems.push("ServiceDashboardClient must use stats.spentVip for transport and keep stats.spent for the others");
   const params = read("src/app/[locale]/dashboard/service/parameters/page.tsx");
-  if (!/showsSms\(/.test(params) || !params.includes('"channelWebSms"') || !params.includes('"channelWebOnly"'))
-    problems.push("service/parameters must use channelWebOnly for transport and keep channelWebSms for the others");
+  if (!/dashboardScopeForPath\(usePathname\(\)\) === "employment"/.test(params) || !params.includes('"channelWebSms"') || !params.includes('"channelWebOnly"'))
+    problems.push("service/parameters must say web + SMS for a new request only in the employment cabinet (a job application is the only texted request) and web only in the other three");
   if (problems.length) problems.forEach((p) => fail(`C18/cabinets: ${p}`));
   else
     ok(
-      "C18/cabinets: food shows no SMS (topbar, balance page, parameters); transport is gated through showsSms in the shared topbar, balance page, home tile and parameters, and the other service cabinets keep SMS",
+      "C18/cabinets: food shows no SMS (topbar, balance page, parameters); transport is gated through showsSms in the shared topbar, balance page and home tile, the other service cabinets keep SMS, and service/parameters says web + SMS for a new request only in employment",
     );
 }
 
@@ -1785,37 +1868,47 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
         `C24: ${trigFile} formats the bell time in Asia/Tbilisi and flattens the owner-typed title and address`,
       );
 
-    // (8) the cleaner's SMS (C18 + C24, 2026-10-07): the mirror queues "MyBakuriani: <title>" only; this
-    // trigger rewords that row with the apartment, the time and the link. It finds the row by the
-    // notification it just inserted (RETURNING id), only while the mirror's free kind is still 'approved',
-    // and in its own BEGIN … EXCEPTION block (a failure there must keep the bell, not roll it back).
+    // (8) the cleaner's SMS (C18 + C24, 2026-10-23): the renter's, paid with 1 SMS credit (kind cleaner_call,
+    // charged when uBill accepts it). This trigger queues it after the bell notice, in its own BEGIN … EXCEPTION
+    // block (a failure there must keep the bell and the call-out): sender = the renter, recipient = the cleaner,
+    // one text per call-out, on the cleaner's profile number else the listing the renter CALLED, only while the
+    // renter has a free credit, at most 3 a day from one renter to one cleaner, never to an e2e account, under
+    // the mirror's per-number try-lock and daily cap.
     const insAt = trigBody.search(/INSERT\s+INTO\s+public\.notifications/i);
-    const updAt = trigBody.search(/UPDATE\s+public\.sms_outbound/i);
-    const notifVar = /RETURNING\s+id\s+INTO\s+(\w+)/i.exec(trigBody)?.[1];
-    const updStmt = updAt === -1 ? "" : trigBody.slice(updAt, trigBody.indexOf(";", updAt));
-    const handlersAfter = [...trigBody.matchAll(/EXCEPTION\s+WHEN\s+OTHERS/gi)].filter((m) => m.index > updAt).length;
-    if (updAt === -1)
-      fail(
-        `C24: ${trigFile} no longer rewords the cleaner's SMS (UPDATE public.sms_outbound): a new call-out is texted as "MyBakuriani: ახალი გამოძახება" again, without the apartment, time or link`,
-      );
+    const smsAt = trigBody.search(/INSERT\s+INTO\s+public\.sms_outbound/i);
+    const smsStmt = smsAt === -1 ? "" : trigBody.slice(smsAt, trigBody.indexOf(";", smsAt));
+    const handlersAfter = [...trigBody.matchAll(/EXCEPTION\s+WHEN\s+OTHERS/gi)].filter((m) => m.index > smsAt).length;
+    const gate = [...trigBody.matchAll(/automation_kind\s+in\s*\(([^)]*)\)/gi)].map((m) => m[1]).find((l) => l.includes("'check_in'")) ?? "";
+    if (smsAt === -1 || !/'cleaner_call'/.test(smsStmt))
+      fail(`C24: ${trigFile} no longer queues the call-out SMS (INSERT INTO public.sms_outbound … 'cleaner_call'): the cleaner gets the bell only`);
+    else if (/UPDATE\s+public\.sms_outbound/i.test(trigBody))
+      fail(`C24: ${trigFile} rewords an sms_outbound row again: the mirror no longer queues cleaning_task_new, this trigger owns the text`);
+    else if (!(smsAt > insAt && insAt !== -1) || !/\bBEGIN\b/i.test(trigBody.slice(insAt, smsAt)) || handlersAfter < 2)
+      fail(`C24: ${trigFile} must queue the SMS after the bell notice, inside its own BEGIN … EXCEPTION WHEN OTHERS block (otherwise a failure there rolls back the bell and the call-out)`);
+    else if (!/\(\s*NEW\.owner_id\s*,\s*NEW\.cleaner_id\s*,/i.test(smsStmt) || !/source_cleaning_task_id/i.test(smsStmt) || !/ON\s+CONFLICT\s+DO\s+NOTHING/i.test(smsStmt))
+      fail(`C24: ${trigFile} must queue the text as the renter's (sender NEW.owner_id) to the cleaner (NEW.cleaner_id), linked by source_cleaning_task_id, ON CONFLICT DO NOTHING`);
+    else if (!/ORDER\s+BY\s+\(\s*s\.id\s+IS\s+NOT\s+DISTINCT\s+FROM\s+NEW\.cleaner_service_id\s*\)\s+DESC/i.test(trigBody))
+      fail(`C24: ${trigFile} must text a cleaner without a profile number on the listing the renter called (cleaner_service_id first), not on their newest one`);
     else if (
-      !(updAt > insAt && insAt !== -1) ||
-      !notifVar ||
-      !new RegExp(`source_notification_id\\s*=\\s*${notifVar}\\b`, "i").test(updStmt) ||
-      !/automation_kind\s*=\s*'notification'/i.test(updStmt) ||
-      !/status\s*=\s*'approved'/i.test(updStmt)
+      !/FROM\s+public\.services\s+s\s+WHERE\s+s\.owner_id\s*=\s*NEW\.cleaner_id\s+AND\s+s\.category\s*=\s*'cleaning'\s+AND\s+\(\s*s\.id\s*=\s*NEW\.cleaner_service_id\s+OR\s+s\.status\s*=\s*'active'\s*\)/i.test(trigBody) ||
+      !/sms_canonical_ge_phone\(\s*p\.phone\s*\)/i.test(trigBody) ||
+      !/sms_canonical_ge_phone\(\s*s\.phone\s*\)/i.test(trigBody)
     )
-      fail(
-        `C24: ${trigFile} must reword only the row the mirror queued for the notification it just inserted: UPDATE public.sms_outbound … WHERE source_notification_id = <the INSERT's RETURNING id> AND automation_kind = 'notification' AND status = 'approved'`,
-      );
-    else if (!/\bBEGIN\b/i.test(trigBody.slice(insAt, updAt)) || handlersAfter < 2)
-      fail(
-        `C24: ${trigFile} must reword the SMS inside its own BEGIN … EXCEPTION WHEN OTHERS block (otherwise a failure there rolls back the cleaner's bell notice too)`,
-      );
+      fail(`C24: ${trigFile} must text only the cleaner's own number: the profile one, else the called (or an active) cleaning listing of theirs, through sms_canonical_ge_phone`);
+    else if (!/automation_kind\s*=\s*'cleaner_call'\s+AND\s+s\.sender_id\s*=\s*NEW\.owner_id\s+AND\s+s\.recipient_id\s*=\s*NEW\.cleaner_id[\s\S]*?>=\s*3\s+THEN\s+RETURN\s+NEW/i.test(trigBody))
+      fail(`C24: ${trigFile} must text at most 3 call-outs a day from one renter to one cleaner (one renter must not use up the number's daily budget)`);
+    else if (
+      !/b\.user_id\s*=\s*NEW\.owner_id/i.test(trigBody) ||
+      !gate.includes("'cleaner_call'") ||
+      !/coalesce\(\s*v_credits\s*,\s*0\s*\)\s*-\s*v_reserved\s*<\s*1\s+THEN\s+RETURN\s+NEW/i.test(trigBody)
+    )
+      fail(`C24: ${trigFile} must queue the text only while the renter has a free credit (balances.sms_remaining minus unsettled charged texts, cleaner_call included)`);
+    else if (!/@e2e\.mybakuriani\.test/.test(trigBody) || !/'sms_notification_phone:'/.test(trigBody) || !/automation_kind\s+IN\s*\(\s*'notification'\s*,\s*'cleaner_call'\s*\)/i.test(trigBody))
+      fail(`C24: ${trigFile} must skip e2e accounts and apply the mirror's per-number try-lock and daily cap (both kinds)`);
     else if (!/'app\.site_url'/.test(trigBody) || !/!~\s*'\^https:\/\//.test(trigBody))
       fail(`C24: ${trigFile} must take the SMS link host from Vault 'app.site_url' and drop it unless it is a bare https:// origin`);
     else
-      ok(`C24: ${trigFile} rewords the mirror's SMS of a new call-out (apartment, time, link) in its own exception block`);
+      ok(`C24: ${trigFile} queues the renter's paid cleaner_call text (the cleaner's own number, the called listing first, free-credit gate, 3 a day per renter, per-number cap) in its own exception block`);
   }
 }
 

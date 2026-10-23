@@ -339,6 +339,9 @@ export default function CleanerCallModal({
                 <p className="text-[11px] font-medium leading-4 text-[#64748B]">
                   {t("sharedWithCleaner")}
                 </p>
+                <p className="text-[11px] font-medium leading-4 text-[#64748B]">
+                  {t("smsNotice")}
+                </p>
               </div>
 
               {error && (

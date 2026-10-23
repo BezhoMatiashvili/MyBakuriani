@@ -959,7 +959,7 @@
           "phoneRequired": "A valid guest phone number is required to create a link.",
           "loadError": "Could not load consent status.",
           "generateError": "Could not create the link. Please try again.",
-          "smsHelp": "MyBakuriani texts the guest a secure link, and the guest accepts or declines on their own. You never see the link. One SMS credit is charged only after delivery.",
+          "smsHelp": "MyBakuriani texts the guest a secure link, and the guest accepts or declines on their own. You never see the link. One SMS credit is taken when the SMS is sent and returned if it is not delivered.",
           "notRequested": "No SMS sent yet",
           "smsStatuses": {
             "queued": "SMS is being sent",
@@ -3566,6 +3566,7 @@
     "txHistory": "Transaction history",
     "noTransactions": "No transactions yet",
     "noPackages": "No packages available yet",
+    "txSmsRefund": "SMS credit returned",
     "txTypes": {
       "topup": "Top-up",
       "vip_boost": "VIP",
@@ -4179,7 +4180,8 @@
       "timeConflict": "This cleaner already has a job scheduled within 30 minutes of this time",
       "addressHint": "Give the exact address: street, building, floor, flat.",
       "startTime": "Start time",
-      "sharedWithCleaner": "The cleaner sees the address, your note and your phone number or WhatsApp as soon as you send this, even if they decline. Share door codes by phone after they accept."
+      "sharedWithCleaner": "The cleaner sees the address, your note and your phone number or WhatsApp as soon as you send this, even if they decline. Share door codes by phone after they accept.",
+      "smsNotice": "The cleaner sees the call-out on the site. If you have SMS credits and the cleaner has a mobile number on file, they also get an SMS (up to 3 a day from you to one cleaner): 1 credit is taken when it is sent and returned if it is not delivered. Without credits, no SMS is sent."
     },
     "addModal": {
       "title": "Add a cleaner",
@@ -4871,6 +4873,7 @@
       "vip_expiry": "VIP expiring",
       "subscription": "Package / membership",
       "notification": "Notification",
+      "cleaner_call": "New call-out (to cleaner)",
       "legacy": "Older SMS",
       "sign_in": "Sign-in code",
       "phone_change": "Phone change code",

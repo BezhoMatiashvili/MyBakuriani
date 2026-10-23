@@ -25,7 +25,9 @@ export type SmsLedgerStatus = (typeof SMS_LEDGER_STATUSES)[number];
  * Every kind the ledger can hold, as the page words it (`kinds.<key>`): the
  * sms_outbound.automation_kind values, `legacy` (rows sent before kinds
  * existed), the two sign-in code kinds, and each notification type the SMS
- * mirror texts (`notification_<type>`, C18 sms_notification_types()).
+ * mirror texts (`notification_<type>`, C18 sms_notification_types()). A type
+ * the mirror stopped texting keeps its catalogue words for old rows
+ * (`notification_cleaning_task_new`: call-outs are `cleaner_call` since 2026-10-23).
  */
 export const SMS_KIND_KEYS = [
   "check_in",
@@ -37,13 +39,13 @@ export const SMS_KIND_KEYS = [
   "vip_expiry",
   "subscription",
   "notification",
+  "cleaner_call",
   "legacy",
   "sign_in",
   "phone_change",
   "notification_payment_success",
   "notification_payment_failed",
   "notification_payment_refund",
-  "notification_cleaning_task_new",
   "notification_cleaning_task_status",
   "notification_cleaning_task_cancelled",
   "notification_cleaning_task_cancellation_requested",

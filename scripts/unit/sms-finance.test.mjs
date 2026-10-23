@@ -169,7 +169,7 @@ test("SMS_KIND_KEYS = every automation kind + legacy + both code kinds + every t
       .matchAll(/'([^']+)'/g),
   ].map((m) => m[1]);
   assert.ok(
-    kinds.length >= 9 && types.length >= 11,
+    kinds.length >= 9 && types.length >= 10,
     `read ${kinds.length} kinds, ${types.length} types`,
   );
   const authKinds = [

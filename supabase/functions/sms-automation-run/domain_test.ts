@@ -11,7 +11,10 @@ import {
   buildReviewRequest,
   buildWinBack,
   type Candidate,
+  missedDailyRun,
   type Rule,
+  SHORT_NOTICE_DELAY_MS,
+  shortNoticeWindow,
   tbilisiDate,
   toCanonicalGePhone,
 } from "./domain.ts";
@@ -71,6 +74,52 @@ Deno.test("Tbilisi date uses UTC+4 at the UTC day boundary", () => {
   const atUtcEvening = Date.parse("2026-07-31T21:30:00.000Z");
   assertEquals(tbilisiDate(0, atUtcEvening), "2026-08-01");
   assertEquals(tbilisiDate(1, atUtcEvening), "2026-08-02");
+});
+
+Deno.test("check-in text names today for a stay that begins today", () => {
+  const tomorrow = buildCheckIn(candidate, rule, SITE, false);
+  const today = buildCheckIn(candidate, rule, SITE, false, "today");
+  assertStringIncludes(today, "გელოდებით დღეს 15:30-დან");
+  assertEquals(today, tomorrow.replace("ხვალ", "დღეს"));
+});
+
+// sms-automation-daily fires at 10:00 in Tbilisi (06:00 UTC) the day before check-in.
+Deno.test("a booking is short notice once the daily run for its check-in has fired", () => {
+  const checkIn = "2026-10-24"; // its daily run: 2026-10-23T06:00:00Z
+  assertFalse(missedDailyRun(checkIn, "2026-10-23T05:59:59.999Z"));
+  // At the boundary both runs may see it: a duplicate is free, a gap is not.
+  assert(missedDailyRun(checkIn, "2026-10-23T06:00:00.000Z"));
+  // 15:00 the day before is 23 h before a midnight check-in and 27 h before a 14:00
+  // one: a "less than 24 h" rule would text neither the daily run nor this one.
+  assert(missedDailyRun(checkIn, "2026-10-23T11:00:00Z"));
+  assert(missedDailyRun(checkIn, "2026-10-24T07:00:00Z")); // the day itself
+  assertFalse(missedDailyRun(checkIn, "2026-10-20T09:00:00Z")); // days ahead: daily
+  assertFalse(missedDailyRun(checkIn, null));
+  assertFalse(missedDailyRun(checkIn, "not a date"));
+});
+
+Deno.test("the short-notice window follows the Tbilisi day", () => {
+  assertEquals(shortNoticeWindow(Date.parse("2026-10-23T08:20:00Z")), {
+    today: "2026-10-23",
+    tomorrow: "2026-10-24",
+    from: "2026-10-22T06:00:00.000Z", // the daily run for a stay today
+    to: "2026-10-23T07:20:00.000Z", // booked at least an hour ago
+  });
+  const afterMidnight = shortNoticeWindow(Date.parse("2026-10-23T20:30:00Z"));
+  assertEquals(afterMidnight.today, "2026-10-24");
+  assertEquals(afterMidnight.tomorrow, "2026-10-25");
+});
+
+Deno.test("a booking made at 23:30 for tomorrow is texted an hour later as today", () => {
+  const created = "2026-10-23T19:30:00Z"; // 23:30 in Tbilisi, the stay begins tomorrow
+  const w = shortNoticeWindow(Date.parse(created) + SHORT_NOTICE_DELAY_MS);
+  assertEquals(w.today, "2026-10-24"); // 00:30: it is the check-in day now
+  assert(Date.parse(created) >= Date.parse(w.from));
+  assert(Date.parse(created) <= Date.parse(w.to)); // exactly an hour old: in
+  assert(missedDailyRun("2026-10-24", created));
+  // One minute earlier it is not an hour old yet.
+  const early = shortNoticeWindow(Date.parse(created) + SHORT_NOTICE_DELAY_MS - 60_000);
+  assert(Date.parse(created) > Date.parse(early.to));
 });
 
 Deno.test("check-in text uses fallback name and drops unavailable lines", () => {
@@ -378,6 +427,13 @@ Deno.test("check-in text length budget over the input shapes", () => {
       c.visible ?? true,
     );
     assertEquals(message.length, c.length, c.name);
+    // "დღეს" and "ხვალ" are the same length: short notice changes no budget.
+    assertEquals(
+      buildCheckIn(c.candidate, c.rule ?? rule, STAGING, c.visible ?? true, "today")
+        .length,
+      c.length,
+      c.name,
+    );
     assertEquals(segments(message), c.sms, c.name);
     assert(message.length <= 320, c.name);
     assertFalse(/\[[A-Za-z_]+\]/.test(message), c.name);
