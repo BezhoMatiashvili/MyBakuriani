@@ -725,7 +725,9 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // it was made (20261023100000). The two runs differ only by the request body, so: the
 // daily time of day is the one domain.ts assumes, an unknown mode is refused (never a
 // silent full pass every five minutes), the short-notice run touches no daily kind,
-// and the job posts exactly that mode and is in the C4 job list.
+// and the job posts exactly that mode and is in the C4 job list. The dispatch-time check
+// (sms_cancel_ineligible_automation, every minute) keeps a check_in row for today only when
+// it was queued that day, which is when this run words it "დღეს" (20261024160000).
 {
   const problems = [];
   const domain = read("supabase/functions/sms-automation-run/domain.ts");
@@ -747,8 +749,15 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     if (!/timeout_milliseconds := \d+/.test(job[1])) problems.push(`${job[0]} must set timeout_milliseconds (C4)`);
   }
   if (!read("scripts/check-db-contracts.mjs").includes('"sms-check-in-short-notice"')) problems.push("check-db-contracts.mjs C4 does not expect sms-check-in-short-notice");
+  if (!/const day: CheckInDay = c\.check_in === notice\.today\s*\?\s*"today"/.test(index)) problems.push('index.ts must word a short-notice text "today" exactly when its check-in is the run\'s Tbilisi today');
+  const gate = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort()
+    .map((f) => [f, read(join("supabase/migrations", f))])
+    .filter(([, t]) => /create or replace function public\.sms_cancel_ineligible_automation\(\)/i.test(t)).pop();
+  if (!gate) problems.push("no migration defines sms_cancel_ineligible_automation");
+  else if (!/mb\.check_in=\(now\(\) at time zone 'Asia\/Tbilisi'\)::date\s+and \(s\.created_at at time zone 'Asia\/Tbilisi'\)::date=mb\.check_in/.test(gate[1].replace(/--[^\n]*/g, "")))
+    problems.push(`${gate[0]}: sms_cancel_ineligible_automation must keep a check_in row for today that was queued that day (else every "დღეს" text is failed within a minute)`);
   if (problems.length) problems.forEach((p) => fail(`C18/short-notice: ${p}`));
-  else ok(`C18/short-notice: the short-notice run (${job[0]}) posts its own mode, touches no daily kind, and DAILY_RUN_TIME matches the daily cron`);
+  else ok(`C18/short-notice: the short-notice run (${job[0]}) posts its own mode, touches no daily kind, DAILY_RUN_TIME matches the daily cron, and the dispatch check (${gate[0]}) keeps its same-day texts`);
 }
 
 // C15 — a guest's Smart Match request dates and budgets are range-checked in
