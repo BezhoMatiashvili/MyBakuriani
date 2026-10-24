@@ -80,7 +80,6 @@ export type HotelListing = Pick<
   | "rooms"
   | "amenities"
   | "hotel_stars"
-  | "numeric_rating"
   | "room_type"
   | "is_b2b_partner"
   | "ownership_verified"
@@ -428,7 +427,6 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
                       p.price_per_night ? Number(p.price_per_night) : null
                     }
                     salePrice={p.sale_price ? Number(p.sale_price) : null}
-                    rating={null}
                     capacity={p.capacity}
                     rooms={p.rooms}
                     isVip={p.is_vip ?? false}
@@ -438,7 +436,6 @@ export default function HotelsPageClient({ properties, statusCards }: Props) {
                     discountExpiresAt={p.discount_expires_at}
                     isForSale={p.is_for_sale ?? false}
                     isHotel
-                    numericRating={p.numeric_rating ?? undefined}
                     hotelStars={p.hotel_stars ?? undefined}
                     roomType={p.room_type ?? undefined}
                     isB2BPartner={p.is_b2b_partner ?? false}

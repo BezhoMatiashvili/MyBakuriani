@@ -37,7 +37,6 @@ import { secretsEqual } from "../_shared/secrets.ts";
 import {
   type AutomationKind,
   buildCheckIn,
-  buildReviewRequest,
   buildWinBack,
   type Candidate,
   type CheckInDay,
@@ -69,7 +68,7 @@ async function requireSharedSecret(req: Request) {
 }
 
 // SITE_URL must be an absolute origin: NEXT_PUBLIC_* is a Next build-time thing and
-// is NOT visible inside Deno, so without this the review/listing links would render
+// is NOT visible inside Deno, so without this the listing links would render
 // as relative paths inside an SMS - unclickable and unfixable after delivery.
 //
 // Checked per-request rather than at module scope on purpose: a module-level throw
@@ -112,7 +111,6 @@ type SkipReason =
   | "no_consent"
   | "opted_out"
   | "already_queued"
-  | "not_eligible"
   | "no_credit"
   | "sale_only";
 
@@ -183,13 +181,12 @@ serve(async (req: Request) => {
       .select(
         `user_id,
          check_in_reminder_enabled,
-         review_request_enabled,
          win_back_enabled,
          win_back_discount_value, win_back_discount_period,
          profiles!inner(display_name, phone)`,
       )
       .or(
-        "check_in_reminder_enabled.eq.true,review_request_enabled.eq.true,win_back_enabled.eq.true",
+        "check_in_reminder_enabled.eq.true,win_back_enabled.eq.true",
       );
     if (rulesErr) throw rulesErr;
 
@@ -204,7 +201,6 @@ serve(async (req: Request) => {
       return {
         user_id: r.user_id,
         check_in_reminder_enabled: r.check_in_reminder_enabled,
-        review_request_enabled: r.review_request_enabled,
         win_back_enabled: r.win_back_enabled,
         win_back_discount_value: r.win_back_discount_value,
         win_back_discount_period: r.win_back_discount_period,
@@ -239,7 +235,7 @@ serve(async (req: Request) => {
 
     const summary = {
       processed_users: rules.length,
-      queued: { check_in: 0, review_request: 0, win_back: 0 } as Record<
+      queued: { check_in: 0, win_back: 0 } as Record<
         AutomationKind,
         number
       >,
@@ -253,7 +249,6 @@ serve(async (req: Request) => {
         no_consent: 0,
         opted_out: 0,
         already_queued: 0,
-        not_eligible: 0,
         no_credit: 0,
         sale_only: 0,
       } as Record<SkipReason, number>,
@@ -296,6 +291,8 @@ serve(async (req: Request) => {
         continue;
       }
 
+      // review_request is no longer queued, but a row queued before reviews were
+      // retired still spends a credit when sent, and sms_enqueue_automation counts it.
       const { count: activeQueue, error: queueErr } = await db
         .from("sms_outbound")
         .select("id", { count: "exact", head: true })
@@ -441,66 +438,6 @@ serve(async (req: Request) => {
             "check_in",
             c,
             () => buildCheckIn(c, rule, siteUrl, listingVisible, day),
-          );
-        }
-      }
-
-      // ---- T2 REVIEW REQUEST ----------------------------------------------
-      if (daily && rule.review_request_enabled) {
-        const day = tbilisiDate(-1);
-        for (
-          const c of await scanPlatform(db, {
-            owner_id: rule.user_id,
-            dateCol: "check_out",
-            date: day,
-            statuses: ["completed"],
-            requireConsent: true,
-          })
-        ) {
-          if (!reachable(c, true)) continue;
-          const { count, error: reviewErr } = await db
-            .from("reviews")
-            .select("id", { count: "exact", head: true })
-            .eq("booking_id", c.booking_id);
-          if (reviewErr) throw reviewErr;
-          if ((count ?? 0) > 0) continue; // already reviewed
-          await enqueue(
-            "review_request",
-            c,
-            () => buildReviewRequest(c, siteUrl),
-          );
-        }
-        for (
-          const c of await scanManual(db, {
-            owner_id: rule.user_id,
-            dateCol: "check_out",
-            date: day,
-            requireConsent: true,
-          })
-        ) {
-          if (!reachable(c, true)) continue;
-          const { count, error: reviewErr } = await db
-            .from("reviews")
-            .select("id", { count: "exact", head: true })
-            .eq("manual_booking_id", c.booking_id);
-          if (reviewErr) throw reviewErr;
-          if ((count ?? 0) > 0) continue;
-          const { data: token, error: tokenErr } = await db.rpc(
-            "sms_create_manual_review_token",
-            { p_owner_id: rule.user_id, p_manual_booking_id: c.booking_id },
-          );
-          if (tokenErr) {
-            // 42501: the booking stopped being review-eligible since the scan
-            // (cancelled, consent withdrawn, dates moved). That skips this one
-            // booking; any other error is still the run's.
-            if (tokenErr.code !== "42501") throw tokenErr;
-            skip("not_eligible", { booking_id: c.booking_id });
-            continue;
-          }
-          await enqueue(
-            "review_request",
-            c,
-            () => buildReviewRequest(c, siteUrl, String(token)),
           );
         }
       }

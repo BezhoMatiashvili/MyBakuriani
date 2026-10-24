@@ -44,7 +44,6 @@ import { MobileServiceSwitcherGrid } from "@/components/layout/MobileServiceSwit
 import { CopyUserIdButton } from "@/components/layout/CopyUserIdButton";
 import BottomSheet from "@/components/shared/BottomSheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
 
 interface MobileBottomNavProps {
   currentPath: string;
@@ -143,7 +142,6 @@ function getNavigation(role: string): RoleNavigation {
             href: "/dashboard/admin/logs",
             icon: ClipboardList,
           },
-          { labelKey: "reviews", href: "/dashboard/admin/reviews", icon: Star },
           {
             labelKey: "tariffsAndPackages",
             href: "/dashboard/admin/settings",
@@ -248,11 +246,6 @@ function getNavigation(role: string): RoleNavigation {
             labelKey: "cleaners",
             href: "/dashboard/renter/cleaners",
             icon: Sparkles,
-          },
-          {
-            labelKey: "reviews",
-            href: "/dashboard/renter/reviews",
-            icon: Star,
           },
           {
             labelKey: "balanceAndVip",
@@ -437,10 +430,7 @@ export function MobileBottomNav({
   // "view all" opens /notifications) or their own inbox via the sidebar.
   const more = [
     ...navigation.more.filter(
-      (item) =>
-        (item.href !== "/dashboard/sms" || canUseSms) &&
-        // Rental reviews are temporarily hidden (see RENTAL_REVIEWS_HIDDEN).
-        (item.href !== "/dashboard/renter/reviews" || !RENTAL_REVIEWS_HIDDEN),
+      (item) => item.href !== "/dashboard/sms" || canUseSms,
     ),
     // Admin too: it has no cabinet switcher, and that page is where it
     // changes its password.

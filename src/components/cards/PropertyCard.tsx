@@ -31,7 +31,6 @@ interface PropertyCardProps {
   photos: string[];
   pricePerNight: number | null;
   salePrice: number | null;
-  rating: number | null;
   capacity: number | null;
   rooms: number | null;
   isVip: boolean;
@@ -40,7 +39,6 @@ interface PropertyCardProps {
   discountExpiresAt: string | null;
   isForSale: boolean;
   isHotel?: boolean;
-  numericRating?: number;
   isB2BPartner?: boolean;
   hotelStars?: number;
   roomType?: string;
@@ -84,7 +82,6 @@ export default function PropertyCard(props: PropertyCardProps) {
     discountExpiresAt,
     isForSale,
     isHotel,
-    numericRating,
     isB2BPartner,
     hotelStars,
     roomType,
@@ -310,11 +307,6 @@ export default function PropertyCard(props: PropertyCardProps) {
                 <h3 className={cn("min-w-0 flex-1 truncate font-black text-[#1E293B]", compactGrid ? "text-[14px] leading-[18px] sm:text-[17px] sm:leading-[21px]" : "text-[17px] leading-[21px]")}>
                   {title}
                 </h3>
-                {numericRating != null && (
-                  <span className={cn("shrink-0 rounded-[6px] bg-[#DCFCE7] font-black text-[#15803D]", compactGrid ? "px-1.5 py-0.5 text-[10px] sm:px-2 sm:text-[12px]" : "px-2 py-0.5 text-[12px]")}>
-                    {numericRating.toFixed(1)}
-                  </span>
-                )}
               </div>
               <div className="mt-1 flex min-w-0 items-center justify-between gap-1.5">
                 <p className={cn("min-w-0 truncate font-bold text-[#94A3B8]", compactGrid ? "text-[9px] leading-[13px] sm:text-[11px] sm:leading-[16px]" : "text-[11px] leading-[16px]")}>

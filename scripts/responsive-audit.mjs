@@ -180,11 +180,6 @@ const DASHBOARD_ROUTES = [
   },
   { path: "/dashboard/guest/profile", label: "guest-profile", role: "guest" },
   { path: "/dashboard/guest/reviews", label: "guest-reviews", role: "guest" },
-  {
-    path: `/dashboard/guest/rate/${QA.booking}`,
-    label: "guest-rate-booking",
-    role: "guest",
-  },
   // renter
   { path: "/dashboard/renter", label: "renter-home", role: "renter" },
   {
@@ -216,11 +211,6 @@ const DASHBOARD_ROUTES = [
   {
     path: "/dashboard/renter/profile",
     label: "renter-profile",
-    role: "renter",
-  },
-  {
-    path: "/dashboard/renter/reviews",
-    label: "renter-reviews",
     role: "renter",
   },
   {
@@ -424,7 +414,6 @@ const DASHBOARD_ROUTES = [
     label: "admin-promocodes",
     role: "admin",
   },
-  { path: "/dashboard/admin/reviews", label: "admin-reviews", role: "admin" },
   { path: "/dashboard/admin/seo", label: "admin-seo", role: "admin" },
   { path: "/dashboard/admin/settings", label: "admin-settings", role: "admin" },
   {

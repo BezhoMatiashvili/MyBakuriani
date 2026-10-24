@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Eye,
   ImageIcon,
-  Star,
   ShieldCheck,
   Share2,
 } from "lucide-react";
@@ -148,15 +147,6 @@ export default function EntertainmentDetailClient({
           {service.title}
         </h1>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[14px] text-[#64748B]">
-          {service.rating != null && (
-            <span className="inline-flex items-center gap-1.5 font-bold text-[#1E293B]">
-              <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-              {service.rating.toFixed(1)}
-              <span className="font-medium text-[#94A3B8]">
-                {t("reviewsCount", { count: service.reviews_count ?? 0 })}
-              </span>
-            </span>
-          )}
           {service.location && (
             <ZoneLocationLink
               location={service.location}

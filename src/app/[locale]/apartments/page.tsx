@@ -46,7 +46,7 @@ export default async function ApartmentsPage({
       // Only the columns the listing cards + map use (not all 57) — keeps the
       // prerendered RSC payload small. Keep in sync with ApartmentListing.
       .select(
-        "id, title, location, photos, price_per_night, sale_price, is_for_sale, location_lat, location_lng, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, capacity, rooms, amenities, distance_to_slope_m, ownership_verified, type, hotel_stars, numeric_rating, room_type, is_b2b_partner",
+        "id, title, location, photos, price_per_night, sale_price, is_for_sale, location_lat, location_lng, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, capacity, rooms, amenities, distance_to_slope_m, ownership_verified, type, hotel_stars, room_type, is_b2b_partner",
       )
       .eq("is_for_sale", false)
       // Hotels too: "ბინები" is the one nav entry for both (owner's PDF

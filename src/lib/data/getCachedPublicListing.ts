@@ -175,45 +175,6 @@ export function getCachedPublicMenuItems(id: string) {
   )();
 }
 
-export function getCachedPublicReviews(id: string) {
-  // A non-UUID id must never reach Postgres: it raises 22P02 (invalid input
-  // syntax for type uuid), which surfaces as an uncached 500. Crawlers and old
-  // URLs produce a steady stream of these. The food page runs this inside a
-  // Promise.all BEFORE notFound(), so for it the 500 was reachable in practice;
-  // the others are only safe today by statement ordering, which is a fragile
-  // reason to stay correct.
-  if (!isUuid(id)) return Promise.resolve([]);
-
-  return unstable_cache(
-    async () => {
-      const supabase = createPublicClient();
-      const { data, error } = await supabase
-        .from("public_reviews")
-        .select("*")
-        .eq("property_id", id)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      // Don't cache a transient failure as "no reviews": throw so unstable_cache
-      // skips caching and the caller falls through to the dynamic path.
-      if (error) throw error;
-      return (data ?? []).map((review) => {
-        const row = review as typeof review & {
-          guest_display_name?: string | null;
-        };
-        return {
-          ...row,
-          profiles: { display_name: row.guest_display_name ?? "" },
-        };
-      });
-    },
-    ["public-reviews", id],
-    {
-      tags: [listingTag("property", id)],
-      revalidate: PUBLIC_LISTING_REVALIDATE_S,
-    },
-  )();
-}
-
 export function getCachedPublicCalendar(id: string) {
   // A non-UUID id must never reach Postgres: it raises 22P02 (invalid input
   // syntax for type uuid), which surfaces as an uncached 500. Crawlers and old
@@ -321,7 +282,6 @@ export function getCachedPublicCvCount(id: string): Promise<number> {
 
 // Shared result shapes so the dynamic fallback path on each detail page can type
 // its withTimeout fallback identically to the cached path (same select strings).
-export type PublicReviews = Awaited<ReturnType<typeof getCachedPublicReviews>>;
 export type PublicCalendar = Awaited<
   ReturnType<typeof getCachedPublicCalendar>
 >;

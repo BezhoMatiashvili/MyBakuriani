@@ -9,9 +9,8 @@ import {
 } from "../_shared/guards.ts";
 import { secretsEqual } from "../_shared/secrets.ts";
 
-// Daily-scheduled job. Finds bookings whose check_out has passed,
-// transitions them to `completed`, and inserts a one-time
-// `review_request` notification with a link to the in-dashboard rate page.
+// Daily-scheduled job. Finds bookings whose check_out has passed and
+// transitions them to `completed`.
 //
 // Auth: shared secret in BOOKING_FINALIZE_SECRET (Bearer header). The cron
 // job and any manual invocations must present this token.
@@ -47,7 +46,6 @@ serve(async (req) => {
       .slice(0, 10);
 
     let completed = 0;
-    let notified = 0;
     let skipped = 0;
     let processed = 0;
     let cursor: string | null = null;
@@ -55,7 +53,7 @@ serve(async (req) => {
     while (true) {
       let query = supabase
         .from("bookings")
-        .select("id, guest_id, property_id, check_out")
+        .select("id, check_out")
         .eq("status", "confirmed")
         .lt("check_out", today)
         .order("id")
@@ -92,55 +90,6 @@ serve(async (req) => {
           continue;
         }
         completed += 1;
-
-        const { data: existingReview, error: reviewErr } = await supabase
-          .from("reviews")
-          .select("id")
-          .eq("booking_id", booking.id)
-          .maybeSingle();
-        if (reviewErr) throw reviewErr;
-
-        if (existingReview) {
-          skipped += 1;
-          continue;
-        }
-
-        const actionUrl = `/dashboard/guest/rate/${booking.id}`;
-        const { data: existingNotification, error: notificationErr } =
-          await supabase
-            .from("notifications")
-            .select("id")
-            .eq("user_id", booking.guest_id)
-            .eq("action_url", actionUrl)
-            .maybeSingle();
-        if (notificationErr) throw notificationErr;
-
-        if (existingNotification) {
-          skipped += 1;
-          continue;
-        }
-
-        const { data: property, error: propertyErr } = await supabase
-          .from("properties")
-          .select("title")
-          .eq("id", booking.property_id)
-          .maybeSingle();
-        if (propertyErr) throw propertyErr;
-
-        const propertyTitle = property?.title ?? "თქვენი დარჩენა";
-
-        const { error: notifyErr } = await supabase.from("notifications")
-          .insert({
-            user_id: booking.guest_id,
-            type: "review_request",
-            title: "შეაფასეთ თქვენი დარჩენა",
-            message: `გთხოვთ შეაფასოთ "${propertyTitle}"`,
-            action_url: actionUrl,
-            dashboard_scope: "guest",
-          });
-
-        if (notifyErr) throw notifyErr;
-        notified += 1;
       }
 
       cursor = due[due.length - 1].id;
@@ -152,7 +101,6 @@ serve(async (req) => {
         data: {
           processed,
           completed,
-          notified,
           skipped,
         },
       },

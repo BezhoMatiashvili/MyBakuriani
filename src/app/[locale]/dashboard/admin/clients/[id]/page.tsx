@@ -300,17 +300,11 @@ export default function ClientDetailPage() {
         </div>
 
         {/* Profile details grid */}
-        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-[#E2E8F0] pt-4 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-[#E2E8F0] pt-4 sm:grid-cols-3">
           <div>
             <p className="text-xs text-[#94A3B8]">{t("registered")}</p>
             <p className="text-sm font-medium text-[#1E293B]">
               {formatDate(profile.created_at)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-[#94A3B8]">{t("rating")}</p>
-            <p className="text-sm font-medium text-[#1E293B]">
-              {profile.rating ? `${profile.rating}/5` : "—"}
             </p>
           </div>
           <div>

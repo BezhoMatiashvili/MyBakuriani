@@ -110,7 +110,6 @@ function toCarouselCard(p: LandingProperty) {
     photos: p.photos ?? [],
     pricePerNight: p.price_per_night ? Number(p.price_per_night) : null,
     salePrice: p.sale_price ? Number(p.sale_price) : null,
-    rating: null as number | null,
     capacity: p.capacity,
     rooms: p.rooms,
     isVip: p.is_vip ?? false,
@@ -423,7 +422,6 @@ export default function LandingPage({
         photos: p.photos ?? [],
         pricePerNight: p.price_per_night ? Number(p.price_per_night) : null,
         salePrice: p.sale_price ? Number(p.sale_price) : null,
-        rating: null as number | null,
         capacity: p.capacity,
         rooms: p.rooms,
         isVip: p.is_vip ?? false,
@@ -1144,7 +1142,6 @@ function PropertySection({
     photos: string[];
     pricePerNight: number | null;
     salePrice: number | null;
-    rating: number | null;
     capacity: number | null;
     rooms: number | null;
     isVip: boolean;
@@ -1154,7 +1151,6 @@ function PropertySection({
     createdAt: string | null;
     isForSale: boolean;
     isHotel?: boolean;
-    numericRating?: number;
     isB2BPartner?: boolean;
     hotelStars?: number;
     roomType?: string;

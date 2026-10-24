@@ -269,7 +269,6 @@
     "login": "Войти",
     "profile": "Профиль",
     "bookings": "Бронирования",
-    "reviews": "Отзывы",
     "logout": "Выйти",
     "menu": "Меню",
     "close": "Закрыть меню",
@@ -359,7 +358,6 @@
       "orders": "Заказы",
       "cvs": "Резюме",
       "bookings": "Бронирования",
-      "reviews": "Отзывы",
       "myRentals": "Мои квартиры",
       "guests": "Гости",
       "cleaners": "Уборщики",
@@ -1282,23 +1280,12 @@
       "error": "Не удалось обновить уведомление."
     }
   },
-  "ManualReview": {
-    "loading": "Загрузка формы…",
-    "invalid": "Ссылка недействительна, истекла или уже использована.",
-    "thanks": "Спасибо за отзыв!",
-    "title": "Оцените проживание",
-    "subtitle": "Поделитесь впечатлением об объекте {property}.",
-    "ratingLabel": "Оценка",
-    "commentLabel": "Комментарий (необязательно)",
-    "submit": "Отправить отзыв",
-    "submitting": "Отправка…"
-  },
   "SmsConsent": {
     "loading": "Загрузка информации о согласии…",
     "invalidTitle": "Ссылка больше не действует",
     "invalidHelp": "Попросите арендодателя создать новую ссылку.",
     "title": "Выбор SMS-сообщений",
-    "description": "Вы сами решаете, получать ли запросы отзывов и предложения вернуться. Служебные сообщения о бронировании не зависят от этого выбора.",
+    "description": "Вы сами решаете, получать ли предложения вернуться. Служебные сообщения о бронировании не зависят от этого выбора.",
     "guest": "Гость",
     "phone": "Телефон",
     "property": "Объект",
@@ -1330,8 +1317,6 @@
       "title": "Автоматизация",
       "checkInTitle": "Напоминания о заезде",
       "checkInDesc": "Автоматически напомнить гостю о завтрашнем заезде",
-      "reviewTitle": "Запрос отзыва",
-      "reviewDesc": "Попросить гостя об отзыве на следующий день после выезда",
       "winBackTitle": "Возврат клиентов",
       "winBackDesc": "Пригласить гостя вернуться через 90 дней после выезда",
       "discountValueLabel": "Размер скидки",
@@ -1607,7 +1592,6 @@
     "seeAll": "Смотреть все →"
   },
   "PropertyDetail": {
-    "reviewsCount": "{count, plural, one {# отзыв} few {# отзыва} many {# отзывов} other {# отзыва}}",
     "views": "{count, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}}",
     "rooms": "{count, plural, one {# комната} few {# комнаты} many {# комнат} other {# комнаты}}",
     "guests": "{count, plural, one {# гость} few {# гостя} many {# гостей} other {# гостя}}",
@@ -1619,8 +1603,6 @@
     "exactLocation": "Точное местоположение",
     "noCoordinates": "Координаты на карте не добавлены",
     "freeDates": "Свободные даты",
-    "noReviews": "Отзывов пока нет",
-    "anonymous": "Аноним",
     "ownerFallback": "Владелец",
     "book": "Позвонить",
     "balconyNone": "Балкон: нет"
@@ -1628,10 +1610,7 @@
   "ApartmentDetail": {
     "showLess": "Показать меньше",
     "showAll": "Показать все",
-    "houseRulesTitle": "Правила дома",
-    "reviewsTitle": "{count, plural, one {# отзыв} few {# отзыва} many {# отзывов} other {# отзыва}}",
-    "verifiedReviews": "Отзывы подтверждённых гостей",
-    "viewAllReviews": "Смотреть все отзывы ({count})"
+    "houseRulesTitle": "Правила дома"
   },
   "HotelDetail": {
     "hotel": "Отель",
@@ -1641,8 +1620,7 @@
     "roomQuantity": "{count, plural, one {# такой номер} few {# таких номера} many {# таких номеров} other {# таких номера}}",
     "starsAria": "{count, plural, one {# звезда} few {# звезды} many {# звёзд} other {# звезды}}",
     "roomPhotoAlt": "{name}, фото {n}",
-    "hotelRulesTitle": "Правила отеля",
-    "reviewsTitle": "Отзывы"
+    "hotelRulesTitle": "Правила отеля"
   },
   "HouseRules": {
     "checkIn": "Заезд",
@@ -1702,7 +1680,6 @@
     "noCoordinates": "Координаты на карте не добавлены",
     "disclaimerTitle": "Об объявлении",
     "disclaimerBody": "Информация предоставлена автором объявления. MyBakuriani является информационно-технологической платформой и не является стороной сделки. Цена, условия и другие детали сделки определяются непосредственно между автором объявления и пользователем.",
-    "reviewsTitle": "Отзывы",
     "price": "Цена",
     "negotiable": "Договорная",
     "pricePerSqm": "{price} / м²",
@@ -1835,7 +1812,6 @@
       "type": "Тип",
       "cuisine": "Кухня",
       "zone": "Зона",
-      "rating": "Рейтинг",
       "avgCheck": "Средний чек",
       "workingHours": "Часы работы"
     }
@@ -1905,7 +1881,6 @@
   },
   "EntertainmentDetail": {
     "photoGallery": "Фотогалерея ({count})",
-    "reviewsCount": "({count, plural, one {# отзыв} few {# отзыва} many {# отзывов} other {# отзыва}})",
     "whatWeOffer": "Что мы предлагаем",
     "duration": "Длительность",
     "age": "Возраст",
@@ -3035,9 +3010,6 @@
     "offersDescEmpty": "Укажите желаемые условия, и владельцы отправят вам предложения напрямую.",
     "viewOffers": "Смотреть предложения",
     "sendRequest": "Отправить запрос",
-    "pendingReviews": "Ожидают отзыва ({count})",
-    "pendingReviewsHint": "Отзывы после завершённых поездок помогают другим гостям.",
-    "review": "Оценить",
     "recentTitle": "Недавно просмотренные объявления",
     "recentSubtitle": "Продолжите с того места, где остановились.",
     "recentEmpty": "Вы ещё не просматривали объявления. Открытые вами объявления появятся здесь.",
@@ -3149,12 +3121,9 @@
   },
   "GuestReviews": {
     "title": "История общения",
-    "subtitle": "Последние услуги и отзывы.",
+    "subtitle": "Последние услуги.",
     "recentCalls": "Последние контакты",
-    "myReviews": "Мои отзывы",
     "noCalls": "Контактов пока нет",
-    "noReviews": "Отзывов пока нет",
-    "defaultProperty": "Объект",
     "undated": "Без даты",
     "calledToday": "Связались сегодня, {time}",
     "calledYesterday": "Связались вчера, {time}",
@@ -3609,7 +3578,6 @@
     "notifManagement": "Управление уведомлениями",
     "notifNewRequest": "Новый запрос",
     "notifNewOrder": "Новый заказ",
-    "notifNewReview": "Новый отзыв",
     "notifAddFavorite": "Добавление в избранное",
     "notifDailyReport": "Ежедневный отчёт",
     "notifMonthlyReport": "Ежемесячный отчёт",
@@ -3871,7 +3839,6 @@
     "statActive": "Активные",
     "statViews": "Всего просмотров",
     "statInquiries": "Запросы (месяц)",
-    "statRating": "Рейтинг",
     "myServices": "Мои услуги",
     "emptyTitle": "Объявлений пока нет",
     "emptyDesc": "Добавьте первую услугу и получайте запросы.",
@@ -4221,30 +4188,7 @@
       "confirmed": "Подтверждено",
       "completed": "Завершено",
       "cancelled": "Отменено"
-    },
-    "reviewLink": {
-      "generate": "Отправить ссылку на отзыв",
-      "generating": "Создание...",
-      "copy": "Копировать",
-      "copied": "Скопировано",
-      "errors": {
-        "not_consented": "Гость ещё не подтвердил согласие на SMS",
-        "already_reviewed": "Отзыв уже оставлен",
-        "not_past_checkout": "Станет доступно после даты выезда",
-        "cancelled_booking": "Бронирование отменено",
-        "generic": "Не удалось создать ссылку, попробуйте снова"
-      }
     }
-  },
-  "RenterReviews": {
-    "title": "Отзывы",
-    "subtitle": "Реальные отзывы гостей после ссылки post-stay.",
-    "empty": "Отзывов пока нет",
-    "emptyHint": "После выезда гостю автоматически отправляется ссылка на отзыв.",
-    "approvedCount": "{count} подтверждённых отзывов",
-    "approved": "Подтверждено",
-    "reply": "Ответить",
-    "aiReply": "AI-ответ"
   },
   "RenterProfile": {
     "subtitle": "Данные профиля и управление уведомлениями.",
@@ -4270,26 +4214,6 @@
     "metricResponseTime": "Ср. время ответа",
     "metricCloseRate": "Доля закрытий",
     "insufficientData": "Недостаточно данных"
-  },
-  "GuestRate": {
-    "title": "Оцените проживание",
-    "subtitle": "Ваш отзыв поможет другим гостям сделать лучший выбор.",
-    "notFoundTitle": "Бронь не найдена",
-    "notFoundDesc": "Ссылка может быть неверной или бронь удалена.",
-    "notYoursTitle": "Доступ ограничен",
-    "notYoursDesc": "Оценить эту бронь может только её гость.",
-    "notFinishedTitle": "Проживание ещё не завершено",
-    "notFinishedDesc": "Ссылка на отзыв активируется после даты выезда.",
-    "alreadyRatedTitle": "Эта бронь уже оценена",
-    "alreadyRatedDesc": "Спасибо за отзыв! Вы можете посмотреть отзывы в профиле.",
-    "yourRating": "Ваша оценка",
-    "starLabel": "{count} звёзд",
-    "commentLabel": "Комментарий (необязательно)",
-    "commentPlaceholder": "Что понравилось и что можно улучшить?",
-    "ratingRequired": "Выберите оценку от 1 до 5",
-    "submitError": "Не удалось сохранить отзыв. Попробуйте снова.",
-    "submitting": "Отправка...",
-    "submit": "Отправить отзыв"
   },
   "AdminLogs": {
     "title": "Логи",
@@ -4468,12 +4392,6 @@
       "blocked": "Приостановлено",
       "pending": "Ожидание",
       "draft": "Черновик"
-    },
-    "reviewStatus": {
-      "pending": "Ожидание",
-      "approved": "Одобрено",
-      "hidden": "Скрыто",
-      "removed": "Удалено"
     },
     "smsStatus": {
       "pending": "Ожидание",
@@ -7137,22 +7055,6 @@
       "pin": "Метка"
     }
   },
-  "AdminReviews": {
-    "title": "Модерация отзывов",
-    "subtitle": "Модерация отзывов гостей по ссылке бронирования",
-    "pendingCount": "{count} в ожидании",
-    "noPending": "Новых отзывов нет",
-    "empty": "Нет отзывов по этому фильтру",
-    "unknownGuest": "Неизвестный гость",
-    "property": "Объект: {title}",
-    "viaLink": "По ссылке",
-    "manual": "Вручную",
-    "noComment": "(без комментария)",
-    "aiAudit": "AI-аудит",
-    "hide": "Скрыть",
-    "aiAnalyzeFailed": "AI-анализ не удался",
-    "aiAnalyzeDone": "AI-анализ завершён"
-  },
   "AdminClients": {
     "title": "Пользователи",
     "subtitle": "Управление, история и пополнение баланса.",
@@ -7260,7 +7162,6 @@
     "removeVerification": "Снять верификацию",
     "notify": "Уведомить",
     "registered": "Регистрация",
-    "rating": "Рейтинг",
     "listings": "Объявления",
     "bookings": "Бронирования",
     "notes": "Заметки",

@@ -46,55 +46,6 @@ async function generateWithFallback(
     : new Error(String(lastErr ?? "all models failed"));
 }
 
-export type ReviewAnalysis = {
-  sentiment: "positive" | "neutral" | "negative";
-  risk_tags: string[];
-  summary_ka: string;
-};
-
-/**
- * Analyze a guest review for sentiment + risk tags (legal risk, slander, harassment, spam, off-topic).
- * Returns structured JSON. Callers must catch — no silent fallback.
- */
-export async function analyzeReview(params: {
-  rating: number;
-  comment: string;
-}): Promise<ReviewAnalysis> {
-  const { text } = await generateWithFallback((model) => ({
-    model,
-    // JSON.stringify, not .replace(/"/g,'\\"') — that escaped the quote but not
-    // the backslash, so a comment ending in \ escaped its own closing quote and
-    // let the reviewer write instructions into the moderation prompt.
-    contents: `შეაფასე სტუმრის მიმოხილვა მესაკუთრის ბინაზე. რეიტინგი: ${params.rating}/5. კომენტარი: ${JSON.stringify(params.comment)}. დააბრუნე JSON.`,
-    config: {
-      systemInstruction:
-        "You moderate guest reviews for a Georgian rental marketplace. Output strict JSON matching the schema. Keep summary_ka short (≤120 chars) and in Georgian. Risk tags from: LEGAL_RISK, SLANDER, HARASSMENT, SPAM, OFF_TOPIC, PROFANITY, FAKE.",
-      responseMimeType: "application/json",
-      responseJsonSchema: {
-        type: Type.OBJECT,
-        properties: {
-          sentiment: {
-            type: Type.STRING,
-            enum: ["positive", "neutral", "negative"],
-          },
-          risk_tags: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-          },
-          summary_ka: { type: Type.STRING },
-        },
-        propertyOrdering: ["sentiment", "risk_tags", "summary_ka"],
-        required: ["sentiment", "risk_tags", "summary_ka"],
-      },
-    },
-  }));
-  const parsed = JSON.parse(text || "{}") as ReviewAnalysis;
-  if (!parsed.sentiment || !Array.isArray(parsed.risk_tags)) {
-    throw new Error("gemini returned malformed review analysis");
-  }
-  return parsed;
-}
-
 /**
  * Polish or generate a marketing broadcast body in Georgian.
  */

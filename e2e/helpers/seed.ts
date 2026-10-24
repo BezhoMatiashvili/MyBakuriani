@@ -8,7 +8,6 @@ import {
   properties,
   calendarBlocks,
   bookings,
-  reviews,
   services,
   notifications,
   transactions,
@@ -384,16 +383,6 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     guest_message: "ტესტ შეტყობინება",
   });
 
-  // ---- Review ----
-  await reviews.create({
-    id: TEST_IDS.review,
-    property_id: TEST_IDS.apartment,
-    booking_id: TEST_IDS.booking,
-    guest_id: TEST_IDS.guest,
-    rating: 5,
-    comment: "შესანიშნავი ადგილი!",
-  });
-
   // ---- Services ----
   await services.create({
     id: TEST_IDS.foodService,
@@ -701,9 +690,6 @@ export async function cleanupTestData(): Promise<void> {
 
   // Seller leads (depends on profiles + properties)
   await leads.delete(TEST_IDS.sellerLead).catch(ignore);
-
-  // Reviews (depends on bookings + properties)
-  await reviews.delete(TEST_IDS.review).catch(ignore);
 
   // Calendar blocks (depends on properties + bookings)
   await calendarBlocks.delete(TEST_IDS.calendarBlock1).catch(ignore);

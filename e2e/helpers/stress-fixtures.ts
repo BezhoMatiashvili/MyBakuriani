@@ -164,7 +164,6 @@ export async function seedStressFixtures(): Promise<void> {
       is_vip: true,
       vip_expires_at: futureISO(30),
       hotel_stars: 5,
-      numeric_rating: 4.9,
       room_type: georgian(30),
       discount_percent: 15,
       discount_expires_at: futureISO(30),

@@ -10,10 +10,8 @@ import {
 } from "@/lib/data/getPropertyById";
 import {
   getCachedPublicProperty,
-  getCachedPublicReviews,
   getCachedPublicCalendar,
   getCachedPublicPriceOverrides,
-  type PublicReviews,
   type PublicCalendar,
   type PublicPriceOverrides,
 } from "@/lib/data/getCachedPublicListing";
@@ -86,8 +84,7 @@ export default async function ApartmentDetailPage({ params }: Props) {
   }
 
   if (cached) {
-    const [reviews, calendarBlocks, priceOverrides] = await Promise.all([
-      getCachedPublicReviews(id),
+    const [calendarBlocks, priceOverrides] = await Promise.all([
       getCachedPublicCalendar(id),
       getCachedPublicPriceOverrides(id),
     ]);
@@ -95,7 +92,6 @@ export default async function ApartmentDetailPage({ params }: Props) {
       <ApartmentDetailClient
         property={cached}
         isPending={false}
-        reviews={reviews}
         calendarBlocks={calendarBlocks}
         priceOverrides={priceOverrides}
       />
@@ -114,7 +110,6 @@ export default async function ApartmentDetailPage({ params }: Props) {
     return (
       <ApartmentDetailClient
         property={property}
-        reviews={[]}
         calendarBlocks={[]}
         priceOverrides={[]}
       />
@@ -130,18 +125,7 @@ export default async function ApartmentDetailPage({ params }: Props) {
 
   // Secondary reads run concurrently and each degrades to empty on timeout, so a
   // slow query can never block the core listing render.
-  const [reviews, calendarBlocks, priceOverrides] = await Promise.all([
-    withTimeout(
-      supabase
-        .from("reviews")
-        .select("*, profiles!reviews_guest_id_fkey(display_name)")
-        .eq("property_id", id)
-        .order("created_at", { ascending: false })
-        .limit(20)
-        .then((r) => r.data ?? []),
-      DETAIL_AUX_TIMEOUT_MS,
-      [] as PublicReviews,
-    ),
+  const [calendarBlocks, priceOverrides] = await Promise.all([
     withTimeout(
       supabase
         .from("calendar_blocks")
@@ -174,7 +158,6 @@ export default async function ApartmentDetailPage({ params }: Props) {
     <ApartmentDetailClient
       property={property}
       isPending={isPending}
-      reviews={reviews}
       calendarBlocks={calendarBlocks}
       priceOverrides={priceOverrides}
     />

@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
-import { History, Phone, Star } from "lucide-react";
+import { History, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,10 +41,6 @@ type PropertyListingRow = Pick<
 >;
 type ServiceListingRow = Pick<Tables<"services">, "id" | "title" | "photos">;
 
-type ReviewRow = Tables<"reviews"> & {
-  properties: Pick<Tables<"properties">, "title" | "photos"> | null;
-};
-
 function useContactRelativeFormatter() {
   const t = useTranslations("GuestReviews");
   const locale = useLocale();
@@ -78,33 +74,22 @@ function useContactRelativeFormatter() {
 
 export default function GuestHistoryPage() {
   const t = useTranslations("GuestReviews");
-  const locale = useLocale();
   const formatContactRelative = useContactRelativeFormatter();
   const { user } = useAuth();
   const supabase = createClient();
 
   const [contacts, setContacts] = useState<ContactEventRow[]>([]);
-  const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     async function fetchData() {
-      const [ceRes, rvRes] = await Promise.all([
-        supabase
-          .from("contact_events")
-          .select("id, channel, property_id, service_id, created_at")
-          .eq("visitor_id", user!.id)
-          .order("created_at", { ascending: false })
-          .limit(10),
-        supabase
-          .from("reviews")
-          .select("*, properties(title, photos)")
-          .eq("guest_id", user!.id)
-          .order("created_at", { ascending: false })
-          .limit(10),
-      ]);
-      if (rvRes.data) setReviews(rvRes.data as ReviewRow[]);
+      const ceRes = await supabase
+        .from("contact_events")
+        .select("id, channel, property_id, service_id, created_at")
+        .eq("visitor_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
 
       const contactRows = ceRes.data ?? [];
       const propertyIds = contactRows
@@ -193,62 +178,34 @@ export default function GuestHistoryPage() {
         </p>
       </motion.div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
-            {t("recentCalls")}
-          </p>
-          <div className="space-y-3">
-            {loading ? (
-              Array.from({ length: 2 }).map((_, i) => (
-                <Skeleton key={i} className="h-[72px] rounded-[16px]" />
-              ))
-            ) : contacts.length === 0 ? (
-              <EmptyState
-                icon={<History className="h-6 w-6 text-[#CBD5E1]" />}
-                title={t("noCalls")}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
+          {t("recentCalls")}
+        </p>
+        <div className="space-y-3">
+          {loading ? (
+            Array.from({ length: 2 }).map((_, i) => (
+              <Skeleton key={i} className="h-[72px] rounded-[16px]" />
+            ))
+          ) : contacts.length === 0 ? (
+            <EmptyState
+              icon={<History className="h-6 w-6 text-[#CBD5E1]" />}
+              title={t("noCalls")}
+            />
+          ) : (
+            contacts.map((c) => (
+              <ContactCard
+                key={c.id}
+                contact={c}
+                formatContactRelative={formatContactRelative}
               />
-            ) : (
-              contacts.map((c) => (
-                <ContactCard
-                  key={c.id}
-                  contact={c}
-                  formatContactRelative={formatContactRelative}
-                />
-              ))
-            )}
-          </div>
-        </motion.section>
-
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-        >
-          <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-[#94A3B8]">
-            {t("myReviews")}
-          </p>
-          <div className="space-y-3">
-            {loading ? (
-              Array.from({ length: 2 }).map((_, i) => (
-                <Skeleton key={i} className="h-[72px] rounded-[16px]" />
-              ))
-            ) : reviews.length === 0 ? (
-              <EmptyState
-                icon={<Star className="h-6 w-6 text-[#CBD5E1]" />}
-                title={t("noReviews")}
-              />
-            ) : (
-              reviews.map((r) => (
-                <ReviewCard key={r.id} review={r} locale={locale} />
-              ))
-            )}
-          </div>
-        </motion.section>
-      </div>
+            ))
+          )}
+        </div>
+      </motion.section>
     </div>
   );
 }
@@ -305,44 +262,5 @@ function ContactCard({
         )}
       </span>
     </Link>
-  );
-}
-
-function ReviewCard({ review, locale }: { review: ReviewRow; locale: string }) {
-  const t = useTranslations("GuestReviews");
-  const photo = review.properties?.photos?.[0] ?? null;
-  return (
-    <div className="flex items-center gap-3 rounded-[16px] border border-[#EEF1F4] bg-white p-3 shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
-      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-[#F1F5F9]">
-        {photo && (
-          <Image
-            src={photo}
-            alt={review.properties?.title ?? ""}
-            fill
-            sizes="40px"
-            className="object-cover"
-          />
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-bold text-[#0F172A]">
-          {review.properties?.title ?? t("defaultProperty")}
-        </p>
-        <p className="text-[11px] text-[#94A3B8]">
-          {formatDateShort(review.created_at, locale)}
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center gap-0.5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Star
-            key={i}
-            className={`h-3.5 w-3.5 ${
-              i < (review.rating ?? 0) ? "text-[#F59E0B]" : "text-[#E2E8F0]"
-            }`}
-            fill="currentColor"
-          />
-        ))}
-      </div>
-    </div>
   );
 }

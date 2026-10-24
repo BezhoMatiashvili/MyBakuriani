@@ -24,7 +24,7 @@ const FETCH = 12;
 
 // Only the columns the cards read. Plain literals so supabase-js types the rows.
 const PROPERTY_COLUMNS =
-  "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, construction_status, construction_progress_percent, house_rules, hotel_stars, numeric_rating, is_b2b_partner, room_type, ownership_verified";
+  "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, construction_status, construction_progress_percent, house_rules, hotel_stars, is_b2b_partner, room_type, ownership_verified";
 const SERVICE_COLUMNS =
   "id, title, category, position, location, photos, price, price_unit, discount_percent, discount_expires_at, best_active_menu_item_discount_percent, created_at, is_vip, is_super_vip, schedule, operating_hours, has_whatsapp, vehicle_capacity, transport_type, vehicle_make, route, routes, salary_type, salary_min, salary_max, salary_daily, salary_range, work_schedule, employment_schedule, ownership_verified";
 
@@ -104,7 +104,6 @@ function toPropertyCard(
     photos: p.photos ?? [],
     pricePerNight: p.price_per_night ? Number(p.price_per_night) : null,
     salePrice: p.sale_price ? Number(p.sale_price) : null,
-    rating: null,
     capacity: p.capacity,
     rooms: p.rooms,
     isVip: p.is_vip ?? false,
@@ -119,7 +118,6 @@ function toPropertyCard(
       ? {
           isHotel: true,
           hotelStars: p.hotel_stars ?? undefined,
-          numericRating: p.numeric_rating ?? undefined,
           isB2BPartner: p.is_b2b_partner ?? false,
           roomType: p.room_type ?? undefined,
         }

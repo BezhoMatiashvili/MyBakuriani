@@ -5,10 +5,7 @@ import type { AppLocale } from "@/i18n/routing";
 import { smsFeatureMode } from "@/lib/sms/feature-flags";
 import { getMockProperty, isMockPropertyId } from "@/lib/mock/properties";
 import type { PropertyWithProfile } from "@/lib/data/getPropertyById";
-import {
-  getCachedPublicProperty,
-  getCachedPublicReviews,
-} from "@/lib/data/getCachedPublicListing";
+import { getCachedPublicProperty } from "@/lib/data/getCachedPublicListing";
 import { pickDescription } from "@/lib/seo/description";
 import { buildListingMetadata, redirectToCanonicalListing } from "@/lib/seo";
 import { propertyViewUrl } from "@/lib/utils/listingUrls";
@@ -91,19 +88,10 @@ export default async function SaleDetailPage({ params }: Props) {
     return (
       <SaleDetailClient
         property={mock}
-        reviews={[]}
         priceAlertMode={priceAlertMode}
       />
     );
   }
-
-  // Start the extra read alongside the listing rather than after it: it used to
-  // be a second serial round-trip wave. The `.catch()` marks the promise ITSELF
-  // as handled (the derived promise it returns is what `void` discards), so an
-  // early notFound() unwind can't surface an unhandled rejection. It is still
-  // awaited below and still rejects, so a real failure stays loud.
-  const reviewsPromise = getCachedPublicReviews(id);
-  void reviewsPromise.catch(() => {});
 
   // Cached public (active) listing — zero DB round-trip on a cache hit. A
   // transient miss-time error rethrows so this render fails (uncached) instead
@@ -126,8 +114,6 @@ export default async function SaleDetailPage({ params }: Props) {
     locale,
   );
 
-  const reviews = await reviewsPromise;
-
   return (
     <>
       <ListingBreadcrumbs
@@ -138,7 +124,6 @@ export default async function SaleDetailPage({ params }: Props) {
       />
       <SaleDetailClient
         property={cached}
-        reviews={reviews}
         isPending={false}
         priceAlertMode={priceAlertMode}
       />

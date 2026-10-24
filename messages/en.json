@@ -269,7 +269,6 @@
     "login": "Sign In",
     "profile": "Profile",
     "bookings": "Bookings",
-    "reviews": "Reviews",
     "logout": "Sign Out",
     "menu": "Menu",
     "close": "Close menu",
@@ -359,7 +358,6 @@
       "orders": "Orders",
       "cvs": "CVs",
       "bookings": "Bookings",
-      "reviews": "Reviews",
       "myRentals": "My Rentals",
       "guests": "Guests",
       "cleaners": "Cleaners",
@@ -1282,23 +1280,12 @@
       "error": "Could not update the price alert."
     }
   },
-  "ManualReview": {
-    "loading": "Loading review form…",
-    "invalid": "This review link is invalid, expired, or already used.",
-    "thanks": "Thank you for your review!",
-    "title": "Rate your stay",
-    "subtitle": "Share your experience at {property}.",
-    "ratingLabel": "Rating",
-    "commentLabel": "Comment (optional)",
-    "submit": "Submit review",
-    "submitting": "Submitting…"
-  },
   "SmsConsent": {
     "loading": "Loading consent information…",
     "invalidTitle": "This link is no longer valid",
     "invalidHelp": "Ask the host for a new consent link.",
     "title": "SMS messaging choice",
-    "description": "You decide whether to receive review requests and return offers. Operational booking messages do not depend on this choice.",
+    "description": "You decide whether to receive return offers. Operational booking messages do not depend on this choice.",
     "guest": "Guest",
     "phone": "Phone",
     "property": "Property",
@@ -1330,8 +1317,6 @@
       "title": "Automation",
       "checkInTitle": "Check-in reminders",
       "checkInDesc": "Send an automatic reminder for tomorrow's check-in",
-      "reviewTitle": "Review requests",
-      "reviewDesc": "Ask the guest for a review the day after check-out",
       "winBackTitle": "Win-back campaign",
       "winBackDesc": "Invite the guest back 90 days after check-out",
       "discountValueLabel": "Discount amount",
@@ -1607,7 +1592,6 @@
     "seeAll": "See all →"
   },
   "PropertyDetail": {
-    "reviewsCount": "{count, plural, one {# review} other {# reviews}}",
     "views": "{count, plural, one {# view} other {# views}}",
     "rooms": "{count, plural, one {# room} other {# rooms}}",
     "guests": "{count, plural, one {# guest} other {# guests}}",
@@ -1619,8 +1603,6 @@
     "exactLocation": "Exact location",
     "noCoordinates": "Map coordinates have not been added",
     "freeDates": "Available dates",
-    "noReviews": "No reviews yet",
-    "anonymous": "Anonymous",
     "ownerFallback": "Owner",
     "book": "Call",
     "balconyNone": "Balcony: none"
@@ -1628,10 +1610,7 @@
   "ApartmentDetail": {
     "showLess": "Show less",
     "showAll": "Show all",
-    "houseRulesTitle": "House rules",
-    "reviewsTitle": "{count, plural, one {# review} other {# reviews}}",
-    "verifiedReviews": "Reviews from verified guests",
-    "viewAllReviews": "View all reviews ({count})"
+    "houseRulesTitle": "House rules"
   },
   "HotelDetail": {
     "hotel": "Hotel",
@@ -1641,8 +1620,7 @@
     "roomQuantity": "{count, plural, one {# room of this type} other {# rooms of this type}}",
     "starsAria": "{count, plural, one {# star} other {# stars}}",
     "roomPhotoAlt": "{name}, photo {n}",
-    "hotelRulesTitle": "Hotel rules",
-    "reviewsTitle": "Reviews"
+    "hotelRulesTitle": "Hotel rules"
   },
   "HouseRules": {
     "checkIn": "Check-in",
@@ -1702,7 +1680,6 @@
     "noCoordinates": "Map coordinates have not been added",
     "disclaimerTitle": "About this listing",
     "disclaimerBody": "This information is provided by the listing's author. MyBakuriani is an information-technology platform and is not a party to the transaction. The price, terms, and other details of the deal are determined directly between the listing's author and the user.",
-    "reviewsTitle": "Reviews",
     "price": "Price",
     "negotiable": "Negotiable",
     "pricePerSqm": "{price} / m²",
@@ -1835,7 +1812,6 @@
       "type": "Type",
       "cuisine": "Cuisine",
       "zone": "Zone",
-      "rating": "Rating",
       "avgCheck": "Average check",
       "workingHours": "Working hours"
     }
@@ -1905,7 +1881,6 @@
   },
   "EntertainmentDetail": {
     "photoGallery": "Photo gallery ({count})",
-    "reviewsCount": "({count, plural, one {# review} other {# reviews}})",
     "whatWeOffer": "What we offer",
     "duration": "Duration",
     "age": "Age",
@@ -3035,9 +3010,6 @@
     "offersDescEmpty": "Set your preferences and owners will send you offers directly.",
     "viewOffers": "View offers",
     "sendRequest": "Send request",
-    "pendingReviews": "Pending reviews ({count})",
-    "pendingReviewsHint": "Leaving a review after completed stays helps other guests.",
-    "review": "Review",
     "recentTitle": "Recently viewed listings",
     "recentSubtitle": "Pick up where you left off.",
     "recentEmpty": "You haven't viewed any listings yet. The ones you open will show up here.",
@@ -3149,12 +3121,9 @@
   },
   "GuestReviews": {
     "title": "Communication history",
-    "subtitle": "Recent services and reviews.",
+    "subtitle": "Recent services.",
     "recentCalls": "Recent contacts",
-    "myReviews": "My reviews",
     "noCalls": "No contacts yet",
-    "noReviews": "No reviews yet",
-    "defaultProperty": "Property",
     "undated": "Undated",
     "calledToday": "Contacted today, {time}",
     "calledYesterday": "Contacted yesterday, {time}",
@@ -3609,7 +3578,6 @@
     "notifManagement": "Notification settings",
     "notifNewRequest": "New request",
     "notifNewOrder": "New order",
-    "notifNewReview": "New review",
     "notifAddFavorite": "Added to favorites",
     "notifDailyReport": "Daily report",
     "notifMonthlyReport": "Monthly report",
@@ -3871,7 +3839,6 @@
     "statActive": "Active",
     "statViews": "Total views",
     "statInquiries": "Requests (month)",
-    "statRating": "Rating",
     "myServices": "My services",
     "emptyTitle": "No listings yet",
     "emptyDesc": "Add your first service and start receiving requests.",
@@ -4221,30 +4188,7 @@
       "confirmed": "Confirmed",
       "completed": "Completed",
       "cancelled": "Cancelled"
-    },
-    "reviewLink": {
-      "generate": "Send review link",
-      "generating": "Generating...",
-      "copy": "Copy",
-      "copied": "Copied",
-      "errors": {
-        "not_consented": "Guest hasn't confirmed SMS consent yet",
-        "already_reviewed": "A review has already been submitted",
-        "not_past_checkout": "Available after the checkout date has passed",
-        "cancelled_booking": "This booking is cancelled",
-        "generic": "Couldn't create the link, please try again"
-      }
     }
-  },
-  "RenterReviews": {
-    "title": "Reviews",
-    "subtitle": "Real guest reviews submitted via the post-stay review link.",
-    "empty": "No reviews yet",
-    "emptyHint": "When a guest checks out, they automatically receive a review link.",
-    "approvedCount": "{count} approved reviews",
-    "approved": "Approved",
-    "reply": "Reply",
-    "aiReply": "AI reply"
   },
   "RenterProfile": {
     "subtitle": "Profile details and notification controls.",
@@ -4270,26 +4214,6 @@
     "metricResponseTime": "Avg. response time",
     "metricCloseRate": "Close rate",
     "insufficientData": "Not enough data yet"
-  },
-  "GuestRate": {
-    "title": "Rate your stay",
-    "subtitle": "Your review helps other guests make better choices.",
-    "notFoundTitle": "Booking not found",
-    "notFoundDesc": "The link may be invalid or the booking was removed.",
-    "notYoursTitle": "Access restricted",
-    "notYoursDesc": "Only the guest of this booking can leave a review.",
-    "notFinishedTitle": "Stay not finished yet",
-    "notFinishedDesc": "The review link activates after checkout date.",
-    "alreadyRatedTitle": "This booking is already rated",
-    "alreadyRatedDesc": "Thank you for your review! You can see your reviews in your profile.",
-    "yourRating": "Your rating",
-    "starLabel": "{count} stars",
-    "commentLabel": "Comment (optional)",
-    "commentPlaceholder": "What did you like and what could be improved?",
-    "ratingRequired": "Please select a rating from 1 to 5",
-    "submitError": "Failed to save review. Please try again.",
-    "submitting": "Submitting...",
-    "submit": "Submit review"
   },
   "AdminLogs": {
     "title": "Logs",
@@ -4468,12 +4392,6 @@
       "blocked": "Paused",
       "pending": "Pending",
       "draft": "Draft"
-    },
-    "reviewStatus": {
-      "pending": "Pending",
-      "approved": "Approved",
-      "hidden": "Hidden",
-      "removed": "Removed"
     },
     "smsStatus": {
       "pending": "Pending",
@@ -7137,22 +7055,6 @@
       "pin": "Pin"
     }
   },
-  "AdminReviews": {
-    "title": "Review moderation",
-    "subtitle": "Moderate guest reviews received via booking link",
-    "pendingCount": "{count} pending",
-    "noPending": "No new reviews",
-    "empty": "No reviews match this filter",
-    "unknownGuest": "Unknown guest",
-    "property": "Property: {title}",
-    "viaLink": "Via link",
-    "manual": "Manual",
-    "noComment": "(no comment)",
-    "aiAudit": "AI audit",
-    "hide": "Hide",
-    "aiAnalyzeFailed": "AI analysis failed",
-    "aiAnalyzeDone": "AI analysis complete"
-  },
   "AdminClients": {
     "title": "Users",
     "subtitle": "Manage users, check history or top up balance.",
@@ -7260,7 +7162,6 @@
     "removeVerification": "Remove Verification",
     "notify": "Notify",
     "registered": "Registered",
-    "rating": "Rating",
     "listings": "Listings",
     "bookings": "Bookings",
     "notes": "Notes",

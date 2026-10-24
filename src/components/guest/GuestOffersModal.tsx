@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Star, ArrowRight } from "lucide-react";
+import { X, ArrowRight } from "lucide-react";
 import { formatPrice } from "@/lib/utils/format";
 
 export interface GuestOffer {
@@ -18,7 +18,6 @@ export interface GuestOffer {
   renter: {
     displayName: string | null;
     avatarUrl: string | null;
-    rating: number | null;
     listingsCount: number | null;
   };
   /** Read from `public_properties`; null while the listing is not public
@@ -27,7 +26,6 @@ export interface GuestOffer {
     id: string;
     title: string;
     photo: string | null;
-    rating: number | null;
     capacity: number | null;
     pricePerNight: number;
     isVip?: boolean;
@@ -236,12 +234,6 @@ function OfferCard({
                 {offer.property.title}
               </h4>
               <div className="mt-1 flex items-center gap-3 text-[11px] font-medium text-[#64748B]">
-                {offer.property.rating != null && offer.property.rating > 0 && (
-                  <span className="flex items-center gap-1">
-                    <Star className="h-3 w-3 fill-[#F59E0B] text-[#F59E0B]" />
-                    {offer.property.rating.toFixed(1)}
-                  </span>
-                )}
                 {offer.property.capacity != null && (
                   <span>
                     {t("guestsCount", { count: offer.property.capacity })}

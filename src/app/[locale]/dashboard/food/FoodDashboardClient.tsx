@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
-import { BookOpen, Star, Eye, Heart, Phone, Clock } from "lucide-react";
+import { BookOpen, Eye, Heart, Phone, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRealtimeSubscription } from "@/lib/hooks/useRealtime";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -79,7 +79,6 @@ export default function FoodDashboardClient({
   }
 
   const name = restaurant?.title ?? tShared("defaultRestaurant");
-  const rating = 0;
   const views = restaurant?.views_count ?? 0;
 
   return (
@@ -94,14 +93,6 @@ export default function FoodDashboardClient({
             {name}
           </h1>
           <p className="mt-1 flex items-center gap-3 text-[13px] font-medium text-[#64748B]">
-            {rating > 0 && (
-              <span className="inline-flex items-center gap-1 text-[#F59E0B]">
-                <Star className="h-3.5 w-3.5" fill="currentColor" />
-                <span className="font-bold text-[#0F172A]">
-                  {rating.toFixed(1)}
-                </span>
-              </span>
-            )}
             <span className="inline-flex items-center gap-1">
               <Eye className="h-3.5 w-3.5" />
               {tShared("views", { count: views })}

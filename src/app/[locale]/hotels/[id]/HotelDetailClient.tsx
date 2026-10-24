@@ -40,14 +40,12 @@ const BakurianiMap = dynamic(
 );
 import { type CalendarDate } from "@/components/booking/CalendarGrid";
 import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar";
-import ReviewCard from "@/components/cards/ReviewCard";
 import type { Tables } from "@/lib/types/database";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import { formatPricePerNight } from "@/lib/utils/format";
 import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { applyDiscount } from "@/lib/utils/pricing";
-import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import PendingReviewBanner from "@/components/listing/PendingReviewBanner";
 import BannerSlot from "@/components/banners/BannerSlot";
@@ -67,14 +65,6 @@ type PropertyWithOwner = Tables<"properties"> & {
   ownership_verified?: boolean;
 };
 
-interface ReviewWithGuest {
-  id: string;
-  rating: number;
-  comment: string | null;
-  created_at: string | null;
-  profiles: { display_name: string } | null;
-}
-
 interface CalendarBlock {
   date: string;
   status: string;
@@ -88,7 +78,6 @@ interface PriceOverrideRow {
 interface Props {
   property: PropertyWithOwner;
   isPending?: boolean;
-  reviews: ReviewWithGuest[];
   calendarBlocks: CalendarBlock[];
   priceOverrides?: PriceOverrideRow[];
 }
@@ -96,7 +85,6 @@ interface Props {
 export default function HotelDetailClient({
   property,
   isPending = false,
-  reviews,
   calendarBlocks,
   priceOverrides = [],
 }: Props) {
@@ -149,10 +137,6 @@ export default function HotelDetailClient({
     petsRule !== null ||
     mealsIncludedRule !== null ||
     extraHouseRules.length > 0;
-  const avgRating =
-    !RENTAL_REVIEWS_HIDDEN && reviews.length > 0
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-      : null;
 
   const parsedCalendarDates = useMemo(
     () =>
@@ -266,13 +250,6 @@ export default function HotelDetailClient({
                 className="font-medium"
                 iconClassName="text-[#2563EB]"
               />
-              {avgRating !== null && (
-                <span className="flex items-center gap-1.5 font-bold text-[#1E293B]">
-                  <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
-                  {avgRating.toFixed(1)} (
-                  {tDetail("reviewsCount", { count: reviews.length })})
-                </span>
-              )}
               <span className="flex items-center gap-1.5 font-medium">
                 <Eye className="h-4 w-4" />
                 {tDetail("views", { count: views })}
@@ -458,30 +435,6 @@ export default function HotelDetailClient({
               onDateClick={handleDateClick}
             />
           </div>
-
-          {/* Reviews — hidden entirely while empty (no submission flow
-              reaches real, offline-booked stays yet), rather than showing a
-              permanent "no reviews" placeholder. */}
-          {!RENTAL_REVIEWS_HIDDEN && reviews.length > 0 && (
-            <div style={enterUp(0.4)}>
-              <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                {t("reviewsTitle")} ({reviews.length})
-              </h2>
-              <div className="space-y-8">
-                {reviews.map((review) => (
-                  <ReviewCard
-                    key={review.id}
-                    displayName={
-                      review.profiles?.display_name ?? tDetail("anonymous")
-                    }
-                    rating={review.rating}
-                    comment={review.comment ?? ""}
-                    createdAt={review.created_at ?? ""}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Sidebar — lg sticky offsets mirror Navbar primary (91px) + category rail (94px) */}
@@ -503,7 +456,6 @@ export default function HotelDetailClient({
               propertyId={property.id}
               selectedRange={selectedRange}
               onRangeChange={handleRangeChange}
-              rating={avgRating}
               calendarDates={parsedCalendarDates}
               maxGuests={property.capacity ?? 10}
               // A room's price is per room and night (C45); hotels without

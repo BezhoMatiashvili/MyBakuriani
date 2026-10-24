@@ -16,7 +16,6 @@ import {
   MapPin,
   Maximize,
   Share2,
-  Star,
   X,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -25,7 +24,6 @@ import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { optionKeyFor } from "@/lib/constants/listing-options";
 import { readPaymentOptions } from "@/lib/constants/sale-listing";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
-import ReviewCard from "@/components/cards/ReviewCard";
 import { formatPrice, formatRelativeGe } from "@/lib/utils/format";
 import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
@@ -80,18 +78,9 @@ type PropertyWithOwner = Tables<"properties"> & {
   > | null;
 };
 
-interface ReviewWithGuest {
-  id: string;
-  rating: number;
-  comment: string | null;
-  created_at: string | null;
-  profiles: { display_name: string } | null;
-}
-
 interface Props {
   property: PropertyWithOwner;
   isPending?: boolean;
-  reviews: ReviewWithGuest[];
   /**
    * SMS_PRICE_DROP_MODE resolved server-side (env-only read, static-safe under
    * ISR). Owner/QA visibility is decided client-side inside
@@ -185,7 +174,6 @@ function deriveEnvironmentStatusKey(amenities: unknown): string | null {
 
 export default function SaleDetailClient({
   property,
-  reviews,
   isPending = false,
   priceAlertMode = "off",
 }: Props) {
@@ -242,10 +230,6 @@ export default function SaleDetailClient({
 
   const owner = property.profiles;
   const org = property.organizations ?? null;
-  const avgRating =
-    reviews.length > 0
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-      : null;
 
   // A land plot has no building, so none of the construction / renovation /
   // management / ROI / rooms metrics apply. The create form and the backfill
@@ -488,12 +472,6 @@ export default function SaleDetailClient({
               {postedAgo}
             </span>
           )}
-          {avgRating !== null && (
-            <span className="flex items-center gap-1.5 font-bold text-[#1E293B]">
-              <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />
-              {avgRating.toFixed(1)}
-            </span>
-          )}
           <span className="flex items-center gap-1.5 font-medium">
             <Eye className="h-4 w-4" />
             {tDetail("views", { count: views })}
@@ -730,28 +708,6 @@ export default function SaleDetailClient({
               </div>
             </div>
           </div>
-
-          {/* Reviews */}
-          {reviews.length > 0 && (
-            <div style={enterUp(0.4)}>
-              <h2 className="mb-4 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                {t("reviewsTitle")} ({reviews.length})
-              </h2>
-              <div className="space-y-4">
-                {reviews.map((review) => (
-                  <ReviewCard
-                    key={review.id}
-                    displayName={
-                      review.profiles?.display_name ?? tDetail("anonymous")
-                    }
-                    rating={review.rating}
-                    comment={review.comment ?? ""}
-                    createdAt={review.created_at ?? ""}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Sidebar */}

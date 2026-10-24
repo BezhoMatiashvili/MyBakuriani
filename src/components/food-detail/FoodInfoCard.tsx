@@ -1,11 +1,9 @@
-import { Star } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface Props {
   establishmentType: string | null;
   cuisineType: string | null;
   zone: string | null;
-  rating: number | null;
   avgCheck: string | null;
   operatingHours: string | null;
 }
@@ -33,7 +31,6 @@ export function FoodInfoCard({
   establishmentType,
   cuisineType,
   zone,
-  rating,
   avgCheck,
   operatingHours,
 }: Props) {
@@ -43,17 +40,9 @@ export function FoodInfoCard({
       <Cell label={t("info.type")}>{establishmentType ?? "—"}</Cell>
       <Cell label={t("info.cuisine")}>{cuisineType ?? "—"}</Cell>
 
-      <Cell label={t("info.zone")}>{zone ?? "—"}</Cell>
-      <Cell label={t("info.rating")}>
-        {rating != null ? (
-          <span className="inline-flex items-center gap-1">
-            <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
-            {rating.toFixed(1)}
-          </span>
-        ) : (
-          "—"
-        )}
-      </Cell>
+      <div className="col-span-2">
+        <Cell label={t("info.zone")}>{zone ?? "—"}</Cell>
+      </div>
 
       <Cell label={t("info.avgCheck")}>{avgCheck ?? "—"}</Cell>
       <Cell label={t("info.workingHours")}>{operatingHours ?? "—"}</Cell>

@@ -1,4 +1,4 @@
-export type AutomationKind = "check_in" | "review_request" | "win_back";
+export type AutomationKind = "check_in" | "win_back";
 
 // Spec-mandated texts. This module is the single template source of truth.
 // Written to MyBakuriani_SMS_Optimization_Spec-2.md: Georgian goes out as UCS-2,
@@ -9,8 +9,6 @@ export const TEMPLATES = {
   // whose value is missing; each URL ends its own line, so nothing is glued to it.
   check_in:
     "გამარჯობა, [Guest_Name]! გელოდებით [Check_In_Day] [Check_In_Time]-დან — [Property_Name].\n🔗 [Listing_Link]\n📍 [Location]\n☎️ [Host_Phone]",
-  review_request:
-    "[Guest_Name], მადლობა! შეგვიფასეთ ბინა: [Property_Review_Link] — MyBakuriani",
   win_back:
     "[Guest_Name], დაბრუნდით ბაკურიანში! მიიღეთ [Discount_Value] ფასდაკლება ([Discount_Period]): [Property_Direct_Link] — MyBakuriani",
   win_back_fallback:
@@ -36,7 +34,6 @@ export interface Rule {
   display_name: string | null;
   owner_phone: string | null;
   check_in_reminder_enabled: boolean;
-  review_request_enabled: boolean;
   win_back_enabled: boolean;
   win_back_discount_value: string | null;
   win_back_discount_period: string | null;
@@ -236,21 +233,6 @@ export function buildCheckIn(
       return missing ? [] : [filled];
     })
     .join("\n");
-}
-
-export function buildReviewRequest(
-  c: Candidate,
-  siteUrl: string,
-  manualToken?: string,
-): string {
-  return TEMPLATES.review_request
-    .replace("[Guest_Name]", clampName(c.guest_name))
-    .replace(
-      "[Property_Review_Link]",
-      manualToken
-        ? `${siteUrl}/review/${manualToken}`
-        : `${siteUrl}/dashboard/guest/rate/${c.booking_id}`,
-    );
 }
 
 export function buildWinBack(

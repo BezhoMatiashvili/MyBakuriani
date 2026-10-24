@@ -46,7 +46,6 @@ const ADMIN_ROUTES: { label: string; path: string }[] = [
   { label: "ვერიფიკაციები", path: "/dashboard/admin/verifications" },
   { label: "მომხმარებლები", path: "/dashboard/admin/clients" },
   { label: "განცხადებები", path: "/dashboard/admin/listings" },
-  { label: "შეფასებები", path: "/dashboard/admin/reviews" },
   { label: "ტარიფები და პაკეტები", path: "/dashboard/admin/settings" },
   { label: "ფინანსები", path: "/dashboard/admin/finances" },
   { label: "რეკლამები", path: "/dashboard/admin/moderation" },

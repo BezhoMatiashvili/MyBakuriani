@@ -35,7 +35,16 @@ test.describe("Guest Dashboard", () => {
     await expect(guestPage).toHaveURL(/\/dashboard\/guest$/);
   });
 
-  test("reviews page loads", async ({ guestPage }) => {
+  test("the retired rate page redirects to the overview", async ({
+    guestPage,
+  }) => {
+    await guestPage.goto(`/dashboard/guest/rate/${TEST_IDS.booking}`);
+    if (!(await assertDashboard(guestPage, "/dashboard/guest"))) return;
+
+    await expect(guestPage).toHaveURL(/\/dashboard\/guest$/);
+  });
+
+  test("history page loads", async ({ guestPage }) => {
     await guestPage.goto("/dashboard/guest/reviews");
     if (!(await assertDashboard(guestPage, "/dashboard/guest/reviews"))) return;
 
@@ -58,7 +67,7 @@ test.describe("Guest Dashboard", () => {
     const sidebar = guestPage.locator("nav, aside, [role='navigation']");
     const pageContent = guestPage.locator("body");
 
-    const georgianLabels = ["მთავარი", "ჯავშნები", "შეფასებები", "პროფილი"];
+    const georgianLabels = ["მთავარი", "ჯავშნები", "პროფილი"];
 
     for (const label of georgianLabels) {
       await expect(

@@ -1,22 +1,18 @@
 import { test, expect } from "../helpers/fixtures";
-import { bookings, reviews, supabaseAdmin } from "../helpers/supabase";
+import { bookings, supabaseAdmin } from "../helpers/supabase";
 import { futureISO, TEST_IDS } from "../helpers/seed";
 
 // ---------------------------------------------------------------------------
 // Guest–Renter cross-role flow
-// Browse apartments -> view detail -> booking via DB -> renter confirms ->
-// guest leaves review -> verify review on property page
+// Browse apartments -> view detail -> booking via DB -> renter confirms
 // ---------------------------------------------------------------------------
 
-const CREATED_IDS: { bookingId?: string; reviewId?: string } = {};
+const CREATED_IDS: { bookingId?: string } = {};
 
 test.describe("Guest-Renter interaction flow", () => {
   test.describe.configure({ mode: "serial" });
   test.afterAll(async () => {
     const ignore = () => {};
-    if (CREATED_IDS.reviewId) {
-      await reviews.delete(CREATED_IDS.reviewId).catch(ignore);
-    }
     if (CREATED_IDS.bookingId) {
       await bookings.delete(CREATED_IDS.bookingId).catch(ignore);
     }
@@ -53,8 +49,7 @@ test.describe("Guest-Renter interaction flow", () => {
     await expect(priceText.first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test("create booking via DB, renter confirms, guest reviews", async ({
-    guestPage,
+  test("create booking via DB, renter confirms", async ({
     renterPage,
     testIds,
   }) => {
@@ -97,56 +92,6 @@ test.describe("Guest-Renter interaction flow", () => {
         "main, [role='main'], .dashboard",
       );
       await expect(dashboardContent.first()).toBeVisible({ timeout: 10_000 });
-    }
-
-    // Step 4: Guest leaves a review via DB
-    const reviewId = "aae2ff00-3000-4000-a000-100000000001";
-    CREATED_IDS.reviewId = reviewId;
-
-    // Complete the booking first so review is valid
-    await bookings.update(bookingId, { status: "completed" });
-
-    const review = await reviews.create({
-      id: reviewId,
-      property_id: testIds.apartment,
-      booking_id: bookingId,
-      guest_id: testIds.guest,
-      rating: 4,
-      comment: "E2E ტესტ მიმოხილვა - კარგი ადგილია!",
-    });
-
-    expect(review).toBeTruthy();
-    expect(review.rating).toBe(4);
-
-    // Step 5: Verify review appears on property page
-    await guestPage.goto(`/apartments/${testIds.apartment}`);
-    await guestPage.waitForLoadState("networkidle");
-
-    // The page should load and contain review-related content
-    const pageContent = await guestPage.textContent("body");
-    expect(pageContent).toBeTruthy();
-  });
-
-  test("guest can view property with existing review from seed", async ({
-    guestPage,
-    testIds,
-  }) => {
-    await guestPage.goto(`/apartments/${testIds.apartment}`);
-    await guestPage.waitForLoadState("networkidle");
-
-    // Seed review exists with rating 5 and comment "შესანიშნავი ადგილი!"
-    // Check the page loaded and has content
-    const body = guestPage.locator("body");
-    await expect(body).toBeVisible();
-
-    // Look for review-related UI elements
-    const reviewSection = guestPage.locator(
-      '[data-testid="reviews"], [data-testid="review-section"], .reviews, #reviews',
-    );
-    // The review section may or may not exist depending on implementation
-    const hasReviews = await reviewSection.count();
-    if (hasReviews > 0) {
-      await expect(reviewSection.first()).toBeVisible();
     }
   });
 });

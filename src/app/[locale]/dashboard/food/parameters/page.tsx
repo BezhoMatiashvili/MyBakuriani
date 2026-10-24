@@ -23,7 +23,6 @@ type Service = Tables<"services">;
 
 interface NotifPrefs {
   newOrder: boolean;
-  newReview: boolean;
   dailyReport: boolean;
 }
 
@@ -55,7 +54,6 @@ export default function FoodParametersPage() {
 
   const [prefs, setPrefs] = useState<NotifPrefs>({
     newOrder: true,
-    newReview: true,
     dailyReport: true,
   });
 
@@ -286,11 +284,6 @@ export default function FoodParametersPage() {
               {
                 key: "newOrder" as const,
                 title: "ახალი შეკვეთა",
-                sub: "მხოლოდ ვებ-შეტყობინება",
-              },
-              {
-                key: "newReview" as const,
-                title: "ახალი შეფასება",
                 sub: "მხოლოდ ვებ-შეტყობინება",
               },
               {

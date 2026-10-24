@@ -709,7 +709,6 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (/\.toFixed\(/.test(domain.replace(/function pinCoordinate[\s\S]*?\n\}\n/, ""))) problems.push("domain.ts calls toFixed outside pinCoordinate (a raw database numeric can be the string \"NaN\")");
   if (!/build: \(\) => string[\s\S]{0,200}try \{\s*message = build\(\);\s*\} catch/.test(index)) problems.push("index.ts enqueue must build the message inside try/catch (one bad row ends the run for every owner after it)");
   if (/enqueue\(\s*"[a-z_]+",\s*c,\s*build[A-Z]/.test(index)) problems.push("index.ts passes a built message to enqueue; pass a () => build…() thunk");
-  if (!/if \(tokenErr\) \{[\s\S]{0,400}tokenErr\.code !== "42501"\) throw tokenErr;[\s\S]{0,200}continue;/.test(index)) problems.push("index.ts must skip a review-token refusal (42501: the booking stopped being eligible since the scan) instead of throwing out of the run");
   const migs = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
   const sql = migs.map((f) => read(join("supabase/migrations", f))).join("\n");
   for (const name of ["properties_location_lat_range", "properties_location_lng_range", "organizations_location_lat_range", "organizations_location_lng_range"]) {
@@ -737,7 +736,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else if (`${String((Number(cron[2]) + 4) % 24).padStart(2, "0")}:${cron[1].padStart(2, "0")}` !== `${assumed[1]}:${assumed[2]}`)
     problems.push(`domain.ts DAILY_RUN_TIME ${assumed[1]}:${assumed[2]} is not when sms-automation-daily fires (${cron[2]}:${cron[1]} UTC + 4 h)`);
   if (!/throw new ApiError\("Unknown mode", 400/.test(index)) problems.push("index.ts must answer 400 to an unknown mode");
-  for (const flag of ["check_in_reminder_enabled", "review_request_enabled", "win_back_enabled"])
+  for (const flag of ["check_in_reminder_enabled", "win_back_enabled"])
     if (!new RegExp(`if \\(daily && rule\\.${flag}\\)`).test(index)) problems.push(`index.ts must run ${flag} only in the daily mode`);
   const job = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort()
     .map((f) => [f, read(join("supabase/migrations", f))])
@@ -1197,7 +1196,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // accepted, link-issued row — not v1, not inherited — on another live booking,
 // no later decline) and writes an accepted 'manual-sms-v2-inherited' row with a
 // hash nobody holds (the accepted state needs one and the revoke paths filter
-// on token_hash). The review/win-back texts carry no opt-out, so the guest's
+// on token_hash). The win-back texts carry no opt-out, so the guest's
 // link is the only withdrawal: manual_sms_consent_reconcile withdraws the host's
 // inherited rows when the last link-issued source is cancelled, re-phoned or
 // deleted (without accepted_at, so the booking is not read as the guest
@@ -1208,7 +1207,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // Only OPEN stays inherit (check-out today or later, Tbilisi): the gate lives inside
 // manual_sms_consent_inherit (20261022160000) so the triggers, cover and the backfill
 // share it; the triggers call inherit directly, so no stay from the past starts
-// queueing review or win-back texts.
+// queueing win-back texts.
 // ---------------------------------------------------------------------------
 {
   const migs = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();

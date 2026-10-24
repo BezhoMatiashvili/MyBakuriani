@@ -5,7 +5,6 @@ import { canUseSmsCenter } from "@/lib/sms/sender-access";
 
 const DEFAULT_RULES = {
   check_in_reminder_enabled: false,
-  review_request_enabled: false,
   win_back_enabled: false,
   win_back_discount_value: null,
   win_back_discount_period: null,
@@ -34,7 +33,7 @@ export default async function SmsCenterPage() {
     supabase
       .from("sms_automation_rules")
       .select(
-        "check_in_reminder_enabled, review_request_enabled, win_back_enabled, win_back_discount_value, win_back_discount_period",
+        "check_in_reminder_enabled, win_back_enabled, win_back_discount_value, win_back_discount_period",
       )
       .eq("user_id", user.id)
       .maybeSingle(),

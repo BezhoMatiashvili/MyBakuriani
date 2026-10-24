@@ -9,7 +9,6 @@ import {
   Heart,
   MessageSquare,
   Package,
-  Star,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -319,7 +318,6 @@ function BalanceCard({
 
 type ToggleKey =
   | "check_in_reminder_enabled"
-  | "review_request_enabled"
   | "win_back_enabled";
 
 const AUTOMATION_ROWS: Array<{
@@ -331,7 +329,6 @@ const AUTOMATION_ROWS: Array<{
   descKey: string;
 }> = [
   { key: "check_in_reminder_enabled", icon: BadgeCheck, iconBg: "bg-[#DBEAFE]", iconColor: "text-[#2563EB]", titleKey: "checkInTitle", descKey: "checkInDesc" },
-  { key: "review_request_enabled", icon: Star, iconBg: "bg-[#FEF3C7]", iconColor: "text-[#D97706]", titleKey: "reviewTitle", descKey: "reviewDesc" },
   { key: "win_back_enabled", icon: Heart, iconBg: "bg-[#FCE7F3]", iconColor: "text-[#DB2777]", titleKey: "winBackTitle", descKey: "winBackDesc" },
 ];
 

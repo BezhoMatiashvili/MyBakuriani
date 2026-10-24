@@ -22,7 +22,6 @@ type ServiceMockData = {
   languages?: string[];
   route?: string;
   zone?: string;
-  rating?: number;
   establishmentType?: string;
   isOpen?: boolean;
   serviceTags?: string[];
@@ -212,7 +211,6 @@ export const MOCK_SERVICES_BY_CATEGORY: Record<
       hours: "09:00 - 21:00",
       phone: "+995599123456",
       zone: "კოხტა",
-      rating: 4.7,
       establishmentType: "კაფე / საკონდიტრო",
       cuisineType: "ევროპული",
       avgCheck: "10-30 ₾",
@@ -331,7 +329,6 @@ type ServiceWithProfile = Tables<"services"> & {
 
 export type FoodExtras = {
   zone: string | null;
-  rating: number | null;
   establishment_type: string | null;
   is_open: boolean | null;
   service_tags: string[] | null;
@@ -428,7 +425,6 @@ export function getMockService(id: string): ServiceWithFoodExtras | null {
     profiles: null,
     food_extras: {
       zone: item.zone ?? null,
-      rating: item.rating ?? null,
       establishment_type: item.establishmentType ?? null,
       is_open: item.isOpen ?? null,
       service_tags: item.serviceTags ?? null,

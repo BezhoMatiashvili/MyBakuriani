@@ -32,7 +32,6 @@ export type GuestData = {
   profile: Tables<"profiles"> | null;
   recent: RecentListing[];
   offers: GuestOffer[];
-  reviewRequests: Tables<"notifications">[];
   requests: MyRequest[];
 };
 
@@ -102,35 +101,26 @@ export async function loadGuestData(
   supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<GuestData> {
-  const [profileRes, recent, offersRes, reviewReqRes, requestsRes] =
-    await Promise.all([
-      supabase.from("profiles").select("*").eq("id", userId).single(),
-      loadRecentListings(supabase, userId),
-      supabase
-        .from("smart_match_offers")
-        .select("*, smart_match_requests!inner(id, guest_id)")
-        .eq("smart_match_requests.guest_id", userId)
-        // A renter can withdraw a sent offer (status -> 'cancelled'); it must not
-        // remain visible/acceptable to the guest.
-        .neq("status", "cancelled")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("type", "review_request")
-        .eq("dashboard_scope", "guest")
-        .eq("is_read", false)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("smart_match_requests")
-        .select(
-          "id, check_in, check_out, guests_count, budget_min, budget_max, zone, status, created_at",
-        )
-        .eq("guest_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(20),
-    ]);
+  const [profileRes, recent, offersRes, requestsRes] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", userId).single(),
+    loadRecentListings(supabase, userId),
+    supabase
+      .from("smart_match_offers")
+      .select("*, smart_match_requests!inner(id, guest_id)")
+      .eq("smart_match_requests.guest_id", userId)
+      // A renter can withdraw a sent offer (status -> 'cancelled'); it must not
+      // remain visible/acceptable to the guest.
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("smart_match_requests")
+      .select(
+        "id, check_in, check_out, guests_count, budget_min, budget_max, zone, status, created_at",
+      )
+      .eq("guest_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
 
   // The offered listings come from the public view: base `properties` and
   // `profiles` are RLS-hidden from everyone but the owner, so an embed came back
@@ -142,7 +132,7 @@ export async function loadGuestData(
     ? await supabase
         .from("public_properties")
         .select(
-          "id, type, is_for_sale, title, photos, capacity, price_per_night, is_vip, numeric_rating, profile_display_name, profile_avatar_url",
+          "id, type, is_for_sale, title, photos, capacity, price_per_night, is_vip, profile_display_name, profile_avatar_url",
         )
         .in("id", offeredIds)
     : { data: [] };
@@ -168,7 +158,6 @@ export async function loadGuestData(
         // null = no display name; the render site translates the fallback.
         displayName: listing?.profile_display_name ?? null,
         avatarUrl: listing?.profile_avatar_url ?? null,
-        rating: null,
         listingsCount: null,
       },
       property: listing?.id
@@ -176,7 +165,6 @@ export async function loadGuestData(
             id: listing.id,
             title: listing.title ?? "",
             photo: (listing.photos ?? [])[0] ?? null,
-            rating: listing.numeric_rating ?? null,
             capacity: listing.capacity,
             pricePerNight: Number(listing.price_per_night ?? 0),
             isVip: Boolean(listing.is_vip),
@@ -213,7 +201,6 @@ export async function loadGuestData(
     profile: profileRes.data ?? null,
     recent,
     offers,
-    reviewRequests: reviewReqRes.data ?? [],
     requests,
   };
 }

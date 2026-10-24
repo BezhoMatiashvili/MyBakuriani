@@ -60,8 +60,6 @@ export function iconForType(type: string): NotificationIconKey {
     case "admin_company_pending":
       return "lead";
     case "favorite":
-    case "review":
-    case "review_request":
       return "star";
     default:
       return "info";

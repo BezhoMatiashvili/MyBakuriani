@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, ChevronDown, Eye, Plus, Star } from "lucide-react";
+import { ArrowRight, ChevronDown, Eye, Plus } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { trackAnalyticsEvent } from "@/lib/analytics/track-client";
@@ -23,7 +23,6 @@ import GuestOffersModal, {
 } from "@/components/guest/GuestOffersModal";
 import type { Tables } from "@/lib/types/database";
 import { isStale } from "@/lib/smart-match/match";
-import { safeInternalPath } from "@/lib/security";
 import {
   SMART_MATCH_NEW_PARAM,
   SMART_MATCH_NEW_VALUE,
@@ -67,9 +66,6 @@ export default function GuestDashboardClient({
   );
   const [recent, setRecent] = useState<RecentListing[]>(initial.recent);
   const [offers, setOffers] = useState<GuestOffer[]>(initial.offers);
-  const [reviewRequests, setReviewRequests] = useState<
-    Tables<"notifications">[]
-  >(initial.reviewRequests);
   const [requests, setRequests] = useState<MyRequest[]>(initial.requests);
   // The guest's own smart_match_requests ids, so the realtime handler below can
   // tell an offer on one of them apart from an offer anywhere else on the
@@ -132,7 +128,6 @@ export default function GuestDashboardClient({
     setProfile(data.profile);
     setRecent(data.recent);
     setOffers(data.offers);
-    setReviewRequests(data.reviewRequests);
     setRequests(data.requests);
     // Merge, don't replace: a reseed racing a just-created request (this tab
     // or another) must not drop its id — request ids only ever accumulate.
@@ -357,57 +352,6 @@ export default function GuestDashboardClient({
           </div>
         )}
       </motion.section>
-
-      {reviewRequests.length > 0 && (
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08 }}
-          className="overflow-hidden rounded-[20px] border border-[#FED7AA] bg-[#FFF7ED] p-5"
-        >
-          <div className="flex items-center gap-2">
-            <Star
-              className="h-5 w-5 text-[#F97316]"
-              fill="#F97316"
-              strokeWidth={0}
-            />
-            <h2 className="text-[15px] font-black text-[#0F172A]">
-              {t("pendingReviews", { count: reviewRequests.length })}
-            </h2>
-          </div>
-          <p className="mt-1 text-[12px] font-medium text-[#92400E]">
-            {t("pendingReviewsHint")}
-          </p>
-          <ul className="mt-4 space-y-2">
-            {reviewRequests.map((n) => (
-              <li key={n.id}>
-                <Link
-                  href={
-                    (safeInternalPath(n.action_url) ??
-                      "/dashboard/guest") as never
-                  }
-                  className="flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:bg-[#FFFBEB]"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-extrabold text-[#0F172A]">
-                      {n.title}
-                    </p>
-                    {n.message && (
-                      <p className="mt-0.5 truncate text-[12px] text-[#64748B]">
-                        {n.message}
-                      </p>
-                    )}
-                  </div>
-                  <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-bold text-[#F97316]">
-                    {t("review")}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </motion.section>
-      )}
 
       <motion.section
         initial={{ opacity: 0, y: 12 }}

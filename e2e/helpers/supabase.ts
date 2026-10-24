@@ -101,7 +101,6 @@ export const profiles = tableHelper("profiles");
 export const properties = tableHelper("properties");
 export const bookings = tableHelper("bookings");
 export const calendarBlocks = tableHelper("calendar_blocks");
-export const reviews = tableHelper("reviews");
 export const services = tableHelper("services");
 export const smartMatchRequests = tableHelper("smart_match_requests");
 export const balances = tableHelper("balances");

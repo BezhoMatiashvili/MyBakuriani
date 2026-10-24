@@ -7,7 +7,6 @@ export type MockPropertyCard = {
   photos: string[];
   pricePerNight: number | null;
   salePrice: number | null;
-  rating: number | null;
   capacity: number;
   rooms: number;
   isVip: boolean;
@@ -19,7 +18,6 @@ export type MockPropertyCard = {
 export type MockHotelCard = MockPropertyCard & {
   isHotel: true;
   hotelStars: number;
-  numericRating: number;
   isB2BPartner: boolean;
   roomType: string;
   amenities: string;
@@ -35,7 +33,6 @@ export const MOCK_PROPERTIES: MockPropertyCard[] = [
     ],
     pricePerNight: 250,
     salePrice: null,
-    rating: 4.9,
     capacity: 8,
     rooms: 3,
     isVip: true,
@@ -52,7 +49,6 @@ export const MOCK_PROPERTIES: MockPropertyCard[] = [
     ],
     pricePerNight: 150,
     salePrice: null,
-    rating: 4.5,
     capacity: 4,
     rooms: 2,
     isVip: true,
@@ -69,7 +65,6 @@ export const MOCK_PROPERTIES: MockPropertyCard[] = [
     ],
     pricePerNight: 350,
     salePrice: null,
-    rating: 4.8,
     capacity: 10,
     rooms: 4,
     isVip: false,
@@ -86,7 +81,6 @@ export const MOCK_PROPERTIES: MockPropertyCard[] = [
     ],
     pricePerNight: 500,
     salePrice: null,
-    rating: 5.0,
     capacity: 14,
     rooms: 5,
     isVip: true,
@@ -103,7 +97,6 @@ export const MOCK_PROPERTIES: MockPropertyCard[] = [
     ],
     pricePerNight: 80,
     salePrice: null,
-    rating: 4.2,
     capacity: 2,
     rooms: 1,
     isVip: false,
@@ -120,7 +113,6 @@ export const MOCK_PROPERTIES: MockPropertyCard[] = [
     ],
     pricePerNight: 200,
     salePrice: null,
-    rating: 4.6,
     capacity: 6,
     rooms: 3,
     isVip: false,
@@ -140,7 +132,6 @@ export const MOCK_HOTELS: MockHotelCard[] = [
     ],
     pricePerNight: 200,
     salePrice: null,
-    rating: 4.6,
     capacity: 2,
     rooms: 1,
     isVip: true,
@@ -149,7 +140,6 @@ export const MOCK_HOTELS: MockHotelCard[] = [
     isForSale: false,
     isHotel: true,
     hotelStars: 4,
-    numericRating: 9.2,
     isB2BPartner: true,
     roomType: "სტანდარტული ოთახი",
     amenities: "ცენტრი • აუზი / Ski-in/Ski-out",
@@ -163,7 +153,6 @@ export const MOCK_HOTELS: MockHotelCard[] = [
     ],
     pricePerNight: 450,
     salePrice: null,
-    rating: 4.7,
     capacity: 3,
     rooms: 2,
     isVip: false,
@@ -172,7 +161,6 @@ export const MOCK_HOTELS: MockHotelCard[] = [
     isForSale: false,
     isHotel: true,
     hotelStars: 5,
-    numericRating: 9.5,
     isB2BPartner: false,
     roomType: "KING ROOM",
     amenities: "პრემიუმ ლოკაცია • ტერასა • რესტორანი",
@@ -186,7 +174,6 @@ export const MOCK_HOTELS: MockHotelCard[] = [
     ],
     pricePerNight: 280,
     salePrice: null,
-    rating: 4.9,
     capacity: 4,
     rooms: 2,
     isVip: true,
@@ -195,7 +182,6 @@ export const MOCK_HOTELS: MockHotelCard[] = [
     isForSale: false,
     isHotel: true,
     hotelStars: 4,
-    numericRating: 8.9,
     isB2BPartner: true,
     roomType: "ორადგილიანი ოთახი",
     amenities: "ცენტრალური პარკი • სათამაშო ზონა • ბარი",
@@ -209,7 +195,6 @@ export const MOCK_HOTELS: MockHotelCard[] = [
     ],
     pricePerNight: 380,
     salePrice: null,
-    rating: 4.5,
     capacity: 2,
     rooms: 1,
     isVip: false,
@@ -218,7 +203,6 @@ export const MOCK_HOTELS: MockHotelCard[] = [
     isForSale: false,
     isHotel: true,
     hotelStars: 4,
-    numericRating: 9.1,
     isB2BPartner: false,
     roomType: "საოჯახო ნომერი",
     amenities: "კოხტა • ტყე • მთის ხედი",
@@ -235,7 +219,6 @@ export const MOCK_SALE_APARTMENTS: MockPropertyCard[] = [
     ],
     pricePerNight: null,
     salePrice: 85000,
-    rating: null,
     capacity: 4,
     rooms: 2,
     isVip: true,
@@ -252,7 +235,6 @@ export const MOCK_SALE_APARTMENTS: MockPropertyCard[] = [
     ],
     pricePerNight: null,
     salePrice: 65000,
-    rating: null,
     capacity: 2,
     rooms: 1,
     isVip: false,
@@ -269,7 +251,6 @@ export const MOCK_SALE_APARTMENTS: MockPropertyCard[] = [
     ],
     pricePerNight: null,
     salePrice: 250000,
-    rating: null,
     capacity: 12,
     rooms: 4,
     isVip: true,
@@ -286,7 +267,6 @@ export const MOCK_SALE_APARTMENTS: MockPropertyCard[] = [
     ],
     pricePerNight: null,
     salePrice: 120000,
-    rating: null,
     capacity: 6,
     rooms: 3,
     isVip: false,
@@ -487,7 +467,7 @@ function buildMockProperty(
     location_lat: null,
     location_lng: null,
     min_booking_days: null,
-    numeric_rating: hotel?.numericRating ?? null,
+    numeric_rating: null,
     owner_id: "mock-owner",
     phone: null,
     photos: source.photos,
@@ -610,7 +590,7 @@ function buildMockSaleProperty(
       personal_id: null,
       phone: "+995595120120",
       profile_type: null,
-      rating: 4.8,
+      rating: null,
       response_time_minutes: 30,
       role: "seller",
       updated_at: epoch,

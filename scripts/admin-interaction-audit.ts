@@ -223,79 +223,6 @@ async function waitForToast(page: Page, kind: "success" | "error" = "success") {
 
 /* ------------------- per-route test suites ------------------- */
 
-async function testReviewsPage(page: Page) {
-  const route = "/dashboard/admin/reviews";
-  await page.goto(`${BASE_URL}${route}`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(1200);
-
-  await runTest(page, route, "page loads with ≥1 review card", async () => {
-    const count = await page.locator("article").count();
-    return {
-      detail: `found ${count} review article(s)`,
-      ok: count > 0,
-    };
-  });
-
-  await runTest(page, route, "status filter buttons clickable", async () => {
-    const approvedBtn = page.getByRole("button", { name: "დადასტურებული" });
-    await approvedBtn.click();
-    await page.waitForTimeout(1200);
-    const active =
-      (await approvedBtn.getAttribute("class"))?.includes("bg-[#2563EB]") ??
-      false;
-    return {
-      detail: `approved filter active=${active}`,
-      ok: active,
-    };
-  });
-
-  await runTest(page, route, "reset filter to all", async () => {
-    const resPromise = page
-      .waitForResponse(
-        (r) =>
-          r.url().includes("/api/admin/reviews") &&
-          !r.url().includes("analyze") &&
-          !r.url().includes("moderate"),
-        { timeout: 15_000 },
-      )
-      .catch(() => null);
-    await page.getByRole("button", { name: "ყველა" }).first().click();
-    await resPromise;
-    await page.waitForTimeout(800);
-    const count = await page.locator("article").count();
-    return {
-      detail: `article count after reset=${count}`,
-      ok: count > 0,
-    };
-  });
-
-  await runTest(page, route, "AI analyze button wires (Gemini)", async () => {
-    // Find all enabled AI buttons via CSS, click the first.
-    const enabled = page.locator(
-      'article button:not([disabled]):has-text("AI აუდიტი")',
-    );
-    const enabledCount = await enabled.count();
-    if (enabledCount === 0) {
-      return {
-        detail: "no enabled AI button (all cards disabled)",
-        ok: false,
-      };
-    }
-    const resPromise = page
-      .waitForResponse((r) => r.url().includes("/api/admin/reviews/analyze"), {
-        timeout: 60_000,
-      })
-      .catch(() => null);
-    await enabled.first().click();
-    const res = await resPromise;
-    if (!res) return { detail: "no analyze call observed", ok: false };
-    return {
-      detail: `analyze endpoint returned ${res.status()} (from ${enabledCount} enabled)`,
-      ok: res.status() === 200,
-    };
-  });
-}
-
 async function testSettingsPage(page: Page) {
   const route = "/dashboard/admin/settings";
   await page.goto(`${BASE_URL}${route}`, { waitUntil: "networkidle" });
@@ -818,7 +745,6 @@ async function main() {
     await login(context, page);
 
     await testKpiPage(page);
-    await testReviewsPage(page);
     await testSettingsPage(page);
     await testListingsPage(page);
     await testVerificationsPage(page);

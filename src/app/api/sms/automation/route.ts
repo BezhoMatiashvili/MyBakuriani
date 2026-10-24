@@ -8,7 +8,6 @@ export const runtime = "nodejs";
 
 export type AutomationRules = {
   check_in_reminder_enabled: boolean;
-  review_request_enabled: boolean;
   win_back_enabled: boolean;
   win_back_discount_value: string | null;
   win_back_discount_period: string | null;
@@ -16,11 +15,10 @@ export type AutomationRules = {
 
 // Public owner-facing columns only. Trigger timing remains fixed server-side.
 const RULES_COLUMNS =
-  "check_in_reminder_enabled, review_request_enabled, win_back_enabled, win_back_discount_value, win_back_discount_period";
+  "check_in_reminder_enabled, win_back_enabled, win_back_discount_value, win_back_discount_period";
 
 const DEFAULTS: AutomationRules = {
   check_in_reminder_enabled: false,
-  review_request_enabled: false,
   win_back_enabled: false,
   win_back_discount_value: null,
   win_back_discount_period: null,
@@ -83,7 +81,6 @@ async function updateRules(req: NextRequest) {
 
   const allowedKeys = new Set<keyof AutomationRules>([
     "check_in_reminder_enabled",
-    "review_request_enabled",
     "win_back_enabled",
     "win_back_discount_value",
     "win_back_discount_period",
@@ -99,7 +96,6 @@ async function updateRules(req: NextRequest) {
   const payload: Partial<AutomationRules> = {};
   const booleanKeys = [
     "check_in_reminder_enabled",
-    "review_request_enabled",
     "win_back_enabled",
   ] as const;
   for (const key of booleanKeys) {

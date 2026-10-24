@@ -8,7 +8,6 @@ import {
   CalendarDays,
   Users,
   Heart,
-  Star,
   Wallet,
   Bell,
   Settings,
@@ -21,7 +20,6 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CabinetSwitcher } from "@/components/layout/CabinetSwitcher";
 import { CopyUserIdButton } from "@/components/layout/CopyUserIdButton";
-import { RENTAL_REVIEWS_HIDDEN } from "@/lib/features";
 
 interface RenterSidebarProps {
   userName: string;
@@ -29,7 +27,6 @@ interface RenterSidebarProps {
   avatarUrl?: string;
   isVerified?: boolean;
   notificationCount?: number;
-  pendingReviewsAlert?: boolean;
   smartMatchCount?: number;
   currentPath: string;
   onSignOut: () => void;
@@ -41,7 +38,7 @@ interface NavItem {
   labelKey: string;
   href: string;
   icon: LucideIcon;
-  badge?: "count" | "dot";
+  badge?: "count";
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -56,12 +53,6 @@ const NAV_ITEMS: NavItem[] = [
     labelKey: "cleaners",
     href: "/dashboard/renter/cleaners",
     icon: Heart,
-  },
-  {
-    labelKey: "reviews",
-    href: "/dashboard/renter/reviews",
-    icon: Star,
-    badge: "dot",
   },
   {
     labelKey: "balanceAndVip",
@@ -104,7 +95,6 @@ export function RenterSidebar({
   avatarUrl,
   isVerified = true,
   notificationCount = 0,
-  pendingReviewsAlert = false,
   smartMatchCount = 0,
   currentPath,
   onSignOut,
@@ -121,12 +111,9 @@ export function RenterSidebar({
     .slice(0, 2);
 
   // A renter cabinet can exist from the profile role alone; SMS additionally
-  // requires an actual rental listing. Rental reviews are temporarily hidden
-  // (see RENTAL_REVIEWS_HIDDEN).
+  // requires an actual rental listing.
   const navItems = NAV_ITEMS.filter(
-    (item) =>
-      (item.href !== "/dashboard/sms" || canUseSms) &&
-      (item.href !== "/dashboard/renter/reviews" || !RENTAL_REVIEWS_HIDDEN),
+    (item) => item.href !== "/dashboard/sms" || canUseSms,
   );
 
   return (
@@ -213,9 +200,6 @@ export function RenterSidebar({
                     <span className="flex h-[22px] min-w-[26px] items-center justify-center rounded-full bg-[#EF4444] px-1.5 text-[11px] font-bold text-white">
                       {notificationCount > 99 ? "99+" : notificationCount}
                     </span>
-                  )}
-                  {item.badge === "dot" && pendingReviewsAlert && (
-                    <span className="h-2 w-2 rounded-full bg-[#EF4444]" />
                   )}
                 </Link>
               </li>

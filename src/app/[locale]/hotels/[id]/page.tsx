@@ -6,7 +6,6 @@ import { getMockProperty, isMockPropertyId } from "@/lib/mock/properties";
 import type { PropertyWithProfile } from "@/lib/data/getPropertyById";
 import {
   getCachedPublicProperty,
-  getCachedPublicReviews,
   getCachedPublicCalendar,
   getCachedPublicPriceOverrides,
 } from "@/lib/data/getCachedPublicListing";
@@ -90,7 +89,6 @@ export default async function HotelDetailPage({ params }: Props) {
     return (
       <HotelDetailClient
         property={mock}
-        reviews={[]}
         calendarBlocks={[]}
         priceOverrides={[]}
       />
@@ -107,9 +105,8 @@ export default async function HotelDetailPage({ params }: Props) {
   // can't surface an unhandled rejection — which under `next start` can take
   // the whole single-instance process down. `await extras` below still rejects,
   // so a real failure stays loud instead of silently rendering a page with no
-  // reviews/calendar.
+  // calendar.
   const extras = Promise.all([
-    getCachedPublicReviews(id),
     getCachedPublicCalendar(id),
     getCachedPublicPriceOverrides(id),
   ]);
@@ -133,7 +130,7 @@ export default async function HotelDetailPage({ params }: Props) {
     locale,
   );
 
-  const [reviews, calendarBlocks, priceOverrides] = await extras;
+  const [calendarBlocks, priceOverrides] = await extras;
 
   return (
     <>
@@ -151,7 +148,6 @@ export default async function HotelDetailPage({ params }: Props) {
       <HotelDetailClient
         property={cached}
         isPending={false}
-        reviews={reviews}
         calendarBlocks={calendarBlocks}
         priceOverrides={priceOverrides}
       />

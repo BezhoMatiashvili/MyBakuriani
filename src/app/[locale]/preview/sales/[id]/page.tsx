@@ -2,19 +2,13 @@ import type { Metadata } from "next";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
-import { createPublicClient } from "@/lib/supabase/server";
 import { smsFeatureMode } from "@/lib/sms/feature-flags";
 import {
   getPropertyById,
   getPropertyMetadataById,
   type PropertyWithProfile,
 } from "@/lib/data/getPropertyById";
-import {
-  getCachedPublicProperty,
-  getCachedPublicReviews,
-  type PublicReviews,
-} from "@/lib/data/getCachedPublicListing";
-import { withTimeout, DETAIL_AUX_TIMEOUT_MS } from "@/lib/with-timeout";
+import { getCachedPublicProperty } from "@/lib/data/getCachedPublicListing";
 import { buildListingMetadata } from "@/lib/seo";
 import SaleDetailClient from "@/app/[locale]/sales/[id]/SaleDetailClient";
 
@@ -83,11 +77,9 @@ export default async function SaleDetailPage({ params }: Props) {
   }
 
   if (cached) {
-    const reviews = await getCachedPublicReviews(id);
     return (
       <SaleDetailClient
         property={cached}
-        reviews={reviews}
         isPending={false}
         priceAlertMode={priceAlertMode}
       />
@@ -104,33 +96,15 @@ export default async function SaleDetailPage({ params }: Props) {
 
   if (isMock) {
     return (
-      <SaleDetailClient
-        property={property}
-        reviews={[]}
-        priceAlertMode={priceAlertMode}
-      />
+      <SaleDetailClient property={property} priceAlertMode={priceAlertMode} />
     );
   }
-
-  const supabase = createPublicClient();
-  const reviews = await withTimeout(
-    supabase
-      .from("reviews")
-      .select("*, profiles!reviews_guest_id_fkey(display_name)")
-      .eq("property_id", id)
-      .order("created_at", { ascending: false })
-      .limit(20)
-      .then((r) => r.data ?? []),
-    DETAIL_AUX_TIMEOUT_MS,
-    [] as PublicReviews,
-  );
 
   const isPending = property.status !== "active";
 
   return (
     <SaleDetailClient
       property={property}
-      reviews={reviews}
       isPending={isPending}
       priceAlertMode={priceAlertMode}
     />

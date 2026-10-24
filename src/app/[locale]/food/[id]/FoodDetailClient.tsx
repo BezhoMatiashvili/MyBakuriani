@@ -313,7 +313,6 @@ export default function FoodDetailClient({
                   : service.cuisine_type
               }
               zone={service.location}
-              rating={null}
               avgCheck={avgCheckLabel}
               operatingHours={service.operating_hours}
             />

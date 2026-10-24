@@ -8,7 +8,6 @@ import {
   buildAuthCode,
   buildCheckIn,
   buildConsentRequest,
-  buildReviewRequest,
   buildWinBack,
   type Candidate,
   missedDailyRun,
@@ -37,7 +36,6 @@ const rule: Rule = {
   display_name: null,
   owner_phone: "+995555000000",
   check_in_reminder_enabled: true,
-  review_request_enabled: true,
   win_back_enabled: true,
   win_back_discount_value: "15%",
   win_back_discount_period: "ნოემბრის ბოლომდე",
@@ -440,21 +438,6 @@ Deno.test("check-in text length budget over the input shapes", () => {
   }
 });
 
-Deno.test("review text is short and carries the canonical routes", () => {
-  const platform = buildReviewRequest(candidate, "https://example.com");
-  assertEquals(
-    platform,
-    "ნინო, მადლობა! შეგვიფასეთ ბინა: https://example.com/dashboard/guest/rate/booking-id — MyBakuriani",
-  );
-  const manual = buildReviewRequest(
-    { ...candidate, source: "manual", recipient_id: null },
-    "https://example.com",
-    "a".repeat(64),
-  );
-  assertStringIncludes(manual, `https://example.com/review/${"a".repeat(64)}`);
-  assertFalse(manual.includes("dashboard/guest/rate"));
-});
-
 Deno.test("win-back keeps the offer, its period and the property link", () => {
   assertEquals(
     buildWinBack(candidate, rule, "https://example.com"),
@@ -560,16 +543,9 @@ Deno.test("link-bearing texts stay within 3 segments with production-sized links
   const id = "3f2b8c1e-9a47-4d65-b0e2-7c1d5a9e4f60";
   const withId = {
     ...candidate,
-    booking_id: id,
     property: candidate.property && { ...candidate.property, id },
   };
   const texts = {
-    "review (platform link)": buildReviewRequest(withId, site),
-    "review (manual link)": buildReviewRequest(
-      { ...withId, source: "manual" },
-      site,
-      "a".repeat(64),
-    ),
     "win-back": buildWinBack(withId, rule, site),
     "win-back fallback": buildWinBack(
       withId,

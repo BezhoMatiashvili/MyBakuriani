@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Star,
 } from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
@@ -57,7 +56,6 @@ interface BookingSidebarProps {
   propertyId?: string | null;
   selectedRange: DateRange;
   onRangeChange?: (range: DateRange) => void;
-  rating?: number | null;
   calendarDates?: BlockedDate[];
   maxGuests?: number;
   perPersonPricing?: boolean;
@@ -214,7 +212,6 @@ export function BookingSidebar({
   propertyId,
   selectedRange,
   onRangeChange,
-  rating,
   calendarDates = [],
   maxGuests = 10,
   perPersonPricing = false,
@@ -309,12 +306,6 @@ export function BookingSidebar({
               {t("perNight")}
             </span>
           </div>
-          {rating != null && (
-            <span className="flex items-center gap-1.5 text-[14px] font-bold text-[#1E293B]">
-              <Star className="h-4 w-4 fill-[#EAB308] text-[#EAB308]" />{" "}
-              {rating.toFixed(1)}
-            </span>
-          )}
         </div>
         <div className="relative" ref={dropdownRef}>
           <button

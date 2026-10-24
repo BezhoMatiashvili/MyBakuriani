@@ -18,7 +18,6 @@ export const FIXTURE_IDS = Object.freeze({
   whatsappApartment: "aae2ff00-1004-4000-a000-000000000004",
   hotel: "aae2ff00-1005-4000-a000-000000000005",
   booking: "aae2ff00-2001-4000-a000-000000000001",
-  review: "aae2ff00-3001-4000-a000-000000000001",
   foodService: "aae2ff00-4001-4000-a000-000000000001",
   transportService: "aae2ff00-4002-4000-a000-000000000002",
   entertainmentService: "aae2ff00-4003-4000-a000-000000000003",

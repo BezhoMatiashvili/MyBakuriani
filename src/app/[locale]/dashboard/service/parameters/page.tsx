@@ -4,13 +4,12 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Check, Star } from "lucide-react";
+import { Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import type { Tables } from "@/lib/types/database";
 import { updateSelfServiceProfile } from "@/lib/self-service/client";
 import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
 import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
@@ -31,7 +30,6 @@ export default function ServiceParametersPage() {
   // texted; the others get the website notice only (C18 mirror).
   const newRequestBySms = dashboardScopeForPath(usePathname()) === "employment";
 
-  const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -58,7 +56,6 @@ export default function ServiceParametersPage() {
         .eq("id", user!.id)
         .maybeSingle();
       if (data) {
-        setProfile(data);
         const parts = (data.display_name ?? "").split(" ");
         setFirstName(parts[0] ?? "");
         setLastName(parts.slice(1).join(" "));
@@ -177,12 +174,6 @@ export default function ServiceParametersPage() {
               {t("providerRole")}
             </p>
           </div>
-          {profile?.rating != null && (
-            <div className="inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1.5 text-[12px] font-bold">
-              <Star className="h-3.5 w-3.5" fill="currentColor" />
-              {Number(profile.rating).toFixed(1)}
-            </div>
-          )}
         </div>
       </motion.div>
 

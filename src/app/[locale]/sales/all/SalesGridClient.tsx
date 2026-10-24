@@ -319,7 +319,6 @@ export default function SalesGridClient({
                       p.price_per_night ? Number(p.price_per_night) : null
                     }
                     salePrice={p.sale_price ? Number(p.sale_price) : null}
-                    rating={null}
                     capacity={p.capacity}
                     rooms={p.rooms}
                     isVip={p.is_vip ?? false}

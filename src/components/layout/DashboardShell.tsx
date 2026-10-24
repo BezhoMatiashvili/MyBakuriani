@@ -650,7 +650,6 @@ export function DashboardShell({
             avatarUrl={avatarUrl ?? undefined}
             isVerified
             notificationCount={notificationCount}
-            pendingReviewsAlert={false}
             smartMatchCount={smartMatchCount}
             currentPath={pathname}
             onSignOut={handleSignOut}

@@ -79,7 +79,6 @@ export type ApartmentListing = Pick<
   // Hotels are listed here too (one "ბინები" nav entry).
   | "type"
   | "hotel_stars"
-  | "numeric_rating"
   | "room_type"
   | "is_b2b_partner"
 >;
@@ -453,7 +452,6 @@ export default function ApartmentsPageClient({
                       p.price_per_night ? Number(p.price_per_night) : null
                     }
                     salePrice={p.sale_price ? Number(p.sale_price) : null}
-                    rating={null}
                     capacity={p.capacity}
                     rooms={p.rooms}
                     isVip={p.is_vip ?? false}
@@ -463,7 +461,6 @@ export default function ApartmentsPageClient({
                     discountExpiresAt={p.discount_expires_at}
                     isForSale={p.is_for_sale ?? false}
                     isHotel={p.type === "hotel"}
-                    numericRating={p.numeric_rating ?? undefined}
                     hotelStars={p.hotel_stars ?? undefined}
                     roomType={p.room_type ?? undefined}
                     isB2BPartner={p.is_b2b_partner ?? false}

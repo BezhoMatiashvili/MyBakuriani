@@ -15,7 +15,7 @@ import type { Tables } from "@/lib/types/database";
 export const LANDING_RENTAL_COLUMNS =
   "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, location_lat, location_lng, ownership_verified";
 export const LANDING_HOTEL_COLUMNS =
-  "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, location_lat, location_lng, hotel_stars, numeric_rating, is_b2b_partner, room_type, ownership_verified";
+  "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, location_lat, location_lng, hotel_stars, is_b2b_partner, room_type, ownership_verified";
 export const LANDING_SALE_COLUMNS =
   "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, location_lat, location_lng, type, area_sqm, construction_status, construction_progress_percent, house_rules, ownership_verified";
 export const LANDING_SERVICE_COLUMNS =
@@ -48,7 +48,7 @@ export type LandingProperty = Pick<
 >;
 
 export type LandingHotel = LandingProperty &
-  Pick<PropertyRow, "hotel_stars" | "numeric_rating" | "is_b2b_partner" | "room_type">;
+  Pick<PropertyRow, "hotel_stars" | "is_b2b_partner" | "room_type">;
 
 export type LandingSaleProperty = LandingProperty &
   Pick<
