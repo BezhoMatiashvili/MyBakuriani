@@ -49,7 +49,7 @@ Free. They go to the listing's owner.
 | Case | SMS text | When we send it |
 |---|---|---|
 | **New cleaning call-out**<br>To the cleaner. The host pays **1 SMS credit**. With no free credit, the cleaner gets only the email and the site notice. At most 3 a day from one host to one cleaner. | MyBakuriani: ახალი გამოძახება — [Apartment_Title], [Date_Time]. დეტალები: [Site_URL]/dashboard/cleaner | Right after the host sends the call-out. |
-| **Call-out status changed**<br>To the host: the cleaner accepted, declined, started or finished, or agreed or refused to cancel. The SMS does not say which; the email does. Free. | MyBakuriani: დასუფთავების სტატუსი | When the cleaner changes the status. |
+| **Call-out status changed**<br>To the host: what the cleaner did. Free. | One of:<br>• *accepted:* MyBakuriani: გამოძახება დადასტურდა<br>• *declined:* MyBakuriani: გამოძახება უარყოფილია<br>• *started:* MyBakuriani: დასუფთავება დაიწყო<br>• *finished:* MyBakuriani: დასუფთავება დასრულდა<br>• *agreed to cancel:* MyBakuriani: გამოძახება გაუქმდა<br>• *refused to cancel:* MyBakuriani: გაუქმების მოთხოვნა უარყოფილია | When the cleaner changes the status. |
 | **Cancel request**<br>To the cleaner: the host asks to cancel an accepted call-out. Free. | MyBakuriani: გაუქმების მოთხოვნა | Right away. |
 | **Call-out cancelled**<br>To the cleaner: the host cancelled a call-out the cleaner had not accepted yet. Free. | MyBakuriani: გამოძახება გაუქმდა | Right away. |
 | **Smart Match offer**<br>To the guest: an owner offered a place for their Smart Match request. Free. | MyBakuriani: ახალი შეთავაზება | When the owner sends the offer. |
@@ -105,7 +105,7 @@ To the owner.
 | Case | Email | When we send it |
 |---|---|---|
 | **New cleaning call-out**<br>To the cleaner. | **Subject:** ახალი გამოძახება<br>**Text:** [Apartment_Title] • [Date_Time] • [Address] | Right after the host sends the call-out. |
-| **Call-out status changed**<br>To the host. | **Subject:** დასუფთავების სტატუსი<br>**Text** (one of):<br>• *accepted:* დამლაგებელმა დაადასტურა გამოძახება<br>• *declined:* დამლაგებელმა უარყო გამოძახება<br>• *started:* დასუფთავება დაიწყო<br>• *finished:* დასუფთავება დასრულდა<br>• *agreed to cancel:* დამლაგებელი დაეთანხმა გამოძახების გაუქმებას<br>• *refused to cancel:* დამლაგებელი არ დაეთანხმა გაუქმებას — გამოძახება ძალაში რჩება | When the cleaner changes the status. |
+| **Call-out status changed**<br>To the host. | **Subject / text** (one of):<br>• *accepted:* გამოძახება დადასტურდა / დამლაგებელმა დაადასტურა გამოძახება<br>• *declined:* გამოძახება უარყოფილია / დამლაგებელმა უარყო გამოძახება<br>• *started:* დასუფთავება დაიწყო / დამლაგებელმა დასუფთავება დაიწყო<br>• *finished:* დასუფთავება დასრულდა / დამლაგებელმა დასუფთავება დაასრულა<br>• *agreed to cancel:* გამოძახება გაუქმდა / დამლაგებელი დაეთანხმა გამოძახების გაუქმებას<br>• *refused to cancel:* გაუქმების მოთხოვნა უარყოფილია / დამლაგებელი არ დაეთანხმა გაუქმებას — გამოძახება ძალაში რჩება | When the cleaner changes the status. |
 | **Cancel request**<br>To the cleaner. | **Subject:** გაუქმების მოთხოვნა<br>**Text:** მესაკუთრემ დადასტურებული გამოძახების გაუქმება მოითხოვა | When the host asks to cancel an accepted call-out. |
 | **Call-out cancelled**<br>To the cleaner. | **Subject:** გამოძახება გაუქმდა<br>**Text:** მესაკუთრემ გამოძახება მიღებამდე გააუქმა | When the host cancels a call-out the cleaner had not accepted yet. |
 | **New Smart Match request**<br>To every owner with an active rental listing. | **Subject:** ახალი Smart Match მოთხოვნა<br>**Text:** სტუმარი ეძებს [Zone]-ში [Check_In] – [Check_Out] | When a guest posts a Smart Match request. |
@@ -163,8 +163,7 @@ These texts live in the Supabase dashboard (Auth → Email templates), not in th
 ## Known issues
 
 1. **Membership and VIP texts reach only profile phones.** Users who signed up by email or Google and never added a phone don't get them. Other notice texts fall back to the listing's phone.
-2. **The call-out status SMS doesn't say what happened.** All six cases send `MyBakuriani: დასუფთავების სტატუსი`; only the email says which.
-3. **The notification switches on profile and settings pages** (new requests, favourites, monthly report) are saved, but no sender reads them.
+2. **The notification switches on profile and settings pages** (new requests, favourites, monthly report) are saved, but no sender reads them.
 
 ## Where the texts live
 

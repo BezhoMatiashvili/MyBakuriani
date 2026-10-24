@@ -760,6 +760,25 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C18/short-notice: the short-notice run (${job[0]}) posts its own mode, touches no daily kind, DAILY_RUN_TIME matches the daily cron, and the dispatch check (${gate[0]}) keeps its same-day texts`);
 }
 
+// C18 — the SMS mirror texts a notice's title only ("MyBakuriani: " + title), so each
+// call-out notice names what happened in its title: the six answers the host gets and the
+// cleaner's two (20261024170000). A shared title made every host SMS read the same.
+{
+  const problems = [];
+  const def = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort()
+    .map((f) => [f, read(join("supabase/migrations", f))])
+    .filter(([, t]) => /create or replace function public\.notify_owner_of_task_status\(\)/i.test(t)).pop();
+  if (!def) problems.push("no migration defines notify_owner_of_task_status");
+  else {
+    const body = def[1].replace(/--[^\n]*/g, "");
+    if (body.includes("დასუფთავების სტატუსი")) problems.push(`${def[0]} still titles call-out answers "დასუფთავების სტატუსი"`);
+    const titles = new Set(body.match(/v_title := '[^']+'/g) ?? []);
+    if (titles.size < 7) problems.push(`${def[0]} must give each call-out notice its own title (found ${titles.size} distinct)`);
+  }
+  if (problems.length) problems.forEach((p) => fail(`C18/call-out answers: ${p}`));
+  else ok(`C18/call-out answers: every call-out notice names what happened in its title (${def[0]})`);
+}
+
 // C15 — a guest's Smart Match request dates and budgets are range-checked in
 // the database (F-V5-R9-01): 'infinity', a year past 5 million or a NaN budget
 // reached every renter who answered the request (a thrown RangeError took the
