@@ -24,7 +24,7 @@
     "test": "npm run test:unit && npm run test:production-config && npm run test:security-auth",
     "test:production-config": "node --test scripts/check-production-config.test.mjs",
     "test:security-auth": "node --experimental-strip-types --test scripts/verified-session-user.test.mjs",
-    "test:sms-domain": "npx --yes deno@2.9.6 test supabase/functions/sms-automation-run/domain_test.ts",
+    "test:sms-domain": "npx --yes deno@2.9.6 test supabase/functions/sms-automation-run/domain_test.ts supabase/functions/sms-automation-run/opt-out_test.ts supabase/functions/sms-dispatch/outcome_test.ts supabase/functions/_shared/sms-recipients_test.ts supabase/functions/auth-send-sms/handler_test.ts",
     "security:secrets": "node scripts/check-secret-permissions.mjs",
     "security:audit": "npm audit --audit-level=high && npm audit --omit=dev --audit-level=high",
     "check:redirects": "node scripts/check-redirects.mjs",

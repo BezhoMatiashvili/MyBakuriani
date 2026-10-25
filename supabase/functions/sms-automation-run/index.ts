@@ -18,6 +18,13 @@
 // ok:true with queued all-zeros. sms_enqueue_automation supplies the predicate inside
 // plpgsql and returns NULL for an already-queued row.
 //
+// Quiet hours (owner's technical task SMS-10, 2026-10-25): a check-in text is sent only
+// between 09:00 and 21:00 Tbilisi (the claim holds it back, sms_check_in_window_open), so
+// its day word follows the day it goes out (`notice.sendDay`).
+// Win-back: manual bookings only, only while site_settings sms_marketing_gates.win_back is
+// true (sms_marketing_gate_open; paused until the lawyer approves), and every text ends in
+// the guest's own opt-out link (sms_issue_optout_token: no accepted consent, no text).
+//
 // Trigger sources:
 //   * pg_cron via net.http_post (see 20260801132000_schedule_sms_pipeline.sql)
 //   * pg_cron every 5 minutes with {"mode":"short_notice"} (20261023100000): only the
@@ -47,6 +54,7 @@ import {
   tbilisiDate,
   toCanonicalGePhone,
 } from "./domain.ts";
+import { optOutToken, sha256Hex } from "./opt-out.ts";
 
 // Auth: shared secret in SMS_AUTOMATION_RUN_SECRET (Bearer header), matching
 // the vip-lifecycle/sms-dispatch/booking-finalize cron functions — this
@@ -270,6 +278,23 @@ serve(async (req: Request) => {
 
     const notice = shortNoticeWindow();
 
+    // Win-back stays off until site_settings sms_marketing_gates.win_back is true.
+    // Fails closed: an unreadable gate is a closed one.
+    let winBackOpen = false;
+    if (daily) {
+      const { data: gate, error: gateErr } = await db.rpc(
+        "sms_marketing_gate_open",
+        { p_gate: "win_back" },
+      );
+      if (gateErr) {
+        console.error("win-back gate unreadable", {
+          code: gateErr.code,
+          message: gateErr.message,
+        });
+      }
+      winBackOpen = gate === true;
+    }
+
     for (const rule of rules) {
       // Short notice looks before anything else: a run with nothing due costs the
       // scan and no more.
@@ -343,13 +368,15 @@ serve(async (req: Request) => {
         });
         if (error) {
           // Make failures VISIBLE. The old enqueue() returned 0 here, so a total
-          // failure still reported ok:true with queued all-zeros.
+          // failure still reported ok:true with queued all-zeros. Code and message
+          // only: the error's details can echo the row (number and text).
           summary.failed += 1;
           console.error("enqueue failed", {
             kind,
             source: c.source,
             booking_id: c.booking_id,
-            error,
+            code: error.code,
+            message: error.message,
           });
           return false;
         }
@@ -406,13 +433,17 @@ serve(async (req: Request) => {
           }),
         ];
         const visible = await publicPropertyIds(db, checkIns);
+        // A run delayed past 21:00 is sent tomorrow morning, on the check-in day.
+        const day: CheckInDay = tomorrow === notice.sendDay
+          ? "today"
+          : "tomorrow";
         for (const c of checkIns) {
           if (!reachable(c, false)) continue;
           const listingVisible = !!c.property && visible.has(c.property.id);
           await enqueue(
             "check_in",
             c,
-            () => buildCheckIn(c, rule, siteUrl, listingVisible),
+            () => buildCheckIn(c, rule, siteUrl, listingVisible, day),
           );
         }
       }
@@ -421,7 +452,8 @@ serve(async (req: Request) => {
       // A booking the run above can never reach: made after that run fired for its
       // check-in (10:00 the day before, `missedDailyRun`), or for today. It is texted
       // once it is an hour old. The word follows the day it is SENT, so a booking made
-      // at 23:30 for tomorrow is texted "დღეს" at 00:30 and the text never lies. The
+      // at 23:30 for tomorrow is texted "დღეს" (queued 00:30, sent from 09:00), and one
+      // queued after 21:00 for tomorrow waits for 09:00 and says "დღეს" too. The
       // 36h expiry above still fits: a row is created minutes before it is sent.
       // Manual bookings only: public.bookings has no writer (C26). The same
       // booking + kind dedup in sms_enqueue_automation keeps the two runs from
@@ -430,7 +462,7 @@ serve(async (req: Request) => {
         const visible = await publicPropertyIds(db, due);
         for (const c of due) {
           if (!reachable(c, false)) continue;
-          const day: CheckInDay = c.check_in === notice.today
+          const day: CheckInDay = c.check_in === notice.sendDay
             ? "today"
             : "tomorrow";
           const listingVisible = !!c.property && visible.has(c.property.id);
@@ -443,36 +475,10 @@ serve(async (req: Request) => {
       }
 
       // ---- T3 WIN-BACK -----------------------------------------------------
-      if (daily && rule.win_back_enabled) {
+      // Manual bookings only: a platform booking (public.bookings, no writer, C26)
+      // has no consent row, so it cannot carry an opt-out link.
+      if (daily && rule.win_back_enabled && winBackOpen) {
         const day = tbilisiDate(-90);
-        for (
-          const c of await scanPlatform(db, {
-            owner_id: rule.user_id,
-            dateCol: "check_out",
-            date: day,
-            statuses: ["completed"],
-            requireConsent: true,
-          })
-        ) {
-          if (!reachable(c, true)) continue;
-          // A platform candidate always carries guest_id, so recipient_id is non-null
-          // here. Guard rather than coalescing to "": `guest_id=eq.` with an empty
-          // string is a malformed uuid, PostgREST answers 22P02, and `const { count }`
-          // would discard that error - count becomes undefined, `?? 0` reads as 0, and
-          // the re-booked-since skip silently stops working.
-          if (!c.recipient_id) continue;
-          const { count, error: rbErr } = await db
-            .from("bookings")
-            .select("id", { count: "exact", head: true })
-            .eq("owner_id", c.owner_id)
-            .eq("guest_id", c.recipient_id)
-            .neq("status", "cancelled")
-            .gt("check_in", day);
-          if (rbErr) throw rbErr;
-          if ((count ?? 0) > 0) continue; // guest already re-booked with this owner
-          await enqueue("win_back", c, () => buildWinBack(c, rule, siteUrl));
-        }
-
         // Manual twin of the re-booked-since skip. An offline guest has no id, so the
         // match is on phone - but it MUST be normalised on both sides: verified live,
         // manual_bookings.guest_phone holds at least three shapes (+995XXXXXXXXX,
@@ -502,7 +508,36 @@ serve(async (req: Request) => {
             if (!reachable(c, true)) continue;
             const phone = toCanonicalGePhone(c.guest_phone);
             if (phone && rebooked.has(phone)) continue;
-            await enqueue("win_back", c, () => buildWinBack(c, rule, siteUrl));
+            if (remainingCapacity < 1) break;
+            // The token's hash is stored only with an accepted consent for this
+            // booking; the token itself lives only in the text.
+            const token = optOutToken();
+            const { data: issued, error: tokenErr } = await db.rpc(
+              "sms_issue_optout_token",
+              {
+                p_owner_id: c.owner_id,
+                p_manual_booking_id: c.booking_id,
+                p_token_hash: await sha256Hex(token),
+              },
+            );
+            if (tokenErr) {
+              summary.failed += 1;
+              console.error("opt-out token failed", {
+                booking_id: c.booking_id,
+                code: tokenErr.code,
+                message: tokenErr.message,
+              });
+              continue;
+            }
+            if (issued !== true) {
+              skip("no_consent", { booking_id: c.booking_id });
+              continue;
+            }
+            await enqueue(
+              "win_back",
+              c,
+              () => buildWinBack(c, rule, siteUrl, `${siteUrl}/sms-stop/${token}`),
+            );
           }
         }
       }

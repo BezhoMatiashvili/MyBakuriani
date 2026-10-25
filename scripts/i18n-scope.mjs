@@ -176,6 +176,11 @@ const SCOPES = [
     provider: "sms-consent/[token]/page.tsx",
     covers: (rel) => rel === "sms-consent/[token]/page.tsx",
   },
+  {
+    constant: "SMS_STOP_NAMESPACES",
+    provider: "sms-stop/[token]/page.tsx",
+    covers: (rel) => rel === "sms-stop/[token]/page.tsx",
+  },
 ];
 const ROOT_SCOPE = "PUBLIC_NAMESPACES";
 

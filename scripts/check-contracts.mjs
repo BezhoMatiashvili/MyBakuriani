@@ -6,6 +6,7 @@
 // Each check prints what it compared so a failure is self-explanatory.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 
 const root = process.cwd();
 const read = (p) => readFileSync(join(root, p), "utf8");
@@ -727,7 +728,8 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // silent full pass every five minutes), the short-notice run touches no daily kind,
 // and the job posts exactly that mode and is in the C4 job list. The dispatch-time check
 // (sms_cancel_ineligible_automation, every minute) keeps a check_in row for today only when
-// it was queued that day, which is when this run words it "დღეს" (20261024160000).
+// its first possible send day is today (queued that day, or after 21:00 the evening before:
+// quiet hours, 20261025180000), which is when this run words it "დღეს" (notice.sendDay).
 {
   const problems = [];
   const domain = read("supabase/functions/sms-automation-run/domain.ts");
@@ -739,7 +741,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     problems.push(`domain.ts DAILY_RUN_TIME ${assumed[1]}:${assumed[2]} is not when sms-automation-daily fires (${cron[2]}:${cron[1]} UTC + 4 h)`);
   if (!/throw new ApiError\("Unknown mode", 400/.test(index)) problems.push("index.ts must answer 400 to an unknown mode");
   for (const flag of ["check_in_reminder_enabled", "win_back_enabled"])
-    if (!new RegExp(`if \\(daily && rule\\.${flag}\\)`).test(index)) problems.push(`index.ts must run ${flag} only in the daily mode`);
+    if (!new RegExp(`if \\(daily && rule\\.${flag}(?: && \\w+)?\\)`).test(index)) problems.push(`index.ts must run ${flag} only in the daily mode`);
   const job = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort()
     .map((f) => [f, read(join("supabase/migrations", f))])
     .filter(([, t]) => /cron\.schedule\(\s*'sms-check-in-short-notice'/.test(t)).pop();
@@ -749,13 +751,13 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     if (!/timeout_milliseconds := \d+/.test(job[1])) problems.push(`${job[0]} must set timeout_milliseconds (C4)`);
   }
   if (!read("scripts/check-db-contracts.mjs").includes('"sms-check-in-short-notice"')) problems.push("check-db-contracts.mjs C4 does not expect sms-check-in-short-notice");
-  if (!/const day: CheckInDay = c\.check_in === notice\.today\s*\?\s*"today"/.test(index)) problems.push('index.ts must word a short-notice text "today" exactly when its check-in is the run\'s Tbilisi today');
+  if (!/const day: CheckInDay = c\.check_in === notice\.sendDay\s*\?\s*"today"/.test(index)) problems.push('index.ts must word a short-notice text "today" exactly when its check-in is the day the text first goes out (notice.sendDay, quiet hours)');
   const gate = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort()
     .map((f) => [f, read(join("supabase/migrations", f))])
     .filter(([, t]) => /create or replace function public\.sms_cancel_ineligible_automation\(\)/i.test(t)).pop();
   if (!gate) problems.push("no migration defines sms_cancel_ineligible_automation");
-  else if (!/mb\.check_in=\(now\(\) at time zone 'Asia\/Tbilisi'\)::date\s+and \(s\.created_at at time zone 'Asia\/Tbilisi'\)::date=mb\.check_in/.test(gate[1].replace(/--[^\n]*/g, "")))
-    problems.push(`${gate[0]}: sms_cancel_ineligible_automation must keep a check_in row for today that was queued that day (else every "დღეს" text is failed within a minute)`);
+  else if (!/mb\.check_in=\(now\(\) at time zone 'Asia\/Tbilisi'\)::date\s+and public\.sms_check_in_first_send_date\(s\.created_at\)=mb\.check_in/.test(gate[1].replace(/--[^\n]*/g, "")))
+    problems.push(`${gate[0]}: sms_cancel_ineligible_automation must keep a check_in row for today whose first send day is today (else every "დღეს" text is failed within a minute)`);
   if (problems.length) problems.forEach((p) => fail(`C18/short-notice: ${p}`));
   else ok(`C18/short-notice: the short-notice run (${job[0]}) posts its own mode, touches no daily kind, DAILY_RUN_TIME matches the daily cron, and the dispatch check (${gate[0]}) keeps its same-day texts`);
 }
@@ -780,6 +782,92 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // C15 — a guest's Smart Match request dates and budgets are range-checked in
+// C18 — the owner's technical task (2026-10-25; 20261025180000-180200). (a) Quiet hours: a
+// check-in text goes out only 09:00 <= t < 21:00 Tbilisi; domain.ts CHECK_IN_SEND_WINDOW (which
+// words the day by the day a text is sent) = SQL sms_check_in_window_open and
+// sms_check_in_first_send_date, and the claim holds check_in rows back outside it. (b) No second
+// send: the claim never re-hands a row whose send started and fails in-doubt rows first;
+// sms-dispatch stamps sms_mark_send_started before sendSms and reads every uBill reply through
+// outcome.ts. (c) Recipients: one rule (_shared/sms-recipients.ts) in both senders, its prod ref =
+// media-hosts PROD_SUPABASE_HOST (unset list = everyone on prod only). (d) Call-out answers are
+// the task's exact sentences; only they may use two SMS parts in the mirror. (e) Win-back only
+// while sms_marketing_gates.win_back is true (one rule in SQL and TS), always with an opt-out link
+// whose hash both sides compute alike; the opt-out route withdraws only on POST. (f) The guest
+// consent wording is pinned to its version label: consent events record that label as the text
+// the guest saw, so a wording change needs a new version (or a deliberate re-pin).
+{
+  const problems = [];
+  const files = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
+  const bodyIn = (fn) => {
+    const re = new RegExp(`create\\s+or\\s+replace\\s+function\\s+public\\.${fn}\\(`, "i");
+    const file = files.filter((f) => re.test(read(join("supabase/migrations", f)))).at(-1);
+    if (!file) return { file: null, body: "" };
+    const sql = read(join("supabase/migrations", file));
+    const from = sql.search(re);
+    const tag = /\$[a-z_]*\$/i.exec(sql.slice(from))?.[0];
+    const start = tag ? sql.indexOf(tag, from) + tag.length : -1;
+    const end = tag ? sql.indexOf(tag, start) : -1;
+    return { file, body: start > 0 && end > start ? sql.slice(start, end).replace(/--[^\n]*/g, "") : "" };
+  };
+  const domain = read("supabase/functions/sms-automation-run/domain.ts");
+  const index = read("supabase/functions/sms-automation-run/index.ts");
+  const dispatch = read("supabase/functions/sms-dispatch/index.ts");
+  const authHook = read("supabase/functions/auth-send-sms/handler.ts");
+
+  const win = domain.match(/CHECK_IN_SEND_WINDOW = \{ from: "(\d\d:\d\d)", to: "(\d\d:\d\d)" \}/);
+  const windowFn = bodyIn("sms_check_in_window_open");
+  const firstFn = bodyIn("sms_check_in_first_send_date");
+  if (!win) problems.push("domain.ts must export CHECK_IN_SEND_WINDOW = { from, to }");
+  else {
+    if (!windowFn.body.includes(`'${win[1]}'`) || !windowFn.body.includes(`'${win[2]}'`)) problems.push(`sms_check_in_window_open (${windowFn.file}) must open at ${win[1]} and close at ${win[2]} (domain.ts CHECK_IN_SEND_WINDOW)`);
+    if (!firstFn.body.includes(`'${win[2]}'`)) problems.push(`sms_check_in_first_send_date (${firstFn.file}) must move a text queued from ${win[2]} to the next day`);
+  }
+  const claim = bodyIn("sms_claim_dispatch_batch");
+  if (!/s\.automation_kind is distinct from 'check_in' or public\.sms_check_in_window_open\(now\(\)\)/.test(claim.body)) problems.push(`sms_claim_dispatch_batch (${claim.file}) must hold check_in rows back outside the quiet-hours window`);
+  if (!/s\.send_started_at is null/.test(claim.body) || !/sms_fail_in_doubt_sends\(\)/.test(claim.body)) problems.push(`sms_claim_dispatch_batch (${claim.file}) must never re-hand a started row and must fail in-doubt rows first`);
+  const stampAt = dispatch.indexOf('"sms_mark_send_started"');
+  const sendAt = dispatch.indexOf("await sendSms(number");
+  if (stampAt < 0 || sendAt < 0 || stampAt > sendAt || !/started !== true/.test(dispatch)) problems.push("sms-dispatch must stamp sms_mark_send_started, and send nothing unless it returned true, before calling sendSms");
+  if (!/classifyReply\(reply\)/.test(dispatch)) problems.push("sms-dispatch must read every uBill reply through outcome.ts classifyReply");
+
+  const prodRef = read("src/lib/media-hosts.ts").match(/PROD_SUPABASE_HOST = "([a-z0-9]{20})\.supabase\.co"/)?.[1];
+  const ref = read("supabase/functions/_shared/sms-recipients.ts").match(/PROD_PROJECT_REF = "([a-z0-9]{20})"/)?.[1];
+  if (!prodRef || ref !== prodRef) problems.push(`_shared/sms-recipients.ts PROD_PROJECT_REF (${ref}) must equal media-hosts PROD_SUPABASE_HOST (${prodRef})`);
+  for (const [name, text] of [["sms-dispatch/index.ts", dispatch], ["auth-send-sms/handler.ts", authHook]]) {
+    if (!/recipientPolicy\(\s*[\w.]+\("SMS_TEST_RECIPIENTS"\),\s*[\w.]+\("SUPABASE_URL"\)/.test(text) || /function testRecipients/.test(text)) problems.push(`${name} must take its recipients from _shared/sms-recipients.ts recipientPolicy(SMS_TEST_RECIPIENTS, SUPABASE_URL)`);
+  }
+
+  const owner = bodyIn("notify_owner_of_task_status");
+  const sentences = ["დამლაგებელმა დაადასტურა გამოძახება.", "დამლაგებელმა უარყო გამოძახება.", "დამლაგებელი დაეთანხმა გამოძახების გაუქმებას.", "დამლაგებელი არ დაეთანხმა გაუქმებას. გამოძახება ძალაში რჩება.", "დასუფთავება დაიწყო.", "დასუფთავება დასრულდა."];
+  const missing = sentences.filter((s) => !owner.body.includes(`v_title := '${s}'`));
+  if (missing.length) problems.push(`notify_owner_of_task_status (${owner.file}) must title the call-out answers with the task's exact sentences; missing: ${missing.join(" | ")}`);
+  const mirror = bodyIn("notifications_enqueue_sms");
+  if (!/char_length\(v_title\) > \(case when new\.type = 'cleaning_task_status' then 121 else 57 end\)/.test(mirror.body)) problems.push(`notifications_enqueue_sms (${mirror.file}) must keep the one-part title cap (57) for every type but cleaning_task_status (121)`);
+  if (Math.max(...sentences.map((s) => 13 + s.length)) > 121 + 13) problems.push("a call-out answer no longer fits two SMS parts");
+
+  const gateFn = bodyIn("sms_marketing_gate_open");
+  if (!/\(s\.value ->> p_gate\) = 'true'/.test(gateFn.body) || !/flag === true \|\| flag === "true"/.test(read("src/lib/sms/marketing-gates.ts"))) problems.push(`the marketing gate must be value ->> gate = 'true' in SQL (${gateFn.file}) and flag === true || flag === "true" in src/lib/sms/marketing-gates.ts`);
+  if (!/if \(daily && rule\.win_back_enabled && winBackOpen\)/.test(index) || !/"sms_marketing_gate_open",\s*\{ p_gate: "win_back" \}/.test(index)) problems.push("sms-automation-run must queue win-back only while the win_back gate is open");
+  if (!/"sms_issue_optout_token"/.test(index) || !/buildWinBack\(c, rule, siteUrl, `\$\{siteUrl\}\/sms-stop\/\$\{token\}`\)/.test(index)) problems.push("sms-automation-run must issue an opt-out token for every win-back and put its /sms-stop/ link in the text");
+  if ((domain.match(/\+ `\\n\$\{optOut\}`/g) ?? []).length !== 2) problems.push("domain.ts buildWinBack must end both win-back texts with the TEMPLATES.win_back_opt_out line");
+  const route = read("src/app/api/sms-stop/[token]/route.ts");
+  const postAt = route.indexOf("export async function POST");
+  if (postAt < 0 || route.slice(0, postAt).includes('"sms_optout_by_token"') || !route.slice(postAt).includes('"sms_optout_by_token"')) problems.push("/api/sms-stop/[token] must withdraw only on POST (a link preview's GET opts nobody out)");
+  const nodeLen = read("src/lib/sms/opt-out.ts").match(/\{(\d+)\}\$\/;/)?.[1];
+  const denoBytes = read("supabase/functions/sms-automation-run/opt-out.ts").match(/new Uint8Array\((\d+)\)/)?.[1];
+  if (!nodeLen || !denoBytes || Number(nodeLen) !== Math.ceil((Number(denoBytes) * 4) / 3)) problems.push(`the opt-out token length in src/lib/sms/opt-out.ts (${nodeLen}) must be the base64url length of the Deno token's ${denoBytes} bytes`);
+
+  const CONSENT_TEXT_PIN = { version: "manual-sms-v2", sha256: "70280bb74c87e566f4f49ef3df5ecca39f6dc926febeb23736d308b444152264" };
+  const version = read("src/lib/sms/manual-booking-consent.ts").match(/MANUAL_BOOKING_SMS_CONSENT_VERSION = "([^"]+)"/)?.[1];
+  const consentSms = domain.match(/consent_request:\n\s*"([^"]+)"/)?.[1];
+  const consentPage = ["ka", "en", "ru"].map((l) => JSON.parse(read(`messages/${l}.json`)).SmsConsent);
+  const consentHash = createHash("sha256").update(JSON.stringify([consentSms, ...consentPage]), "utf8").digest("hex");
+  if (version !== CONSENT_TEXT_PIN.version || consentHash !== CONSENT_TEXT_PIN.sha256) problems.push(`the guest consent text (TEMPLATES.consent_request + SmsConsent in ka/en/ru, sha256 ${consentHash}) or its version (${version}) moved from the pin ${CONSENT_TEXT_PIN.version}/${CONSENT_TEXT_PIN.sha256.slice(0, 12)}: consent events record the version as the text the guest saw, so record a new version or re-pin deliberately`);
+
+  if (problems.length) problems.forEach((p) => fail(`C18/messaging-task: ${p}`));
+  else ok(`C18/messaging-task: quiet hours ${win[1]}-${win[2]} in TS and SQL (${windowFn.file}), no second send of a started row, one recipient rule (prod ${ref}), the task's call-out sentences, win-back gated with an opt-out link, consent text pinned to ${version}`);
+}
+
 // the database (F-V5-R9-01): 'infinity', a year past 5 million or a NaN budget
 // reached every renter who answered the request (a thrown RangeError took the
 // renter's whole sent-offers page down until the guest cancelled).

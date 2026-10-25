@@ -17,6 +17,7 @@ type StatusPayload = {
   marketingConsent: boolean;
   phoneValid: boolean;
   guestDeclined: boolean;
+  paused: boolean;
   canRequest: boolean;
   sms: { status: "queued" | "sent" | "failed"; requestedAt: string | null } | null;
   resendAt: string | null;
@@ -30,6 +31,7 @@ const SEND_ERROR_KEYS: Record<string, string> = {
   insufficient_sms_credit: "noCredit",
   phone_rate_limited: "phoneLimited",
   daily_limit: "dailyLimit",
+  consent_requests_paused: "paused",
 };
 
 export function SmsConsentLinkPanel({ bookingId }: { bookingId: string }) {
@@ -114,7 +116,7 @@ export function SmsConsentLinkPanel({ bookingId }: { bookingId: string }) {
         </div>
       </div>
 
-      {!loading && status !== null && status !== "accepted" && !payload?.guestDeclined && (
+      {!loading && status !== null && status !== "accepted" && !payload?.guestDeclined && !payload?.paused && (
         <button
           type="button"
           disabled={!payload?.canRequest || sending}
@@ -127,6 +129,9 @@ export function SmsConsentLinkPanel({ bookingId }: { bookingId: string }) {
       )}
 
       {error && <p className="mt-2 text-[11px] font-semibold text-[#B91C1C]">{error}</p>}
+      {!loading && !error && payload?.paused && status !== "accepted" && (
+        <p className="mt-2 text-[11px] font-semibold text-[#475569]">{t("paused")}</p>
+      )}
       {!loading && !error && payload && !payload.phoneValid && status !== "accepted" && (
         <p className="mt-2 text-[11px] font-semibold text-[#B45309]">{t("smsPhoneRequired")}</p>
       )}

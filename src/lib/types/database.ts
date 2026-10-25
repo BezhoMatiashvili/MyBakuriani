@@ -76,6 +76,8 @@ type PublicViews = {
   // Admin analytics (C49): service role only, read by the admin_analytics_*
   // functions.
   analytics_person_map_v: GenPublic["Views"]["analytics_person_map_v"];
+  // SMS delivery state per text (C18): service role only, for reconciliation.
+  sms_outbound_delivery_v: GenPublic["Views"]["sms_outbound_delivery_v"];
 };
 
 // Compile-time tripwire: every view the generator knows about must be

@@ -8,6 +8,10 @@ import {
   manualBookingConsentSms,
 } from "@/lib/sms/manual-booking-consent";
 import { isUuid } from "@/lib/utils/uuid";
+import {
+  SMS_MARKETING_GATES_KEY,
+  smsMarketingGateOpen,
+} from "@/lib/sms/marketing-gates";
 
 export const runtime = "nodejs";
 
@@ -67,6 +71,17 @@ const REFUSAL_STATUS: Record<string, number> = {
   insufficient_sms_credit: 402,
 };
 
+// Consent requests are paused until the lawyer approves them (site_settings
+// sms_marketing_gates, C18): no new request, and the panel says so.
+async function consentRequestsPaused(db: ReturnType<typeof createServiceClient>) {
+  const { data, error } = await db
+    .from("site_settings")
+    .select("value")
+    .eq("key", SMS_MARKETING_GATES_KEY)
+    .maybeSingle();
+  return error ? true : !smsMarketingGateOpen(data?.value, "consent_requests");
+}
+
 async function ownerBooking(id: string) {
   if (!isUuid(id)) return { error: "invalid_booking" as const, status: 400 };
   const user = await getCurrentUser();
@@ -95,7 +110,8 @@ export async function GET(
   }
 
   const phone = toCanonicalGePhone(result.booking.guest_phone);
-  const [consentRes, smsRes, answerRes] = await Promise.all([
+  const [paused, consentRes, smsRes, answerRes] = await Promise.all([
+    consentRequestsPaused(result.db),
     result.db
       .from("manual_booking_sms_consents")
       .select("status, created_at, accepted_at, declined_at, revoked_at")
@@ -157,7 +173,9 @@ export async function GET(
       marketingConsent: result.booking.marketing_consent,
       phoneValid: Boolean(phone),
       guestDeclined,
+      paused,
       canRequest:
+        !paused &&
         result.booking.status !== "cancelled" &&
         data?.status !== "accepted" &&
         !guestDeclined &&
@@ -184,6 +202,12 @@ export async function POST(
   const result = await ownerBooking(id);
   if ("error" in result) {
     return Response.json({ error: result.error }, { status: result.status });
+  }
+  if (await consentRequestsPaused(result.db)) {
+    return Response.json(
+      { error: "consent_requests_paused" },
+      { status: 503, headers: noStore },
+    );
   }
   if (result.booking.status === "cancelled") {
     return Response.json({ error: "cancelled_booking" }, { status: 409 });

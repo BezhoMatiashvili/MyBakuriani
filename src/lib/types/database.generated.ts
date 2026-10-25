@@ -2748,6 +2748,56 @@ export type Database = {
           },
         ];
       };
+      manual_booking_sms_consent_events: {
+        Row: {
+          action: string;
+          channel: string;
+          consent_id: string;
+          id: number;
+          manual_booking_id: string;
+          occurred_at: string;
+          owner_id: string;
+          previous_status: string | null;
+          property_id: string | null;
+          source: string;
+          text_version: string;
+        };
+        Insert: {
+          action: string;
+          channel?: string;
+          consent_id: string;
+          id?: never;
+          manual_booking_id: string;
+          occurred_at?: string;
+          owner_id: string;
+          previous_status?: string | null;
+          property_id?: string | null;
+          source: string;
+          text_version: string;
+        };
+        Update: {
+          action?: string;
+          channel?: string;
+          consent_id?: string;
+          id?: never;
+          manual_booking_id?: string;
+          occurred_at?: string;
+          owner_id?: string;
+          previous_status?: string | null;
+          property_id?: string | null;
+          source?: string;
+          text_version?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "manual_booking_sms_consent_events_consent_id_fkey";
+            columns: ["consent_id"];
+            isOneToOne: false;
+            referencedRelation: "manual_booking_sms_consents";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       manual_booking_sms_consents: {
         Row: {
           accepted_at: string | null;
@@ -5937,6 +5987,72 @@ export type Database = {
           },
         ];
       };
+      sms_optout_tokens: {
+        Row: {
+          consent_id: string;
+          created_at: string;
+          expires_at: string;
+          manual_booking_id: string;
+          owner_id: string;
+          token_hash: string;
+          used_at: string | null;
+        };
+        Insert: {
+          consent_id: string;
+          created_at?: string;
+          expires_at?: string;
+          manual_booking_id: string;
+          owner_id: string;
+          token_hash: string;
+          used_at?: string | null;
+        };
+        Update: {
+          consent_id?: string;
+          created_at?: string;
+          expires_at?: string;
+          manual_booking_id?: string;
+          owner_id?: string;
+          token_hash?: string;
+          used_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sms_optout_tokens_consent_id_fkey";
+            columns: ["consent_id"];
+            isOneToOne: false;
+            referencedRelation: "manual_booking_sms_consents";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sms_optout_tokens_manual_booking_id_fkey";
+            columns: ["manual_booking_id"];
+            isOneToOne: false;
+            referencedRelation: "manual_bookings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sms_optout_tokens_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "admin_membership_overview_v";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "sms_optout_tokens_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sms_optout_tokens_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       sms_outbound: {
         Row: {
           admin_notes: string | null;
@@ -5955,12 +6071,14 @@ export type Database = {
           legacy_origin: boolean;
           message: string;
           price_drop_event_id: string | null;
+          provider_checked_at: string | null;
           provider_message_id: string | null;
           provider_response: Json | null;
           recipient_id: string | null;
           recipient_phone: string;
           reviewed_at: string | null;
           reviewed_by: string | null;
+          send_started_at: string | null;
           sender_id: string;
           sent_at: string | null;
           source_booking_id: string | null;
@@ -5987,12 +6105,14 @@ export type Database = {
           legacy_origin?: boolean;
           message: string;
           price_drop_event_id?: string | null;
+          provider_checked_at?: string | null;
           provider_message_id?: string | null;
           provider_response?: Json | null;
           recipient_id?: string | null;
           recipient_phone: string;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
+          send_started_at?: string | null;
           sender_id: string;
           sent_at?: string | null;
           source_booking_id?: string | null;
@@ -6019,12 +6139,14 @@ export type Database = {
           legacy_origin?: boolean;
           message?: string;
           price_drop_event_id?: string | null;
+          provider_checked_at?: string | null;
           provider_message_id?: string | null;
           provider_response?: Json | null;
           recipient_id?: string | null;
           recipient_phone?: string;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
+          send_started_at?: string | null;
           sender_id?: string;
           sent_at?: string | null;
           source_booking_id?: string | null;
@@ -6145,6 +6267,54 @@ export type Database = {
             columns: ["source_notification_id"];
             isOneToOne: false;
             referencedRelation: "notifications";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      sms_outbound_events: {
+        Row: {
+          from_status: string | null;
+          id: number;
+          occurred_at: string;
+          outbound_id: string;
+          reason: string | null;
+          report_status: number | null;
+          source: string;
+          to_status: string;
+        };
+        Insert: {
+          from_status?: string | null;
+          id?: never;
+          occurred_at?: string;
+          outbound_id: string;
+          reason?: string | null;
+          report_status?: number | null;
+          source: string;
+          to_status: string;
+        };
+        Update: {
+          from_status?: string | null;
+          id?: never;
+          occurred_at?: string;
+          outbound_id?: string;
+          reason?: string | null;
+          report_status?: number | null;
+          source?: string;
+          to_status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sms_outbound_events_outbound_id_fkey";
+            columns: ["outbound_id"];
+            isOneToOne: false;
+            referencedRelation: "sms_outbound";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sms_outbound_events_outbound_id_fkey";
+            columns: ["outbound_id"];
+            isOneToOne: false;
+            referencedRelation: "sms_outbound_delivery_v";
             referencedColumns: ["id"];
           },
         ];
@@ -7348,6 +7518,22 @@ export type Database = {
         };
         Relationships: [];
       };
+      sms_outbound_delivery_v: {
+        Row: {
+          automation_kind: string | null;
+          charged: boolean | null;
+          created_at: string | null;
+          delivered_at: string | null;
+          delivery_state: string | null;
+          id: string | null;
+          last_report_at: string | null;
+          last_report_status: number | null;
+          provider_message_id: string | null;
+          status: string | null;
+          submitted_at: string | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       _admin_status_check_days: {
@@ -8444,6 +8630,10 @@ export type Database = {
         Args: { p_action: string; p_token_hash: string };
         Returns: Json;
       };
+      respond_manual_booking_sms_consent_as_guest: {
+        Args: { p_action: string; p_token_hash: string };
+        Returns: Json;
+      };
       respond_membership_request: {
         Args: { p_action: string; p_member_id: string };
         Returns: undefined;
@@ -8625,6 +8815,12 @@ export type Database = {
       };
       sms_cancel_resolved_cleaner_calls: { Args: never; Returns: number };
       sms_canonical_ge_phone: { Args: { p: string }; Returns: string };
+      sms_check_in_first_send_date: { Args: { p_ts: string }; Returns: string };
+      sms_check_in_started: {
+        Args: { p_check_in: string; p_check_in_time: string; p_now: string };
+        Returns: boolean;
+      };
+      sms_check_in_window_open: { Args: { p_now: string }; Returns: boolean };
       sms_claim_dispatch_batch: {
         Args: { p_claim_token: string; p_limit?: number };
         Returns: {
@@ -8666,6 +8862,7 @@ export type Database = {
         Returns: string;
       };
       sms_expire_stale_automation: { Args: never; Returns: number };
+      sms_fail_in_doubt_sends: { Args: never; Returns: number };
       sms_finance_active_purchases: {
         Args: never;
         Returns: {
@@ -8698,6 +8895,14 @@ export type Database = {
         Returns: string;
       };
       sms_finance_sync: { Args: never; Returns: number };
+      sms_issue_optout_token: {
+        Args: {
+          p_manual_booking_id: string;
+          p_owner_id: string;
+          p_token_hash: string;
+        };
+        Returns: boolean;
+      };
       sms_mark_claim_failed: {
         Args: {
           p_claim_token: string;
@@ -8735,10 +8940,15 @@ export type Database = {
         Args: { p_provider_message_id: string; p_provider_response?: Json };
         Returns: Json;
       };
+      sms_mark_send_started: {
+        Args: { p_claim_token: string; p_sms_id: string };
+        Returns: boolean;
+      };
       sms_mark_sent: {
         Args: { p_provider_response?: Json; p_sms_id: string };
         Returns: Json;
       };
+      sms_marketing_gate_open: { Args: { p_gate: string }; Returns: boolean };
       sms_materialize_due_price_drop_events: {
         Args: {
           p_allowed_payers?: string[];
@@ -8748,6 +8958,11 @@ export type Database = {
         Returns: Json;
       };
       sms_notification_types: { Args: never; Returns: string[] };
+      sms_optout_by_token: { Args: { p_token_hash: string }; Returns: Json };
+      sms_optout_token_details: {
+        Args: { p_token_hash: string };
+        Returns: Json;
+      };
       sms_patch_automation_rules: {
         Args: { p_patch: Json; p_sender_id: string };
         Returns: {
@@ -8769,6 +8984,10 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      sms_record_provider_report: {
+        Args: { p_provider_message_id: string; p_report_status: number };
+        Returns: undefined;
       };
       sms_release_dispatch_claim: {
         Args: { p_claim_token: string; p_sms_id: string };

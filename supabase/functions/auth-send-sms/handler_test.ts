@@ -19,6 +19,8 @@ const ENV: Record<string, string> = {
   SMS_PROVIDER_API_KEY: "test-key",
   SMS_PROVIDER_BRAND_ID: "1",
   SITE_URL: "https://mybakuriani.ge",
+  // Production: no SMS_TEST_RECIPIENTS means everyone (_shared/sms-recipients.ts).
+  SUPABASE_URL: "https://wlkmyxyaocvgqomrrbfs.supabase.co",
 };
 
 interface Calls {
@@ -51,8 +53,7 @@ function deps(
       },
       send: (o) => {
         calls.send.push(o);
-        const reply = opts.reply ?? {
-          http: 200,
+        const reply = opts.reply ?? { http: 200, parsed: true,
           statusID: 0,
           smsID: 5040001,
           message: null,
@@ -206,6 +207,33 @@ Deno.test(
   },
 );
 
+Deno.test(
+  "off production an unset allow-list texts nobody",
+  async () => {
+    for (
+      const url of ["https://laxwtegxpemuuyxluqsi.supabase.co", undefined]
+    ) {
+      const { deps: d, calls } = deps({ env: { SUPABASE_URL: url } });
+      const res = await handleSendSms(signedRequest(event()), d);
+      assertEquals(res.status, 200);
+      assertEquals(
+        (await body(res)).error.message,
+        AUTH_SMS_ERRORS.unavailable,
+      );
+      assertEquals(calls.reserve.length + calls.send.length, 0, String(url));
+    }
+  },
+);
+
+Deno.test("logs carry no more of a number than its last two digits", async () => {
+  const { deps: d, calls } = deps();
+  await handleSendSms(signedRequest(event()), d);
+  assertEquals(calls.send.length, 1);
+  for (const line of calls.logs) {
+    assertEquals(/\d{3,}/.test(line.replace(/"smsID":\d+/, "")), false, line);
+  }
+});
+
 Deno.test("the allow-list lets a listed number through", async () => {
   const { deps: d, calls } = deps({
     env: { SMS_TEST_RECIPIENTS: "+995 599 12 34 56" },
@@ -242,8 +270,8 @@ Deno.test(
   "provider refusal or outage -> sms_send_failed and the row is failed",
   async () => {
     for (const reply of [
-      { http: 200, statusID: 10, smsID: null, message: "no balance" },
-      { http: 500, statusID: null, smsID: null, message: null },
+      { http: 200, parsed: true, statusID: 10, smsID: null, message: "no balance" },
+      { http: 500, parsed: true, statusID: null, smsID: null, message: null },
       new Error("timeout"),
     ]) {
       const { deps: d, calls } = deps({ reply });
@@ -261,7 +289,7 @@ Deno.test("the code never reaches the logs", async () => {
     deps(),
     deps({ reservation: { ok: false, reason: "number_limit" } }),
     deps({ reply: new Error("timeout") }),
-    deps({ reply: { http: 200, statusID: 10, smsID: null, message: "x" } }),
+    deps({ reply: { http: 200, parsed: true, statusID: 10, smsID: null, message: "x" } }),
   ];
   for (const run of runs) {
     await handleSendSms(signedRequest(event()), run.deps);

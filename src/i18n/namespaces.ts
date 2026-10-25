@@ -3,7 +3,7 @@
 // The root `[locale]/layout.tsx` provider ships ONLY PUBLIC_NAMESPACES to the
 // browser, in every HTML document and every static RSC payload. Route trees
 // whose namespaces nobody else needs re-provide them in a nested provider
-// instead: /create, /auth, /sms-consent/[token] and
+// instead: /create, /auth, /sms-consent/[token], /sms-stop/[token] and
 // /dashboard (see the constants below). A nested NextIntlClientProvider
 // REPLACES the messages above it rather than merging, so each constant lists
 // every namespace reachable under its provider, shell components included.
@@ -116,6 +116,9 @@ export const AUTH_NAMESPACES = [
 
 // Re-provided by src/app/[locale]/sms-consent/[token]/page.tsx.
 export const SMS_CONSENT_NAMESPACES = ["SmsConsent"] as const;
+
+// Re-provided by src/app/[locale]/sms-stop/[token]/page.tsx.
+export const SMS_STOP_NAMESPACES = ["SmsStop"] as const;
 
 // Re-provided by src/app/[locale]/dashboard/layout.tsx for /dashboard/**
 // (previously the full catalog).

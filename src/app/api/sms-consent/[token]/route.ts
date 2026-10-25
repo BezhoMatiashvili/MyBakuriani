@@ -137,8 +137,9 @@ export async function POST(
         { status: 404, headers: noStoreHeaders },
       );
     }
+    // The _as_guest wrapper records the answer's source as the consent page (C18).
     const { data, error } = await result.db.rpc(
-      "respond_manual_booking_sms_consent",
+      "respond_manual_booking_sms_consent_as_guest",
       {
         p_action: body.action as "accept" | "decline" | "revoke",
         p_token_hash: result.tokenHash,

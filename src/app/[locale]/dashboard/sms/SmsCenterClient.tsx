@@ -32,6 +32,8 @@ import { buildWinBack } from "../../../../../supabase/functions/sms-automation-r
 interface Props {
   initialSmsRemaining: number;
   initialRules: AutomationRules;
+  // site_settings sms_marketing_gates.win_back is not true (C18).
+  winBackPaused: boolean;
 }
 
 function smsCount(pkg: PricingPackage): number {
@@ -47,6 +49,7 @@ function smsCount(pkg: PricingPackage): number {
 export function SmsCenterClient({
   initialSmsRemaining,
   initialRules,
+  winBackPaused,
 }: Props) {
   const t = useTranslations("SMSCenter");
   const tShared = useTranslations("DashboardShared");
@@ -190,6 +193,7 @@ export function SmsCenterClient({
         />
         <AutomationCard
           rules={rules}
+          winBackPaused={winBackPaused}
           onToggle={(key, value) => {
             setRules((current) => ({ ...current, [key]: value }));
             void persistRules({ [key]: value });
@@ -336,6 +340,7 @@ function buildWinBackPreview(
   rules: AutomationRules,
   guestNamePlaceholder: string,
   propertyLinkPlaceholder: string,
+  optOutLinkPlaceholder: string,
 ): string {
   return buildWinBack(
     {
@@ -354,16 +359,19 @@ function buildWinBackPreview(
       ...rules,
     },
     propertyLinkPlaceholder,
+    optOutLinkPlaceholder,
   );
 }
 
 function AutomationCard({
   rules,
+  winBackPaused,
   onToggle,
   onFieldChange,
   onFieldBlur,
 }: {
   rules: AutomationRules;
+  winBackPaused: boolean;
   onToggle: (key: ToggleKey, value: boolean) => void;
   onFieldChange: (key: "win_back_discount_value" | "win_back_discount_period", value: string) => void;
   onFieldBlur: (key: "win_back_discount_value" | "win_back_discount_period") => void;
@@ -386,6 +394,7 @@ function AutomationCard({
                 rules,
                 previewT("guestNamePlaceholder"),
                 previewT("propertyLinkPlaceholder"),
+                previewT("optOutLinkPlaceholder"),
               )
             : null;
           return (
@@ -398,6 +407,9 @@ function AutomationCard({
                   <div>
                     <p className="text-[14px] font-bold text-[#0F172A]">{t(row.titleKey)}</p>
                     <p className="mt-0.5 text-[12px] leading-[18px] text-[#64748B]">{t(row.descKey)}</p>
+                    {isWinBack && winBackPaused && (
+                      <p className="mt-1.5 text-[12px] font-semibold leading-[18px] text-[#92400E]">{t("winBackPaused")}</p>
+                    )}
                   </div>
                 </div>
                 <Switch checked={enabled} onCheckedChange={(value) => onToggle(row.key, value)} aria-label={t(row.titleKey)} />

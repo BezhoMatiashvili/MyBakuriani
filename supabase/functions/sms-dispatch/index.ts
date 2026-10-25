@@ -16,11 +16,13 @@
 //
 // Provider: uBill.ge (api.ubill.dev). `sendSms()` is the SINGLE send integration point
 // for queued rows; its POST is `_shared/ubill.ts:ubillSend`, shared with auth-send-sms (C48).
-// uBill's delivery webhook (sms-delivery-report) only prompts a status check; both
-// it and the reconcileSubmitted() poll below settle rows from uBill's report API.
+// Delivery reports come from the reconcileSubmitted() poll below (uBill's report API); the
+// uBill callback URL (sms-delivery-report) is removed, since uBill's GET query lands in the
+// function logs (owner's technical task 2026-10-25).
 // SMS_DELIVERY_ENABLED is an independent fail-closed switch checked before claiming.
-// SMS_TEST_RECIPIENTS (comma-separated numbers), when set, restricts sending to those
-// numbers and fails every other row — staging keeps it set permanently.
+// Recipients: _shared/sms-recipients.ts. SMS_TEST_RECIPIENTS (comma-separated numbers) set =
+// only those numbers; unset = everyone on the production project only, nobody elsewhere.
+// Every other row fails as recipient_not_allowlisted without a provider call or a charge.
 //
 // Auth: shared secret in SMS_DISPATCH_SECRET (Bearer header). The cron job and
 // any manual invocations must present this token.
@@ -43,6 +45,11 @@ import {
   ubillSend,
   type UbillSendReply,
 } from "../_shared/ubill.ts";
+import {
+  recipientAllowed,
+  recipientPolicy,
+} from "../_shared/sms-recipients.ts";
+import { classifyReply } from "./outcome.ts";
 
 const BATCH_SIZE = 25;
 
@@ -65,51 +72,29 @@ type SendResult = {
   status: "skipped" | "submitted" | "failed";
   providerMessageId?: string;
   providerResponse: unknown;
-  // Account-level problem (no credit, brand not approved, bad key, outage):
-  // release this row and every remaining row in the batch, and stop sending.
+  // Provider trouble (a refusal, or a reply that may follow a sent text): release
+  // every remaining row in the batch and stop sending.
   haltBatch?: boolean;
 };
 
 const RECONCILE_BATCH = 25;
-
-// uBill send statusIDs. 0 = accepted. Everything else is an error; only the
-// "no valid number" family is the row's fault.
-const UBILL_ROW_ERRORS = new Set([20, 50]);
-
-function testRecipients(): Set<string> | null {
-  const raw = Deno.env.get("SMS_TEST_RECIPIENTS")?.trim();
-  if (!raw) return null;
-  return new Set(
-    raw
-      .split(",")
-      .map((n) => toUbillNumber(n))
-      .filter((n): n is string => !!n),
-  );
-}
+// A submitted row is first asked about 2 minutes after it went out, then at most
+// every 5 minutes, least recently asked first.
+const POLL_AFTER_MS = 2 * 60_000;
+const POLL_EVERY_MS = 5 * 60_000;
 
 // --- Provider adapter — the only place that sends through the gateway. -------
-// uBill has no idempotency key. At-least-once risk is limited to a crash between
-// an accepted send and sms_mark_claim_submitted; a network error or timeout is
-// treated as 'failed' (not retried) so an ambiguous send is never repeated.
+// uBill has no idempotency key. The row is stamped send-started before this runs
+// (sms_mark_send_started), so it is never handed out again; anything that may have
+// gone out (outcome.ts "unknown": a network error, a timeout, an unreadable or
+// id-less reply) fails with outcome "unknown" and is never repeated or charged.
+// Only a definite refusal is released, to be retried later with a back-off.
 async function sendSms(
-  _smsId: string,
-  phone: string,
+  number: string,
   message: string,
   key: string,
   brandId: number,
-  allowlist: Set<string> | null,
 ): Promise<SendResult> {
-  const number = toUbillNumber(phone);
-  if (!number) {
-    return { status: "failed", providerResponse: { error: "invalid_number" } };
-  }
-  if (allowlist && !allowlist.has(number)) {
-    return {
-      status: "failed",
-      providerResponse: { cancelled: "recipient_not_allowlisted" },
-    };
-  }
-
   let reply: UbillSendReply;
   try {
     reply = await ubillSend({
@@ -122,26 +107,85 @@ async function sendSms(
   } catch (err) {
     return {
       status: "failed",
-      providerResponse: { error: "network", detail: String(err).slice(0, 200) },
+      providerResponse: {
+        provider: "ubill",
+        error: "network",
+        outcome: "unknown",
+        detail: String(err).slice(0, 200),
+      },
+      haltBatch: true,
     };
   }
 
-  const ok = reply.http >= 200 && reply.http < 300;
-  const statusId = Number(reply.statusID);
+  const outcome = classifyReply(reply);
   const providerResponse = { provider: "ubill", ...reply };
+  switch (outcome.kind) {
+    case "submitted":
+      return {
+        status: "submitted",
+        providerMessageId: outcome.smsId,
+        providerResponse,
+      };
+    case "failed":
+      return { status: "failed", providerResponse };
+    case "unknown":
+      console.error("sms-dispatch: provider reply in doubt", {
+        http: reply.http,
+        statusID: reply.statusID,
+        reason: outcome.reason,
+      });
+      return {
+        status: "failed",
+        providerResponse: {
+          ...providerResponse,
+          outcome: "unknown",
+          error: outcome.reason,
+        },
+        haltBatch: true,
+      };
+    case "refused":
+      console.error("sms-dispatch: provider refused batch", providerResponse);
+      return { status: "skipped", providerResponse, haltBatch: true };
+  }
+}
 
-  if (ok && statusId === 0 && reply.smsID != null) {
-    return {
-      status: "submitted",
-      providerMessageId: String(reply.smsID),
-      providerResponse,
-    };
+// uBill accepted the text: record it (and take the credit, C18). A lost reply is
+// retried; P0002 then means an earlier attempt already recorded it. False = sent but
+// unrecorded: the row stays claimed and started, so it is never sent again, and
+// sms_fail_in_doubt_sends fails it as unknown after 15 minutes.
+async function markSubmitted(
+  db: ReturnType<typeof createServiceClient>,
+  id: string,
+  claimToken: string,
+  providerMessageId: string,
+  providerResponse: unknown,
+): Promise<boolean> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 500 * attempt));
+    const { error } = await db.rpc("sms_mark_claim_submitted", {
+      p_sms_id: id,
+      p_claim_token: claimToken,
+      p_provider_message_id: providerMessageId,
+      p_provider_response: providerResponse ?? {},
+    });
+    if (!error) return true;
+    if (error.code === "P0002") {
+      const { data } = await db
+        .from("sms_outbound")
+        .select("status, provider_message_id")
+        .eq("id", id)
+        .maybeSingle();
+      return data?.status === "submitted" &&
+        data?.provider_message_id === providerMessageId;
+    }
+    console.error("sms-dispatch: sms_mark_claim_submitted failed", {
+      id,
+      attempt,
+      code: error.code,
+      message: error.message,
+    });
   }
-  if (ok && UBILL_ROW_ERRORS.has(statusId)) {
-    return { status: "failed", providerResponse };
-  }
-  console.error("sms-dispatch: provider refused batch", providerResponse);
-  return { status: "skipped", providerResponse, haltBatch: true };
+  return false;
 }
 
 // Sender name: SMS_PROVIDER_BRAND_NAME (e.g. "MyBakuriani") is used as soon as
@@ -183,17 +227,27 @@ async function resolveBrand(
   }
 }
 
-// Settle submitted rows whose delivery webhook never arrived. uBill report
-// statusIDs: 0 sent, 1 received, 2 not delivered, 3 awaiting, 4 error.
+// Settle submitted rows from uBill's report API (the only delivery source). uBill
+// report statusIDs: 0 sent, 1 received, 2 not delivered, 3 awaiting, 4 error.
+// Every answer, or the lack of one, is recorded (sms_record_provider_report: the
+// row's history and provider_checked_at), and a row with no final report after 3
+// days is closed even when the lookup itself keeps failing.
 async function reconcileSubmitted(
   db: ReturnType<typeof createServiceClient>,
   key: string,
 ) {
+  const now = Date.now();
   const { data: rows, error } = await db
     .from("sms_outbound")
     .select("provider_message_id, submitted_at")
     .eq("status", "submitted")
-    .lt("submitted_at", new Date(Date.now() - 15 * 60_000).toISOString())
+    .lt("submitted_at", new Date(now - POLL_AFTER_MS).toISOString())
+    .or(
+      `provider_checked_at.is.null,provider_checked_at.lt."${
+        new Date(now - POLL_EVERY_MS).toISOString()
+      }"`,
+    )
+    .order("provider_checked_at", { ascending: true, nullsFirst: true })
     .order("submitted_at", { ascending: true })
     .limit(RECONCILE_BATCH);
   if (error) throw error;
@@ -203,7 +257,16 @@ async function reconcileSubmitted(
   for (const row of rows ?? []) {
     const pid = row.provider_message_id as string;
     const status = await fetchUbillReportStatus(key, pid);
-    if (status === null) continue;
+    const { error: recordErr } = await db.rpc("sms_record_provider_report", {
+      p_provider_message_id: pid,
+      p_report_status: status,
+    });
+    if (recordErr) {
+      console.error("sms-dispatch: sms_record_provider_report failed", {
+        code: recordErr.code,
+        message: recordErr.message,
+      });
+    }
     const staleDays =
       (Date.now() - new Date(row.submitted_at as string).getTime()) /
       86_400_000;
@@ -275,6 +338,14 @@ serve(async (req) => {
       priceDropMaterialization = data;
     }
 
+    // 0. A row whose send started 15+ minutes ago and was never recorded may have
+    //    gone out: fail it as unknown (never resent) before expiry names it stale.
+    const { data: inDoubtRaw, error: inDoubtErr } = await db.rpc(
+      "sms_fail_in_doubt_sends",
+    );
+    if (inDoubtErr) throw inDoubtErr;
+    let inDoubt = Number(inDoubtRaw ?? 0);
+
     // 1. Retire stale automation rows FIRST. This is that function's only caller.
     //    Doing it before the batch read is what lets the claim RPC carry no time
     //    predicate of its own - one window definition, in one place. A stale T1
@@ -321,6 +392,7 @@ serve(async (req) => {
           delivery_enabled: false,
           reconciled,
           price_drop: priceDropMaterialization,
+          in_doubt: inDoubt,
           expired,
           cancelled,
           cancelled_price_drop: cancelledPriceDrop,
@@ -357,20 +429,50 @@ serve(async (req) => {
     let charged = 0;
     let uncharged = 0;
 
-    const allowlist = testRecipients();
+    const recipients = recipientPolicy(
+      Deno.env.get("SMS_TEST_RECIPIENTS"),
+      Deno.env.get("SUPABASE_URL"),
+    );
     let halted = false;
 
     for (const row of rows) {
-      const result = halted
-        ? ({ status: "skipped", providerResponse: {} } as SendResult)
-        : await sendSms(
-            row.id,
-            row.recipient_phone,
-            row.message,
-            providerKey!,
-            brandId,
-            allowlist,
-          );
+      const number = toUbillNumber(row.recipient_phone);
+      let result: SendResult;
+      if (halted) {
+        result = { status: "skipped", providerResponse: {} };
+      } else if (!number) {
+        result = {
+          status: "failed",
+          providerResponse: { error: "invalid_number" },
+        };
+      } else if (!recipientAllowed(recipients, number)) {
+        result = {
+          status: "failed",
+          providerResponse: { cancelled: "recipient_not_allowlisted" },
+        };
+      } else {
+        // Stamp the row before calling uBill: a started row is never handed out
+        // again, whatever happens next. No stamp, no send.
+        const { data: started, error: startErr } = await db.rpc(
+          "sms_mark_send_started",
+          { p_sms_id: row.id, p_claim_token: claimToken },
+        );
+        if (startErr || started !== true) {
+          console.error("sms-dispatch: send not started", {
+            id: row.id,
+            code: startErr?.code ?? "not_claimable",
+          });
+          if (startErr) {
+            await db.rpc("sms_release_dispatch_claim", {
+              p_claim_token: claimToken,
+              p_sms_id: row.id,
+            });
+          }
+          skipped++;
+          continue;
+        }
+        result = await sendSms(number, row.message, providerKey!, brandId);
+      }
       if (result.haltBatch) halted = true;
 
       if (result.status === "skipped") {
@@ -384,20 +486,19 @@ serve(async (req) => {
       }
 
       if (result.status === "submitted") {
-        if (!result.providerMessageId) {
-          throw new Error(`Provider accepted ${row.id} without a message id`);
-        }
-        const { error: markErr } = await db.rpc("sms_mark_claim_submitted", {
-          p_sms_id: row.id,
-          p_claim_token: claimToken,
-          p_provider_message_id: result.providerMessageId,
-          p_provider_response: result.providerResponse ?? {},
-        });
-        if (markErr) {
-          console.error("sms-dispatch: sms_mark_sent failed", {
+        const marked = await markSubmitted(
+          db,
+          row.id,
+          claimToken,
+          result.providerMessageId!,
+          result.providerResponse,
+        );
+        if (!marked) {
+          console.error("sms-dispatch: sent but not recorded", {
             id: row.id,
-            error: markErr,
+            smsID: result.providerMessageId,
           });
+          inDoubt++;
           continue;
         }
         sent++;
@@ -427,6 +528,7 @@ serve(async (req) => {
         reconciled,
         halted,
         price_drop: priceDropMaterialization,
+        in_doubt: inDoubt,
         expired,
         cancelled,
         cancelled_price_drop: cancelledPriceDrop,
