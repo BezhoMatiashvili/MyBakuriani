@@ -10,6 +10,8 @@ import {
   buildConsentRequest,
   buildWinBack,
   type Candidate,
+  CHECK_IN_SEND_WINDOW,
+  firstSendDate,
   missedDailyRun,
   type Rule,
   SHORT_NOTICE_DELAY_MS,
@@ -25,6 +27,8 @@ const SITE = "https://mybakuriani.ge";
 // The longest host the function runs on, for the length budget.
 const STAGING = "https://staging.mybakuriani.ge";
 const LISTING_ID = "3590e66c-c48a-40a0-a7f4-79e0fa82b384";
+// A real token is 22 base64url characters (opt-out.ts).
+const OPT_OUT = "https://example.com/sms-stop/AAAAAAAAAAAAAAAAAAAAAA";
 
 /** Georgian goes out as UCS-2: 70 UTF-16 units in one SMS, 67 per segment after. */
 function segments(text: string): number {
@@ -100,6 +104,7 @@ Deno.test("the short-notice window follows the Tbilisi day", () => {
   assertEquals(shortNoticeWindow(Date.parse("2026-10-23T08:20:00Z")), {
     today: "2026-10-23",
     tomorrow: "2026-10-24",
+    sendDay: "2026-10-23",
     from: "2026-10-22T06:00:00.000Z", // the daily run for a stay today
     to: "2026-10-23T07:20:00.000Z", // booked at least an hour ago
   });
@@ -108,10 +113,28 @@ Deno.test("the short-notice window follows the Tbilisi day", () => {
   assertEquals(afterMidnight.tomorrow, "2026-10-25");
 });
 
+// Quiet hours (SMS-10): 09:00 <= t < 21:00 Tbilisi. A text queued after 21:00 goes out
+// tomorrow from 09:00, so its day word is tomorrow's.
+Deno.test("a check-in text queued after 21:00 first goes out the next day", () => {
+  assertEquals(CHECK_IN_SEND_WINDOW, { from: "09:00", to: "21:00" });
+  const at = (tbilisi: string) => Date.parse(`${tbilisi}+04:00`);
+  assertEquals(firstSendDate(at("2026-10-25T00:00:00")), "2026-10-25");
+  assertEquals(firstSendDate(at("2026-10-25T08:59:00")), "2026-10-25");
+  assertEquals(firstSendDate(at("2026-10-25T09:00:00")), "2026-10-25");
+  assertEquals(firstSendDate(at("2026-10-25T20:59:59")), "2026-10-25");
+  assertEquals(firstSendDate(at("2026-10-25T21:00:00")), "2026-10-26");
+  assertEquals(firstSendDate(at("2026-10-25T23:59:59")), "2026-10-26");
+  // A booking made at 21:30 for tomorrow is queued at 22:30 and says "today".
+  const w = shortNoticeWindow(at("2026-10-25T22:30:00"));
+  assertEquals([w.today, w.tomorrow, w.sendDay], ["2026-10-25", "2026-10-26", "2026-10-26"]);
+  assertEquals(shortNoticeWindow(at("2026-10-25T20:30:00")).sendDay, "2026-10-25");
+});
+
 Deno.test("a booking made at 23:30 for tomorrow is texted an hour later as today", () => {
   const created = "2026-10-23T19:30:00Z"; // 23:30 in Tbilisi, the stay begins tomorrow
   const w = shortNoticeWindow(Date.parse(created) + SHORT_NOTICE_DELAY_MS);
   assertEquals(w.today, "2026-10-24"); // 00:30: it is the check-in day now
+  assertEquals(w.sendDay, "2026-10-24"); // sent from 09:00 the same day: "today"
   assert(Date.parse(created) >= Date.parse(w.from));
   assert(Date.parse(created) <= Date.parse(w.to)); // exactly an hour old: in
   assert(missedDailyRun("2026-10-24", created));
@@ -440,8 +463,8 @@ Deno.test("check-in text length budget over the input shapes", () => {
 
 Deno.test("win-back keeps the offer, its period and the property link", () => {
   assertEquals(
-    buildWinBack(candidate, rule, "https://example.com"),
-    "ნინო, დაბრუნდით ბაკურიანში! მიიღეთ 15% ფასდაკლება (ნოემბრის ბოლომდე): https://example.com/apartments/property-id — MyBakuriani",
+    buildWinBack(candidate, rule, "https://example.com", OPT_OUT),
+    "ნინო, დაბრუნდით ბაკურიანში! მიიღეთ 15% ფასდაკლება (ნოემბრის ბოლომდე): https://example.com/apartments/property-id — MyBakuriani\nუარის თქმა: https://example.com/sms-stop/AAAAAAAAAAAAAAAAAAAAAA",
   );
 });
 
@@ -456,10 +479,11 @@ Deno.test("win-back falls back when either owner field is empty", () => {
       candidate,
       { ...rule, ...empty },
       "https://example.com",
+      OPT_OUT,
     );
     assertEquals(
       message,
-      "ნინო, დაბრუნდით ბაკურიანში! თქვენთვის სპეციალური შეთავაზება: https://example.com/apartments/property-id — MyBakuriani",
+      "ნინო, დაბრუნდით ბაკურიანში! თქვენთვის სპეციალური შეთავაზება: https://example.com/apartments/property-id — MyBakuriani\nუარის თქმა: https://example.com/sms-stop/AAAAAAAAAAAAAAAAAAAAAA",
     );
     assertFalse(message.includes("[Discount_Value]"));
     assertFalse(message.includes("[Discount_Period]"));
@@ -506,6 +530,7 @@ Deno.test("owner-typed text in check-in and win-back texts is never a link", () 
       win_back_discount_period: "https://y.ge",
     },
     "https://example.com",
+    OPT_OUT,
   );
   assertStringIncludes(winBack, `x${LEADER}ge`);
   assertStringIncludes(winBack, `(https:/ /y${LEADER}ge)`);
@@ -538,24 +563,35 @@ Deno.test("consent request asks plainly, offers accept or decline, carries only 
   assertEquals(message.length <= 320, true);
 });
 
-Deno.test("link-bearing texts stay within 3 segments with production-sized links", () => {
+// Win-back carries its opt-out line (2026-10-25): 4 parts at most on the production host
+// (was 3), still 1 credit (SMS-04 is the owner's call). Consent stays within 3.
+Deno.test("link-bearing texts stay within their segment budget with production-sized links", () => {
   const site = "https://mybakuriani.ge";
   const id = "3f2b8c1e-9a47-4d65-b0e2-7c1d5a9e4f60";
   const withId = {
     ...candidate,
     property: candidate.property && { ...candidate.property, id },
   };
-  const texts = {
-    "win-back": buildWinBack(withId, rule, site),
-    "win-back fallback": buildWinBack(
-      withId,
-      { ...rule, win_back_discount_period: null },
-      site,
-    ),
-    "consent": buildConsentRequest(`${site}/sms-consent/${"A".repeat(43)}`),
+  // Production host: staging's is 8 characters longer per link (its longest win-back is 5 parts).
+  const optOut = `${site}/sms-stop/${"A".repeat(22)}`;
+  const longest = {
+    ...rule,
+    win_back_discount_value: "ა".repeat(10),
+    win_back_discount_period: "ა".repeat(30),
   };
-  for (const [name, text] of Object.entries(texts)) {
-    assertEquals(segments(text) <= 3, true, `${name}: ${text.length} units`);
+  const texts: [string, string, number][] = [
+    ["win-back", buildWinBack(withId, rule, site, optOut), 4],
+    ["win-back, longest owner text", buildWinBack({ ...withId, guest_name: "ა".repeat(40) }, longest, site, optOut), 4],
+    [
+      "win-back fallback",
+      buildWinBack(withId, { ...rule, win_back_discount_period: null }, site, optOut),
+      4,
+    ],
+    ["consent", buildConsentRequest(`${site}/sms-consent/${"A".repeat(43)}`), 3],
+  ];
+  for (const [name, text, parts] of texts) {
+    assertEquals(segments(text) <= parts, true, `${name}: ${text.length} units`);
+    assertEquals(text.length <= 320, true, `${name}: ${text.length} units`);
   }
 });
 

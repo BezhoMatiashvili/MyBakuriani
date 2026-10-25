@@ -973,7 +973,8 @@
           "phoneLimited": "A consent SMS can't be sent to this number right now. Please try again later.",
           "dailyLimit": "You've reached the 24-hour limit for consent SMS. Please try again later.",
           "sendError": "Could not request the SMS. Please try again.",
-          "guestDeclined": "The guest declined or withdrew consent, so no new consent SMS can be sent to this number for this booking."
+          "guestDeclined": "The guest declined or withdrew consent, so no new consent SMS can be sent to this number for this booking.",
+          "paused": "Consent SMS requests are paused for now."
         },
         "saveToContacts": "Save guest to contacts",
         "editTitle": "Edit booking",
@@ -1280,6 +1281,21 @@
       "error": "Could not update the price alert."
     }
   },
+  "ReviewPaused": {
+    "title": "Reviews are paused",
+    "body": "Stay reviews are paused for now. This link no longer works.",
+    "home": "Go to the home page"
+  },
+  "SmsStop": {
+    "loading": "Loading…",
+    "invalid": "This link no longer works.",
+    "title": "Stop offers",
+    "property": "Property",
+    "button": "Opt out",
+    "submitting": "Saving…",
+    "actionError": "Could not save your choice. Please try again.",
+    "done": "Done — you won't get offers from this host any more. Booking messages will still arrive."
+  },
   "SmsConsent": {
     "loading": "Loading consent information…",
     "invalidTitle": "This link is no longer valid",
@@ -1319,6 +1335,7 @@
       "checkInDesc": "Send an automatic reminder for tomorrow's check-in",
       "winBackTitle": "Win-back campaign",
       "winBackDesc": "Invite the guest back 90 days after check-out",
+      "winBackPaused": "Win-back offers are paused for now.",
       "discountValueLabel": "Discount amount",
       "discountValuePlaceholder": "e.g. 15% or 20 ₾",
       "discountPeriodLabel": "Promotion period or condition",
@@ -1356,7 +1373,8 @@
       "title": "SMS preview",
       "automaticFieldsHint": "The guest name and property link are inserted automatically.",
       "guestNamePlaceholder": "[Guest name]",
-      "propertyLinkPlaceholder": "[Property link]"
+      "propertyLinkPlaceholder": "[Property link]",
+      "optOutLinkPlaceholder": "[Opt-out link]"
     },
     "audiences": {
       "renter_past_guests": "Past guests",

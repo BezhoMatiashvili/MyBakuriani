@@ -14,6 +14,7 @@ export const NON_INDEXABLE_PREFIXES = [
   "/auth",
   "/notifications",
   "/sms-consent",
+  "/sms-stop",
   "/preview",
   "/review",
 ] as const;

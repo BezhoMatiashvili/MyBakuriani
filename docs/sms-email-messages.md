@@ -14,9 +14,9 @@ These are bookings the host adds in the calendar. The host switches each text on
 
 | Case | SMS text | When we send it |
 |---|---|---|
-| **Check-in reminder**<br>Tells the guest when check-in starts, with the listing link, map pin and the host's phone. Lines with no value are left out. | გამარჯობა, [Guest_Name]! გელოდებით ხვალ [Check_In_Time]-დან — [Property_Name].<br>🔗 [Listing_Link]<br>📍 [Location]<br>☎️ [Host_Phone] | The day before check-in, at 10:00.<br>A booking for today, or for tomorrow made after 10:00: about 1 hour after it is saved. If the check-in day has already begun by then, the text says **დღეს** (today) instead of **ხვალ**. |
-| **Marketing consent request**<br>Asks the guest if they agree to get marketing SMS. Without a "yes", come-back texts are not sent. | MyBakuriani.ge: გსურთ მარკეტინგული SMS-ების მიღება? დაადასტურეთ ან უარი თქვით: [Consent_Link] | Right away, when the host presses **თანხმობის SMS-ის გაგზავნა** in the **სტუმრის SMS-თანხმობა** panel of the booking's edit window. |
-| **Come-back offer**<br>Invites a past guest back with the host's discount. Only if the guest said yes to marketing SMS and has not booked this host again. | [Guest_Name], დაბრუნდით ბაკურიანში! მიიღეთ [Discount_Value] ფასდაკლება ([Discount_Period]): [Property_Direct_Link] — MyBakuriani<br><br>If the host left the discount fields empty:<br>[Guest_Name], დაბრუნდით ბაკურიანში! თქვენთვის სპეციალური შეთავაზება: [Property_Direct_Link] — MyBakuriani | 90 days after check-out, at 10:00. |
+| **Check-in reminder**<br>Tells the guest when check-in starts, with the listing link, map pin and the host's phone. Lines with no value are left out. | გამარჯობა, [Guest_Name]! გელოდებით ხვალ [Check_In_Time]-დან — [Property_Name].<br>🔗 [Listing_Link]<br>📍 [Location]<br>☎️ [Host_Phone] | The day before check-in, at 10:00.<br>A booking for today, or for tomorrow made after 10:00: about 1 hour after it is saved.<br>Only between 09:00 and 21:00 (Tbilisi time). A text due later waits for 09:00. If it goes out on the check-in day, it says **დღეს** (today) instead of **ხვალ**. Never sent once the check-in time has passed. |
+| **Marketing consent request**<br>Asks the guest if they agree to get marketing SMS. Without a "yes", come-back texts are not sent. | MyBakuriani.ge: გსურთ მარკეტინგული SMS-ების მიღება? დაადასტურეთ ან უარი თქვით: [Consent_Link] | Right away, when the host presses **თანხმობის SMS-ის გაგზავნა** in the **სტუმრის SMS-თანხმობა** panel of the booking's edit window.<br>**Paused for now** (since 25 Oct 2026, until the lawyer approves): the panel says **თანხმობის SMS-ის გაგზავნა დროებით შეჩერებულია.** |
+| **Come-back offer**<br>Invites a past guest back with the host's discount. Only if the guest said yes to marketing SMS and has not booked this host again. | [Guest_Name], დაბრუნდით ბაკურიანში! მიიღეთ [Discount_Value] ფასდაკლება ([Discount_Period]): [Property_Direct_Link] — MyBakuriani<br>უარის თქმა: [Opt_Out_Link]<br><br>If the host left the discount fields empty:<br>[Guest_Name], დაბრუნდით ბაკურიანში! თქვენთვის სპეციალური შეთავაზება: [Property_Direct_Link] — MyBakuriani<br>უარის თქმა: [Opt_Out_Link] | 90 days after check-out, at 10:00.<br>**Paused for now** (since 25 Oct 2026, until the lawyer approves): **SMS ცენტრი** says **დაბრუნების შეთავაზებები დროებით შეჩერებულია.** Calendar bookings only. The last line is the guest's own link: one tap stops this host's offers to that number (booking texts still arrive). |
 
 ### 2. Payments, membership and VIP
 
@@ -49,7 +49,7 @@ Free. They go to the listing's owner.
 | Case | SMS text | When we send it |
 |---|---|---|
 | **New cleaning call-out**<br>To the cleaner. The host pays **1 SMS credit**. With no free credit, the cleaner gets only the email and the site notice. At most 3 a day from one host to one cleaner. | MyBakuriani: ახალი გამოძახება — [Apartment_Title], [Date_Time]. დეტალები: [Site_URL]/dashboard/cleaner | Right after the host sends the call-out. |
-| **Call-out status changed**<br>To the host: what the cleaner did. Free. | One of:<br>• *accepted:* MyBakuriani: გამოძახება დადასტურდა<br>• *declined:* MyBakuriani: გამოძახება უარყოფილია<br>• *started:* MyBakuriani: დასუფთავება დაიწყო<br>• *finished:* MyBakuriani: დასუფთავება დასრულდა<br>• *agreed to cancel:* MyBakuriani: გამოძახება გაუქმდა<br>• *refused to cancel:* MyBakuriani: გაუქმების მოთხოვნა უარყოფილია | When the cleaner changes the status. |
+| **Call-out status changed**<br>To the host: what the cleaner did. Free. | One of:<br>• *accepted:* MyBakuriani: დამლაგებელმა დაადასტურა გამოძახება.<br>• *declined:* MyBakuriani: დამლაგებელმა უარყო გამოძახება.<br>• *started:* MyBakuriani: დასუფთავება დაიწყო.<br>• *finished:* MyBakuriani: დასუფთავება დასრულდა.<br>• *agreed to cancel:* MyBakuriani: დამლაგებელი დაეთანხმა გამოძახების გაუქმებას.<br>• *refused to cancel:* MyBakuriani: დამლაგებელი არ დაეთანხმა გაუქმებას. გამოძახება ძალაში რჩება. | When the cleaner changes the status. The longest is 2 SMS parts. |
 | **Cancel request**<br>To the cleaner: the host asks to cancel an accepted call-out. Free. | MyBakuriani: გაუქმების მოთხოვნა | Right away. |
 | **Call-out cancelled**<br>To the cleaner: the host cancelled a call-out the cleaner had not accepted yet. Free. | MyBakuriani: გამოძახება გაუქმდა | Right away. |
 | **Smart Match offer**<br>To the guest: an owner offered a place for their Smart Match request. Free. | MyBakuriani: ახალი შეთავაზება | When the owner sends the offer. |
@@ -105,7 +105,7 @@ To the owner.
 | Case | Email | When we send it |
 |---|---|---|
 | **New cleaning call-out**<br>To the cleaner. | **Subject:** ახალი გამოძახება<br>**Text:** [Apartment_Title] • [Date_Time] • [Address] | Right after the host sends the call-out. |
-| **Call-out status changed**<br>To the host. | **Subject / text** (one of):<br>• *accepted:* გამოძახება დადასტურდა / დამლაგებელმა დაადასტურა გამოძახება<br>• *declined:* გამოძახება უარყოფილია / დამლაგებელმა უარყო გამოძახება<br>• *started:* დასუფთავება დაიწყო / დამლაგებელმა დასუფთავება დაიწყო<br>• *finished:* დასუფთავება დასრულდა / დამლაგებელმა დასუფთავება დაასრულა<br>• *agreed to cancel:* გამოძახება გაუქმდა / დამლაგებელი დაეთანხმა გამოძახების გაუქმებას<br>• *refused to cancel:* გაუქმების მოთხოვნა უარყოფილია / დამლაგებელი არ დაეთანხმა გაუქმებას — გამოძახება ძალაში რჩება | When the cleaner changes the status. |
+| **Call-out status changed**<br>To the host. | **Subject** (one of): the same six sentences as the SMS above (without MyBakuriani:).<br>**Text:** [Apartment] • [DD.MM HH:MI] of the call-out. | When the cleaner changes the status. |
 | **Cancel request**<br>To the cleaner. | **Subject:** გაუქმების მოთხოვნა<br>**Text:** მესაკუთრემ დადასტურებული გამოძახების გაუქმება მოითხოვა | When the host asks to cancel an accepted call-out. |
 | **Call-out cancelled**<br>To the cleaner. | **Subject:** გამოძახება გაუქმდა<br>**Text:** მესაკუთრემ გამოძახება მიღებამდე გააუქმა | When the host cancels a call-out the cleaner had not accepted yet. |
 | **New Smart Match request**<br>To every owner with an active rental listing. | **Subject:** ახალი Smart Match მოთხოვნა<br>**Text:** სტუმარი ეძებს [Zone]-ში [Check_In] – [Check_Out] | When a guest posts a Smart Match request. |
@@ -143,7 +143,7 @@ These texts live in the Supabase dashboard (Auth → Email templates), not in th
 
 ## Not sent any more
 
-- **Review request** to guests the day after check-out (`[Guest_Name], მადლობა! შეგვიფასეთ ბინა: [Property_Review_Link] — MyBakuriani`): reviews were removed from the site on 24 Oct 2026. Texts still queued were cancelled, and old review links now open the home page.
+- **Review request** to guests the day after check-out (`[Guest_Name], მადლობა! შეგვიფასეთ ბინა: [Property_Review_Link] — MyBakuriani`): reviews were removed from the site on 24 Oct 2026. Texts still queued were cancelled, and old review links now open a page that says **შეფასებები დროებით შეჩერებულია**.
 - **Price-drop alert** to buyers who pressed "შემატყობინე ფასის კლებისას": `ფასი შემცირდა! [Listing_Title]: [Old_Price]→[New_Price][Currency]. [Site_URL]/sales/[Listing_ID] — MyBakuriani`. Since 23 Oct 2026 no seller can switch it on (the page was removed). A seller rule switched on before that can still send it, 24 hours after the price drops, and the seller pays 1 credit per buyer.
 - **Owner-written SMS** (texts to past guests, contacts or leads, and one-to-one texts): removed in Aug 2026. The admin email that went with it (`SMS დაგზავნა ელოდება დადასტურებას`) can no longer fire.
 - **Restaurant discount emails**: restaurants cannot have discounts any more (Oct 2026).
@@ -158,7 +158,7 @@ These texts live in the Supabase dashboard (Auth → Email templates), not in th
 - **Email:** sent only to confirmed addresses. An address that bounced or reported spam is never emailed again. For the types anyone can trigger (failed payment, call-outs, Smart Match, job and agent requests, admin queues), each person gets at most 3 emails per type per cabinet per 24 hours; the site notice still arrives. Payment emails go first, and there is a daily total limit. Unsent mail is dropped after 3 days.
 - **No opt-out for notices:** no user setting turns off notice SMS or emails. **შეთავაზებები ელფოსტით** only controls the admin offer emails.
 - **Everything else is bell only:** admin status changes, gifted SMS credits, "listing submitted" and new ownership requests to admins appear only on the site.
-- **Master switches:** nothing is sent unless the server has SMS on (`SMS_DELIVERY_ENABLED`) and email on (`EMAIL_DELIVERY_ENABLED` plus its allow-list). Host texts also need `SMS_RENTAL_MODE`.
+- **Master switches:** nothing is sent unless the server has SMS on (`SMS_DELIVERY_ENABLED`) and email on (`EMAIL_DELIVERY_ENABLED` plus its allow-list). Host texts also need `SMS_RENTAL_MODE`. A test server texts only the numbers in `SMS_TEST_RECIPIENTS`, and nobody when that list is empty; only the live site texts everyone.
 
 ## Known issues
 
@@ -169,5 +169,5 @@ These texts live in the Supabase dashboard (Auth → Email templates), not in th
 
 - Host texts and the sign-in code: `supabase/functions/sms-automation-run/domain.ts` (`TEMPLATES`)
 - Notice titles and texts (used by both the SMS and the email): the database functions and API routes that create notices, for example `src/app/api/admin/listings/moderate/route.ts`
-- Call-out SMS: database function `notify_cleaner_of_new_task`. Purchase and membership SMS: `_enqueue_system_sms` calls. VIP-ending SMS: `supabase/functions/vip-lifecycle/index.ts`
+- Call-out SMS: database function `notify_cleaner_of_new_task`; the cleaner's answers: `notify_owner_of_task_status`. Purchase and membership SMS: `_enqueue_system_sms` calls. VIP-ending SMS: `supabase/functions/vip-lifecycle/index.ts`
 - Email layout: `src/lib/email/render.ts`. Invoice email: `src/lib/finance/server/invoices.ts`. Account emails: the Supabase dashboard

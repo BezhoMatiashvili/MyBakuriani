@@ -18,6 +18,7 @@ import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 import { buildAuthCode } from "../sms-automation-run/domain.ts";
 import { AUTH_SMS_ERRORS, type AuthSmsError } from "../_shared/auth-sms.ts";
 import { toUbillNumber, type UbillSendReply } from "../_shared/ubill.ts";
+import { recipientAllowed, recipientPolicy } from "../_shared/sms-recipients.ts";
 
 // Leaves room inside Auth's 5 s for the edge cold start and two RPCs.
 export const SEND_TIMEOUT_MS = 3_000;
@@ -80,9 +81,9 @@ function refuse(token: AuthSmsError, httpCode: number): Response {
   return json({ error: { http_code: httpCode, message: token } });
 }
 
-/** 9955XXXXXXXX -> 995555****12 for logs. */
+/** 9955XXXXXXXX -> ***12 for logs: no more of a number than its last two digits. */
 export function maskNumber(number: string): string {
-  return `${number.slice(0, 6)}****${number.slice(-2)}`;
+  return `***${number.slice(-2)}`;
 }
 
 function siteHost(siteUrl: string | undefined): string | null {
@@ -92,16 +93,6 @@ function siteHost(siteUrl: string | undefined): string | null {
   } catch {
     return null;
   }
-}
-
-function testRecipients(raw: string | undefined): Set<string> | null {
-  if (!raw?.trim()) return null;
-  return new Set(
-    raw
-      .split(",")
-      .map((n) => toUbillNumber(n))
-      .filter((n): n is string => !!n),
-  );
 }
 
 // Supabase shows the secret as "v1,whsec_<base64>"; several may be joined
@@ -163,8 +154,11 @@ export async function handleSendSms(
     deps.log("auth-send-sms: delivery disabled or provider not configured");
     return refuse(AUTH_SMS_ERRORS.unavailable, 503);
   }
-  const allowlist = testRecipients(deps.env("SMS_TEST_RECIPIENTS"));
-  if (allowlist && !allowlist.has(target)) {
+  const recipients = recipientPolicy(
+    deps.env("SMS_TEST_RECIPIENTS"),
+    deps.env("SUPABASE_URL"),
+  );
+  if (!recipientAllowed(recipients, target)) {
     deps.log("auth-send-sms: recipient not allow-listed", {
       phone: maskNumber(target),
     });

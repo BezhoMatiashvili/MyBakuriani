@@ -346,7 +346,7 @@ if (posture) {
     bookings: { anon: noWrites, authenticated: noWrites },
     // S2/S23 (*_s2_smart_match_sms_privacy_booking_lock.sql, *_s23_grant_hygiene_posture.sql):
     // guests insert the request form's keys and only cancel (status); manual bookings are written
-    // through the owner RPCs only; reviews keep table-level INSERT/UPDATE under RLS, no deletes.
+    // through the owner RPCs only; reviews are closed to client writes (20261025180300).
     smart_match_requests: {
       anon: noWrites,
       authenticated: {
@@ -356,7 +356,7 @@ if (posture) {
       },
     },
     manual_bookings: { anon: noWrites, authenticated: noWrites },
-    reviews: { anon: noWrites, authenticated: { ...noWrites, insert: true, update: true } },
+    reviews: { anon: noWrites, authenticated: noWrites },
   };
   const grants = posture.client_write_grants;
   if (!grants) fail("C34: security_posture_snapshot() has no client_write_grants — apply the S1 client write grants migration");

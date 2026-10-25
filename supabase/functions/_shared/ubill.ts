@@ -15,6 +15,8 @@ export function toUbillNumber(phone: string): string | null {
 
 export interface UbillSendReply {
   http: number;
+  /** False when the body was not a JSON object: uBill may or may not have sent the text. */
+  parsed: boolean;
   statusID: number | null;
   smsID: number | string | null;
   message: string | null;
@@ -45,16 +47,25 @@ export async function ubillSend(opts: {
     }),
     signal: AbortSignal.timeout(opts.timeoutMs ?? UBILL_TIMEOUT_MS),
   });
-  const body = (await res.json().catch(() => null)) as {
-    statusID?: number;
-    smsID?: number | string;
-    message?: string;
-  } | null;
+  const raw: unknown = await res.json().catch(() => null);
+  const body = raw !== null && typeof raw === "object" && !Array.isArray(raw)
+    ? raw as { statusID?: unknown; smsID?: unknown; message?: unknown }
+    : null;
+  // A missing statusID is null, never 0: Number(null) === 0 would read as "accepted".
+  const statusID = typeof body?.statusID === "number" ||
+      (typeof body?.statusID === "string" && /^\d+$/.test(body.statusID))
+    ? Number(body.statusID)
+    : null;
+  const smsID = typeof body?.smsID === "number" ||
+      (typeof body?.smsID === "string" && body.smsID.trim() !== "")
+    ? body.smsID as number | string
+    : null;
   return {
     http: res.status,
-    statusID: body?.statusID ?? null,
-    smsID: body?.smsID ?? null,
-    message: body?.message ?? null,
+    parsed: body !== null,
+    statusID,
+    smsID,
+    message: typeof body?.message === "string" ? body.message : null,
   };
 }
 

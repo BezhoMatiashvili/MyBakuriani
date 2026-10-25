@@ -13,6 +13,9 @@ export const TEMPLATES = {
     "[Guest_Name], დაბრუნდით ბაკურიანში! მიიღეთ [Discount_Value] ფასდაკლება ([Discount_Period]): [Property_Direct_Link] — MyBakuriani",
   win_back_fallback:
     "[Guest_Name], დაბრუნდით ბაკურიანში! თქვენთვის სპეციალური შეთავაზება: [Property_Direct_Link] — MyBakuriani",
+  // Last line of every win-back text: the guest's own opt-out link, /sms-stop/<token>
+  // (owner's technical task 2026-10-25). It withdraws this host's offers to the number.
+  win_back_opt_out: "უარის თქმა: [Opt_Out_Link]",
   // Sent by the platform when an owner asks for a manual-booking guest's
   // marketing consent (the owner never sees the link). No owner-typed text.
   consent_request:
@@ -88,7 +91,23 @@ export function tbilisiDate(offsetDays: number, now = Date.now()): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** The day the check-in text names: the daily run says tomorrow, short notice may say today. */
+/**
+ * Check-in texts go out only between these Tbilisi times (owner's technical task SMS-10,
+ * 2026-10-25): from 09:00, never at or after 21:00. = SQL sms_check_in_window_open, which
+ * holds a queued text back until the window opens (check-contracts C18/quiet-hours).
+ */
+export const CHECK_IN_SEND_WINDOW = { from: "09:00", to: "21:00" } as const;
+
+/**
+ * The Tbilisi day a check-in text queued at `now` first goes out: today, or tomorrow at
+ * 09:00 once today's window has closed. = SQL sms_check_in_first_send_date.
+ */
+export function firstSendDate(now = Date.now()): string {
+  const clock = new Date(now + 4 * 3600_000).toISOString().slice(11, 16);
+  return tbilisiDate(clock >= CHECK_IN_SEND_WINDOW.to ? 1 : 0, now);
+}
+
+/** The day the check-in text names: the day it goes out decides today or tomorrow. */
 export type CheckInDay = "today" | "tomorrow";
 
 const CHECK_IN_DAY_WORD: Record<CheckInDay, string> = {
@@ -130,6 +149,9 @@ export function shortNoticeWindow(now = Date.now()) {
   return {
     today,
     tomorrow: tbilisiDate(1, now),
+    // The day a text queued by this run first goes out (quiet hours): a check-in on
+    // that day is "today" (დღეს), any later one "tomorrow" (ხვალ).
+    sendDay: firstSendDate(now),
     from: new Date(dailyRunBefore(today)).toISOString(),
     to: new Date(now - SHORT_NOTICE_DELAY_MS).toISOString(),
   };
@@ -235,10 +257,12 @@ export function buildCheckIn(
     .join("\n");
 }
 
+/** `optOutLink`: the guest's /sms-stop/<token> URL, the text's last line. */
 export function buildWinBack(
   c: Candidate,
   rule: Rule,
   siteUrl: string,
+  optOutLink: string,
 ): string {
   const value = plainText(rule.win_back_discount_value);
   const period = plainText(rule.win_back_discount_period);
@@ -246,16 +270,20 @@ export function buildWinBack(
     ? `${siteUrl}${propertyViewPath(c.property)}`
     : siteUrl;
 
+  const optOut = TEMPLATES.win_back_opt_out.replace(
+    "[Opt_Out_Link]",
+    () => optOutLink,
+  );
   if (!value || !period) {
     return TEMPLATES.win_back_fallback
       .replace("[Guest_Name]", clampName(c.guest_name))
-      .replace("[Property_Direct_Link]", link);
+      .replace("[Property_Direct_Link]", link) + `\n${optOut}`;
   }
   return TEMPLATES.win_back
     .replace("[Guest_Name]", clampName(c.guest_name))
     .replace("[Discount_Value]", value)
     .replace("[Discount_Period]", period)
-    .replace("[Property_Direct_Link]", link);
+    .replace("[Property_Direct_Link]", link) + `\n${optOut}`;
 }
 
 /** The consent-request SMS; `consentLink` is the guest's /sms-consent/<token> URL. */
