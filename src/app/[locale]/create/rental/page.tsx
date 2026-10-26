@@ -16,6 +16,7 @@ import HotelRoomsEditor from "@/components/forms/HotelRoomsEditor";
 import PhoneInput from "@/components/forms/PhoneInput";
 import AvailabilityWizardStep from "@/components/forms/AvailabilityWizardStep";
 import NumberField from "@/components/shared/NumberField";
+import { StyledSelect } from "@/components/ui/styled-select";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { AMENITY_GROUPS, HOSTING_LANGS } from "@/lib/constants/listing-options";
@@ -818,19 +819,15 @@ function CreateRentalPageInner() {
                   </div>
                 )}
                 <Field label={t("propertyType")} required>
-                  <select
+                  <StyledSelect
                     value={propertyType}
-                    onChange={(e) =>
-                      setPropertyType(e.target.value as Enums<"property_type">)
-                    }
-                    className={inputClass}
-                  >
-                    {propertyTypeOptions.map((value) => (
-                      <option key={value} value={value}>
-                        {tOpts(`propertyTypes.${value}`)}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={setPropertyType}
+                    options={propertyTypeOptions.map((value) => ({
+                      value,
+                      label: tOpts(`propertyTypes.${value}`),
+                    }))}
+                    accent="blue"
+                  />
                 </Field>
 
                 <Field
@@ -839,20 +836,16 @@ function CreateRentalPageInner() {
                   fieldKey="location"
                   error={invalidFields.has("location")}
                 >
-                  <select
+                  <StyledSelect
                     value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="" disabled>
-                      {t("selectLocation")}
-                    </option>
-                    {zones.map((zone) => (
-                      <option key={zone.id} value={zone.name_ka}>
-                        {zone.name_ka}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={setLocation}
+                    options={zones.map((zone) => ({
+                      value: zone.name_ka,
+                      label: zone.name_ka,
+                    }))}
+                    placeholder={t("selectLocation")}
+                    accent="blue"
+                  />
                 </Field>
 
                 <Field
@@ -1127,22 +1120,19 @@ function CreateRentalPageInner() {
                   )}
 
                   <Field label={t("minBookingDays")}>
-                    <select
+                    <StyledSelect
                       value={minBookingDays}
-                      onChange={(e) => setMinBookingDays(e.target.value)}
-                      className={inputClass}
-                    >
-                      <option value="" disabled>
-                        {t("selectQuantity")}
-                      </option>
-                      {["1", "2", "3", "4", "5"].map((v) => (
-                        <option key={v} value={v}>
-                          {v === "5"
+                      onValueChange={setMinBookingDays}
+                      options={["1", "2", "3", "4", "5"].map((v) => ({
+                        value: v,
+                        label:
+                          v === "5"
                             ? t("days5plus")
-                            : t("daysCount", { count: Number(v) })}
-                        </option>
-                      ))}
-                    </select>
+                            : t("daysCount", { count: Number(v) }),
+                      }))}
+                      placeholder={t("selectQuantity")}
+                      accent="blue"
+                    />
                   </Field>
                 </div>
 
