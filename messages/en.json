@@ -1495,6 +1495,7 @@
     "label": "Share",
     "copied": "Link copied — paste it into any social network",
     "error": "Sharing failed",
+    "apps": "Share via app",
     "copyLink": "Copy link",
     "facebook": "Share on Facebook",
     "whatsapp": "Share on WhatsApp",

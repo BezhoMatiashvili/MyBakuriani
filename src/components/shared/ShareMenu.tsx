@@ -2,7 +2,7 @@
 
 import { useRef, type ReactNode } from "react";
 import { Menu } from "@base-ui/react/menu";
-import { Link, Printer } from "lucide-react";
+import { Link, Printer, Share } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { WhatsAppIcon } from "@/components/shared/WhatsAppButton";
@@ -39,6 +39,10 @@ function FacebookIcon({ className }: { className?: string }) {
 function ShareMenuItems({ onPrint }: { onPrint: () => void }) {
   const t = useTranslations("ShareListing");
   const url = shareableUrl(window.location);
+  // Phones (and Safari, Edge, Chrome on Windows) hand the link to the system
+  // share sheet, i.e. to the Facebook, Messenger, Viber or WhatsApp app itself
+  // rather than its website, where the user may not be signed in.
+  const canShareNatively = typeof navigator.share === "function";
 
   const copy = async () => {
     try {
@@ -49,32 +53,49 @@ function ShareMenuItems({ onPrint }: { onPrint: () => void }) {
     }
   };
 
+  const shareNatively = () => {
+    // Called before any await: the sheet needs the tap's user activation.
+    navigator.share({ title: document.title, url }).catch((err: unknown) => {
+      // Closing the sheet rejects with AbortError; that is not a failure.
+      if ((err as { name?: string } | null)?.name === "AbortError") return;
+      void copy();
+    });
+  };
+
+  // Buttons, not <a href>: social-blocking filter lists hide share LINKS
+  // (Fanboy's Social has `a[href^="https://www.facebook.com/sharer/sharer.php"]`
+  // and `a[href^="https://wa.me/?text="]`), which left phones running such a
+  // blocker with only Copy and Print.
+  const openInNewTab = (target: string) => {
+    window.open(target, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <>
+      {canShareNatively && (
+        <Menu.Item className={ITEM} onClick={shareNatively}>
+          <Share className={ICON} />
+          {t("apps")}
+        </Menu.Item>
+      )}
       <Menu.Item className={ITEM} onClick={copy}>
         <Link className={ICON} />
         {t("copyLink")}
       </Menu.Item>
-      <Menu.LinkItem
+      <Menu.Item
         className={ITEM}
-        href={facebookShareUrl(url)}
-        target="_blank"
-        rel="noopener noreferrer"
-        closeOnClick
+        onClick={() => openInNewTab(facebookShareUrl(url))}
       >
         <FacebookIcon className={ICON} />
         {t("facebook")}
-      </Menu.LinkItem>
-      <Menu.LinkItem
+      </Menu.Item>
+      <Menu.Item
         className={ITEM}
-        href={whatsappShareUrl(url)}
-        target="_blank"
-        rel="noopener noreferrer"
-        closeOnClick
+        onClick={() => openInNewTab(whatsappShareUrl(url))}
       >
         <WhatsAppIcon className={ICON} />
         {t("whatsapp")}
-      </Menu.LinkItem>
+      </Menu.Item>
       <Menu.Item className={ITEM} onClick={onPrint}>
         <Printer className={ICON} />
         {t("print")}
@@ -92,8 +113,9 @@ interface ShareMenuProps {
 }
 
 /**
- * Share button + dropdown for a listing detail page: copy link, Facebook,
- * WhatsApp, print. The trigger IS the page's button element (no wrapper), so
+ * Share button + dropdown for a listing detail page: the system share sheet
+ * (where the browser has one), copy link, Facebook, WhatsApp, print. The
+ * trigger IS the page's button element (no wrapper), so
  * absolutely-positioned triggers and `[&>div:first-child]` selectors on the
  * surrounding markup keep working.
  */
