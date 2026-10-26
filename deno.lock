@@ -78,7 +78,7 @@
         "npm:mapbox-gl@^3.30.0",
         "npm:next-intl@^4.9.1",
         "npm:next-themes@~0.4.6",
-        "npm:next@15.5.27",
+        "npm:next@15.5.28",
         "npm:pdf-lib@^1.17.1",
         "npm:react-day-picker@^9.14.0",
         "npm:react-dom@^19.1.0",
