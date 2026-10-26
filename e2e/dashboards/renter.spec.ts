@@ -515,7 +515,7 @@ test.describe("Renter Dashboard", () => {
       "ტესტ ბინა ავტომატური ტესტებისთვის",
     );
     await expect(
-      renterPage.locator('[data-field="location"] select'),
+      renterPage.locator('[data-field="location"] [role="combobox"]'),
     ).toHaveCount(1);
 
     await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
@@ -526,7 +526,7 @@ test.describe("Renter Dashboard", () => {
       renterPage.locator('[data-field="title"] input'),
     ).toBeVisible();
     await expect(renterPage.getByText("ზუსტი მდებარეობა რუკაზე")).toBeVisible();
-    await expect(renterPage.locator("select")).toHaveCount(0);
+    await expect(renterPage.locator('[data-field="location"]')).toHaveCount(0);
   });
 
   test("win-back automation shows the live production SMS template", async ({
@@ -1475,11 +1475,17 @@ test.describe("Hotel rooms", () => {
     ).toHaveCount(0);
     await renterPage.getByRole("link", { name: "გაქირავება" }).click();
     await expect(renterPage).toHaveURL(/\/create\/rental$/);
-    await renterPage.locator("select").first().selectOption("hotel");
+    await renterPage.getByRole("combobox").first().click();
+    await renterPage
+      .getByRole("option", { name: "სასტუმრო ოთახი", exact: true })
+      .click();
 
     await renterPage
-      .locator('[data-field="location"] select')
-      .selectOption({ index: 1 });
+      .locator('[data-field="location"] [role="combobox"]')
+      .click();
+    // the type list is still fading out; only the zone list may be left
+    await expect(renterPage.getByRole("listbox")).toHaveCount(1);
+    await renterPage.getByRole("option").first().click();
     await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
     await renterPage
       .locator('[data-field="title"] input')
