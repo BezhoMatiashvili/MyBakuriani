@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { areaNamer } from "@/components/seo/areaName";
 import { DETAIL_WIDTH, type ListingKind } from "@/components/seo/listing-kind";
+import { Money } from "@/components/shared/Money";
 import type { AppLocale } from "@/i18n/routing";
 import {
   buildPropertyFacts,
@@ -16,9 +17,11 @@ import { applyDiscount } from "@/lib/utils/pricing";
 // words come from messages `ListingFacts.*`; the type names are the filter's
 // (`FilterPanel.types.*`). No place name is inflected: the area follows a
 // colon, because Georgian and Russian would need a different case ending.
-export async function listingFactsText(
+// `priceText` is what the sentence states as the price.
+async function factsSentence(
   locale: AppLocale,
   facts: PropertyFacts,
+  priceText: string,
 ): Promise<string> {
   const t = await getTranslations({ locale, namespace: "ListingFacts" });
   const area = (await areaNamer(locale))(facts.location);
@@ -39,10 +42,7 @@ export async function listingFactsText(
 
   const price = facts.price
     ? t(facts.kind === "sale" ? "priceSale" : "priceNight", {
-        price:
-          facts.kind === "sale"
-            ? formatSalePrice(facts.price)
-            : formatPrice(facts.price),
+        price: priceText,
       })
     : null;
 
@@ -57,6 +57,23 @@ export async function listingFactsText(
       .map(sentenceCase)
       .join(". ") + "."
   );
+}
+
+/** The price as the sentence states it: in the listing's own currency. */
+function nativePriceText(facts: PropertyFacts): string {
+  if (!facts.price) return "";
+  return facts.kind === "sale"
+    ? formatSalePrice(facts.price)
+    : formatPrice(facts.price);
+}
+
+/** The sentence as plain text, its price in the listing's own currency: the
+ * meta description, and the visible paragraph until a currency is picked. */
+export async function listingFactsText(
+  locale: AppLocale,
+  facts: PropertyFacts,
+): Promise<string> {
+  return factsSentence(locale, facts, nativePriceText(facts));
 }
 
 /** The columns of a `public_properties` row that the sentence reads. */
@@ -78,12 +95,19 @@ export interface FactRow {
 /**
  * The price is the one the page shows: the active discount is applied with the
  * page's own helper (C10), so the sentence never states a higher price than
- * the card does.
+ * the card does. `exactPrice` is that price before rounding, which a currency
+ * conversion starts from (C55).
  */
-export function propertyFactsFromRow(row: FactRow): PropertyFacts {
+export function propertyFactsFromRow(
+  row: FactRow,
+): PropertyFacts & { exactPrice: number | null } {
   const isForSale = Boolean(row.is_for_sale);
   const base = isForSale ? row.sale_price : row.price_per_night;
-  return buildPropertyFacts({
+  const price =
+    typeof base === "number" && base > 0
+      ? applyDiscount(base, row.discount_percent, row.discount_expires_at)
+      : null;
+  const facts = buildPropertyFacts({
     type: row.type,
     isForSale,
     location: row.location,
@@ -92,12 +116,15 @@ export function propertyFactsFromRow(row: FactRow): PropertyFacts {
     areaSqm: row.area_sqm,
     distanceToSlopeM: row.distance_to_slope_m,
     hotelStars: row.hotel_stars,
-    price:
-      typeof base === "number" && base > 0
-        ? applyDiscount(base, row.discount_percent, row.discount_expires_at)
-        : null,
+    price,
   });
+  return { ...facts, exactPrice: price };
 }
+
+// Holds the price's place in the visible paragraph's sentence, where a <Money>
+// states it in the visitor's currency (C55). Postgres text cannot store a NUL,
+// so no listing field holds one.
+const PRICE_SLOT = String.fromCharCode(0);
 
 /** A visible "at a glance" paragraph; nothing when the listing states no fact
  * beyond its type. */
@@ -108,7 +135,7 @@ export default async function ListingFacts({
 }: {
   locale: AppLocale;
   kind: ListingKind;
-  facts: PropertyFacts;
+  facts: PropertyFacts & { exactPrice: number | null };
 }) {
   const hasDetail =
     facts.location ||
@@ -120,10 +147,24 @@ export default async function ListingFacts({
     facts.price;
   if (!hasDetail) return null;
 
-  const [t, text] = await Promise.all([
+  const [t, text, slotted] = await Promise.all([
     getTranslations({ locale, namespace: "ListingFacts" }),
     listingFactsText(locale, facts),
+    factsSentence(locale, facts, PRICE_SLOT),
   ]);
+  // The price becomes a <Money> only where the words around it read exactly
+  // as `text`; otherwise the paragraph is `text` as it stands.
+  const native = nativePriceText(facts);
+  const [before, after = ""] = slotted.split(PRICE_SLOT);
+  const priceNode =
+    facts.price && before + native + after === text ? (
+      <Money
+        amount={facts.exactPrice ?? facts.price}
+        from={facts.kind === "sale" ? "USD" : "GEL"}
+      >
+        {native}
+      </Money>
+    ) : null;
 
   return (
     <section
@@ -137,7 +178,15 @@ export default async function ListingFacts({
         {t("heading")}
       </h2>
       <p className="mt-2 max-w-3xl text-[15px] font-medium leading-[26px] text-[#475569]">
-        {text}
+        {priceNode ? (
+          <>
+            {before}
+            {priceNode}
+            {after}
+          </>
+        ) : (
+          text
+        )}
       </p>
     </section>
   );

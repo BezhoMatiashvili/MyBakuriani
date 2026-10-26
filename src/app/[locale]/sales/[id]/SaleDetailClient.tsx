@@ -25,6 +25,7 @@ import { optionKeyFor } from "@/lib/constants/listing-options";
 import { readPaymentOptions } from "@/lib/constants/sale-listing";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
 import { formatRelativeGe, formatSalePrice } from "@/lib/utils/format";
+import { useMoney } from "@/lib/currency/client";
 import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
@@ -183,6 +184,7 @@ export default function SaleDetailClient({
   const tOpts = useTranslations("ListingOptions");
   const tMonths = useTranslations("DateRangeFilter.months");
   const locale = useLocale();
+  const money = useMoney();
   const {
     isFavorited,
     busy: favoriteBusy,
@@ -733,19 +735,27 @@ export default function SaleDetailClient({
               <div className="mb-1 text-sm text-[#94A3B8]">{t("price")}</div>
               {discountActive && salePrice > 0 && (
                 <div className="text-sm font-bold text-[#94A3B8] line-through">
-                  {formatSalePrice(salePrice)}
+                  {money.format(salePrice, "USD", formatSalePrice(salePrice))}
                 </div>
               )}
               <div className="text-[32px] font-black leading-[34px] text-[#1E293B]">
                 {salePrice > 0
-                  ? formatSalePrice(Math.round(displaySalePrice))
+                  ? money.format(
+                      displaySalePrice,
+                      "USD",
+                      formatSalePrice(Math.round(displaySalePrice)),
+                    )
                   : t("negotiable")}
               </div>
               {property.area_sqm != null && salePrice > 0 && !isLand && (
                 <div className="mt-1 text-sm text-[#94A3B8]">
                   {t("pricePerSqm", {
-                    price: formatSalePrice(
-                      Math.round(displaySalePrice / property.area_sqm),
+                    price: money.format(
+                      displaySalePrice / property.area_sqm,
+                      "USD",
+                      formatSalePrice(
+                        Math.round(displaySalePrice / property.area_sqm),
+                      ),
                     ),
                   })}
                 </div>
@@ -965,7 +975,11 @@ export default function SaleDetailClient({
       <MobileStickyCTA
         primary={
           salePrice > 0
-            ? formatSalePrice(Math.round(displaySalePrice))
+            ? money.format(
+                displaySalePrice,
+                "USD",
+                formatSalePrice(Math.round(displaySalePrice)),
+              )
             : t("negotiable")
         }
         secondary={property.location ?? undefined}

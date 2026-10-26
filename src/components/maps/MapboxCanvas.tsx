@@ -8,6 +8,8 @@ import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import type { Zone } from "@/lib/zones/types";
 import { formatSalePrice } from "@/lib/utils/format";
+import { useMoney } from "@/lib/currency/client";
+import type { CurrencyCode } from "@/lib/currency/money";
 import type { MapProperty, RouteDisplay } from "./BakurianiMap";
 
 // ── Mapbox light basemap (closest built-in equivalent to the previous
@@ -62,11 +64,12 @@ function pinGlyph(): SVGSVGElement {
 
 // ── Hover preview card (non-interactive; click the pill to navigate).
 // Built with the DOM API (not innerHTML) so property.title is never
-// interpreted as markup. ──
+// interpreted as markup. Returns the price line too, so a currency pick can
+// re-text it in place. ──
 function buildCardElement(
   property: MapProperty,
-  isForSale?: boolean,
-): HTMLDivElement {
+  priceText: string | null,
+): { card: HTMLDivElement; priceEl: HTMLParagraphElement | null } {
   const card = document.createElement("div");
   card.className =
     "pointer-events-none absolute left-0 -translate-x-1/2 opacity-0 invisible transition-opacity duration-150";
@@ -92,15 +95,16 @@ function buildCardElement(
   title.textContent = property.title;
 
   body.appendChild(title);
-  if (property.price != null) {
-    const price = document.createElement("p");
-    price.className = "mt-0.5 text-[12px] font-black text-[#2563EB]";
-    price.textContent = formatPrice(property.price, isForSale);
-    body.appendChild(price);
+  let priceEl: HTMLParagraphElement | null = null;
+  if (priceText != null) {
+    priceEl = document.createElement("p");
+    priceEl.className = "mt-0.5 text-[12px] font-black text-[#2563EB]";
+    priceEl.textContent = priceText;
+    body.appendChild(priceEl);
   }
   inner.appendChild(body);
   card.appendChild(inner);
-  return card;
+  return { card, priceEl };
 }
 
 interface MarkerEntry {
@@ -109,6 +113,15 @@ interface MarkerEntry {
   pillEl: HTMLDivElement;
   cardEl: HTMLDivElement;
   isVip?: boolean;
+  // A priced pin (none for a pin glyph): its amount in its own currency,
+  // today's text for it, and the hover card's price line, so a currency pick
+  // (C55) re-texts the pill and that line without rebuilding the marker.
+  price?: {
+    amount: number;
+    from: CurrencyCode;
+    native: string;
+    cardPriceEl: HTMLParagraphElement | null;
+  };
 }
 
 export interface MapboxMapViewProps {
@@ -168,6 +181,12 @@ export default function MapboxMapView({
   onPropertyClickRef.current = onPropertyClick;
   const onZoneClickRef = useRef(onZoneClick);
   onZoneClickRef.current = onZoneClick;
+  // The visitor's currency pick (C55), kept fresh the same way: the rebuild
+  // effect prints it on new markers without depending on it, and the effect
+  // after it re-texts existing ones when the pick or the rate changes.
+  const money = useMoney();
+  const moneyRef = useRef(money);
+  moneyRef.current = money;
 
   // Create the map once per mount; remove it (and every marker) on unmount
   // so navigation / modal close never leaks map instances.
@@ -231,9 +250,22 @@ export default function MapboxMapView({
     zoneMarkersRef.current = [];
 
     if (hasProperties && properties) {
+      // A sale map's prices are dollars (C54), every other map's lari.
+      const from: CurrencyCode = isForSale ? "USD" : "GEL";
       properties.forEach((property) => {
         const isVip = property.isSuperVip || property.isVip;
         const isSelected = selectedIdRef.current === property.id;
+        const price =
+          property.price != null
+            ? {
+                amount: property.price,
+                from,
+                native: formatPrice(property.price, isForSale),
+              }
+            : null;
+        const priceText = price
+          ? moneyRef.current.format(price.amount, price.from, price.native)
+          : null;
 
         const wrapper = document.createElement("div");
         wrapper.className = "bk-price-marker";
@@ -248,14 +280,14 @@ export default function MapboxMapView({
         pill.style.display = "flex";
         pill.style.alignItems = "center";
         pill.style.justifyContent = "center";
-        if (property.price != null) {
-          pill.textContent = formatPrice(property.price, isForSale);
+        if (priceText != null) {
+          pill.textContent = priceText;
         } else {
           pill.appendChild(pinGlyph());
         }
         wrapper.appendChild(pill);
 
-        const card = buildCardElement(property, isForSale);
+        const { card, priceEl } = buildCardElement(property, priceText);
         wrapper.appendChild(card);
 
         pill.addEventListener("mouseenter", () => {
@@ -286,6 +318,7 @@ export default function MapboxMapView({
           pillEl: pill,
           cardEl: card,
           isVip,
+          price: price ? { ...price, cardPriceEl: priceEl } : undefined,
         });
       });
     } else {
@@ -339,6 +372,18 @@ export default function MapboxMapView({
       zoneMarkersRef.current = [];
     };
   }, [hasProperties, properties, zones, isForSale, setSelectedId]);
+
+  // Re-text the priced pills and their hover-card lines on a currency pick
+  // (or once the day's rate arrives) without rebuilding the markers. A pin
+  // glyph has no price entry, so its SVG is never overwritten.
+  useEffect(() => {
+    markersRef.current.forEach(({ pillEl, price }) => {
+      if (!price) return;
+      const text = money.format(price.amount, price.from, price.native);
+      pillEl.textContent = text;
+      if (price.cardPriceEl) price.cardPriceEl.textContent = text;
+    });
+  }, [money]);
 
   // Sync selection highlighting onto existing marker DOM nodes without
   // rebuilding them.

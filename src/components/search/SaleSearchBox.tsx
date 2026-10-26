@@ -15,6 +15,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatSalePrice } from "@/lib/utils/format";
+import { useMoney } from "@/lib/currency/client";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { createClient } from "@/lib/supabase/client";
 import { sanitizeCadastralCode } from "@/lib/utils/number";
@@ -660,7 +661,7 @@ export function SaleSearchBox({
 
             <div>
               <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]">
-                {t("fieldPrice")}
+                {t("priceUsd")}
               </label>
               <div className="flex gap-2">
                 <input
@@ -1635,6 +1636,7 @@ function AppraisalResults({
 }) {
   const t = useTranslations("SaleSearchBox");
   const tZones = useTranslations("Zones");
+  const money = useMoney();
   return (
     <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 md:p-5">
       {loading && (
@@ -1659,17 +1661,32 @@ function AppraisalResults({
             })}
           </p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <Stat label={t("avgPrice")} value={formatSalePrice(result.avgPrice)} />
+            <Stat
+              label={t("avgPrice")}
+              value={money.format(
+                result.avgPrice,
+                "USD",
+                formatSalePrice(result.avgPrice),
+              )}
+            />
             <Stat
               label={t("avgPricePerSqm")}
               value={t("perSqmValue", {
-                price: formatSalePrice(result.avgPricePerSqm),
+                price: money.format(
+                  result.avgPricePerSqm,
+                  "USD",
+                  formatSalePrice(result.avgPricePerSqm),
+                ),
               })}
             />
             {result.estimatedValue != null && (
               <Stat
                 label={t("estimatedValue")}
-                value={formatSalePrice(result.estimatedValue)}
+                value={money.format(
+                  result.estimatedValue,
+                  "USD",
+                  formatSalePrice(result.estimatedValue),
+                )}
               />
             )}
           </div>

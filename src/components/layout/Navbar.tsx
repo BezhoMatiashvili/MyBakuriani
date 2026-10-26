@@ -252,7 +252,7 @@ export function Navbar() {
 
         {/* Right side action buttons — desktop */}
         <div className="hidden items-center gap-3 lg:flex">
-          <LanguageSelector />
+          <LanguageSelector withCurrency />
           <AddListingButton
             label={t("addListing")}
             className="h-[39.5px] w-[222px] px-5 leading-5"
@@ -340,7 +340,7 @@ export function Navbar() {
 
         {/* Mobile actions: language + bell + hamburger */}
         <div className="flex items-center gap-0.5 lg:hidden">
-          <LanguageSelector />
+          <LanguageSelector withCurrency />
           {user && (
             <NotificationBell
               variant="mobile"

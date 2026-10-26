@@ -5,6 +5,7 @@ import Image from "next/image";
 import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
+import { useMoney } from "@/lib/currency/client";
 import { formatPrice, formatSalePrice } from "@/lib/utils/format";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import { useFavorite } from "@/lib/hooks/useFavorite";
@@ -67,6 +68,7 @@ function extractZone(location: string): string {
 export default function PropertyCard(props: PropertyCardProps) {
   const t = useTranslations("PropertyCard");
   const tOpts = useTranslations("ListingOptions");
+  const money = useMoney();
   const {
     id,
     title,
@@ -147,6 +149,12 @@ export default function PropertyCard(props: PropertyCardProps) {
       ? applyDiscount(currentPrice, discountPercent, discountExpiresAt)
       : currentPrice;
   const originalPrice = active && currentPrice != null ? currentPrice : null;
+  // A rental's number and its "₾/ღამე" suffix are two spans: one conversion
+  // (C55) switches both, and null keeps them as they are.
+  const convertedPerNight =
+    !isForSale && displayPrice != null
+      ? money.converted(displayPrice, "GEL")
+      : null;
 
   // For hotels: show discount badge when discount is active, stars when not
   const showHotelDiscount = isHotel && active;
@@ -382,28 +390,40 @@ export default function PropertyCard(props: PropertyCardProps) {
             </div>
           )}
 
-          <div className={cn("mt-auto gap-2 pt-3 lg:pt-4", compactGrid ? "flex flex-col items-stretch sm:flex-row sm:items-end sm:justify-between" : "flex items-end justify-between")}>
+          <div className={cn("mt-auto gap-2 pt-3 lg:pt-4", compactGrid ? "flex flex-col items-stretch sm:flex-row sm:flex-wrap sm:items-end sm:justify-between" : "flex flex-wrap items-end justify-between")}>
             <div className="min-w-0">
               {originalPrice != null ? (
                 <span className="block text-[11px] font-bold leading-[16px] text-[#94A3B8] line-through">
                   {isForSale
-                    ? formatSalePrice(originalPrice)
-                    : formatPrice(originalPrice)}
+                    ? money.format(
+                        originalPrice,
+                        "USD",
+                        formatSalePrice(originalPrice),
+                      )
+                    : money.format(
+                        originalPrice,
+                        "GEL",
+                        formatPrice(originalPrice),
+                      )}
                 </span>
               ) : (
                 <span className="hidden h-[16px] lg:block" aria-hidden="true" />
               )}
               {isForSale && displayPrice != null ? (
                 <span className={cn("whitespace-nowrap font-black text-[#1E293B]", compactGrid ? "text-[18px] leading-[24px] sm:text-[24px] sm:leading-[32px]" : "text-[24px] leading-[32px]")}>
-                  {formatSalePrice(Math.round(displayPrice))}
+                  {money.format(
+                    displayPrice,
+                    "USD",
+                    formatSalePrice(Math.round(displayPrice)),
+                  )}
                 </span>
               ) : displayPrice != null ? (
                 <span className="flex items-baseline gap-1">
                   <span className={cn("font-black text-[#1E293B]", compactGrid ? "text-[18px] leading-[24px] sm:text-[24px] sm:leading-[32px]" : "text-[24px] leading-[32px]")}>
-                    {formatNum(Math.round(displayPrice))}
+                    {convertedPerNight ?? formatNum(Math.round(displayPrice))}
                   </span>
                   <span className={cn("font-black text-[#64748B]", compactGrid ? "text-[10px] leading-[14px] sm:text-[14px] sm:leading-[20px]" : "text-[14px] leading-[20px]")}>
-                    {t("perNight")}
+                    {convertedPerNight ? t("perNightUnit") : t("perNight")}
                   </span>
                 </span>
               ) : null}

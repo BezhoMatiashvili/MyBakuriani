@@ -40,7 +40,8 @@ const SHARED_MAP = `- /create "განცხადების დამატ
 - Public pages: /pricing (prices), /faq, /contact.`;
 
 // Visitors outside the dashboards: the public site and sign-in.
-const PUBLIC_SHARED_MAP = `- Header: "შესვლა" (sign in or register; /auth/login), "განცხადების დამატება" (add a listing; needs an account), the language switch, and once signed in "კაბინეტი" (the user's dashboard). On phones and tablets the header shows only "+" (add a listing) and the menu (☰): "შესვლა" and the category links are inside that menu.
+const PUBLIC_SHARED_MAP = `- Header: "შესვლა" (sign in or register; /auth/login), "განცხადების დამატება" (add a listing; needs an account), the language switch, and once signed in "კაბინეტი" (the user's dashboard). On phones and tablets the header shows only the language switch, "+" (add a listing) and the menu (☰): "შესვლა" and the category links are inside that menu.
+- On the public pages (not sign-in) the language switch also has "ვალუტა": "განცხადების ვალუტა" (the default) shows each price as listed (rentals, hotels and services in ₾, sales in $); "USD - $" or "GEL - ₾" shows every listing, service, menu and salary price in that currency at the National Bank of Georgia's official rate for the day, which the menu shows (without a rate, prices stay as listed). Payments, the balance, packages and a restaurant's PDF menu stay in ₾; search price filters stay in each listing's currency.
 - Public pages: /pricing (prices), /faq, /contact, /blog, /bakuriani (resort guide).`;
 
 const SERVICE_MAP = (base: string, orders?: string) =>
@@ -51,6 +52,7 @@ ${orders ? `- ${base}/orders ${orders}\n` : ""}- ${base}/balance "ბალა�
 const CABINET_MAPS: Record<SupportCabinet, string> = {
   guest: `- /dashboard/guest "მთავარი გვერდი": Smart Match requests ("ახალი მოთხოვნა"), offers received, recently viewed listings.
 - /dashboard/guest/favorites "რჩეულები": saved listings.
+- The top bar's language switch has "ვალუტა" as on the public site: prices of saved and recently viewed listings follow it; Smart Match budgets and offers stay in ₾.
 - /dashboard/guest/reviews "ისტორია": past services.
 - /dashboard/guest/profile "პარამეტრები": name, phone, profile photo.`,
   renter: `- /dashboard/renter "ჩემი ბინები": membership status and "წევრობის გააქტიურება", stats, own rentals, "ახალი ბინა" (-> /create/rental).

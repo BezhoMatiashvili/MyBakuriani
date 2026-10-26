@@ -17,6 +17,7 @@ import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { ShareMenu } from "@/components/shared/ShareMenu";
 import { formatPrice } from "@/lib/utils/format";
+import { useMoney } from "@/lib/currency/client";
 import { enterUp } from "@/lib/utils/enterAnimation";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
@@ -59,6 +60,7 @@ export default function ServiceDetailClient({
   const tShare = useTranslations("ShareListing");
   const tCard = useTranslations("ServiceCard");
   const tOpts = useTranslations("ListingOptions");
+  const money = useMoney();
   // Translates a stored DB option value; falls through to the raw value for
   // custom/free-text entries.
   const optionLabel = (group: OptionGroup, value: string | null) => {
@@ -70,16 +72,18 @@ export default function ServiceDetailClient({
     service.discount_percent,
     service.discount_expires_at,
   );
-  const displayPrice =
+  // Unrounded: a price in the visitor's currency (C55) is converted from it;
+  // the lari text keeps rounding to whole lari.
+  const discountedPrice =
     service.price != null
-      ? Math.round(
-          applyDiscount(
-            service.price,
-            service.discount_percent,
-            service.discount_expires_at,
-          ),
+      ? applyDiscount(
+          service.price,
+          service.discount_percent,
+          service.discount_expires_at,
         )
       : null;
+  const displayPrice =
+    discountedPrice != null ? Math.round(discountedPrice) : null;
   // /create/service stores either an experienceOptions label or "N წელი".
   const experienceLabel = (() => {
     const value = service.experience_required;
@@ -278,11 +282,15 @@ export default function ServiceDetailClient({
           <div className="flex items-baseline">
             {discountActive && (
               <span className="mr-2 text-sm font-bold text-[#94A3B8] line-through">
-                {formatPrice(service.price)}
+                {money.format(service.price, "GEL", formatPrice(service.price))}
               </span>
             )}
             <span className="text-[28px] font-black leading-[32px] text-[#1E293B]">
-              {formatPrice(displayPrice!)}
+              {money.format(
+                discountedPrice!,
+                "GEL",
+                formatPrice(displayPrice!),
+              )}
             </span>
             {service.price_unit && (
               <span className="ml-1 text-sm text-[#94A3B8]">
@@ -309,7 +317,7 @@ export default function ServiceDetailClient({
 
       {service.price != null && (
         <MobileStickyCTA
-          primary={`${formatPrice(displayPrice!)}${service.price_unit ? ` / ${priceUnitPath ? tOpts(priceUnitPath) : service.price_unit}` : ""}`}
+          primary={`${money.format(discountedPrice!, "GEL", formatPrice(displayPrice!))}${service.price_unit ? ` / ${priceUnitPath ? tOpts(priceUnitPath) : service.price_unit}` : ""}`}
           secondary={service.location ?? undefined}
           ctaLabel={tCard("call")}
           onClick={() =>

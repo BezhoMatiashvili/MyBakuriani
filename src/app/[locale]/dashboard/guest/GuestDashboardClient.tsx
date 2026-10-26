@@ -10,6 +10,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { trackAnalyticsEvent } from "@/lib/analytics/track-client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMoney } from "@/lib/currency/client";
 import { formatPrice, formatSalePrice } from "@/lib/utils/format";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { priceUnitPathFor } from "@/lib/constants/listing-options";
@@ -426,6 +427,7 @@ export default function GuestDashboardClient({
 function RecentListingCard({ entry }: { entry: RecentListing }) {
   const t = useTranslations("GuestDashboard");
   const tOpts = useTranslations("ListingOptions");
+  const fx = useMoney();
   const l = entry.listing;
   // Canonical detail routes: hotel → /hotels, sale → /sales, food → /food …
   const href =
@@ -455,9 +457,11 @@ function RecentListingCard({ entry }: { entry: RecentListing }) {
       ? applyDiscount(base, l.discount_percent, l.discount_expires_at)
       : base;
   // Sale prices are entered and stored in USD, so they render with "$" like
-  // the sale cards do.
+  // the sale cards do; a visitor's currency pick converts either (C55).
   const money = (n: number) =>
-    isSale ? formatSalePrice(n) : formatPrice(n);
+    isSale
+      ? fx.format(n, "USD", formatSalePrice(n))
+      : fx.format(n, "GEL", formatPrice(n));
   const unitPath =
     entry.kind === "service"
       ? priceUnitPathFor(entry.listing.price_unit)

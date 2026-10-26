@@ -15,6 +15,7 @@ import {
 } from "@/lib/favorites/store";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
+import { useMoney } from "@/lib/currency/client";
 import { formatPrice, formatSalePrice } from "@/lib/utils/format";
 import { priceUnitPathFor } from "@/lib/constants/listing-options";
 import type { Database } from "@/lib/types/database";
@@ -222,10 +223,13 @@ function FavoritePropertyCard({
   removing: boolean;
 }) {
   const t = useTranslations("GuestFavorites");
+  const money = useMoney();
   const photo = (property.photos ?? [])[0] ?? null;
   const href = property.is_for_sale
     ? `/sales/${property.id}`
     : `/apartments/${property.id}`;
+  const salePrice = Number(property.sale_price ?? 0);
+  const nightly = Number(property.price_per_night ?? 0);
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-[20px] border border-[#EEF1F4] bg-white shadow-[0px_4px_12px_rgba(0,0,0,0.02)] transition-shadow hover:shadow-[0px_12px_24px_rgba(15,23,42,0.08)]">
@@ -280,8 +284,8 @@ function FavoritePropertyCard({
                 favourited sale listing. */}
             <span className="text-[16px] font-black text-[#0F172A]">
               {property.is_for_sale
-                ? formatSalePrice(Number(property.sale_price ?? 0))
-                : formatPrice(Number(property.price_per_night ?? 0))}
+                ? money.format(salePrice, "USD", formatSalePrice(salePrice))
+                : money.format(nightly, "GEL", formatPrice(nightly))}
             </span>
             {!property.is_for_sale && (
               <span className="text-[11px] font-medium text-[#94A3B8]">
@@ -312,6 +316,7 @@ function FavoriteServiceCard({
 }) {
   const t = useTranslations("GuestFavorites");
   const tOpts = useTranslations("ListingOptions");
+  const money = useMoney();
   const priceUnitPath = priceUnitPathFor(service.price_unit);
   const photo = (service.photos ?? [])[0] ?? null;
   return (
@@ -359,7 +364,11 @@ function FavoriteServiceCard({
           {service.price != null ? (
             <div className="flex items-baseline gap-1">
               <span className="text-[16px] font-black text-[#0F172A]">
-                {formatPrice(Number(service.price))}
+                {money.format(
+                  Number(service.price),
+                  "GEL",
+                  formatPrice(Number(service.price)),
+                )}
               </span>
               {service.price_unit && (
                 <span className="text-[11px] font-medium text-[#94A3B8]">

@@ -417,7 +417,7 @@ const ACTIONS = {
     where: ["admin"],
     params: ["tab"],
     prompt:
-      "the review queues; tab: listings (new listings), changes (content changes), ownership",
+      "the review queues; tab: listings (new listings), changes (content changes), ownership (ownership verification requests)",
     href: (p) =>
       withQuery("/dashboard/admin/verifications", {
         tab: p.tab === "listings" ? undefined : str(p.tab),

@@ -3,6 +3,7 @@
 import { Banknote, Heart, MapPin, Star, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { useMoney } from "@/lib/currency/client";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { cn } from "@/lib/utils";
 import { formatNumber, formatPrice } from "@/lib/utils/format";
@@ -35,26 +36,34 @@ const NEGOTIABLE: SalaryDescriptor = { kind: "model", model: "negotiable" };
 
 /**
  * Formats a vacancy's salary with the EmploymentCard keys. The detail page uses
- * it too, so a card and the page behind it always say the same thing.
+ * it too, so a card and the page behind it always say the same thing. Salaries
+ * are lari; a visitor's currency pick converts them (C55), a range only when
+ * both ends convert.
  */
 export function useSalaryText() {
   const t = useTranslations("EmploymentCard");
+  const money = useMoney();
+  const price = (n: number) => money.format(n, "GEL", formatPrice(n));
   return (salary: SalaryDescriptor | null | undefined): string => {
     const s = salary ?? NEGOTIABLE;
     switch (s.kind) {
-      case "range":
-        return s.min === s.max
-          ? formatPrice(s.min)
+      case "range": {
+        if (s.min === s.max) return price(s.min);
+        const min = money.converted(s.min, "GEL");
+        const max = money.converted(s.max, "GEL");
+        return min && max
+          ? `${min}–${max}`
           : t("salaryRange", {
               min: formatNumber(s.min),
               max: formatNumber(s.max),
             });
+      }
       case "from":
-        return t("salaryFrom", { amount: formatNumber(s.min) });
+        return t("salaryFrom", { amount: price(s.min) });
       case "upTo":
-        return t("salaryUpTo", { amount: formatNumber(s.max) });
+        return t("salaryUpTo", { amount: price(s.max) });
       case "daily":
-        return t("salaryDaily", { amount: formatNumber(s.amount) });
+        return t("salaryDaily", { amount: price(s.amount) });
       case "model":
         return t(`salaryModels.${s.model}`);
     }

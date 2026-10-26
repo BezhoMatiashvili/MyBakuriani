@@ -15,6 +15,7 @@ import {
 import { useTranslations } from "next-intl";
 import { ShareMenu } from "@/components/shared/ShareMenu";
 import { formatPrice } from "@/lib/utils/format";
+import { useMoney } from "@/lib/currency/client";
 import { enterUp } from "@/lib/utils/enterAnimation";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
@@ -57,6 +58,7 @@ export default function TransportDetailClient({
   const tShared = useTranslations("Shared");
   const tCard = useTranslations("ServiceCard");
   const tOpts = useTranslations("ListingOptions");
+  const money = useMoney();
   // Translates a stored DB option value; falls through to the raw value for
   // custom/free-text entries.
   const optionLabel = (group: OptionGroup, value: string) => {
@@ -97,14 +99,11 @@ export default function TransportDetailClient({
     service.discount_percent,
     service.discount_expires_at,
   );
-  const discounted = (value: number) =>
-    Math.round(
-      applyDiscount(
-        value,
-        service.discount_percent,
-        service.discount_expires_at,
-      ),
-    );
+  // Unrounded: a fare in the visitor's currency (C55) is converted from it;
+  // the lari text keeps rounding to whole lari.
+  const discountedExact = (value: number) =>
+    applyDiscount(value, service.discount_percent, service.discount_expires_at);
+  const discounted = (value: number) => Math.round(discountedExact(value));
 
   const views = useListingViewCount(
     "service",
@@ -339,11 +338,15 @@ export default function TransportDetailClient({
                 <div className="shrink-0 text-right">
                   {discountActive && (
                     <p className="text-[13px] font-bold text-[#94A3B8] line-through">
-                      {formatPrice(row.price)}
+                      {money.format(row.price, "GEL", formatPrice(row.price))}
                     </p>
                   )}
                   <p className="text-[20px] font-black leading-tight text-[#1E293B] md:text-[26px]">
-                    {formatPrice(discounted(row.price))}
+                    {money.format(
+                      discountedExact(row.price),
+                      "GEL",
+                      formatPrice(discounted(row.price)),
+                    )}
                   </p>
                   <p className="mt-0.5 text-[12px] text-[#94A3B8]">
                     ({routeUnitLabel(row.unit)})
@@ -379,11 +382,19 @@ export default function TransportDetailClient({
                 <div className="shrink-0 text-right">
                   {discountActive && (
                     <p className="text-[13px] font-bold text-[#94A3B8] line-through">
-                      {formatPrice(service.price)}
+                      {money.format(
+                        service.price,
+                        "GEL",
+                        formatPrice(service.price),
+                      )}
                     </p>
                   )}
                   <p className="text-[20px] font-black leading-tight text-[#1E293B] md:text-[28px]">
-                    {formatPrice(discounted(service.price))}
+                    {money.format(
+                      discountedExact(service.price),
+                      "GEL",
+                      formatPrice(discounted(service.price)),
+                    )}
                   </p>
                   {service.price_unit && (
                     <p className="mt-0.5 text-[12px] text-[#94A3B8]">

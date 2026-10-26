@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { CallButton } from "@/components/shared/CallButton";
 import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
+import { useMoney } from "@/lib/currency/client";
 import { formatPrice } from "@/lib/utils/format";
 import {
   sumNightlyPrice,
@@ -221,6 +222,7 @@ export function BookingSidebar({
   discountExpiresAt,
 }: BookingSidebarProps) {
   const t = useTranslations("BookingSidebar");
+  const money = useMoney();
   const { start, end } = selectedRange;
   const days = start && end ? differenceInDays(end, start) + 1 : 0;
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -285,20 +287,28 @@ export function BookingSidebar({
           <div>
             {discountActive && (
               <span className="block text-[11px] font-bold text-[#94A3B8] line-through">
-                {formatPrice(pricePerNight)}
+                {money.format(pricePerNight, "GEL", formatPrice(pricePerNight))}
               </span>
             )}
             <span className="text-[32px] font-black leading-[32px] text-[#1E293B]">
-              {formatPrice(
-                discountActive
-                  ? Math.round(
-                      applyDiscount(
-                        pricePerNight,
-                        discountPercent,
-                        discountExpiresAt,
-                      ),
-                    )
-                  : pricePerNight,
+              {money.format(
+                applyDiscount(
+                  pricePerNight,
+                  discountPercent,
+                  discountExpiresAt,
+                ),
+                "GEL",
+                formatPrice(
+                  discountActive
+                    ? Math.round(
+                        applyDiscount(
+                          pricePerNight,
+                          discountPercent,
+                          discountExpiresAt,
+                        ),
+                      )
+                    : pricePerNight,
+                ),
               )}
             </span>
             <span className="text-[15px] font-medium text-[#64748B]">
@@ -391,9 +401,13 @@ export function BookingSidebar({
             <div className="flex items-center justify-between text-[13px]">
               <span className="text-[#64748B]">
                 {hasMixedPricing
-                  ? `≈${t("daysLine", { price: formatPrice(avgNightly), count: days })}`
+                  ? `≈${t("daysLine", { price: money.format(nightlySum / days, "GEL", formatPrice(avgNightly)), count: days })}`
                   : t("daysLine", {
-                      price: formatPrice(pricePerNight),
+                      price: money.format(
+                        pricePerNight,
+                        "GEL",
+                        formatPrice(pricePerNight),
+                      ),
                       count: days,
                     })}
                 {showGuestCount && perPersonPricing
@@ -401,7 +415,7 @@ export function BookingSidebar({
                   : ""}
               </span>
               <span className="font-bold text-[#1E293B]">
-                {formatPrice(subtotal)}
+                {money.format(subtotal, "GEL", formatPrice(subtotal))}
               </span>
             </div>
             {hasMixedPricing && (
@@ -415,7 +429,12 @@ export function BookingSidebar({
                   {t("discountLine", { percent: discountPercent ?? 0 })}
                 </span>
                 <span className="font-bold text-[#1E293B]">
-                  -{formatPrice(Math.round(discountAmount))}
+                  -
+                  {money.format(
+                    discountAmount,
+                    "GEL",
+                    formatPrice(Math.round(discountAmount)),
+                  )}
                 </span>
               </div>
             )}
@@ -425,7 +444,7 @@ export function BookingSidebar({
                   {t("total")}
                 </span>
                 <span className="text-[22px] font-black text-[#1E293B]">
-                  {formatPrice(total)}
+                  {money.format(total, "GEL", formatPrice(total))}
                 </span>
               </div>
             </div>

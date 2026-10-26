@@ -3540,6 +3540,76 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C54: sale prices print as $ through formatSalePrice on ${saleOnly.length + mixed.length} surfaces (${saleOnly.length} sale-only without formatPrice); no ₾↔$ rate, no sale price handed to formatPrice; Baku's sale budget prompted in dollars`);
 }
 
+// C55 — visitor currency: a public price follows the header's GEL/USD pick, converted only by <Money>/useMoney after
+// hydration, at the National Bank of Georgia's official rate for the Tbilisi day. (a) only src/lib/currency/nbg.ts
+// (server-only) calls nbg.gov.ge, with ?date=; nothing outside src/lib/currency converts, nothing hard-codes a rate,
+// money.ts is pure; (b) the pick and the rate are read through useSyncExternalStore with the null server snapshot and
+// their storage keys live only in client.ts; (c) LanguageSelector withCurrency sits on exactly the public headers and
+// the guest top bar; (d) every public price surface prints through <Money>/useMoney; (e) payments, balances, packages,
+// forms, owner/admin cabinets and Smart Match offers never import the currency primitives; (f) /api/fx/usd serves
+// getNbgUsdRate.
+{
+  const problems = [];
+  const NBG = "src/lib/currency/nbg.ts";
+  const CLIENT = "src/lib/currency/client.ts";
+  for (const [file, text] of srcText) {
+    if (file !== NBG && /nbg\.gov\.ge/.test(text)) problems.push(`${file} calls NBG (only ${NBG} may)`);
+    if (!file.startsWith("src/lib/currency/") && /\b(?:convertAmount|convertedPriceText|formatConvertedAmount)\(/.test(text))
+      problems.push(`${file} converts a price itself (use <Money>/useMoney)`);
+    if (/\bgelPerUsd\s*[:=]\s*[\d.]/.test(text)) problems.push(`${file} hard-codes a lari/dollar rate`);
+    if (file !== CLIENT && /mybakuriani:(?:currency|fx_usd)/.test(text))
+      problems.push(`${file} reads the currency pick or rate from storage (only ${CLIENT} may)`);
+  }
+  const nbg = read(NBG);
+  if (!/^import "server-only";/m.test(nbg)) problems.push(`${NBG} must be server-only`);
+  if (!/searchParams\.set\("date", day\)/.test(nbg)) problems.push(`${NBG} must ask NBG for the Tbilisi day's rate (?date=), not the latest fix`);
+  if (/^\s*import\s/m.test(read("src/lib/currency/money.ts"))) problems.push("src/lib/currency/money.ts must stay pure (no imports, C29)");
+  const client = read(CLIENT);
+  if (!/const serverSnapshot = \(\) => null;/.test(client) || (client.match(/useSyncExternalStore\(\s*subscribe,\s*read\w+,\s*serverSnapshot,?\s*\)/g) || []).length !== 2)
+    problems.push(`${CLIENT} must read the pick and the rate through useSyncExternalStore with the null server snapshot`);
+  const mounts = new Map();
+  for (const [file, text] of srcText) {
+    const n = (text.match(/<LanguageSelector\b[^>]*\bwithCurrency\b/g) || []).length;
+    if (n) mounts.set(file, n);
+  }
+  const wantMounts = new Map([["src/components/layout/Navbar.tsx", 2], ["src/components/layout/SalesTopBar.tsx", 1], ["src/components/layout/GuestTopbar.tsx", 1]]);
+  if (mounts.size !== wantMounts.size || [...wantMounts].some(([f, n]) => mounts.get(f) !== n))
+    problems.push(`LanguageSelector withCurrency must be on Navbar (x2), SalesTopBar and GuestTopbar only; found ${JSON.stringify([...mounts])}`);
+  const surfaces = [
+    "src/components/cards/PropertyCard.tsx",
+    "src/components/cards/InvestmentCard.tsx",
+    "src/components/cards/SalePropertyCard.tsx",
+    "src/components/cards/ServiceCard.tsx",
+    "src/components/cards/EmploymentCard.tsx",
+    "src/components/booking/BookingSidebar.tsx",
+    "src/components/detail/HotelRooms.tsx",
+    "src/components/maps/MapboxCanvas.tsx",
+    "src/components/search/SaleSearchBox.tsx",
+    "src/components/seo/ListingFacts.tsx",
+    "src/app/[locale]/apartments/[id]/ApartmentDetailClient.tsx",
+    "src/app/[locale]/hotels/[id]/HotelDetailClient.tsx",
+    "src/app/[locale]/sales/[id]/SaleDetailClient.tsx",
+    "src/app/[locale]/food/[id]/FoodDetailClient.tsx",
+    "src/app/[locale]/services/[id]/ServiceDetailClient.tsx",
+    "src/app/[locale]/transport/[id]/TransportDetailClient.tsx",
+    "src/app/[locale]/entertainment/[id]/EntertainmentDetailClient.tsx",
+    "src/app/[locale]/dashboard/guest/GuestDashboardClient.tsx",
+    "src/app/[locale]/dashboard/guest/favorites/page.tsx",
+  ];
+  for (const file of surfaces) {
+    if (!srcText.has(file)) problems.push(`${file} is missing (update the C55 list)`);
+    else if (!/<Money\b|\buseMoney\(/.test(srcText.get(file))) problems.push(`${file} prints a public price without <Money>/useMoney`);
+  }
+  const storedOnly = /^src\/(?:app\/\[locale\]\/(?:dashboard\/(?!guest\/)|create\/|checkout\/|pricing\/)|components\/(?:admin|renter|seller|cleaner|balance|payments)\/|components\/guest\/GuestOffersModal\.tsx$|lib\/(?:payments|finance)\/|app\/api\/(?!fx\/))/;
+  for (const [file, text] of srcText) {
+    if (storedOnly.test(file) && /from "@\/(?:lib\/currency\/|components\/shared\/Money)/.test(text))
+      problems.push(`${file} converts prices (payments, balances, packages, forms, cabinets and Smart Match offers stay as stored)`);
+  }
+  if (!/await getNbgUsdRate\(\)/.test(read("src/app/api/fx/usd/route.ts"))) problems.push("src/app/api/fx/usd/route.ts must serve getNbgUsdRate()");
+  if (problems.length) problems.forEach((p) => fail(`C55: ${p}`));
+  else ok(`C55: NBG called only by ${NBG} (dated, server-only), no rate constant, conversion only inside src/lib/currency; pick and rate behind the null server snapshot; switcher on ${[...wantMounts.values()].reduce((a, b) => a + b, 0)} public/guest header mounts; ${surfaces.length} public price surfaces through <Money>/useMoney; payments, balances, forms, cabinets and Smart Match offers untouched`);
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);

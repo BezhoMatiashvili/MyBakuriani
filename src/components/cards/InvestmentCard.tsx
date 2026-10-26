@@ -7,6 +7,7 @@ import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { formatSalePrice } from "@/lib/utils/format";
+import { useMoney } from "@/lib/currency/client";
 import { cardEnter } from "@/lib/utils/enterAnimation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
@@ -86,6 +87,7 @@ export default function InvestmentCard({
   const t = useTranslations("InvestmentCard");
   const tZones = useTranslations("Zones");
   const tOpts = useTranslations("ListingOptions");
+  const money = useMoney();
   const {
     isFavorited,
     busy: favoriteBusy,
@@ -129,6 +131,9 @@ export default function InvestmentCard({
     !isLand && displayPrice != null && areaSqm && areaSqm > 0
       ? Math.round(displayPrice / areaSqm)
       : null;
+  // Unrounded, so a converted $/m² (C55) is not rounded twice.
+  const exactPricePerSqm =
+    displayPrice != null && areaSqm ? displayPrice / areaSqm : 0;
 
   return (
     <motion.div
@@ -335,8 +340,8 @@ export default function InvestmentCard({
             className={cn(
               "mt-auto gap-3 pt-5",
               compactGrid
-                ? "flex flex-col items-stretch sm:flex-row sm:items-end sm:justify-between"
-                : "flex items-end justify-between",
+                ? "flex flex-col items-stretch sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
+                : "flex flex-wrap items-end justify-between",
             )}
           >
             <div className="min-w-0">
@@ -344,7 +349,11 @@ export default function InvestmentCard({
                 <>
                   {discountActive && (
                     <span className="block whitespace-nowrap text-[12px] font-bold leading-[16px] text-[#94A3B8] line-through">
-                      {formatSalePrice(salePrice)}
+                      {money.format(
+                        salePrice,
+                        "USD",
+                        formatSalePrice(salePrice),
+                      )}
                     </span>
                   )}
                   <span
@@ -355,13 +364,23 @@ export default function InvestmentCard({
                         : "text-[24px] leading-[30px]",
                     )}
                   >
-                    {formatSalePrice(displayPrice!)}
+                    {money.format(
+                      displayPrice!,
+                      "USD",
+                      formatSalePrice(displayPrice!),
+                    )}
                   </span>
                 </>
               ) : null}
               {pricePerSqm != null && (
                 <span className="mt-0.5 block text-[12px] font-medium text-[#94A3B8]">
-                  {t("pricePerSqm", { price: formatSalePrice(pricePerSqm) })}
+                  {t("pricePerSqm", {
+                    price: money.format(
+                      exactPricePerSqm,
+                      "USD",
+                      formatSalePrice(pricePerSqm),
+                    ),
+                  })}
                 </span>
               )}
             </div>

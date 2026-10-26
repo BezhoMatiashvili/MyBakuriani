@@ -47,7 +47,7 @@ export function GuestTopbar({
           {tLayout("topbar.activeVisitor")}
         </span>
 
-        <LanguageSelector />
+        <LanguageSelector withCurrency />
 
         <DashboardNotificationBell
           initialUnreadCount={notificationCount}

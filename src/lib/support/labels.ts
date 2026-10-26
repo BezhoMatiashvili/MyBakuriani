@@ -161,6 +161,10 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
     en: "Add Listing",
     ru: "Добавить объявление",
   },
+  "განცხადების ვალუტა": {
+    en: "Listing currency",
+    ru: "Валюта объявления",
+  },
   გართობა: {
     en: "Entertainment",
     ru: "Развлечения",
@@ -256,6 +260,10 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
   ექსპორტი: {
     en: "Export",
     ru: "Экспорт",
+  },
+  ვალუტა: {
+    en: "Currency",
+    ru: "Валюта",
   },
   ვარსკვლავები: {
     en: "Star rating",

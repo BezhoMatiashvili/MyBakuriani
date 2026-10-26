@@ -7,6 +7,7 @@ import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils/format";
+import { useMoney } from "@/lib/currency/client";
 import { cardEnter } from "@/lib/utils/enterAnimation";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import {
@@ -112,6 +113,7 @@ export default function ServiceCard({
   const isTransport = category === "transport";
   const t = useTranslations("ServiceCard");
   const tOpts = useTranslations("ListingOptions");
+  const money = useMoney();
   const router = useRouter();
   const priceUnitPath = priceUnitPathFor(priceUnit);
   const basePath = categoryRouteMap[category] ?? `/services/${category}`;
@@ -480,6 +482,12 @@ export default function ServiceCard({
   const isBusy = availabilityStatus === "busy";
   const routeValue = route ?? routes?.[0];
   const routeKey = optionKeyFor("transportRoutes", routeValue);
+  // Unrounded: a price in the visitor's currency (C55) is converted from it;
+  // the lari text keeps rounding to whole lari.
+  const discountedPrice =
+    price != null
+      ? applyDiscount(price, discountPercent, discountExpiresAt)
+      : null;
 
   return (
     <motion.div
@@ -718,18 +726,14 @@ export default function ServiceCard({
                       <span className="flex items-baseline gap-1">
                         {discountActive && (
                           <span className="text-[13px] font-bold text-[#94A3B8] line-through">
-                            {formatPrice(price)}
+                            {money.format(price, "GEL", formatPrice(price))}
                           </span>
                         )}
                         <span className="text-[22px] font-black text-[#1E293B]">
-                          {formatPrice(
-                            Math.round(
-                              applyDiscount(
-                                price,
-                                discountPercent,
-                                discountExpiresAt,
-                              ),
-                            ),
+                          {money.format(
+                            discountedPrice!,
+                            "GEL",
+                            formatPrice(Math.round(discountedPrice!)),
                           )}
                         </span>
                         {priceUnit && (

@@ -86,7 +86,7 @@ export function SalesTopBar() {
         </Link>
 
         <div className="flex items-center gap-3">
-          <LanguageSelector />
+          <LanguageSelector withCurrency />
           {user && (
             <AddListingButton
               label={t("addListing")}

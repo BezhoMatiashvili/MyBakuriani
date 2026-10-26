@@ -8,6 +8,7 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 import { formatSalePrice } from "@/lib/utils/format";
+import { useMoney } from "@/lib/currency/client";
 import { cardEnter } from "@/lib/utils/enterAnimation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
@@ -66,6 +67,7 @@ export default function SalePropertyCard({
 }: SalePropertyCardProps) {
   const t = useTranslations("SalePropertyCard");
   const tOpts = useTranslations("ListingOptions");
+  const money = useMoney();
   const {
     isFavorited,
     busy: favoriteBusy,
@@ -97,6 +99,8 @@ export default function SalePropertyCard({
     !isLand && area && displayPriceUsd
       ? Math.round(displayPriceUsd / area)
       : null;
+  // Unrounded, so a converted $/m² (C55) is not rounded twice.
+  const exactPricePerSqm = area ? displayPriceUsd / area : 0;
 
   return (
     <motion.div
@@ -218,15 +222,25 @@ export default function SalePropertyCard({
             <div>
               {discountActive && (
                 <span className="block whitespace-nowrap text-[12px] font-bold leading-[16px] text-[#94A3B8] line-through">
-                  {formatSalePrice(priceUsd)}
+                  {money.format(priceUsd, "USD", formatSalePrice(priceUsd))}
                 </span>
               )}
               <span className="block whitespace-nowrap text-[22px] font-black leading-[28px] text-[#16A34A]">
-                {formatSalePrice(displayPriceUsd)}
+                {money.format(
+                  displayPriceUsd,
+                  "USD",
+                  formatSalePrice(displayPriceUsd),
+                )}
               </span>
               {pricePerSqm && (
                 <span className="block text-[11px] font-medium text-[#94A3B8]">
-                  {t("pricePerSqm", { price: formatSalePrice(pricePerSqm) })}
+                  {t("pricePerSqm", {
+                    price: money.format(
+                      exactPricePerSqm,
+                      "USD",
+                      formatSalePrice(pricePerSqm),
+                    ),
+                  })}
                 </span>
               )}
             </div>

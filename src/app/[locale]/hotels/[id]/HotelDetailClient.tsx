@@ -43,7 +43,9 @@ import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar"
 import type { Tables } from "@/lib/types/database";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
+import { useMoney } from "@/lib/currency/client";
 import { formatPricePerNight } from "@/lib/utils/format";
+import { NIGHT_LABELS } from "@/lib/utils/format-locale-labels";
 import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { applyDiscount } from "@/lib/utils/pricing";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
@@ -93,6 +95,7 @@ export default function HotelDetailClient({
   const tRules = useTranslations("HouseRules");
   const tShared = useTranslations("Shared");
   const locale = useLocale();
+  const money = useMoney();
   const router = useRouter();
   const [selectedRange, setSelectedRange] = useState<{
     start: Date | null;
@@ -175,6 +178,19 @@ export default function HotelDetailClient({
     ],
     [property],
   );
+  // MobileStickyCTA prints the string it is given, so its price converts here
+  // (C55), keeping formatPricePerNight's " / <night>" tail.
+  const stickyPrice =
+    property.price_per_night != null
+      ? money.converted(
+          applyDiscount(
+            property.price_per_night,
+            property.discount_percent,
+            property.discount_expires_at,
+          ),
+          "GEL",
+        )
+      : null;
 
   const handleDateClick = (date: Date) => {
     if (!selectedRange.start || (selectedRange.start && selectedRange.end)) {
@@ -473,16 +489,20 @@ export default function HotelDetailClient({
 
       {property.price_per_night != null && (
         <MobileStickyCTA
-          primary={formatPricePerNight(
-            Math.round(
-              applyDiscount(
-                property.price_per_night,
-                property.discount_percent,
-                property.discount_expires_at,
-              ),
-            ),
-            locale,
-          )}
+          primary={
+            stickyPrice
+              ? `${stickyPrice} / ${NIGHT_LABELS[locale]}`
+              : formatPricePerNight(
+                  Math.round(
+                    applyDiscount(
+                      property.price_per_night,
+                      property.discount_percent,
+                      property.discount_expires_at,
+                    ),
+                  ),
+                  locale,
+                )
+          }
           secondary={property.location ?? undefined}
           ctaLabel={tDetail("book")}
           onClick={() =>

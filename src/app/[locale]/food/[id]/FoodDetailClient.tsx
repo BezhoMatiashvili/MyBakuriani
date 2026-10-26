@@ -11,6 +11,7 @@ import { FoodContactCard } from "@/components/food-detail/FoodContactCard";
 import ServiceLocationMap from "@/components/detail/ServiceLocationMap";
 import { parseServiceCoords } from "@/lib/maps/serviceCoords";
 import { formatPrice } from "@/lib/utils/format";
+import { useMoney } from "@/lib/currency/client";
 import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { ShareMenu } from "@/components/shared/ShareMenu";
 import { useFavorite } from "@/lib/hooks/useFavorite";
@@ -50,6 +51,7 @@ export default function FoodDetailClient({
   const tShared = useTranslations("Shared");
   const tGallery = useTranslations("PhotoGallery");
   const tOpts = useTranslations("ListingOptions");
+  const money = useMoney();
   const {
     isFavorited,
     busy: favoriteBusy,
@@ -93,8 +95,18 @@ export default function FoodDetailClient({
   const formatAvgCheck = (value: string | null): string | null => {
     if (!value) return null;
     if (value.includes("₾")) return value;
-    if (value === "100+") return "100 ₾+";
-    return `${value} ₾`;
+    // A visitor's currency pick (C55) converts the bucket's edges in whole
+    // units; the lari text stays until every edge converts.
+    const edge = (amount: number) =>
+      money.converted(amount, "GEL", { whole: true });
+    if (value === "100+") {
+      const from = edge(100);
+      return from ? `${from}+` : "100 ₾+";
+    }
+    const bounds = /^(\d+)-(\d+)$/.exec(value);
+    const min = bounds && edge(Number(bounds[1]));
+    const max = bounds && edge(Number(bounds[2]));
+    return min && max ? `${min}–${max}` : `${value} ₾`;
   };
 
   const priceUnitPath = priceUnitPathFor(service.price_unit);
@@ -112,7 +124,7 @@ export default function FoodDetailClient({
   const avgCheckLabel =
     formatAvgCheck(service.avg_check) ??
     (service.price != null
-      ? `${formatPrice(Math.round(service.price))}${priceUnitLabel ? ` / ${priceUnitLabel}` : ""}`
+      ? `${money.format(service.price, "GEL", formatPrice(Math.round(service.price)))}${priceUnitLabel ? ` / ${priceUnitLabel}` : ""}`
       : null);
 
   const amenityTags = FOOD_AMENITIES.filter(
@@ -261,10 +273,18 @@ export default function FoodDetailClient({
                         {discountActive ? (
                           <>
                             <span className="text-[13px] text-[#94A3B8] line-through">
-                              {formatPrice(item.price)}
+                              {money.format(
+                                item.price,
+                                "GEL",
+                                formatPrice(item.price),
+                              )}
                             </span>
                             <span className="text-[15px] font-medium leading-[27px] text-[#475569]">
-                              {formatPrice(discountedPrice)}
+                              {money.format(
+                                discountedPrice,
+                                "GEL",
+                                formatPrice(discountedPrice),
+                              )}
                             </span>
                             <ListingBadge variant="discount">
                               -{item.discount_percent}%
@@ -272,7 +292,11 @@ export default function FoodDetailClient({
                           </>
                         ) : (
                           <span className="text-[15px] font-medium leading-[27px] text-[#475569]">
-                            {formatPrice(item.price)}
+                            {money.format(
+                              item.price,
+                              "GEL",
+                              formatPrice(item.price),
+                            )}
                           </span>
                         )}
                       </div>

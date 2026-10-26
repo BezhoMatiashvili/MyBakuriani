@@ -3,8 +3,10 @@
 import Image from "next/image";
 import { BedDouble, DoorOpen, Maximize, Users } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { useMoney } from "@/lib/currency/client";
 import type { HotelRoom } from "@/lib/hotel-rooms";
 import { formatPricePerNight } from "@/lib/utils/format";
+import { NIGHT_LABELS } from "@/lib/utils/format-locale-labels";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 
 interface Props {
@@ -22,7 +24,13 @@ export default function HotelRooms({
   const t = useTranslations("HotelDetail");
   const tDetail = useTranslations("PropertyDetail");
   const locale = useLocale();
+  const money = useMoney();
   const discounted = isDiscountActive(discountPercent, discountExpiresAt);
+  // A converted room price (C55) keeps formatPricePerNight's " / <night>" tail.
+  const perNight = (amount: number, native: string) => {
+    const converted = money.converted(amount, "GEL");
+    return converted ? `${converted} / ${NIGHT_LABELS[locale]}` : native;
+  };
 
   return (
     <div
@@ -65,19 +73,29 @@ export default function HotelRooms({
               <div className="shrink-0 text-right">
                 {discounted && (
                   <span className="block text-[11px] font-bold text-[#94A3B8] line-through">
-                    {formatPricePerNight(room.price, locale)}
+                    {perNight(
+                      room.price,
+                      formatPricePerNight(room.price, locale),
+                    )}
                   </span>
                 )}
                 <span className="text-[15px] font-black leading-6 text-[#0F172A]">
-                  {formatPricePerNight(
-                    Math.round(
-                      applyDiscount(
-                        room.price,
-                        discountPercent,
-                        discountExpiresAt,
-                      ),
+                  {perNight(
+                    applyDiscount(
+                      room.price,
+                      discountPercent,
+                      discountExpiresAt,
                     ),
-                    locale,
+                    formatPricePerNight(
+                      Math.round(
+                        applyDiscount(
+                          room.price,
+                          discountPercent,
+                          discountExpiresAt,
+                        ),
+                      ),
+                      locale,
+                    ),
                   )}
                 </span>
               </div>
