@@ -135,21 +135,29 @@ function text(el: Element | null | undefined): string {
 /**
  * A caption laid out next to a field without <label for>: the closest
  * <label>/<legend> before the field's branch, up to three wrappers up
- * (<div><label>Zone *</label><div><select/><Chevron/></div></div>).
+ * (<div><label>Zone *</label><div><select/><Chevron/></div></div>), or the
+ * only one inside a caption row before it (<div><div><label>Title
+ * *</label><Chip/></div><input/></div>), never past another field.
  */
 function captionOf(control: HTMLElement): HTMLElement | null {
   let branch: HTMLElement = control;
   for (let depth = 0; depth < 3; depth += 1) {
+    let pastField = false;
     for (
       let sibling = branch.previousElementSibling;
       sibling;
       sibling = sibling.previousElementSibling
     ) {
-      if (
-        sibling.matches("label, legend") &&
-        !sibling.querySelector("input, select, textarea")
-      )
+      const holdsField = Boolean(
+        sibling.querySelector("input, select, textarea, [role='combobox']"),
+      );
+      if (sibling.matches("label, legend") && !holdsField)
         return sibling as HTMLElement;
+      if (holdsField) pastField = true;
+      if (!pastField && !sibling.matches("label, legend")) {
+        const nested = sibling.querySelectorAll<HTMLElement>("label, legend");
+        if (nested.length === 1) return nested[0];
+      }
     }
     if (!branch.parentElement) break;
     branch = branch.parentElement;
@@ -355,11 +363,16 @@ function priority(el: HTMLElement, kind: ElementKind): number {
 // unnamed rows come after everything else.
 const MAX_PRIVATE_ELEMENTS = 30;
 const HIDDEN_RANK = 5;
+// Card lists repeat the same control dozens of times ("Add to favourites",
+// "Call"): past the second, a repeat is the first to go over the cap, so the
+// page's own controls and the navigation stay in the snapshot.
+const KEPT_REPEATS = 2;
 
 const precedes = (a: Node, b: Node) =>
   Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
-export function scanPage(): PageScan {
+/** The page's interactive elements, the `limit` most useful ones (see priority). */
+export function scanPage(limit: number = SUPPORT_LIMITS.elements): PageScan {
   const roots = scanRoots();
   const adminPage = isPrivatePath(stripLocale(window.location.pathname));
   // control -> highlighted element (a hidden input's visible label).
@@ -394,6 +407,7 @@ export function scanPage(): PageScan {
     hidden: boolean;
   };
   const candidates: Candidate[] = [];
+  const repeats = new Map<string, number>();
   let order = 0;
   let privateCount = 0;
   for (const [control, target] of picked) {
@@ -472,9 +486,15 @@ export function scanPage(): PageScan {
     )
       element.disabled = true;
     if (inPrivate && ++privateCount > MAX_PRIVATE_ELEMENTS) continue;
+    const same = `${kind}|${label}`;
+    const seen = (repeats.get(same) ?? 0) + 1;
+    repeats.set(same, seen);
     candidates.push({
       order,
-      rank: hidden ? HIDDEN_RANK : priority(target, kind),
+      rank:
+        hidden || (label && seen > KEPT_REPEATS)
+          ? HIDDEN_RANK
+          : priority(target, kind),
       target,
       element,
       jev: target.dataset.jev,
@@ -484,7 +504,7 @@ export function scanPage(): PageScan {
 
   const kept = candidates
     .sort((a, b) => a.rank - b.rank || a.order - b.order)
-    .slice(0, SUPPORT_LIMITS.elements)
+    .slice(0, limit)
     .sort((a, b) => a.order - b.order);
 
   const elements: PageElement[] = [];
@@ -510,4 +530,44 @@ export function scanPage(): PageScan {
     elements.push(element);
   });
   return { elements, targets };
+}
+
+/** Error toasts and alerts; also read by SupportAssistant's proactive help. */
+export const ERROR_SELECTOR =
+  "[data-sonner-toast][data-type='error'], [role='alert']";
+
+/**
+ * Messages the user sees right now that explain why a step did not move on:
+ * error toasts, alerts and the captions of fields marked invalid. Masked and
+ * capped; nothing inside a private area (or outside the sidebar on admin
+ * pages) is read.
+ */
+export function scanNotices(): string[] {
+  const adminPage = isPrivatePath(stripLocale(window.location.pathname));
+  const out: string[] = [];
+  const add = (raw: string) => {
+    const line = cleanPrivate(raw, SUPPORT_LIMITS.notice);
+    if (line && !out.includes(line)) out.push(line);
+  };
+  for (const node of document.querySelectorAll<HTMLElement>(ERROR_SELECTOR)) {
+    // Next.js announces route changes in a role=alert of its own.
+    if (node.closest("next-route-announcer")) continue;
+    if (node.id === "__next-route-announcer__") continue;
+    if (node.closest(IGNORED) || isPrivate(node, adminPage) || !isShown(node))
+      continue;
+    add(text(node));
+  }
+  for (const field of document.querySelectorAll<HTMLElement>(
+    "[aria-invalid='true']",
+  )) {
+    if (
+      field.closest(IGNORED) ||
+      isPrivate(field, adminPage) ||
+      !isShown(field)
+    )
+      continue;
+    const caption = labelOf(field, field).trim();
+    if (caption) add(`invalid: ${caption}`);
+  }
+  return out.slice(0, SUPPORT_LIMITS.notices);
 }

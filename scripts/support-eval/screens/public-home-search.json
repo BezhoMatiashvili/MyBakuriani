@@ -1,0 +1,594 @@
+{
+  "name": "public-home-search",
+  "locale": "ka",
+  "cabinet": "public",
+  "path": "/",
+  "title": "MyBakuriani — ბინები, სასტუმროები და კოტეჯები ბაკურიანში",
+  "goal": "როგორ ვიპოვო ბინა დიდველზე 4 კაცისთვის?",
+  "progress": [],
+  "notices": [],
+  "elements": [
+    {
+      "id": "e1",
+      "kind": "link",
+      "label": "MyBakuriani",
+      "href": "/"
+    },
+    {
+      "id": "e2",
+      "kind": "button",
+      "label": "ენის არჩევა"
+    },
+    {
+      "id": "e3",
+      "kind": "link",
+      "label": "განცხადების დამატება",
+      "href": "/create"
+    },
+    {
+      "id": "e4",
+      "kind": "link",
+      "label": "შესვლა",
+      "href": "/auth/login"
+    },
+    {
+      "id": "e5",
+      "kind": "button",
+      "label": "შესვლა"
+    },
+    {
+      "id": "e6",
+      "kind": "link",
+      "label": "ბინები",
+      "href": "/apartments"
+    },
+    {
+      "id": "e7",
+      "kind": "link",
+      "label": "ტრანსპორტი",
+      "href": "/transport"
+    },
+    {
+      "id": "e8",
+      "kind": "link",
+      "label": "დასაქმება",
+      "href": "/employment"
+    },
+    {
+      "id": "e9",
+      "kind": "link",
+      "label": "სერვისები",
+      "href": "/services"
+    },
+    {
+      "id": "e10",
+      "kind": "link",
+      "label": "კვება",
+      "href": "/food"
+    },
+    {
+      "id": "e11",
+      "kind": "link",
+      "label": "გართობა",
+      "href": "/entertainment"
+    },
+    {
+      "id": "e12",
+      "kind": "button",
+      "label": "გაქირავება",
+      "section": "ბაკურიანის გზამკვლევი ერთ პლატფორმაზე"
+    },
+    {
+      "id": "e13",
+      "kind": "button",
+      "label": "ყიდვა"
+    },
+    {
+      "id": "e14",
+      "kind": "button",
+      "label": "შეარჩიეთ თარიღი",
+      "section": "თარიღები"
+    },
+    {
+      "id": "e15",
+      "kind": "button",
+      "label": "დიდველი / კრისტალი",
+      "section": "ლოკაცია (ზონა)"
+    },
+    {
+      "id": "e16",
+      "kind": "button",
+      "label": "ნებისმიერი",
+      "section": "სტუმრები"
+    },
+    {
+      "id": "e17",
+      "kind": "button",
+      "label": "ფასი, ტევადობა...",
+      "section": "ფილტრები"
+    },
+    {
+      "id": "e18",
+      "kind": "input",
+      "label": "სიტყვით ძიება..."
+    },
+    {
+      "id": "e19",
+      "kind": "button",
+      "label": "ძებნა"
+    },
+    {
+      "id": "e20",
+      "kind": "button",
+      "label": "ამინდი 7°C / 3°C ღამე უღრუბლო · თოვლი 0 სმ"
+    },
+    {
+      "id": "e21",
+      "kind": "button",
+      "label": "საბაგიროები 0/5 ღია კოხტა 1, კოხტა 2… განახლდა: 5 ოქტ, 13:50"
+    },
+    {
+      "id": "e22",
+      "kind": "button",
+      "label": "გზა თბილისიდან თავისუფალი ~2სთ 51წთ"
+    },
+    {
+      "id": "e23",
+      "kind": "button",
+      "label": "კამერები 1 ლოკაცია დიდველი"
+    },
+    {
+      "id": "e24",
+      "kind": "link",
+      "label": "SUPER VIP 25-იანები 1 თვის წინ დ 2 ოთახი 3 სტუმარი 150 ₾/ღა…",
+      "href": "/apartments/:id",
+      "section": "VIP"
+    },
+    {
+      "id": "e25",
+      "kind": "button",
+      "label": "რჩეულებში დამატება"
+    },
+    {
+      "id": "e26",
+      "kind": "link",
+      "label": "ნახე ყველა",
+      "href": "/apartments",
+      "section": "ცხელი შეთავაზებები"
+    },
+    {
+      "id": "e27",
+      "kind": "button",
+      "label": "მხოლოდ ფასდაკლებები"
+    },
+    {
+      "id": "e28",
+      "kind": "link",
+      "label": "SUPER VIP 25-იანები 1 თვის წინ დ 2 ოთახი 3 სტუმარი 150 ₾/ღა…",
+      "href": "/apartments/:id"
+    },
+    {
+      "id": "e29",
+      "kind": "button",
+      "label": "რჩეულებში დამატება"
+    },
+    {
+      "id": "e30",
+      "kind": "button",
+      "label": "მხოლოდ ფასდაკლებები",
+      "section": "განთავსების ობიექტები"
+    },
+    {
+      "id": "e31",
+      "kind": "link",
+      "label": "დამატება",
+      "href": "/create"
+    },
+    {
+      "id": "e32",
+      "kind": "link",
+      "label": "ნახე ყველა",
+      "href": "/apartments"
+    },
+    {
+      "id": "e33",
+      "kind": "link",
+      "label": "კოხტა / მიტარბი 20 დღის წინ ქირავდება კომფორტული ბინა 2 ოთა…",
+      "href": "/apartments/:id"
+    },
+    {
+      "id": "e34",
+      "kind": "link",
+      "label": "ცენტრი / პარკი 22 დღის წინ [number] ოთახი 2 სტუმარი 150 ₾/ღ…",
+      "href": "/apartments/:id"
+    },
+    {
+      "id": "e35",
+      "kind": "link",
+      "label": "კოხტა / მიტარბი 22 დღის წინ Test SMS 2 ოთახი 2 სტუმარი 150…",
+      "href": "/apartments/:id"
+    },
+    {
+      "id": "e36",
+      "kind": "button",
+      "label": "შემდეგი"
+    },
+    {
+      "id": "e37",
+      "kind": "link",
+      "label": "დამატება",
+      "href": "/create",
+      "section": "ტრანსპორტი და ტრანსფერები"
+    },
+    {
+      "id": "e38",
+      "kind": "link",
+      "label": "მძღოლი"
+    },
+    {
+      "id": "e39",
+      "kind": "button",
+      "label": "ფავორიტებში დამატება"
+    },
+    {
+      "id": "e40",
+      "kind": "link",
+      "label": "დეტალები",
+      "href": "/transport/:id"
+    },
+    {
+      "id": "e41",
+      "kind": "button",
+      "label": "დარეკვა"
+    },
+    {
+      "id": "e42",
+      "kind": "button",
+      "label": "WhatsApp"
+    },
+    {
+      "id": "e43",
+      "kind": "link",
+      "label": "გოჩა თავგასიებული გიორგის ძე მათიაშვილი სულახანას ბიჭი"
+    },
+    {
+      "id": "e44",
+      "kind": "button",
+      "label": "ფავორიტებში დამატება"
+    },
+    {
+      "id": "e45",
+      "kind": "link",
+      "label": "დეტალები",
+      "href": "/transport/:id"
+    },
+    {
+      "id": "e46",
+      "kind": "button",
+      "label": "დარეკვა"
+    },
+    {
+      "id": "e47",
+      "kind": "button",
+      "label": "WhatsApp"
+    },
+    {
+      "id": "e48",
+      "kind": "link",
+      "label": "მანუჩარი"
+    },
+    {
+      "id": "e49",
+      "kind": "link",
+      "label": "ყროლა"
+    },
+    {
+      "id": "e50",
+      "kind": "button",
+      "label": "შემდეგი"
+    },
+    {
+      "id": "e51",
+      "kind": "link",
+      "label": "21211",
+      "section": "სერვისები და ხელოსნები"
+    },
+    {
+      "id": "e52",
+      "kind": "link",
+      "label": "მეხერხება ყველაფერი"
+    },
+    {
+      "id": "e53",
+      "kind": "link",
+      "label": "მაი ბაკურიანის დალაგება"
+    },
+    {
+      "id": "e54",
+      "kind": "link",
+      "label": "დურუ დამსუფთავებელი"
+    },
+    {
+      "id": "e55",
+      "kind": "link",
+      "label": "afsasfas",
+      "section": "გართობა და აქტივობები"
+    },
+    {
+      "id": "e56",
+      "kind": "link",
+      "label": "ბაგების ტური"
+    },
+    {
+      "id": "e57",
+      "kind": "link",
+      "label": "ექსტრემალური ტური ბაკურიანში"
+    },
+    {
+      "id": "e58",
+      "kind": "link",
+      "label": "QA — ტესტ გართობა აუდიტისთვის"
+    },
+    {
+      "id": "e59",
+      "kind": "link",
+      "label": "12412",
+      "section": "კვება & რესტორნები"
+    },
+    {
+      "id": "e60",
+      "kind": "link",
+      "label": "კაფე ბარი ჩირაღდანი"
+    },
+    {
+      "id": "e61",
+      "kind": "link",
+      "label": "Zodiaqo"
+    },
+    {
+      "id": "e62",
+      "kind": "link",
+      "label": "რესტორანი ბაკურიანის სიამაყე"
+    },
+    {
+      "id": "e63",
+      "kind": "link",
+      "label": "სიახლეები 9 ოქტომბერი, 2026 ბორჯომი–ბაკურიანის „კუკუშკა“ დე…",
+      "href": "/blog/%E1%83%91%E1%83%9D%E1%83%A0%E1%83%AF%E1%83%9D%E1%83%9B%E1%83%98%E1%83%91%E1%83%90%E1%83%99%E1%83%A3%E1%83%A0%E1%83%98%E1%83%90%E1%83%9C%E1%83%98%E1%83%A1-%E1%83%99%E1%83%A3%E1%83%99%E1%83%A3%E1%83%A8%E1%83%99%E1%83%90-%E1%83%93%E1%83%94%E1%83%99%E1%83%94%E1%83%9B%E1%83%91%E1%83%94%E1%83%A0%E1%83%A8%E1%83%98-%E1%83%93%E1%83%90%E1%83%91%E1%83%A0%E1%83%A3%E1%83%9C%E1%83%93%E1%83%94%E1%83%91%E1%83%90-mv1aq4dh",
+      "section": "ბლოგი და სიახლეები"
+    },
+    {
+      "id": "e64",
+      "kind": "link",
+      "label": "გზამკვლევი 9 ოქტომბერი, 2026 ბაკურიანში 2026–2027 წლის ზამთ…",
+      "href": "/blog/%E1%83%91%E1%83%90%E1%83%99%E1%83%A3%E1%83%A0%E1%83%98%E1%83%90%E1%83%9C%E1%83%A8%E1%83%98-20262027-%E1%83%AC%E1%83%9A%E1%83%98%E1%83%A1-%E1%83%96%E1%83%90%E1%83%9B%E1%83%97%E1%83%A0%E1%83%98%E1%83%A1-%E1%83%A1%E1%83%94%E1%83%96%E1%83%9D%E1%83%9C%E1%83%98-mv14emfz"
+    },
+    {
+      "id": "e65",
+      "kind": "link",
+      "label": "სეზონი 20 ივლისი, 2026 ბაკურიანში ზამთრის დასვენება: სრული…",
+      "href": "/blog/%E1%83%91%E1%83%90%E1%83%99%E1%83%A3%E1%83%A0%E1%83%98%E1%83%90%E1%83%9C%E1%83%A8%E1%83%98-%E1%83%96%E1%83%90%E1%83%9B%E1%83%97%E1%83%A0%E1%83%98%E1%83%A1-%E1%83%93%E1%83%90%E1%83%A1%E1%83%95%E1%83%94%E1%83%9C%E1%83%94%E1%83%91%E1%83%90-%E1%83%A1%E1%83%A0%E1%83%A3%E1%83%9A%E1%83%98-%E1%83%92%E1%83%96%E1%83%90%E1%83%9B%E1%83%99%E1%83%95%E1%83%9A%E1%83%94%E1%83%95%E1%83%98-2024-mrsv46yk"
+    },
+    {
+      "id": "e66",
+      "kind": "link",
+      "label": "განცხადების დამატება",
+      "href": "/create",
+      "section": "გაქვთ ობიექტი ბაკურიანში?"
+    },
+    {
+      "id": "e67",
+      "kind": "link",
+      "label": "ბინა ან კოტეჯი დღიურად",
+      "href": "/apartments",
+      "section": "ბინები, სასტუმროები და სერვისები ბაკურიანში — ერთ პლატფორმა…"
+    },
+    {
+      "id": "e68",
+      "kind": "link",
+      "label": "სასტუმრო",
+      "href": "/hotels"
+    },
+    {
+      "id": "e69",
+      "kind": "link",
+      "label": "ტრანსფერი თბილისიდან",
+      "href": "/transport"
+    },
+    {
+      "id": "e70",
+      "kind": "link",
+      "label": "რესტორანი",
+      "href": "/food"
+    },
+    {
+      "id": "e71",
+      "kind": "link",
+      "label": "გართობა",
+      "href": "/entertainment"
+    },
+    {
+      "id": "e72",
+      "kind": "link",
+      "label": "MyBakuriani",
+      "href": "/"
+    },
+    {
+      "id": "e73",
+      "kind": "link",
+      "label": "Facebook",
+      "href": "/"
+    },
+    {
+      "id": "e74",
+      "kind": "link",
+      "label": "Instagram",
+      "href": "/"
+    },
+    {
+      "id": "e75",
+      "kind": "link",
+      "label": "ყველა განცხადება",
+      "href": "/apartments",
+      "section": "პლატფორმა"
+    },
+    {
+      "id": "e76",
+      "kind": "link",
+      "label": "ბინები",
+      "href": "/apartments"
+    },
+    {
+      "id": "e77",
+      "kind": "link",
+      "label": "ყიდვა",
+      "href": "/sales"
+    },
+    {
+      "id": "e78",
+      "kind": "link",
+      "label": "გაყიდვა",
+      "href": "/create/sale"
+    },
+    {
+      "id": "e79",
+      "kind": "link",
+      "label": "როგორ მუშაობს",
+      "href": "/faq"
+    },
+    {
+      "id": "e80",
+      "kind": "link",
+      "label": "ვერიფიკაცია",
+      "href": "/faq"
+    },
+    {
+      "id": "e81",
+      "kind": "link",
+      "label": "ფასები",
+      "href": "/pricing"
+    },
+    {
+      "id": "e82",
+      "kind": "link",
+      "label": "ტრანსპორტი",
+      "href": "/transport",
+      "section": "სერვისები"
+    },
+    {
+      "id": "e83",
+      "kind": "link",
+      "label": "დასაქმება",
+      "href": "/employment"
+    },
+    {
+      "id": "e84",
+      "kind": "link",
+      "label": "სერვისები",
+      "href": "/services"
+    },
+    {
+      "id": "e85",
+      "kind": "link",
+      "label": "კვება",
+      "href": "/food"
+    },
+    {
+      "id": "e86",
+      "kind": "link",
+      "label": "კონტაქტი",
+      "href": "/contact",
+      "section": "დახმარება"
+    },
+    {
+      "id": "e87",
+      "kind": "link",
+      "label": "ხშირად დასმული კითხვები",
+      "href": "/faq"
+    },
+    {
+      "id": "e88",
+      "kind": "link",
+      "label": "ბაკურიანის გზამკვლევი",
+      "href": "/bakuriani"
+    },
+    {
+      "id": "e89",
+      "kind": "link",
+      "label": "ბლოგი",
+      "href": "/blog"
+    },
+    {
+      "id": "e90",
+      "kind": "link",
+      "label": "წესები და პირობები",
+      "href": "/terms"
+    },
+    {
+      "id": "e91",
+      "kind": "link",
+      "label": "English",
+      "href": "/",
+      "section": "ენის არჩევა"
+    },
+    {
+      "id": "e92",
+      "kind": "link",
+      "label": "Русский",
+      "href": "/"
+    },
+    {
+      "id": "e93",
+      "kind": "link",
+      "label": "კონფიდენციალურობის პოლიტიკა",
+      "href": "/privacy",
+      "section": "ქართული"
+    },
+    {
+      "id": "e94",
+      "kind": "link",
+      "label": "წესები და პირობები",
+      "href": "/terms"
+    },
+    {
+      "id": "e95",
+      "kind": "link",
+      "label": "მარკეტინგის პოლიტიკა",
+      "href": "/marketing-policy"
+    },
+    {
+      "id": "e96",
+      "kind": "button",
+      "label": "ქუქი-ფაილები"
+    },
+    {
+      "id": "e97",
+      "kind": "link",
+      "label": "Powered by WeatherAPI.com"
+    },
+    {
+      "id": "e98",
+      "kind": "link",
+      "label": "Directions powered by Mapbox"
+    },
+    {
+      "id": "e99",
+      "kind": "link",
+      "label": "© OpenStreetMap contributors (ODbL)"
+    },
+    {
+      "id": "e100",
+      "kind": "link",
+      "label": "Improve the map"
+    }
+  ],
+  "expect": {
+    "first": [
+      "დიდველი",
+      "ლოკაცია",
+      "სტუმრები",
+      "ნებისმიერი",
+      "გაქირავება"
+    ]
+  }
+}

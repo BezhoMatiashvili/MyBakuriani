@@ -6,13 +6,24 @@
 //   node --env-file=.env.local --import ./scripts/support-eval/register.mjs \
 //     --experimental-strip-types --no-warnings scripts/support-eval/run.mjs \
 //     [--runs 3] [--model google/gemini-3.1-flash-lite] [--only renter] [--concurrency 4]
+//     [--reasoning minimal]
+//
+// The answers go through the same checks and repair call as on the site
+// (validate.ts, replyCheckContext); the summary counts how many replies the
+// checks flagged and how many a repair call fixed.
 //
 // Exit code 1 when any case fails in any run.
 
 import {
   answerQuestion,
   answerRequestBody,
+  replyCheckContext,
 } from "../../src/lib/support/server.ts";
+import {
+  amountProblem,
+  amountsIn,
+  languageProblem,
+} from "../../src/lib/support/validate.ts";
 import { loadPriceFacts } from "../../src/lib/support/prices.ts";
 import {
   availableActionIds,
@@ -35,6 +46,7 @@ const RUNS = Number(option("runs", "3"));
 const MODEL = option("model", "");
 const ONLY = option("only", "");
 const CONCURRENCY = Number(option("concurrency", "4"));
+const REASONING = option("reasoning", "");
 
 if (!process.env.OPENROUTER_API_KEY) {
   console.error(
@@ -75,36 +87,6 @@ async function loadZones() {
     // fall through
   }
   return FALLBACK_ZONES.map((zone) => zone.name_ka);
-}
-
-const GEORGIAN = /\p{Script=Georgian}/gu;
-const LATIN = /\p{Script=Latin}/gu;
-const CYRILLIC = /\p{Script=Cyrillic}/gu;
-const count = (text, re) => (text.match(re) ?? []).length;
-
-function languageProblem(locale, text) {
-  const ka = count(text, GEORGIAN);
-  const la = count(text, LATIN);
-  const ru = count(text, CYRILLIC);
-  if (locale === "ka" && ka <= la + ru) return "not written in Georgian";
-  if (locale === "en" && la <= ka + ru) return "not written in English";
-  if (locale === "ru" && ru <= ka + la) return "not written in Russian";
-  return null;
-}
-
-const AMOUNT = /(\d+(?:[.,]\d+)?)\s*(?:₾|GEL|ლარ|лари|lari)/giu;
-
-function amountProblem(text, prices) {
-  const listed = new Set(
-    [...prices.matchAll(/(\d+(?:\.\d+)?)\s*₾/g)].map((m) => Number(m[1])),
-  );
-  const stated = [...text.matchAll(AMOUNT)].map((m) =>
-    Number(m[1].replace(",", ".")),
-  );
-  const unknown = stated.filter((n) => !listed.has(n));
-  return unknown.length
-    ? `amounts not on the price list: ${unknown.join(", ")}`
-    : null;
 }
 
 function check(expect, reply, locale, prices) {
@@ -150,9 +132,20 @@ function check(expect, reply, locale, prices) {
   )
     problems.push(`needs_account = ${reply.needsAccount}`);
   if (expect.amounts) {
-    const problem = amountProblem(reply.text, prices);
+    const problem = amountProblem(reply.text, new Set(amountsIn(prices)));
     if (problem) problems.push(problem);
   }
+  if (!reply.intent) problems.push("no intent");
+  const memory = [reply.memory.goal, ...reply.memory.details]
+    .join(" ")
+    .toLowerCase();
+  if (
+    expect.memoryAny &&
+    !expect.memoryAny.some((s) => memory.includes(s.toLowerCase()))
+  )
+    problems.push(
+      `memory has none of ${expect.memoryAny.join("|")} (${JSON.stringify(reply.memory)})`,
+    );
   return problems;
 }
 
@@ -184,6 +177,9 @@ const jobs = cases.flatMap((c) =>
 let cost = 0;
 let ms = 0;
 let cachedHits = 0;
+let flagged = 0;
+let repairs = 0;
+let reasoning = 0;
 const results = await pool(jobs, CONCURRENCY, async ({ c, run }) => {
   const req = parseSupportRequest({
     mode: "ask",
@@ -192,6 +188,9 @@ const results = await pool(jobs, CONCURRENCY, async ({ c, run }) => {
     path: c.path,
     message: c.message,
     history: c.history ?? [],
+    memory: c.memory,
+    events: c.events,
+    screen: c.screen,
   });
   const actionCtx = {
     cabinet: c.cabinet,
@@ -200,22 +199,30 @@ const results = await pool(jobs, CONCURRENCY, async ({ c, run }) => {
     zones,
     contact: { phone: CONTACT_PHONE_E164, email: CONTACT_EMAIL },
   };
-  const body = answerRequestBody(req, {
+  const answerCtx = {
     signedIn: c.signedIn,
     prices,
     zones,
     today,
     available: availableActionIds(actionCtx),
     account: c.account ?? null,
-  });
+  };
+  const body = answerRequestBody(req, answerCtx);
   if (MODEL) body.models = [MODEL];
+  if (REASONING) body.reasoning = { effort: REASONING };
   try {
-    const result = await answerQuestion(body, req, (id, params) =>
-      normalizeAction(id, params, actionCtx),
+    const result = await answerQuestion(
+      body,
+      req,
+      (id, params) => normalizeAction(id, params, actionCtx),
+      replyCheckContext(req, answerCtx),
     );
     cost += result.cost ?? 0;
     ms += result.ms;
     if ((result.cachedTokens ?? 0) > 0) cachedHits += 1;
+    if (result.problems > 0 || result.repaired) flagged += 1;
+    if (result.repaired) repairs += 1;
+    reasoning += result.reasoningTokens ?? 0;
     return {
       c,
       run,
@@ -244,6 +251,6 @@ for (const c of cases) {
   }
 }
 console.log(
-  `\n${jobs.length - failed}/${jobs.length} passed; cost $${cost.toFixed(4)}; avg ${Math.round(ms / jobs.length)} ms; ${cachedHits} replies used the prompt cache`,
+  `\n${jobs.length - failed}/${jobs.length} passed; cost $${cost.toFixed(4)}; avg ${Math.round(ms / jobs.length)} ms; ${cachedHits} replies used the prompt cache; checks flagged ${flagged}, repaired ${repairs}; ${reasoning} reasoning tokens`,
 );
 process.exit(failed ? 1 : 0);

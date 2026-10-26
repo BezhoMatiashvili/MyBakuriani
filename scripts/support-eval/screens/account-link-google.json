@@ -1,0 +1,180 @@
+{
+  "name": "account-link-google",
+  "locale": "ka",
+  "cabinet": "account",
+  "path": "/dashboard/account",
+  "title": "MyBakuriani",
+  "goal": "როგორ დავაკავშირო Google ანგარიში?",
+  "progress": [],
+  "notices": [],
+  "elements": [
+    {
+      "id": "e1",
+      "kind": "link",
+      "label": "MyBakuriani",
+      "href": "/"
+    },
+    {
+      "id": "e2",
+      "kind": "button",
+      "label": "სივრცის შეცვლა"
+    },
+    {
+      "id": "e3",
+      "kind": "button",
+      "label": "ID-ის კოპირება"
+    },
+    {
+      "id": "e4",
+      "kind": "link",
+      "label": "ჩემი ბინები",
+      "href": "/dashboard/renter"
+    },
+    {
+      "id": "e5",
+      "kind": "link",
+      "label": "კალენდარი",
+      "href": "/dashboard/renter/calendar"
+    },
+    {
+      "id": "e6",
+      "kind": "link",
+      "label": "სტუმრები",
+      "href": "/dashboard/renter/guests"
+    },
+    {
+      "id": "e7",
+      "kind": "link",
+      "label": "დამლაგებლები",
+      "href": "/dashboard/renter/cleaners"
+    },
+    {
+      "id": "e8",
+      "kind": "link",
+      "label": "ბალანსი და VIP",
+      "href": "/dashboard/renter/balance"
+    },
+    {
+      "id": "e9",
+      "kind": "link",
+      "label": "SMS ცენტრი",
+      "href": "/dashboard/sms"
+    },
+    {
+      "id": "e10",
+      "kind": "link",
+      "label": "შეტყობინებები 3",
+      "href": "/dashboard/renter/notifications"
+    },
+    {
+      "id": "e11",
+      "kind": "link",
+      "label": "პარამეტრები",
+      "href": "/dashboard/renter/profile"
+    },
+    {
+      "id": "e12",
+      "kind": "link",
+      "label": "SMART MATCH 1 ახალი მოთხოვნა თქვენს თარიღებზე და ბიუჯეტზე ს…",
+      "href": "/dashboard/renter/smart-match"
+    },
+    {
+      "id": "e13",
+      "kind": "link",
+      "label": "მთავარზე დაბრუნება",
+      "href": "/"
+    },
+    {
+      "id": "e14",
+      "kind": "button",
+      "label": "გამოსვლა"
+    },
+    {
+      "id": "e15",
+      "kind": "input",
+      "label": "ძიება..."
+    },
+    {
+      "id": "e16",
+      "kind": "button",
+      "label": "ენის არჩევა"
+    },
+    {
+      "id": "e17",
+      "kind": "link",
+      "label": "18 ₾",
+      "href": "/dashboard/renter/balance"
+    },
+    {
+      "id": "e18",
+      "kind": "button",
+      "label": "შეტყობინებები, 8 წაუკითხავი",
+      "section": "0 SMS"
+    },
+    {
+      "id": "e19",
+      "kind": "button",
+      "label": "Google-ის დაკავშირება",
+      "section": "მეთოდის დამატება"
+    },
+    {
+      "id": "e20",
+      "kind": "button",
+      "label": "ნომრის დამატება",
+      "section": "ნომერი არ არის დამატებული"
+    },
+    {
+      "id": "e21",
+      "kind": "link",
+      "label": "ბმულის მოთხოვნა",
+      "href": "/auth/forgot-password",
+      "section": "პაროლი"
+    },
+    {
+      "id": "e22",
+      "kind": "link",
+      "label": "გადასვლა",
+      "href": "/dashboard/account/ownership",
+      "section": "მესაკუთრეობის დადასტურება"
+    },
+    {
+      "id": "e23",
+      "kind": "checkbox",
+      "label": "სერვისული SMS — აუცილებელი",
+      "filled": true,
+      "disabled": true
+    },
+    {
+      "id": "e24",
+      "kind": "checkbox",
+      "label": "შეთავაზებები და ფასდაკლებები SMS-ით",
+      "filled": true
+    },
+    {
+      "id": "e25",
+      "kind": "checkbox",
+      "label": "შეთავაზებები ელფოსტით"
+    },
+    {
+      "id": "e26",
+      "kind": "checkbox",
+      "label": "შეთავაზებები WhatsApp-ით",
+      "section": "მალე"
+    },
+    {
+      "id": "e27",
+      "kind": "checkbox",
+      "label": "Push შეტყობინებები"
+    },
+    {
+      "id": "e28",
+      "kind": "button",
+      "label": "შენახვა"
+    }
+  ],
+  "expect": {
+    "first": [
+      "Google-ის დაკავშირება"
+    ]
+  }
+}

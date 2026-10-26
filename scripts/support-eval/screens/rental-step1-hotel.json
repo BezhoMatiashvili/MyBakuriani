@@ -1,0 +1,89 @@
+{
+  "name": "rental-step1-hotel",
+  "locale": "ka",
+  "cabinet": "create",
+  "path": "/create/rental",
+  "title": "MyBakuriani — განცხადების დამატება",
+  "goal": "როგორ დავამატო სასტუმრო?",
+  "progress": [],
+  "notices": [],
+  "elements": [
+    {
+      "id": "e1",
+      "kind": "link",
+      "label": "MyBakuriani",
+      "href": "/"
+    },
+    {
+      "id": "e2",
+      "kind": "button",
+      "label": "ენის არჩევა"
+    },
+    {
+      "id": "e3",
+      "kind": "link",
+      "label": "განცხადების დამატება",
+      "href": "/create"
+    },
+    {
+      "id": "e4",
+      "kind": "link",
+      "label": "ბალანსი ₾ 17.50",
+      "href": "/dashboard/renter/balance"
+    },
+    {
+      "id": "e5",
+      "kind": "link",
+      "label": "კაბინეტი",
+      "href": "/dashboard"
+    },
+    {
+      "id": "e6",
+      "kind": "link",
+      "label": "წევრობის შეძენა",
+      "href": "/dashboard/renter",
+      "section": "გაქირავების განცხადებისთვის საჭიროა სეზონური წევრობა"
+    },
+    {
+      "id": "e7",
+      "kind": "link",
+      "label": "ფასები და პირობები",
+      "href": "/pricing"
+    },
+    {
+      "id": "e8",
+      "kind": "select",
+      "label": "ბინის ტიპი*",
+      "required": true,
+      "filled": true
+    },
+    {
+      "id": "e9",
+      "kind": "select",
+      "label": "ლოკაცია*",
+      "required": true
+    },
+    {
+      "id": "e10",
+      "kind": "input",
+      "label": "საკადასტრო კოდი (XX.XX.XX.XXX.XXX)"
+    },
+    {
+      "id": "e11",
+      "kind": "textarea",
+      "label": "აღწერა (დეტალური აღწერა...)"
+    },
+    {
+      "id": "e12",
+      "kind": "button",
+      "label": "გაგრძელება",
+      "section": "აღწერა"
+    }
+  ],
+  "expect": {
+    "first": [
+      "წევრობის შეძენა",
+      "ბინის ტიპი"
+    ]
+  }
+}

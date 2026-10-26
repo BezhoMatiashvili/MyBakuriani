@@ -14,13 +14,22 @@ import { CheckCircle2, Loader2, MessageCircle, X } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { CONTACT_EMAIL, CONTACT_PHONE_E164 } from "@/lib/site-contact";
-import { scanPage, type PageScan } from "@/lib/support/scan";
+import {
+  ERROR_SELECTOR,
+  scanNotices,
+  scanPage,
+  type PageScan,
+} from "@/lib/support/scan";
 import {
   ACTION_PARAM_KEYS,
+  EMPTY_MEMORY,
   FEEDBACK_REF,
   SUPPORT_LIMITS,
   cabinetForPath,
+  cleanLines,
   cleanPrivate,
+  maskIds,
+  parseMemory,
   stripLocale,
   type ActionParams,
   type JevStep,
@@ -28,6 +37,7 @@ import {
   type SupportButton,
   type SupportCabinet,
   type SupportLocale,
+  type SupportMemory,
   type SupportResponse,
 } from "@/lib/support/plan";
 import {
@@ -138,6 +148,8 @@ type Guide = {
   /** What the user already did, for re-plans on later screens. */
   progress: string[];
   plans: number;
+  /** Plans in a row since the user last finished a step. */
+  stalls: number;
   status: "planning" | "running";
 };
 
@@ -146,12 +158,19 @@ type Saved = {
   owner: string;
   entries: ChatEntry[];
   guide: Guide | null;
+  /** The chat's goal and the user's details, as the answer model keeps them. */
+  memory: SupportMemory;
+  /** What happened to walkthroughs in this chat, for both models. */
+  events: string[];
   savedAt: number;
 };
 
 const MAX_ENTRIES = 30;
-// The first plan plus re-plans after each screen change, per goal.
-const MAX_PLANS = 6;
+// The first plan plus re-plans after each screen change, per goal: enough
+// for the dashboard -> /create -> five-step rental wizard and its modals.
+const MAX_PLANS = 16;
+// Plans in a row without the user finishing a step: the walkthrough is stuck.
+const MAX_STALLS = 3;
 // A walkthrough survives page changes in the same tab, not a later visit.
 const GUIDE_TTL_MS = 15 * 60_000;
 // A conversation left alone this long is forgotten.
@@ -176,7 +195,6 @@ const OPTION_SELECTOR =
 const NUDGE_WINDOW_MS = 2_000;
 const NUDGE_SHOW_MS = 12_000;
 const NUDGED_KEY = "mb.jev.nudged";
-const ERROR_SELECTOR = "[data-sonner-toast][data-type='error'], [role='alert']";
 const DISABLED_SELECTOR =
   "button:disabled, [role='button'][aria-disabled='true'], button[aria-disabled='true']";
 
@@ -723,6 +741,8 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   const launcherRef = useRef<HTMLButtonElement>(null);
   const wasOpenRef = useRef(false);
   const quietRef = useRef(true);
+  const memoryRef = useRef<SupportMemory>(EMPTY_MEMORY);
+  const eventsRef = useRef<string[]>([]);
 
   useLayoutEffect(() => {
     contextRef.current = { locale, cabinet, path };
@@ -742,6 +762,8 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
         owner: ownerRef.current,
         entries: entriesRef.current,
         guide: next,
+        memory: memoryRef.current,
+        events: eventsRef.current,
         savedAt: Date.now(),
       };
       window.sessionStorage.setItem(SUPPORT_STORAGE_KEY, JSON.stringify(saved));
@@ -765,6 +787,26 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
     );
   }, []);
 
+  /** Records what happened to a walkthrough; both models read it next time. */
+  const pushEvent = useCallback((line: string) => {
+    eventsRef.current = [...eventsRef.current, line].slice(
+      -SUPPORT_LIMITS.events,
+    );
+  }, []);
+
+  /** The chat as the planner reads it: memory, events, the last user turns. */
+  const chatContext = useCallback(
+    () => ({
+      memory: memoryRef.current,
+      events: eventsRef.current,
+      recent: entriesRef.current
+        .filter((entry) => entry.role === "user")
+        .slice(-SUPPORT_LIMITS.recent)
+        .map((entry) => entry.text),
+    }),
+    [],
+  );
+
   /** The browser's view for buttons it builds itself (quick questions). */
   const clientContext = useCallback(
     (): ActionContext => ({
@@ -782,7 +824,10 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
       const stale = () => ticket !== ticketRef.current;
       const current = guideRef.current;
       if (!current || stale()) return;
-      if (current.plans >= MAX_PLANS) {
+      if (current.plans >= MAX_PLANS || current.stalls >= MAX_STALLS) {
+        pushEvent(
+          `walkthrough "${current.goal}" gave up on ${maskIds(contextRef.current.path)}`,
+        );
         commitGuide(null);
         push({
           role: "assistant",
@@ -826,6 +871,8 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
           goal: current.goal,
           progress: current.progress,
           elements: scan.elements,
+          notices: scanNotices(),
+          ...chatContext(),
         });
         if (stale()) return;
       }
@@ -847,6 +894,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
           index: 0,
           done: response.plan.done,
           plans: current.plans + 1,
+          stalls: current.stalls + 1,
           status: "running",
         });
         return;
@@ -871,6 +919,9 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
           tone: "error",
         });
       } else {
+        pushEvent(
+          `walkthrough "${current.goal}" found no way on ${maskIds(path)}`,
+        );
         push({
           role: "assistant",
           text: tRef.current("notFound"),
@@ -878,7 +929,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
         });
       }
     },
-    [commitGuide, push],
+    [chatContext, commitGuide, push, pushEvent],
   );
 
   const schedulePlan = useCallback(
@@ -927,6 +978,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
         done: false,
         progress,
         plans: 0,
+        stalls: 0,
         status: "planning",
       });
       setOpen(false);
@@ -940,17 +992,29 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
   );
 
   const finish = useCallback(() => {
+    const current = guideRef.current;
+    if (current) pushEvent(`walkthrough "${current.goal}" finished`);
     cancelPlan();
     commitGuide(null);
     push({ role: "assistant", text: tRef.current("doneMessage") });
     setCelebrate(true);
-  }, [cancelPlan, commitGuide, push]);
+  }, [cancelPlan, commitGuide, push, pushEvent]);
 
   const stop = useCallback(() => {
+    const current = guideRef.current;
+    if (current) {
+      const step = current.steps[current.index];
+      const at = step
+        ? ` at "${labelsRef.current.get(step.target) ?? step.target}"`
+        : "";
+      pushEvent(
+        `walkthrough "${current.goal}" stopped by the user${at} on ${maskIds(contextRef.current.path)}`,
+      );
+    }
     cancelPlan();
     commitGuide(null);
     push({ role: "assistant", text: tRef.current("stopped"), tone: "info" });
-  }, [cancelPlan, commitGuide, push]);
+  }, [cancelPlan, commitGuide, push, pushEvent]);
 
   const advance = useCallback(() => {
     const current = guideRef.current;
@@ -962,11 +1026,16 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
       -SUPPORT_LIMITS.progress,
     );
     if (current.index + 1 < current.steps.length) {
-      commitGuide({ ...current, index: current.index + 1, progress });
+      commitGuide({
+        ...current,
+        index: current.index + 1,
+        progress,
+        stalls: 0,
+      });
     } else if (current.done) {
       finish();
     } else {
-      commitGuide({ ...current, progress, status: "planning" });
+      commitGuide({ ...current, progress, stalls: 0, status: "planning" });
       schedulePlan("change");
     }
   }, [commitGuide, finish, schedulePlan]);
@@ -1002,7 +1071,10 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
       setBusy("answer");
       const { locale, cabinet, path } = contextRef.current;
       prefetchRef.current = null;
-      if (history.length === 0 && HOW_TO.test(message)) {
+      const notices = scanNotices();
+      // Steps for a "how do I" question are planned while it is answered,
+      // on any turn, unless a walkthrough is already running.
+      if (!guideRef.current && HOW_TO.test(message)) {
         const scan = scanPage();
         const goal = message.slice(0, SUPPORT_LIMITS.goal);
         if (scan.elements.length > 0)
@@ -1020,6 +1092,11 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
               goal,
               progress: [],
               elements: scan.elements,
+              notices,
+              ...chatContext(),
+              recent: [...chatContext().recent, message].slice(
+                -SUPPORT_LIMITS.recent,
+              ),
             }),
           };
       }
@@ -1030,9 +1107,17 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
         path,
         message,
         history,
+        memory: memoryRef.current,
+        events: eventsRef.current,
+        screen: {
+          title: document.title,
+          elements: scanPage(SUPPORT_LIMITS.screenElements).elements,
+          notices,
+        },
       });
       setBusy(null);
       if (response.type === "answer") {
+        memoryRef.current = parseMemory(response.memory);
         // The steps planned in parallel answer the question itself, so a
         // walkthrough offered for it starts from them (same goal).
         const prefetched = prefetchRef.current?.goal;
@@ -1063,7 +1148,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
         });
       }
     },
-    [busy, entries, push, startGuide],
+    [busy, chatContext, entries, push, startGuide],
   );
 
   // Quick questions: a pre-written answer with buttons, a walkthrough, or
@@ -1158,6 +1243,8 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
 
   const reset = useCallback(() => {
     prefetchRef.current = null;
+    memoryRef.current = EMPTY_MEMORY;
+    eventsRef.current = [];
     cancelPlan();
     commitGuide(null);
     setEntries([]);
@@ -1186,6 +1273,12 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
         // user's chat is never shown to anyone else.
         const theirs = saved?.owner === owner || saved?.owner === "anon";
         if (saved && theirs && age < CHAT_IDLE_MS) {
+          memoryRef.current = parseMemory(saved.memory);
+          eventsRef.current = cleanLines(
+            saved.events,
+            SUPPORT_LIMITS.events,
+            SUPPORT_LIMITS.eventText,
+          );
           if (Array.isArray(saved.entries)) {
             entriesRef.current = saved.entries
               .map(toEntry)
@@ -1195,8 +1288,18 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
           }
           if (isGuide(saved.guide) && age < GUIDE_TTL_MS) {
             // Its steps point at elements of a page that is gone: plan again here.
+            const opened = `opened ${maskIds(contextRef.current.path)}`;
+            const progress = saved.guide.progress.filter(
+              (line): line is string => typeof line === "string",
+            );
             commitGuide({
               ...saved.guide,
+              progress:
+                progress[progress.length - 1] === opened
+                  ? progress
+                  : [...progress, opened].slice(-SUPPORT_LIMITS.progress),
+              stalls:
+                typeof saved.guide.stalls === "number" ? saved.guide.stalls : 0,
               steps: [],
               index: 0,
               status: "planning",
@@ -1229,7 +1332,13 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
     setNudge(null);
     const current = guideRef.current;
     if (!current) return;
-    commitGuide({ ...current, status: "planning" });
+    commitGuide({
+      ...current,
+      progress: [...current.progress, `opened ${maskIds(path)}`].slice(
+        -SUPPORT_LIMITS.progress,
+      ),
+      status: "planning",
+    });
     schedulePlan("quiet");
   }, [path, commitGuide, schedulePlan]);
 

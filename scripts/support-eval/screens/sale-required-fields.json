@@ -1,0 +1,199 @@
+{
+  "name": "sale-required-fields",
+  "locale": "ka",
+  "cabinet": "create",
+  "path": "/create/sale",
+  "title": "MyBakuriani — განცხადების დამატება",
+  "goal": "როგორ შევავსო სავალდებულო ველები?",
+  "progress": [],
+  "notices": [],
+  "elements": [
+    {
+      "id": "e1",
+      "kind": "link",
+      "label": "MyBakuriani",
+      "href": "/"
+    },
+    {
+      "id": "e2",
+      "kind": "button",
+      "label": "ენის არჩევა"
+    },
+    {
+      "id": "e3",
+      "kind": "link",
+      "label": "განცხადების დამატება",
+      "href": "/create"
+    },
+    {
+      "id": "e4",
+      "kind": "link",
+      "label": "ბალანსი ₾ 0.00",
+      "href": "/dashboard/renter/balance"
+    },
+    {
+      "id": "e5",
+      "kind": "link",
+      "label": "კაბინეტი",
+      "href": "/dashboard"
+    },
+    {
+      "id": "e6",
+      "kind": "input",
+      "label": "სათაური* (მაგ: საინვესტიციო აპარტამენტი დიდველზე...)",
+      "required": true
+    },
+    {
+      "id": "e7",
+      "kind": "select",
+      "label": "ობიექტის ტიპი*",
+      "required": true
+    },
+    {
+      "id": "e8",
+      "kind": "select",
+      "label": "ლოკაცია (ZONE)*",
+      "required": true
+    },
+    {
+      "id": "e9",
+      "kind": "select",
+      "label": "მშენებლობის სტატუსი*",
+      "required": true
+    },
+    {
+      "id": "e10",
+      "kind": "select",
+      "label": "ჩაბარების დრო",
+      "section": "მხოლოდ მშენებარეზე"
+    },
+    {
+      "id": "e11",
+      "kind": "select",
+      "label": "ჩაბარების დრო"
+    },
+    {
+      "id": "e12",
+      "kind": "input",
+      "label": "საკადასტრო კოდი ([number]...)"
+    },
+    {
+      "id": "e13",
+      "kind": "button",
+      "label": "−",
+      "section": "ოთახების რაოდენობა"
+    },
+    {
+      "id": "e14",
+      "kind": "input",
+      "label": "ოთახების რაოდენობა (მაგ: 1, 2, 3)"
+    },
+    {
+      "id": "e15",
+      "kind": "button",
+      "label": "+"
+    },
+    {
+      "id": "e16",
+      "kind": "input",
+      "label": "ზუსტი ლოკაცია (მაგ: ცენტრალური პარკის შესასვლელთან)"
+    },
+    {
+      "id": "e17",
+      "kind": "button",
+      "label": "რუკაზე ჩვენება",
+      "section": "ზუსტი ლოკაცია"
+    },
+    {
+      "id": "e18",
+      "kind": "select",
+      "label": "რემონტის მდგომარეობა"
+    },
+    {
+      "id": "e19",
+      "kind": "select",
+      "label": "მართვის სერვისი"
+    },
+    {
+      "id": "e20",
+      "kind": "select",
+      "label": "მოსალოდნელი ROI (%)"
+    },
+    {
+      "id": "e21",
+      "kind": "input",
+      "label": "საერთო ფართობი (კვ.მ)* (0)",
+      "required": true
+    },
+    {
+      "id": "e22",
+      "kind": "input",
+      "label": "ფასი მ²-ზე (USD) (0)"
+    },
+    {
+      "id": "e23",
+      "kind": "input",
+      "label": "ფასი (USD)* (0)",
+      "required": true
+    },
+    {
+      "id": "e24",
+      "kind": "button",
+      "label": "შიდა განვადება",
+      "section": "გადახდის პირობები"
+    },
+    {
+      "id": "e25",
+      "kind": "button",
+      "label": "ერთიანი გადახდა"
+    },
+    {
+      "id": "e26",
+      "kind": "button",
+      "label": "საბანკო განვადება"
+    },
+    {
+      "id": "e27",
+      "kind": "button",
+      "label": "ფოტოების ატვირთვა ჩააგდეთ აქ ან დააწკაპუნეთ მაქს. 15 ფოტო",
+      "section": "მინ. 3 ფოტო"
+    },
+    {
+      "id": "e28",
+      "kind": "textarea",
+      "label": "აღწერა (დეტალური აღწერა ობიექტის შესახებ...)"
+    },
+    {
+      "id": "e29",
+      "kind": "input",
+      "label": "ტელეფონის ნომერი* (5XX XX XX XX)",
+      "section": "+995",
+      "required": true
+    },
+    {
+      "id": "e30",
+      "kind": "input",
+      "label": "WhatsApp ნომერი (5XX XX XX XX)"
+    },
+    {
+      "id": "e31",
+      "kind": "link",
+      "label": "უკან დაბრუნება",
+      "href": "/create"
+    },
+    {
+      "id": "e32",
+      "kind": "button",
+      "label": "განცხადების გამოქვეყნება"
+    }
+  ],
+  "expect": {
+    "first": [
+      "სათაური",
+      "საინვესტიციო",
+      "ობიექტის ტიპი",
+      "ლოკაცია",
+      "ზონა"
+    ]
+  }
+}

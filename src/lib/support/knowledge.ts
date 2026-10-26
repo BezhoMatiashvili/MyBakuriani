@@ -87,7 +87,7 @@ const CABINET_MAPS: Record<SupportCabinet, string> = {
     '"შეკვეთები": messages from customers.',
   ),
   admin: `- /dashboard/admin "მთავარი გვერდი": the site "ანალიტიკა": a period (today, yesterday, 7 or 30 days, this month or "სხვა თარიღი") with "შედარება წინა პერიოდთან", "დამატებითი ფილტრები" (device, country and city, traffic source, page type), and blocks for users and sessions, the chart (day / week / month), "ტრაფიკის წყაროები", "განცხადებების ანალიტიკა", Smart Match, "რეკლამის ანალიტიკა" and "ახლა საიტზე" (visitors right now and their pages). Every block has "ექსპორტი" (Excel, CSV or PDF, filtered by the current filters or full); "სტატისტიკის გადმოწერა" exports the whole page. Visitor numbers count only visitors who accepted analytics cookies.
-- /dashboard/admin/verifications "ვერიფიკაციები": tabs for new listings, content changes and ownership requests.
+- /dashboard/admin/verifications "ვერიფიკაციები": tabs "ახალი განცხადებები" (new listings), "ცვლილების მოთხოვნები" (content changes) and "მესაკუთრეობა" (ownership requests).
 - /dashboard/admin/memberships "საწევროს დადასტურება": approve renter memberships.
 - /dashboard/admin/statuses "საწევრო და VIP": change existing statuses in tabs "საწევრო", "VIP და ფასდაკლება" and "კომპანიის პაკეტები" (add or remove days, set the end date, grant, revoke with an optional refund to the balance, VIP ↔ SUPER VIP). Filter, tick rows (or every row of the filter, up to 200), pick an action, then "წინასწარ ნახვა" shows exactly what will change and "შესრულება" applies it.
 - /dashboard/admin/signup-links "სარეგისტრაციო ბმულები": links that send people who register through them to a chosen page.
@@ -139,7 +139,7 @@ export const SITE_FACTS = `Publishing
 - Every new listing is saved as pending ("მოლოდინში") and appears on the site only after an admin approves it. After publishing a rental, hotel or sale listing, the user is offered ownership verification right away ("მოგვიანებით" skips it); service listings (food, transport, entertainment, employment, cleaning, handyman) have no ownership verification.
 - Editing a published listing's public fields sends the change to admin review; only one pending change per listing. Calendar availability, day prices and profile name/phone/photo change at once.
 - Required fields are marked *. Titles: max 35 characters (rental, sale). Phone: 9 digits starting with 5.
-- Photos per form: rental 1-10, sale 3-15, food 2-10, transport 1-10, entertainment 1-5, employment none. The first photo is the cover; photos can be dragged to reorder.
+- Photos per form: rental 1-10 (a hotel too: 1-10 for the listing on step 5, plus up to 5 per room; say both), sale 3-15, food 2-10, transport 1-10, entertainment 1-5, employment none. The first photo is the cover; photos can be dragged to reorder.
 
 Uploads
 - Listing photos: JPG, PNG or WEBP; HEIC/HEIF from iPhones is converted automatically. Each photo is resized to at most 2560 px and watermarked; the limit is 5 MB after that, so large originals usually pass. Errors say which files were skipped and why (wrong format, too many, too large, HEIC not converted: then use JPG/PNG).

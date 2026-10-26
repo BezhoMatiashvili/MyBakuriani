@@ -1,0 +1,102 @@
+{
+  "name": "guest-smart-match",
+  "locale": "ka",
+  "cabinet": "guest",
+  "path": "/dashboard/guest",
+  "title": "MyBakuriani",
+  "goal": "როგორ გავაგზავნო Smart Match მოთხოვნა?",
+  "progress": [],
+  "notices": [],
+  "elements": [
+    {
+      "id": "e1",
+      "kind": "link",
+      "label": "MyBakuriani",
+      "href": "/"
+    },
+    {
+      "id": "e2",
+      "kind": "button",
+      "label": "სივრცის შეცვლა"
+    },
+    {
+      "id": "e3",
+      "kind": "link",
+      "label": "მთავარი გვერდი",
+      "href": "/dashboard/guest"
+    },
+    {
+      "id": "e4",
+      "kind": "link",
+      "label": "რჩეულები",
+      "href": "/dashboard/guest/favorites",
+      "section": "მთავარი"
+    },
+    {
+      "id": "e5",
+      "kind": "link",
+      "label": "ისტორია",
+      "href": "/dashboard/guest/reviews",
+      "section": "აქტივობა"
+    },
+    {
+      "id": "e6",
+      "kind": "link",
+      "label": "პარამეტრები",
+      "href": "/dashboard/guest/profile",
+      "section": "პროფილი"
+    },
+    {
+      "id": "e7",
+      "kind": "link",
+      "label": "მთავარზე დაბრუნება",
+      "href": "/"
+    },
+    {
+      "id": "e8",
+      "kind": "button",
+      "label": "გამოსვლა"
+    },
+    {
+      "id": "e9",
+      "kind": "input",
+      "label": "ძიება ბაკურიანში..."
+    },
+    {
+      "id": "e10",
+      "kind": "button",
+      "label": "ენის არჩევა",
+      "section": "აქტიური ვიზიტორი"
+    },
+    {
+      "id": "e11",
+      "kind": "button",
+      "label": "შეტყობინებები, 0 წაუკითხავი"
+    },
+    {
+      "id": "e12",
+      "kind": "button",
+      "label": "ახალი მოთხოვნა",
+      "section": "გამარჯობა, QA, მზად ხარ დასვენებისთვის?"
+    },
+    {
+      "id": "e13",
+      "kind": "button",
+      "label": "მოთხოვნის გაგზავნა",
+      "section": "გაგზავნე მოთხოვნა და მიიღე საუკეთესო შეთავაზებები"
+    },
+    {
+      "id": "e14",
+      "kind": "link",
+      "label": "ქირავდება კომფორტული ბინა 5 ნახვა 150 ₾ /ღამე",
+      "href": "/apartments/:id",
+      "section": "ბოლოს ნანახი განცხადებები"
+    }
+  ],
+  "expect": {
+    "first": [
+      "ახალი მოთხოვნა",
+      "მოთხოვნის გაგზავნა"
+    ]
+  }
+}

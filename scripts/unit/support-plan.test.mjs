@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ACCOUNT_QUESTION,
   SUPPORT_LIMITS,
   buildReplyTool,
   buildShowStepsTool,
@@ -292,6 +291,9 @@ test("parseReply keeps only listed buttons and clean suggestions", () => {
       suggestions: ["როგორ დავჯავშნო?", "როგორ დავჯავშნო?", "ბინა მინდა", "x"],
       topic: "search",
       needs_account: false,
+      intent: "Find An Apartment",
+      memory_goal: "rent an apartment for 4 people",
+      memory_details: ["4 guests", "4 guests", "call me on 599123456"],
     }),
     normalize,
     "ბინა მინდა",
@@ -304,6 +306,11 @@ test("parseReply keeps only listed buttons and clean suggestions", () => {
     suggestions: ["როგორ დავჯავშნო?", "x"],
     topic: "search",
     needsAccount: false,
+    memory: {
+      goal: "rent an apartment for 4 people",
+      details: ["4 guests", "call me on [number]"],
+    },
+    intent: "find an apartment",
   });
   // guide_now means nothing without a guide; an unknown topic is "other".
   const plain = parseReply(
@@ -328,24 +335,6 @@ test("buildReplyTool offers ids and typed params, never a link field", () => {
   const json = JSON.stringify(tool);
   for (const key of ['"href"', '"url"', '"path"', '"link"'])
     assert.equal(json.includes(key), false, key);
-});
-
-test("ACCOUNT_QUESTION spots why/can't/status questions, not every 'my'", () => {
-  for (const yes of [
-    "რატომ არ ჩანს ჩემი განცხადება?",
-    "ვერ ვამატებ ფოტოს",
-    "ბალანსი არ ჩაირიცხა",
-    "Why is my listing not showing?",
-    "my payment is pending",
-    "Почему не видно моё объявление?",
-  ])
-    assert.equal(ACCOUNT_QUESTION.test(yes), true, yes);
-  for (const no of [
-    "როგორ დავამატო ჩემი ბინა?",
-    "How do I add my apartment?",
-    "Как добавить квартиру?",
-  ])
-    assert.equal(ACCOUNT_QUESTION.test(no), false, no);
 });
 
 test("maskIds hides UUIDs in paths and element links", () => {

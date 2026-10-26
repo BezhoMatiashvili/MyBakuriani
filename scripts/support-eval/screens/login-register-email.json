@@ -1,0 +1,254 @@
+{
+  "name": "login-register-email",
+  "locale": "ka",
+  "cabinet": "auth",
+  "path": "/auth/login",
+  "title": "MyBakuriani — ავტორიზაცია",
+  "goal": "როგორ დავრეგისტრირდე ელ. ფოსტით?",
+  "progress": [],
+  "notices": [],
+  "elements": [
+    {
+      "id": "e1",
+      "kind": "link",
+      "label": "MyBakuriani",
+      "href": "/"
+    },
+    {
+      "id": "e2",
+      "kind": "button",
+      "label": "ენის არჩევა"
+    },
+    {
+      "id": "e3",
+      "kind": "button",
+      "label": "ტელეფონი",
+      "section": "შესვლა / რეგისტრაცია",
+      "filled": true
+    },
+    {
+      "id": "e4",
+      "kind": "button",
+      "label": "ელ. ფოსტა"
+    },
+    {
+      "id": "e5",
+      "kind": "input",
+      "label": "ტელეფონის ნომერი (5XX XX XX XX)",
+      "section": "+995"
+    },
+    {
+      "id": "e6",
+      "kind": "button",
+      "label": "SMS კოდის მიღება"
+    },
+    {
+      "id": "e7",
+      "kind": "button",
+      "label": "გაგრძელება Google-ით"
+    },
+    {
+      "id": "e8",
+      "kind": "link",
+      "label": "მომსახურების პირობებს",
+      "href": "/terms"
+    },
+    {
+      "id": "e9",
+      "kind": "link",
+      "label": "კონფიდენციალურობის პოლიტიკას",
+      "href": "/privacy"
+    },
+    {
+      "id": "e10",
+      "kind": "link",
+      "label": "MyBakuriani",
+      "href": "/"
+    },
+    {
+      "id": "e11",
+      "kind": "link",
+      "label": "Facebook",
+      "href": "/auth/login"
+    },
+    {
+      "id": "e12",
+      "kind": "link",
+      "label": "Instagram",
+      "href": "/auth/login"
+    },
+    {
+      "id": "e13",
+      "kind": "link",
+      "label": "ყველა განცხადება",
+      "href": "/apartments",
+      "section": "პლატფორმა"
+    },
+    {
+      "id": "e14",
+      "kind": "link",
+      "label": "ბინები",
+      "href": "/apartments"
+    },
+    {
+      "id": "e15",
+      "kind": "link",
+      "label": "ყიდვა",
+      "href": "/sales"
+    },
+    {
+      "id": "e16",
+      "kind": "link",
+      "label": "გაყიდვა",
+      "href": "/create/sale"
+    },
+    {
+      "id": "e17",
+      "kind": "link",
+      "label": "როგორ მუშაობს",
+      "href": "/faq"
+    },
+    {
+      "id": "e18",
+      "kind": "link",
+      "label": "ვერიფიკაცია",
+      "href": "/faq"
+    },
+    {
+      "id": "e19",
+      "kind": "link",
+      "label": "ფასები",
+      "href": "/pricing"
+    },
+    {
+      "id": "e20",
+      "kind": "link",
+      "label": "ბინები",
+      "href": "/apartments",
+      "section": "სერვისები"
+    },
+    {
+      "id": "e21",
+      "kind": "link",
+      "label": "ტრანსპორტი",
+      "href": "/transport"
+    },
+    {
+      "id": "e22",
+      "kind": "link",
+      "label": "დასაქმება",
+      "href": "/employment"
+    },
+    {
+      "id": "e23",
+      "kind": "link",
+      "label": "სერვისები",
+      "href": "/services"
+    },
+    {
+      "id": "e24",
+      "kind": "link",
+      "label": "კვება",
+      "href": "/food"
+    },
+    {
+      "id": "e25",
+      "kind": "link",
+      "label": "გართობა",
+      "href": "/entertainment"
+    },
+    {
+      "id": "e26",
+      "kind": "link",
+      "label": "კონტაქტი",
+      "href": "/contact",
+      "section": "დახმარება"
+    },
+    {
+      "id": "e27",
+      "kind": "link",
+      "label": "ხშირად დასმული კითხვები",
+      "href": "/faq"
+    },
+    {
+      "id": "e28",
+      "kind": "link",
+      "label": "ბაკურიანის გზამკვლევი",
+      "href": "/bakuriani"
+    },
+    {
+      "id": "e29",
+      "kind": "link",
+      "label": "ბლოგი",
+      "href": "/blog"
+    },
+    {
+      "id": "e30",
+      "kind": "link",
+      "label": "წესები და პირობები",
+      "href": "/terms"
+    },
+    {
+      "id": "e31",
+      "kind": "link",
+      "label": "English",
+      "href": "/auth/login",
+      "section": "ენის არჩევა"
+    },
+    {
+      "id": "e32",
+      "kind": "link",
+      "label": "Русский",
+      "href": "/auth/login"
+    },
+    {
+      "id": "e33",
+      "kind": "link",
+      "label": "კონფიდენციალურობის პოლიტიკა",
+      "href": "/privacy",
+      "section": "ქართული"
+    },
+    {
+      "id": "e34",
+      "kind": "link",
+      "label": "წესები და პირობები",
+      "href": "/terms"
+    },
+    {
+      "id": "e35",
+      "kind": "link",
+      "label": "მარკეტინგის პოლიტიკა",
+      "href": "/marketing-policy"
+    },
+    {
+      "id": "e36",
+      "kind": "button",
+      "label": "ქუქი-ფაილები"
+    },
+    {
+      "id": "e37",
+      "kind": "link",
+      "label": "Powered by WeatherAPI.com"
+    },
+    {
+      "id": "e38",
+      "kind": "link",
+      "label": "Directions powered by Mapbox"
+    },
+    {
+      "id": "e39",
+      "kind": "link",
+      "label": "© OpenStreetMap contributors (ODbL)"
+    },
+    {
+      "id": "e40",
+      "kind": "link",
+      "label": "Improve the map"
+    }
+  ],
+  "expect": {
+    "first": [
+      "ელ. ფოსტა"
+    ]
+  }
+}

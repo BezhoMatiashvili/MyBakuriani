@@ -964,6 +964,7 @@ export function SearchBox({
         <Button
           type="submit"
           disabled={isPending}
+          aria-label={t("search")}
           className="ml-2 size-[34px] shrink-0 rounded-full bg-brand-accent text-white hover:bg-brand-accent-hover disabled:opacity-70"
         >
           {isPending ? (

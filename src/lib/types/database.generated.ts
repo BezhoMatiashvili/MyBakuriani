@@ -6481,6 +6481,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      support_questions: {
+        Row: {
+          cabinet: string;
+          created_at: string;
+          guide: boolean;
+          id: number;
+          intent: string;
+          locale: string;
+          path: string;
+          problems: number;
+          question: string | null;
+          rating: string | null;
+          ref: string;
+          repaired: boolean;
+          signed_in: boolean;
+          source: string;
+          topic: string;
+        };
+        Insert: {
+          cabinet: string;
+          created_at?: string;
+          guide?: boolean;
+          id?: never;
+          intent?: string;
+          locale: string;
+          path: string;
+          problems?: number;
+          question?: string | null;
+          rating?: string | null;
+          ref: string;
+          repaired?: boolean;
+          signed_in: boolean;
+          source: string;
+          topic: string;
+        };
+        Update: {
+          cabinet?: string;
+          created_at?: string;
+          guide?: boolean;
+          id?: never;
+          intent?: string;
+          locale?: string;
+          path?: string;
+          problems?: number;
+          question?: string | null;
+          rating?: string | null;
+          ref?: string;
+          repaired?: boolean;
+          signed_in?: boolean;
+          source?: string;
+          topic?: string;
+        };
+        Relationships: [];
+      };
       transactions: {
         Row: {
           amount: number;
@@ -7531,6 +7585,22 @@ export type Database = {
           provider_message_id: string | null;
           status: string | null;
           submitted_at: string | null;
+        };
+        Relationships: [];
+      };
+      support_question_summary_v: {
+        Row: {
+          asked: number | null;
+          cabinet: string | null;
+          intent: string | null;
+          locale: string | null;
+          rated_down: number | null;
+          rated_up: number | null;
+          repaired: number | null;
+          topic: string | null;
+          walkthroughs_offered: number | null;
+          week: string | null;
+          with_problems: number | null;
         };
         Relationships: [];
       };
