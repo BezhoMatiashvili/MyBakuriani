@@ -6,6 +6,7 @@
 // Each check prints what it compared so a failure is self-explanatory.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 
 const root = process.cwd();
@@ -781,7 +782,6 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C18/call-out answers: every call-out notice names what happened in its title (${def[0]})`);
 }
 
-// C15 — a guest's Smart Match request dates and budgets are range-checked in
 // C18 — the owner's technical task (2026-10-25; 20261025180000-180200). (a) Quiet hours: a
 // check-in text goes out only 09:00 <= t < 21:00 Tbilisi; domain.ts CHECK_IN_SEND_WINDOW (which
 // words the day by the day a text is sent) = SQL sms_check_in_window_open and
@@ -868,6 +868,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C18/messaging-task: quiet hours ${win[1]}-${win[2]} in TS and SQL (${windowFn.file}), no second send of a started row, one recipient rule (prod ${ref}), the task's call-out sentences, win-back gated with an opt-out link, consent text pinned to ${version}`);
 }
 
+// C15 — a guest's Smart Match request dates and budgets are range-checked in
 // the database (F-V5-R9-01): 'infinity', a year past 5 million or a NaN budget
 // reached every renter who answered the request (a thrown RangeError took the
 // renter's whole sent-offers page down until the guest cancelled).
@@ -2475,8 +2476,44 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     const unknown = [...labels].filter(([label]) => !corpus.includes(label));
     if (unknown.length) problems.push(`quoted labels not found anywhere on the site (renamed?): ${unknown.map(([l, f]) => `"${l}" (${f})`).join(", ")}`);
   }
+  // (k) every answer and plan passes the deterministic checks (validate.ts)
+  // before the browser sees it; answers are checked against the request's
+  // own context (replyCheckContext: site labels, prices, zones, the screen).
+  if (!/checkReply\(/.test(server) || !/checkPlan\(/.test(server)) problems.push(`${serverFile} must check every answer (checkReply) and every plan (checkPlan)`);
+  if (!/replyCheckContext\(parsed, context\)/.test(route)) problems.push(`${routeFile} must pass replyCheckContext(parsed, context) to answerQuestion`);
+  // (l) the English/Russian label table is generated from the catalogs for
+  // every label the knowledge quotes, and is current.
+  {
+    const labelsFile = "src/lib/support/labels.ts";
+    if (!existsSync(join(root, labelsFile))) problems.push(`${labelsFile} is missing: run node scripts/support-labels.mjs`);
+    else {
+      const { status } = spawnSync(process.execPath, ["scripts/support-labels.mjs", "--check"], { cwd: root, encoding: "utf8" });
+      if (status !== 0) problems.push(`${labelsFile} is stale: run node scripts/support-labels.mjs`);
+    }
+  }
+  // (m) every page the knowledge sends users to exists ("/auth" alone only
+  // names the sign-in area).
+  {
+    const knowledge = read("src/lib/support/knowledge.ts");
+    const paths = new Set([...knowledge.matchAll(/(?:^|[\s("'`])(\/(?:dashboard|create|auth)(?:\/[a-z0-9-]+)*)/g)].map((m) => m[1]));
+    paths.delete("/auth");
+    const missing = [...paths].filter((p) => !existsSync(join(root, "src/app/[locale]", p, "page.tsx")) && !existsSync(join(root, "src/app/[locale]", p, "route.ts")));
+    if (missing.length) problems.push(`knowledge.ts names pages that do not exist: ${missing.join(", ")}`);
+  }
+  // (n) the question log (support_questions) is written only by
+  // questions.ts, called from the route inside after() (never delaying an
+  // answer); the row builder carries no user id or IP.
+  {
+    const writers = srcFiles.filter((f) => /["']support_questions["']/.test(srcText.get(f)) && f !== join("src/lib/support/questions.ts") && f !== join("src/lib/types/database.generated.ts"));
+    if (writers.length) problems.push(`support_questions is used outside src/lib/support/questions.ts: ${writers.join(", ")}`);
+    // A cached answer skips withinLimits, so its row passes withinCacheLogLimit first.
+    if (!/after\(async \(\) => \{[^}]*withinCacheLogLimit\(request\)[^}]*await logQuestion\(/.test(route) || (route.match(/logQuestion\(/g) ?? []).length !== 1 || !/after\(\(\) => rateQuestion\(/.test(route)) problems.push(`${routeFile} must write the question log only inside after() (logQuestion behind withinCacheLogLimit for cache hits, rateQuestion)`);
+    const row = read(planFile).match(/export type SupportQuestionRow = \{([\s\S]*?)\};/)?.[1] ?? "";
+    if (!row) problems.push(`could not read SupportQuestionRow from ${planFile}`);
+    else if (/\b(?:user_id|ip|email|phone|answer)\b/.test(row)) problems.push(`SupportQuestionRow in ${planFile} must not carry a user id, IP, contact or answer text`);
+  }
   if (problems.length) problems.forEach((p) => fail(`C43: ${p}`));
-  else ok("C43: OpenRouter key server-only; steps forced through show_steps + parseJevPlan; answers through the forced reply tool + parseReply, buttons are ids whose links the route builds; account facts under the user's own session; every quoted label exists on the site; no-retention on both calls; per-user/per-IP limits; Gemini Flash + Jev (Gemini Flash pool) only; snapshot carries no values");
+  else ok("C43: OpenRouter key server-only; steps forced through show_steps + parseJevPlan; answers through the forced reply tool + parseReply, buttons are ids whose links the route builds; account facts under the user's own session; every quoted label exists on the site; answers and plans pass checkReply/checkPlan; en/ru label table current; knowledge pages exist; question log written only in after(), no user id/IP; no-retention on both calls; per-user/per-IP limits; Gemini Flash + Jev (Gemini Flash pool) only; snapshot carries no values");
 }
 
 // ---------------------------------------------------------------------------

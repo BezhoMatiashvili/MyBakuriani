@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { after } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   checkNet64RateLimit,
@@ -9,9 +10,9 @@ import { getActiveZones } from "@/lib/zones/server";
 import { CONTACT_EMAIL, CONTACT_PHONE_E164 } from "@/lib/site-contact";
 import { OpenRouterError, isSupportConfigured } from "@/lib/support/openrouter";
 import {
-  ACCOUNT_QUESTION,
   SUPPORT_LIMITS,
   parseSupportRequest,
+  supportQuestionRow,
   type SupportAskRequest,
   type SupportButton,
   type SupportPlanRequest,
@@ -27,11 +28,13 @@ import {
 import { answerCache, cacheKey, planCache } from "@/lib/support/cache";
 import { loadPriceFacts } from "@/lib/support/prices";
 import { loadAccountFacts } from "@/lib/support/account";
+import { logQuestion, rateQuestion } from "@/lib/support/questions";
 import {
   answerQuestion,
   answerRequestBody,
   planGuide,
   planRequestBody,
+  replyCheckContext,
   type AnswerContext,
 } from "@/lib/support/server";
 
@@ -39,6 +42,8 @@ import {
 // through the forced reply tool, "plan" to Flash Lite with the Jev router
 // (Google only) as backup, "feedback" is one log line. Identical requests are
 // answered from an in-memory cache before any limit or model is touched.
+// Every answered question also goes to the anonymous question log
+// (support_questions) after the response is sent.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -94,6 +99,7 @@ function answer(
     guideNow: result.guideNow,
     suggestions: result.suggestions,
     ref,
+    memory: result.memory,
   };
 }
 
@@ -148,6 +154,14 @@ async function withinLimits(
   return checkRateLimit("support:day:all", 5000, DAY);
 }
 
+// Visitors' cached answers are logged at most 30 an hour per address, then
+// per IPv6 /64 (C16 order).
+async function withinCacheLogLimit(request: Request): Promise<boolean> {
+  const ip = getClientIp(request);
+  if (!(await checkRateLimit(`support:log:ip:${ip}`, 30, HOUR))) return false;
+  return checkNet64RateLimit("support:log:ip", ip, 30, HOUR);
+}
+
 function failure(err: unknown) {
   if (err instanceof OpenRouterError && err.isBudget) {
     console.error("[support] OpenRouter credit or key limit reached");
@@ -198,6 +212,10 @@ export async function POST(request: Request) {
       rating: parsed.rating,
       source: parsed.ref.startsWith("canned:") ? "canned" : "answer",
     });
+    if (!parsed.ref.startsWith("canned:")) {
+      const { ref, rating } = parsed;
+      after(() => rateQuestion(ref, rating));
+    }
     return reply({ type: "ok" });
   }
 
@@ -227,6 +245,7 @@ export async function POST(request: Request) {
   }
 
   const today = tbilisiToday();
+  const begun = Date.now();
   const [prices, zones] = await Promise.all([
     loadPriceFacts(),
     getActiveZones()
@@ -262,12 +281,30 @@ export async function POST(request: Request) {
       guide: result.guide !== "",
       ...event,
     });
+  const remember = (
+    result: SupportReply,
+    source: "model" | "cache",
+    checks: { problems: number; repaired: boolean },
+  ) =>
+    after(async () => {
+      // A cached answer skipped withinLimits, so its row has its own brake:
+      // repeating one cached question cannot fill the table.
+      if (source === "cache" && !(await withinCacheLogLimit(request))) return;
+      await logQuestion(
+        supportQuestionRow(parsed, result, {
+          source,
+          signedIn,
+          ref,
+          ...checks,
+        }),
+      );
+    });
 
-  // A question about the user's own situation reads their own status first;
-  // such answers are personal, so they never touch the cache.
-  const wantsAccount = signedIn && ACCOUNT_QUESTION.test(parsed.message);
+  // A signed-in user's answer reads their own status (account.ts), so it is
+  // personal and never cached; a visitor's identical question is answered
+  // from the cache before any limit is touched.
   let key: string | null = null;
-  if (!wantsAccount) {
+  if (!signedIn) {
     key = cacheKey(answerRequestBody(parsed, context));
     const hit = answerCache.get(key);
     if (hit) {
@@ -275,33 +312,27 @@ export async function POST(request: Request) {
         { source: "cache", model: hit.model, key: key.slice(0, 10) },
         hit.reply,
       );
+      remember(hit.reply, "cache", { problems: 0, repaired: false });
       return reply(answer(hit.reply, ref, actionContext));
     }
   }
-  if (!(await withinLimits(parsed, userId, request)))
-    return reply({ type: "error", error: "rate_limited" }, 429);
+  // The limits and the user's own status are read at once.
+  const loaded = Date.now();
+  const [allowed, account] = await Promise.all([
+    withinLimits(parsed, userId, request),
+    userId ? loadAccountFacts(userId) : Promise.resolve(null),
+  ]);
+  if (!allowed) return reply({ type: "error", error: "rate_limited" }, 429);
+  context.account = account;
+  const limited = Date.now();
 
   try {
-    if (wantsAccount && userId)
-      context.account = await loadAccountFacts(userId);
-    let result = await answerQuestion(
+    const result = await answerQuestion(
       answerRequestBody(parsed, context),
       parsed,
       normalize,
+      replyCheckContext(parsed, context),
     );
-    // The model says the answer depends on the user's own status: read it
-    // and ask once more.
-    if (result.reply.needsAccount && userId && context.account === null) {
-      const account = await loadAccountFacts(userId);
-      if (account) {
-        context.account = account;
-        result = await answerQuestion(
-          answerRequestBody(parsed, context),
-          parsed,
-          normalize,
-        );
-      }
-    }
     if (key && context.account === null)
       answerCache.set(key, { reply: result.reply, model: result.model });
     logAnswer(
@@ -312,11 +343,24 @@ export async function POST(request: Request) {
         ms: result.ms,
         cost: result.cost,
         cached: result.cachedTokens,
+        reasoning: result.reasoningTokens,
         account: context.account !== null,
+        problems: result.problems,
+        repaired: result.repaired,
+        timing: {
+          loaders: loaded - begun,
+          limits: limited - loaded,
+          model: result.ms,
+          total: Date.now() - begun,
+        },
         key: key?.slice(0, 10),
       },
       result.reply,
     );
+    remember(result.reply, "model", {
+      problems: result.problems,
+      repaired: result.repaired,
+    });
     return reply(answer(result.reply, ref, actionContext));
   } catch (err) {
     return failure(err);

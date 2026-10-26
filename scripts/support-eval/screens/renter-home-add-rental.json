@@ -1,0 +1,221 @@
+{
+  "name": "renter-home-add-rental",
+  "locale": "ka",
+  "cabinet": "renter",
+  "path": "/dashboard/renter",
+  "title": "MyBakuriani",
+  "goal": "როგორ დავამატო ახალი ბინა?",
+  "progress": [],
+  "notices": [],
+  "elements": [
+    {
+      "id": "e1",
+      "kind": "link",
+      "label": "MyBakuriani",
+      "href": "/"
+    },
+    {
+      "id": "e2",
+      "kind": "button",
+      "label": "სივრცის შეცვლა"
+    },
+    {
+      "id": "e3",
+      "kind": "button",
+      "label": "ID-ის კოპირება"
+    },
+    {
+      "id": "e4",
+      "kind": "link",
+      "label": "ჩემი ბინები",
+      "href": "/dashboard/renter"
+    },
+    {
+      "id": "e5",
+      "kind": "link",
+      "label": "კალენდარი",
+      "href": "/dashboard/renter/calendar"
+    },
+    {
+      "id": "e6",
+      "kind": "link",
+      "label": "სტუმრები",
+      "href": "/dashboard/renter/guests"
+    },
+    {
+      "id": "e7",
+      "kind": "link",
+      "label": "დამლაგებლები",
+      "href": "/dashboard/renter/cleaners"
+    },
+    {
+      "id": "e8",
+      "kind": "link",
+      "label": "ბალანსი და VIP",
+      "href": "/dashboard/renter/balance"
+    },
+    {
+      "id": "e9",
+      "kind": "link",
+      "label": "SMS ცენტრი",
+      "href": "/dashboard/sms"
+    },
+    {
+      "id": "e10",
+      "kind": "link",
+      "label": "შეტყობინებები 3",
+      "href": "/dashboard/renter/notifications"
+    },
+    {
+      "id": "e11",
+      "kind": "link",
+      "label": "პარამეტრები",
+      "href": "/dashboard/renter/profile"
+    },
+    {
+      "id": "e12",
+      "kind": "link",
+      "label": "SMART MATCH 1 ახალი მოთხოვნა თქვენს თარიღებზე და ბიუჯეტზე ს…",
+      "href": "/dashboard/renter/smart-match"
+    },
+    {
+      "id": "e13",
+      "kind": "link",
+      "label": "მთავარზე დაბრუნება",
+      "href": "/"
+    },
+    {
+      "id": "e14",
+      "kind": "button",
+      "label": "გამოსვლა"
+    },
+    {
+      "id": "e15",
+      "kind": "input",
+      "label": "ძიება..."
+    },
+    {
+      "id": "e16",
+      "kind": "button",
+      "label": "ენის არჩევა"
+    },
+    {
+      "id": "e17",
+      "kind": "link",
+      "label": "18 ₾",
+      "href": "/dashboard/renter/balance"
+    },
+    {
+      "id": "e18",
+      "kind": "button",
+      "label": "შეტყობინებები, 8 წაუკითხავი",
+      "section": "0 SMS"
+    },
+    {
+      "id": "e19",
+      "kind": "button",
+      "label": "წევრობის გააქტიურება",
+      "section": "გაააქტიურეთ გამქირავებლის წევრობა"
+    },
+    {
+      "id": "e20",
+      "kind": "link",
+      "label": "ახალი ბინა",
+      "href": "/create/rental",
+      "section": "2 აქტიური განცხადება"
+    },
+    {
+      "id": "e21",
+      "kind": "link",
+      "label": "მესაკუთრეობის დადასტურება",
+      "href": "/dashboard/account/ownership",
+      "section": "აქტიური"
+    },
+    {
+      "id": "e22",
+      "kind": "button",
+      "label": "გადახდა"
+    },
+    {
+      "id": "e23",
+      "kind": "link",
+      "label": "ნახვა",
+      "href": "/apartments/:id"
+    },
+    {
+      "id": "e24",
+      "kind": "link",
+      "label": "რედაქტირება",
+      "href": "/create/rental"
+    },
+    {
+      "id": "e25",
+      "kind": "button",
+      "label": "ანალიტიკა"
+    },
+    {
+      "id": "e26",
+      "kind": "button",
+      "label": "SUPER VIP"
+    },
+    {
+      "id": "e27",
+      "kind": "button",
+      "label": "VIP"
+    },
+    {
+      "id": "e28",
+      "kind": "button",
+      "label": "ფასდაკლება"
+    },
+    {
+      "id": "e29",
+      "kind": "link",
+      "label": "მესაკუთრეობის დადასტურება",
+      "href": "/dashboard/account/ownership"
+    },
+    {
+      "id": "e30",
+      "kind": "button",
+      "label": "გადახდა"
+    },
+    {
+      "id": "e31",
+      "kind": "link",
+      "label": "ნახვა",
+      "href": "/hotels/:id"
+    },
+    {
+      "id": "e32",
+      "kind": "link",
+      "label": "რედაქტირება",
+      "href": "/create/rental"
+    },
+    {
+      "id": "e33",
+      "kind": "button",
+      "label": "ანალიტიკა"
+    },
+    {
+      "id": "e34",
+      "kind": "button",
+      "label": "SUPER VIP"
+    },
+    {
+      "id": "e35",
+      "kind": "button",
+      "label": "VIP"
+    },
+    {
+      "id": "e36",
+      "kind": "button",
+      "label": "ფასდაკლება"
+    }
+  ],
+  "expect": {
+    "first": [
+      "წევრობის გააქტიურება",
+      "ახალი ბინა"
+    ]
+  }
+}

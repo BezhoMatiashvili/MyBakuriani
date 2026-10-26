@@ -76,6 +76,22 @@ export type JevPlan =
 
 export type SupportTurn = { role: "user" | "assistant"; text: string };
 
+/**
+ * What the user is after in this chat, in short English: kept up to date by
+ * the answer model (memory_goal / memory_details), carried by the browser in
+ * the saved chat and sent back with every question and plan, so neither
+ * model forgets the goal or what the user already said.
+ */
+export type SupportMemory = { goal: string; details: string[] };
+
+/** The user's screen as an answer sees it: the same snapshot Jev plans from. */
+export type SupportScreen = {
+  title: string;
+  elements: PageElement[];
+  /** Error messages and alerts visible on screen (masked). */
+  notices: string[];
+};
+
 /** Coarse subject of an answer, logged with 👍/👎 instead of any text. */
 export const REPLY_TOPICS = [
   "listing",
@@ -138,6 +154,10 @@ export type SupportReply = {
   topic: ReplyTopic;
   /** The answer depends on the user's own status, which was not given. */
   needsAccount: boolean;
+  /** The chat's goal and the user's details after this message. */
+  memory: SupportMemory;
+  /** What this message asks, as a short generic English phrase (question log). */
+  intent: string;
 };
 
 export type SupportAskRequest = {
@@ -147,6 +167,10 @@ export type SupportAskRequest = {
   path: string;
   message: string;
   history: SupportTurn[];
+  memory: SupportMemory;
+  /** Lines the site wrote about this chat (a walkthrough finished, stopped...). */
+  events: string[];
+  screen: SupportScreen;
 };
 
 export type SupportPlanRequest = {
@@ -158,6 +182,11 @@ export type SupportPlanRequest = {
   goal: string;
   progress: string[];
   elements: PageElement[];
+  notices: string[];
+  memory: SupportMemory;
+  events: string[];
+  /** The user's last messages in the chat, newest last. */
+  recent: string[];
 };
 
 /** 👍/👎 on an answer: only its ref and the rating travel, never text. */
@@ -189,6 +218,8 @@ export type SupportResponse =
       suggestions: string[];
       /** Matches the server's log line; 👍/👎 send it back. */
       ref: string;
+      /** The chat's goal and details after this answer (saved with the chat). */
+      memory: SupportMemory;
     }
   | { type: "plan"; plan: JevPlan }
   // Nothing on this screen leads toward the goal.
@@ -200,11 +231,21 @@ export type SupportResponse =
 export const SUPPORT_LIMITS = {
   body: 64_000,
   message: 500,
-  history: 6,
+  history: 8,
   historyText: 600,
   goal: 300,
-  progress: 12,
+  progress: 16,
   progressText: 120,
+  memoryGoal: 200,
+  memoryDetails: 6,
+  memoryDetail: 100,
+  events: 4,
+  eventText: 140,
+  recent: 2,
+  notices: 3,
+  notice: 140,
+  screenElements: 40,
+  intent: 80,
   path: 200,
   title: 120,
   elements: 100,
@@ -227,15 +268,6 @@ export const SUPPORT_LIMITS = {
 
 export const SHOW_STEPS_TOOL = "show_steps";
 export const REPLY_TOOL = "reply";
-
-/**
- * A question about the user's own situation (why / can't / not showing /
- * didn't arrive / status / pending), in ka, en or ru. Only these load the
- * user's own status for the answer; "my" alone does not (almost every
- * question has it). The model's needs_account flag catches the rest.
- */
-export const ACCOUNT_QUESTION =
-  /რატომ|ვერ(?:\s|ა)|არ\s(?:ჩანს|მოვიდა|ჩაირიცხ|გამოჩნდ|მიჩანს|აქვეყნებ|ქვეყნდება|დამიდასტურ|დადასტურდა|მუშაობს)|სტატუს|მოლოდინ|განხილვა|უარყოფ|\b(?:why|can'?t|cannot|unable|not\s(?:showing|visible|appearing|published|working|credited)|didn'?t\s(?:arrive|appear|show|go)|hasn'?t|isn'?t|status|pending|rejected|declined|stuck)\b|почему|не\s(?:могу|видно|отображ|пришл|поступ|появ|публику|работает)|статус|ожида|отклон/i;
 
 const UUID =
   /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g;
@@ -376,12 +408,15 @@ export function cleanAnswer(value: unknown): string {
 }
 
 /** The client's element list, re-checked: unknown fields dropped, ids unique, text masked and capped. */
-export function normalizeElements(raw: unknown): PageElement[] {
+export function normalizeElements(
+  raw: unknown,
+  max: number = SUPPORT_LIMITS.elements,
+): PageElement[] {
   if (!Array.isArray(raw)) return [];
   const out: PageElement[] = [];
   const seen = new Set<string>();
   for (const item of raw) {
-    if (out.length >= SUPPORT_LIMITS.elements) break;
+    if (out.length >= max) break;
     if (!isRecord(item) || typeof item.id !== "string") continue;
     const id = item.id;
     if (!ELEMENT_ID.test(id) || seen.has(id)) continue;
@@ -405,6 +440,36 @@ export function normalizeElements(raw: unknown): PageElement[] {
     out.push(element);
   }
   return out;
+}
+
+/** Up to `max` distinct lines of masked text, the last ones kept. */
+export function cleanLines(
+  raw: unknown,
+  max: number,
+  maxText: number,
+): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw.slice(-max * 2)) {
+    const line = cleanPrivate(item, maxText);
+    if (line && !out.includes(line)) out.push(line);
+  }
+  return out.slice(-max);
+}
+
+export const EMPTY_MEMORY: SupportMemory = { goal: "", details: [] };
+
+/** A memory from the browser or the model, masked and capped. */
+export function parseMemory(raw: unknown): SupportMemory {
+  if (!isRecord(raw)) return EMPTY_MEMORY;
+  return {
+    goal: cleanPrivate(raw.goal, SUPPORT_LIMITS.memoryGoal),
+    details: cleanLines(
+      raw.details,
+      SUPPORT_LIMITS.memoryDetails,
+      SUPPORT_LIMITS.memoryDetail,
+    ),
+  };
 }
 
 /** Validates a request body. Returns null for anything that is not a usable request. */
@@ -435,7 +500,33 @@ export function parseSupportRequest(body: unknown): SupportRequest | null {
         if (role && text) history.push({ role, text });
       }
     }
-    return { mode: "ask", locale, cabinet, path, message, history };
+    const screen = isRecord(body.screen) ? body.screen : {};
+    return {
+      mode: "ask",
+      locale,
+      cabinet,
+      path,
+      message,
+      history,
+      memory: parseMemory(body.memory),
+      events: cleanLines(
+        body.events,
+        SUPPORT_LIMITS.events,
+        SUPPORT_LIMITS.eventText,
+      ),
+      screen: {
+        title: cleanPrivate(screen.title, SUPPORT_LIMITS.title),
+        elements: normalizeElements(
+          screen.elements,
+          SUPPORT_LIMITS.screenElements,
+        ),
+        notices: cleanLines(
+          screen.notices,
+          SUPPORT_LIMITS.notices,
+          SUPPORT_LIMITS.notice,
+        ),
+      },
+    };
   }
 
   if (body.mode === "plan") {
@@ -456,6 +547,22 @@ export function parseSupportRequest(body: unknown): SupportRequest | null {
       goal,
       progress,
       elements: normalizeElements(body.elements),
+      notices: cleanLines(
+        body.notices,
+        SUPPORT_LIMITS.notices,
+        SUPPORT_LIMITS.notice,
+      ),
+      memory: parseMemory(body.memory),
+      events: cleanLines(
+        body.events,
+        SUPPORT_LIMITS.events,
+        SUPPORT_LIMITS.eventText,
+      ),
+      recent: cleanLines(
+        body.recent,
+        SUPPORT_LIMITS.recent,
+        SUPPORT_LIMITS.historyText,
+      ),
     };
   }
 
@@ -564,6 +671,9 @@ export function buildReplyTool(vocab: {
           "suggestions",
           "topic",
           "needs_account",
+          "intent",
+          "memory_goal",
+          "memory_details",
         ],
         properties: {
           text: text(
@@ -634,6 +744,19 @@ export function buildReplyTool(vocab: {
             description:
               "true when the answer depends on this user's own status and YOUR ACCOUNT is not given.",
           },
+          intent: text(
+            "What this message asks, as a short generic English phrase of 2-8 words (no names, numbers or dates), e.g. 'upload listing photos'.",
+          ),
+          memory_goal: text(
+            "The user's goal in this chat, in short English (at most 15 words): the SESSION MEMORY goal carried over, or a new one when they finished it or changed the subject; empty for small talk.",
+          ),
+          memory_details: {
+            type: "array",
+            maxItems: SUPPORT_LIMITS.memoryDetails,
+            items: { type: "string" },
+            description:
+              "Up to 6 short English facts the user stated that matter for the goal (kind of property, zone, dates in words like 'Dec 20-25', guests, budget, which cabinet, what they did or what failed), earlier ones that still apply carried over.",
+          },
         },
       },
     },
@@ -686,6 +809,11 @@ export function parseReply(
     suggestions,
     topic: oneOf(REPLY_TOPICS, value.topic) ?? "other",
     needsAccount: value.needs_account === true,
+    memory: parseMemory({
+      goal: value.memory_goal,
+      details: value.memory_details,
+    }),
+    intent: cleanPrivate(value.intent, SUPPORT_LIMITS.intent).toLowerCase(),
   };
 }
 
@@ -741,6 +869,54 @@ export function parseJevPlan(
   }
   if (steps.length === 0) return null;
   return { kind: "steps", intro, steps, done: value.done === true };
+}
+
+/**
+ * One row of the question log (public.support_questions, C43): what was
+ * asked, never who. The question is already masked (cleanPrivate); no user
+ * id, IP or answer text is kept, and apply_pii_retention erases the question
+ * after 90 days while the intent and counts stay.
+ */
+export type SupportQuestionRow = {
+  locale: SupportLocale;
+  cabinet: SupportCabinet;
+  path: string;
+  question: string;
+  intent: string;
+  topic: ReplyTopic;
+  source: "model" | "cache";
+  signed_in: boolean;
+  guide: boolean;
+  problems: number;
+  repaired: boolean;
+  ref: string;
+};
+
+export function supportQuestionRow(
+  req: SupportAskRequest,
+  reply: SupportReply,
+  meta: {
+    source: "model" | "cache";
+    signedIn: boolean;
+    problems: number;
+    repaired: boolean;
+    ref: string;
+  },
+): SupportQuestionRow {
+  return {
+    locale: req.locale,
+    cabinet: req.cabinet,
+    path: req.path,
+    question: req.message,
+    intent: reply.intent,
+    topic: reply.topic,
+    source: meta.source,
+    signed_in: meta.signedIn,
+    guide: reply.guide !== "",
+    problems: meta.problems,
+    repaired: meta.repaired,
+    ref: meta.ref,
+  };
 }
 
 /** Which part of the site a (locale-free) path belongs to. */

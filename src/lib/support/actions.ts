@@ -575,10 +575,17 @@ export function normalizeAction(
 ): SupportActionRef | null {
   const def = definition(id);
   if (!def || !isActionAvailable(id, ctx)) return null;
-  const input =
+  const input: Record<string, unknown> =
     raw && typeof raw === "object" && !Array.isArray(raw)
-      ? (raw as Record<string, unknown>)
+      ? { ...(raw as Record<string, unknown>) }
       : {};
+  // The model names a budget in the other key often enough ("budget up to
+  // 300000" on a sale search, "price up to 80" on Smart Match): a price cap
+  // and a budget cap mean the same here, so neither is lost.
+  if (def.params?.includes("price_max") && input.price_max === undefined)
+    input.price_max = input.budget_max;
+  if (def.params?.includes("budget_max") && input.budget_max === undefined)
+    input.budget_max = input.price_max;
   const params: ActionParams = {};
   const { checkIn, checkOut } = dateWindow(input, ctx.today);
   for (const key of def.params ?? []) {

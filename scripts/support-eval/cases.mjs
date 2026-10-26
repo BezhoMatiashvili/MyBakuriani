@@ -13,6 +13,8 @@
 //   guide        true: a walkthrough goal is offered; false: none
 //   needsAccount true/false
 //   amounts      true: every GEL amount in the text is on the price list
+//   memoryAny    the reply's memory (goal + details) has one of these
+//   memory, events, screen   the request's own session memory and screen
 
 const IDENTITY_WORDS = [
   "Gemini",
@@ -494,6 +496,82 @@ export function buildCases({ nextDate }) {
       expect: {
         actionsAny: ["admin_verifications"],
         params: { admin_verifications: { tab: "ownership" } },
+      },
+    },
+
+    // --- Session memory: the goal survives short follow-ups ------------------
+    {
+      name: "create-ka-memory-hotel-photos",
+      locale: "ka",
+      cabinet: "create",
+      path: "/create/rental",
+      signedIn: true,
+      history: [
+        { role: "user", text: "მინდა ჩემი სასტუმრო დავამატო" },
+        {
+          role: "assistant",
+          text: "სასტუმრო ემატება „გაქირავების“ ფორმაში: პირველ ნაბიჯზე აირჩიეთ ტიპი „სასტუმრო“, შემდეგ დაამატეთ ნომრები.",
+        },
+      ],
+      memory: { goal: "add a hotel listing", details: ["property type hotel"] },
+      message: "რამდენი ფოტო შემიძლია ავტვირთო?",
+      // The listing's own 1-10 photos, not only a room's 5.
+      expect: {
+        textAny: ["10"],
+        memoryAny: ["hotel"],
+      },
+    },
+    {
+      name: "create-ka-memory-show-me",
+      locale: "ka",
+      cabinet: "create",
+      path: "/create/rental",
+      signedIn: true,
+      history: [
+        { role: "user", text: "მინდა ჩემი სასტუმრო დავამატო" },
+        {
+          role: "assistant",
+          text: "სასტუმრო ემატება „გაქირავების“ ფორმაში: პირველ ნაბიჯზე აირჩიეთ ტიპი „სასტუმრო“.",
+        },
+      ],
+      memory: { goal: "add a hotel listing", details: ["property type hotel"] },
+      message: "მაჩვენე",
+      expect: { guide: true, memoryAny: ["hotel"] },
+    },
+    {
+      name: "public-en-memory-details",
+      locale: "en",
+      cabinet: "public",
+      path: "/",
+      signedIn: false,
+      message:
+        "We are 4 people and want a place in Didveli from December 20 to 25",
+      expect: {
+        actionsAny: ["search_rent"],
+        memoryAny: ["didveli"],
+      },
+    },
+    {
+      name: "renter-ka-no-membership-add-rental",
+      locale: "ka",
+      cabinet: "renter",
+      path: "/dashboard/renter",
+      signedIn: true,
+      account:
+        'YOUR ACCOUNT (this user\'s own data, read just now; base "why" answers on it):\n- Cabinets: renter.\n- Rental membership: none active (rentals are hidden from the site and a new rental cannot be published until one is active).\n- Own rentals (hotels included): 0 published, 0 waiting for admin approval, 0 draft, 0 blocked by an admin.',
+      message: "როგორ დავამატო ახალი ბინა?",
+      expect: { textAny: ["წევრობ"] },
+    },
+    {
+      name: "renter-en-labels-in-english",
+      locale: "en",
+      cabinet: "renter",
+      path: "/dashboard/renter",
+      signedIn: true,
+      message: "How do I top up my balance?",
+      expect: {
+        actionsAny: ["topup", "balance"],
+        textNone: ["ბალანს"],
       },
     },
   ];

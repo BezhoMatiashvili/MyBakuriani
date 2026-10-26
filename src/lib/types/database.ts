@@ -78,6 +78,8 @@ type PublicViews = {
   analytics_person_map_v: GenPublic["Views"]["analytics_person_map_v"];
   // SMS delivery state per text (C18): service role only, for reconciliation.
   sms_outbound_delivery_v: GenPublic["Views"]["sms_outbound_delivery_v"];
+  // Baku's question log summary (C43): service role only.
+  support_question_summary_v: GenPublic["Views"]["support_question_summary_v"];
 };
 
 // Compile-time tripwire: every view the generator knows about must be

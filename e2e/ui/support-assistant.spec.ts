@@ -16,6 +16,10 @@ type SupportRequest = {
   progress?: string[];
   ref?: string;
   rating?: string;
+  memory?: { goal: string; details: string[] };
+  events?: string[];
+  recent?: string[];
+  screen?: { title: string; elements?: unknown[]; notices: string[] };
   elements?: Array<
     Record<string, unknown> & {
       id: string;
@@ -250,6 +254,92 @@ test.describe("support assistant (Jev)", () => {
     await page.getByTestId("jev-do-it").click();
     await expect(page).toHaveURL(/\/dashboard\/renter\/calendar/);
     await expect(page.getByTestId("jev-bubble")).toBeHidden();
+  });
+
+  test("the chat keeps its goal: an answer's memory goes with the next question, with the screen", async ({
+    renterPage: page,
+  }) => {
+    const memory = {
+      goal: "add a hotel listing",
+      details: ["property type hotel"],
+    };
+    const requests = await mockSupport(page, () =>
+      answer({ text: "სასტუმრო ემატება გაქირავების ფორმაში.", memory }),
+    );
+    await acceptCookies(page);
+    await page.goto("/dashboard/renter");
+    await openAssistant(page);
+    await ask(page, "მინდა სასტუმრო დავამატო");
+    await expect(page.getByTestId("jev-panel")).toContainText(
+      "სასტუმრო ემატება",
+    );
+    await ask(page, "რამდენი ფოტო?");
+    await expect
+      .poll(() => requests.filter((request) => request.mode === "ask").length)
+      .toBe(2);
+    const [first, second] = requests.filter((r) => r.mode === "ask");
+    expect(first.memory).toEqual({ goal: "", details: [] });
+    expect(second.memory).toEqual(memory);
+    // The answer sees the same snapshot Jev plans from: labels, no values.
+    expect(second.screen?.elements?.length ?? 0).toBeGreaterThan(3);
+    expect(JSON.stringify(second.screen)).not.toMatch(/"value"/);
+  });
+
+  test("a stopped walkthrough is told to the next question", async ({
+    renterPage: page,
+  }) => {
+    const requests = await mockSupport(page, (body) =>
+      body.mode === "ask"
+        ? answer({
+            text: "კალენდარი გვერდითა მენიუშია.",
+            guide: "კალენდრის გახსნა",
+            guideNow: body.message === "მაჩვენე კალენდარი",
+          })
+        : calendarPlan(body),
+    );
+    await acceptCookies(page);
+    await page.goto("/dashboard/renter");
+    await openAssistant(page);
+    await ask(page, "მაჩვენე კალენდარი");
+    await expect(page.getByTestId("jev-bubble")).toBeVisible({
+      timeout: 20_000,
+    });
+    await page
+      .getByTestId("jev-bubble")
+      .getByRole("button", { name: "შეწყვეტა" })
+      .click();
+    await expect(page.getByTestId("jev-bubble")).toBeHidden();
+
+    await page.getByTestId("jev-launcher").click();
+    await ask(page, "ისევ ვერ ვპოულობ");
+    await expect
+      .poll(() => requests.filter((request) => request.mode === "ask").length)
+      .toBe(2);
+    const events = requests.filter((r) => r.mode === "ask")[1].events ?? [];
+    expect(events.join(" ")).toMatch(
+      /walkthrough "მაჩვენე კალენდარი" stopped by the user at "კალენდარი"/,
+    );
+  });
+
+  test("a later “how do I” question is planned while it is answered", async ({
+    renterPage: page,
+  }) => {
+    const requests = await mockSupport(page, (body) =>
+      body.mode === "ask" ? answer({ text: "გამარჯობა!" }) : { type: "noplan" },
+    );
+    await acceptCookies(page);
+    await page.goto("/dashboard/renter");
+    await openAssistant(page);
+    await ask(page, "გამარჯობა");
+    await expect(page.getByTestId("jev-panel")).toContainText("გამარჯობა!");
+    expect(requests.filter((r) => r.mode === "plan")).toHaveLength(0);
+    await ask(page, "როგორ დავამატო ჯავშანი?");
+    await expect
+      .poll(() => requests.filter((request) => request.mode === "plan").length)
+      .toBe(1);
+    const plan = requests.find((r) => r.mode === "plan");
+    expect(plan?.goal).toBe("როგორ დავამატო ჯავშანი?");
+    expect(plan?.recent).toEqual(["გამარჯობა", "როგორ დავამატო ჯავშანი?"]);
   });
 
   test("a quick question answers at once, with the site's own button", async ({
