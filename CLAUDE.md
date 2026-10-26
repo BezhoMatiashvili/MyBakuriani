@@ -50,7 +50,7 @@ Define success criteria. Loop until verified.
 - **React**: 19.1 with Server Components
 - **Styling**: Tailwind CSS 4 + shadcn/ui (New York style, Slate base, CSS variables)
 - **Database**: Supabase (PostgreSQL) with RLS policies
-- **Auth**: Supabase email + password, Google OAuth and phone (SMS code) via `@supabase/ssr` 0.9. Phone sign-in came back 2026-10-06 on staging only: Supabase's Send SMS hook calls the `auth-send-sms` edge function, which texts the code through uBill, and the UI shows only with `NEXT_PUBLIC_PHONE_AUTH_ENABLED=true` (C48). Facebook was removed 2026-09-22
+- **Auth**: Supabase email + password, Google OAuth and phone (SMS code) via `@supabase/ssr` 0.9. Phone sign-in came back 2026-10-06 on staging and 2026-10-24 on prod: Supabase's Send SMS hook calls the `auth-send-sms` edge function, which texts the code through uBill, and the UI shows only with `NEXT_PUBLIC_PHONE_AUTH_ENABLED=true` (C48; set on both DO apps). Facebook was removed 2026-09-22
 - **Backend**: Supabase Edge Functions (Deno)
 - **Storage**: Supabase Storage (`property-photos` bucket)
 - **Maps**: Mapbox GL JS (`mapbox-gl` npm package, `light-v11` style; `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, a public "pk." token safe for client exposure). Default attribution control must stay enabled (Mapbox ToS requirement for any rendered map).
@@ -58,7 +58,7 @@ Define success criteria. Loop until verified.
 - **Routing**: Mapbox Directions API, `driving-traffic` profile — replaced the keyless FOSSGIS OSRM fetch that ran here before 2026-09. Server-side (secret `MAPBOX_ACCESS_TOKEN`) for the landing road badge's fixed Tbilisi→Bakuriani estimate (`src/lib/road-condition/server.ts`). Client-side (public `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`) for the personalized, geolocation-based road card (`src/lib/maps/directions.ts`). Listing detail maps only link to Google Maps directions ("Google Maps-ში გახსნა", since 2026-10-13, C38)
 - **Animations**: Framer Motion 12
 - **Font**: Noto Sans Georgian (Google Fonts)
-- **Deployment**: DigitalOcean App Platform (`mybakuriani-prod` on `main`, `mybakuriani-staging` on `staging`, both Singapore/SGP1) + Supabase Cloud
+- **Deployment**: DigitalOcean App Platform (`mybakuriani-prod-fra` on `main`, `mybakuriani-staging` on `staging`, both Frankfurt/FRA1; prod moved from Singapore 2026-10-20) + Supabase Cloud (prod `wlkmyxyaocvgqomrrbfs`, staging `laxwtegxpemuuyxluqsi`, both eu-central-1)
 - Key dirs: `src/app/`, `src/components/`, `src/lib/`, `supabase/functions/`, `supabase/migrations/`
 
 ## WHY — Project Purpose
