@@ -18,7 +18,7 @@ const sizeClasses: Record<string, string> = {
   sm: "max-w-[calc(100vw-2rem)] sm:max-w-sm",
   md: "max-w-[calc(100vw-2rem)] sm:max-w-lg",
   lg: "max-w-[calc(100vw-2rem)] sm:max-w-2xl",
-  xl: "max-w-[calc(100vw-2rem)] lg:max-w-[1100px]",
+  xl: "max-w-full sm:max-w-[calc(100vw-2rem)] lg:max-w-[1100px]",
 };
 
 export default function Modal({
