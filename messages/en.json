@@ -742,7 +742,7 @@
     "sale": {
       "heroTitleTop": "Discover in Bakuriani",
       "heroTitleHighlight": "your new home",
-      "pricePerSqm": "{price} ₾/m²",
+      "pricePerSqm": "{price}/m²",
       "prev": "Previous",
       "next": "Next",
       "investmentProperties": "Investment Properties",
@@ -8066,6 +8066,7 @@
       "guests": "{count, plural, one {# guest} other {# guests}}",
       "rooms": "{count, plural, one {# room} other {# rooms}}",
       "priceMax": "up to {amount} ₾",
+      "priceMaxUsd": "up to ${amount}",
       "budget": "{min}–{max} ₾",
       "budgetFrom": "from {amount} ₾",
       "amount": "{amount} ₾"

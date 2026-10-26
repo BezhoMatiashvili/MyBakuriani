@@ -10,7 +10,7 @@ import { Building2, Eye, Plus, Heart, BarChart3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useActiveOrgScope } from "@/lib/dashboard/orgScope";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice, formatNumber } from "@/lib/utils/format";
+import { formatNumber, formatSalePrice } from "@/lib/utils/format";
 import { useStatsFilter } from "@/lib/hooks/useStatsFilter";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import {
@@ -325,7 +325,7 @@ export default function SellerDashboardClient({
                     </span>
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span className="text-[16px] font-black text-[#2563EB] sm:text-[17px]">
-                        {formatPrice(Number(property.sale_price ?? 0))}
+                        {formatSalePrice(Number(property.sale_price ?? 0))}
                       </span>
                       <span className="flex items-center gap-1 text-xs text-[#94A3B8]">
                         <Eye className="h-3 w-3" />

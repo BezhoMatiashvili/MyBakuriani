@@ -7,7 +7,7 @@ import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
-import { formatNumber } from "@/lib/utils/format";
+import { formatSalePrice } from "@/lib/utils/format";
 import { cardEnter } from "@/lib/utils/enterAnimation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
@@ -42,10 +42,6 @@ interface SalePropertyCardProps {
   createdAt: string | null;
   /** `public_properties.ownership_verified` (C39). */
   isOwnershipVerified?: boolean;
-}
-
-function formatUsd(n: number): string {
-  return `$${formatNumber(n)}`;
 }
 
 export default function SalePropertyCard({
@@ -222,15 +218,15 @@ export default function SalePropertyCard({
             <div>
               {discountActive && (
                 <span className="block whitespace-nowrap text-[12px] font-bold leading-[16px] text-[#94A3B8] line-through">
-                  {formatUsd(priceUsd)}
+                  {formatSalePrice(priceUsd)}
                 </span>
               )}
               <span className="block whitespace-nowrap text-[22px] font-black leading-[28px] text-[#16A34A]">
-                {formatUsd(displayPriceUsd)}
+                {formatSalePrice(displayPriceUsd)}
               </span>
               {pricePerSqm && (
                 <span className="block text-[11px] font-medium text-[#94A3B8]">
-                  {t("pricePerSqm", { price: `$${formatNumber(pricePerSqm)}` })}
+                  {t("pricePerSqm", { price: formatSalePrice(pricePerSqm) })}
                 </span>
               )}
             </div>

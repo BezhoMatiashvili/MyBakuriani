@@ -7,7 +7,7 @@ import {
   sentenceCase,
   type PropertyFacts,
 } from "@/lib/seo/listing-facts";
-import { formatPrice } from "@/lib/utils/format";
+import { formatPrice, formatSalePrice } from "@/lib/utils/format";
 import { applyDiscount } from "@/lib/utils/pricing";
 
 // The listing's own fields as one sentence in the page's language (C40). Owner
@@ -39,7 +39,10 @@ export async function listingFactsText(
 
   const price = facts.price
     ? t(facts.kind === "sale" ? "priceSale" : "priceNight", {
-        price: formatPrice(facts.price),
+        price:
+          facts.kind === "sale"
+            ? formatSalePrice(facts.price)
+            : formatPrice(facts.price),
       })
     : null;
 

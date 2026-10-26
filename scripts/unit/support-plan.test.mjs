@@ -38,6 +38,10 @@ test("maskPersonalData hides e-mails and long digit runs, keeps short numbers", 
   );
   assert.equal(maskPersonalData("1 500 000 ₾-მდე"), "1 500 000 ₾-მდე");
   assert.equal(maskPersonalData("$ 250000"), "$ 250000");
+  // Sale prices are dollars (C54), so a dollar budget is kept too.
+  assert.equal(maskPersonalData("300000 დოლარამდე"), "300000 დოლარამდე");
+  assert.equal(maskPersonalData("up to 300000 dollars"), "up to 300000 dollars");
+  assert.equal(maskPersonalData("до 300 000 долларов"), "до 300 000 долларов");
   assert.equal(maskPersonalData("599123456 GELA"), "[number] GELA");
 });
 

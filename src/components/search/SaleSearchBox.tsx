@@ -14,7 +14,7 @@ import {
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatPrice } from "@/lib/utils/format";
+import { formatSalePrice } from "@/lib/utils/format";
 import { FALLBACK_ZONES, type Zone } from "@/lib/zones/types";
 import { createClient } from "@/lib/supabase/client";
 import { sanitizeCadastralCode } from "@/lib/utils/number";
@@ -204,11 +204,6 @@ const DEFAULT_AREA_MAX = 500;
 function formatUsd(n: number): string {
   if (n >= 1000) return `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
   return `$${n}`;
-}
-
-// Format ₾ amounts with thousands separators (Georgian convention uses space).
-function formatGel(n: number): string {
-  return formatPrice(n);
 }
 
 // ─── Component ─────────────────────────────────────────────────────────
@@ -1664,17 +1659,17 @@ function AppraisalResults({
             })}
           </p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <Stat label={t("avgPrice")} value={formatGel(result.avgPrice)} />
+            <Stat label={t("avgPrice")} value={formatSalePrice(result.avgPrice)} />
             <Stat
               label={t("avgPricePerSqm")}
               value={t("perSqmValue", {
-                price: formatGel(result.avgPricePerSqm),
+                price: formatSalePrice(result.avgPricePerSqm),
               })}
             />
             {result.estimatedValue != null && (
               <Stat
                 label={t("estimatedValue")}
-                value={formatGel(result.estimatedValue)}
+                value={formatSalePrice(result.estimatedValue)}
               />
             )}
           </div>

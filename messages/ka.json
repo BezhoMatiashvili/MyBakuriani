@@ -742,7 +742,7 @@
     "sale": {
       "heroTitleTop": "აღმოაჩინე ბაკურიანში",
       "heroTitleHighlight": "შენი ახალი სახლი",
-      "pricePerSqm": "{price} ₾/მ²",
+      "pricePerSqm": "{price}/მ²",
       "prev": "წინა",
       "next": "შემდეგი",
       "investmentProperties": "საინვესტიციო ობიექტები",
@@ -8066,6 +8066,7 @@
       "guests": "{count} სტუმარი",
       "rooms": "{count} ოთახი",
       "priceMax": "{amount} ₾-მდე",
+      "priceMaxUsd": "${amount}-მდე",
       "budget": "{min}–{max} ₾",
       "budgetFrom": "{amount} ₾-დან",
       "amount": "{amount} ₾"

@@ -7,7 +7,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import type { Zone } from "@/lib/zones/types";
-import { formatNumber } from "@/lib/utils/format";
+import { formatSalePrice } from "@/lib/utils/format";
 import type { MapProperty, RouteDisplay } from "./BakurianiMap";
 
 // ── Mapbox light basemap (closest built-in equivalent to the previous
@@ -15,11 +15,9 @@ import type { MapProperty, RouteDisplay } from "./BakurianiMap";
 // default (enabled) per Mapbox ToS — never suppress it. ──
 const MAPBOX_STYLE = "mapbox://styles/mapbox/light-v11";
 
-// ── Price formatting ──
+// ── Price formatting (sale prices are US dollars, C54) ──
 function formatPrice(price: number, isForSale?: boolean): string {
-  if (isForSale && price >= 1000) {
-    return `${formatNumber(price)} ₾`;
-  }
+  if (isForSale) return formatSalePrice(price);
   return `${price} ₾`;
 }
 

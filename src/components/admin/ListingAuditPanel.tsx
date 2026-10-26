@@ -720,7 +720,7 @@ function PropertyForm({
           )}
           {isForSale && (
             <NumberField
-              label={t("salePrice")}
+              label={`${t("salePrice")} ($)`}
               value={effective<number | null>("sale_price", null)}
               onChange={(v) => setField("sale_price", v)}
               step="0.01"
@@ -728,12 +728,15 @@ function PropertyForm({
               max={1000000}
             />
           )}
-          <TextField
-            label={t("currency")}
-            value={effective<string | null>("currency", null) ?? ""}
-            onChange={(v) => setField("currency", v)}
-            placeholder="₾"
-          />
+          {/* Sale prices are always US dollars (C54): no currency box. */}
+          {!isForSale && (
+            <TextField
+              label={t("currency")}
+              value={effective<string | null>("currency", null) ?? ""}
+              onChange={(v) => setField("currency", v)}
+              placeholder="₾"
+            />
+          )}
           <NumberField
             label={t("discountPercent")}
             value={effective<number | null>("discount_percent", null)}

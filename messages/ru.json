@@ -742,7 +742,7 @@
     "sale": {
       "heroTitleTop": "Откройте в Бакуриани",
       "heroTitleHighlight": "свой новый дом",
-      "pricePerSqm": "{price} ₾/м²",
+      "pricePerSqm": "{price}/м²",
       "prev": "Назад",
       "next": "Вперёд",
       "investmentProperties": "Инвестиционные объекты",
@@ -8066,6 +8066,7 @@
       "guests": "{count, plural, one {# гость} few {# гостя} many {# гостей} other {# гостя}}",
       "rooms": "{count, plural, one {# комната} few {# комнаты} many {# комнат} other {# комнаты}}",
       "priceMax": "до {amount} ₾",
+      "priceMaxUsd": "до ${amount}",
       "budget": "{min}–{max} ₾",
       "budgetFrom": "от {amount} ₾",
       "amount": "{amount} ₾"

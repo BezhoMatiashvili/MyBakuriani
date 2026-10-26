@@ -87,7 +87,7 @@ export function buildCases({ nextDate }) {
       cabinet: "public",
       path: "/sales",
       signedIn: false,
-      message: "I want to buy a cottage, budget up to 300000 GEL",
+      message: "I want to buy a cottage, budget up to 300000 dollars",
       expect: {
         actionsAny: ["search_sale"],
         params: { search_sale: { types: ["cottage"], price_max: 300000 } },

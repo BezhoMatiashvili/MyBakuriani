@@ -3492,6 +3492,54 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C53: ${tables.length} period tables and ${entryPoints.length} entry points service_role only (RLS on, no policy), ${functions.length} functions pinned to search_path '' and closed to client roles; benefit/role/name/listing limits = CHECKs and enum; ${raised.size + 1} database tokens → ${codes.length} worded error codes; ${handlerCount} handlers start with requireAdmin, writers rate-limited under the admin's id; tables named only by the admin API; sign-up trigger swallows errors, no trigger on properties/services, cron SQL-only, no transactions row, bell-only notices; pure module bare; namespace, nav label and both menus wired`);
 }
 
+// C54 — sale prices are US dollars: properties.sale_price stores what the sale form's USD price field took
+// (house_rules.price_currency = "USD"), so every sale surface prints it through formatSalePrice and nothing
+// converts it. (a) formatSalePrice is `$` + formatNumber; (b) no ₾↔$ rate constant anywhere in src; (c) no
+// formatPrice(…) (₾) is handed a sale price; (d) the sale-only components never call formatPrice; (e) every
+// sale surface prints through formatSalePrice; (f) Baku's search_sale budget is prompted in dollars.
+{
+  const problems = [];
+  if (!/export function formatSalePrice\(amount: number\): string \{\s*return `\$\$\{formatNumber\(amount\)\}`;/.test(read("src/lib/utils/format.ts")))
+    problems.push("src/lib/utils/format.ts must export formatSalePrice(amount) = `$${formatNumber(amount)}`");
+  for (const [file, text] of srcText) {
+    if (/\b(?:GEL_TO_USD|USD_TO_GEL|GEL_PER_USD|USD_PER_GEL)\b/.test(text)) problems.push(`${file} converts between ₾ and $`);
+    text.split("\n").forEach((line, i) => {
+      if (/\bformatPrice\([^)]*sale_?price/i.test(line)) problems.push(`${file}:${i + 1} hands a sale price to formatPrice (₾)`);
+    });
+  }
+  const saleOnly = [
+    "src/components/cards/InvestmentCard.tsx",
+    "src/components/cards/SalePropertyCard.tsx",
+    "src/app/[locale]/sales/[id]/SaleDetailClient.tsx",
+    "src/components/search/SaleSearchBox.tsx",
+  ];
+  const mixed = [
+    "src/app/[locale]/_landing/SaleLandingBody.tsx",
+    "src/components/cards/PropertyCard.tsx",
+    "src/components/seo/ListingFacts.tsx",
+    "src/components/maps/MapboxCanvas.tsx",
+    "src/components/renter/VipPropertyPickerModal.tsx",
+    "src/app/[locale]/dashboard/seller/SellerDashboardClient.tsx",
+    "src/app/[locale]/dashboard/admin/listings/page.tsx",
+    "src/app/[locale]/dashboard/guest/GuestDashboardClient.tsx",
+    "src/app/[locale]/dashboard/guest/favorites/page.tsx",
+  ];
+  for (const file of saleOnly) {
+    if (!srcText.has(file)) problems.push(`${file} is missing (update the C54 list)`);
+    else if (/\bformatPrice\(/.test(srcText.get(file))) problems.push(`${file} shows only sale prices but calls formatPrice (₾)`);
+  }
+  for (const file of [...saleOnly, ...mixed]) {
+    if (srcText.has(file) && !/\bformatSalePrice\(/.test(srcText.get(file))) problems.push(`${file} does not print its sale price through formatSalePrice`);
+    else if (!srcText.has(file) && mixed.includes(file)) problems.push(`${file} is missing (update the C54 list)`);
+  }
+  if (!/\bprice_max \(the highest total price in US dollars\)/.test(read("src/lib/support/actions.ts")))
+    problems.push("src/lib/support/actions.ts: search_sale must prompt price_max in US dollars");
+  if (!/US dollars in total for sales/.test(read("src/lib/support/plan.ts")))
+    problems.push("src/lib/support/plan.ts: the reply tool's price_max must say sales are US dollars");
+  if (problems.length) problems.forEach((p) => fail(`C54: ${p}`));
+  else ok(`C54: sale prices print as $ through formatSalePrice on ${saleOnly.length + mixed.length} surfaces (${saleOnly.length} sale-only without formatPrice); no ₾↔$ rate, no sale price handed to formatPrice; Baku's sale budget prompted in dollars`);
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);

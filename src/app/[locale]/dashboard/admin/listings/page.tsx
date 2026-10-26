@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ListingAuditPanel from "@/components/admin/ListingAuditPanel";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { Link } from "@/i18n/navigation";
-import { formatPrice } from "@/lib/utils/format";
+import { formatPrice, formatSalePrice } from "@/lib/utils/format";
 import { propertyViewUrl, serviceViewUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
 
@@ -320,7 +320,7 @@ export default function ListingsPage() {
                 row.price_per_night != null
                   ? `${formatPrice(row.price_per_night)}${tShared("perNight")}`
                   : row.sale_price != null
-                    ? formatPrice(row.sale_price)
+                    ? formatSalePrice(row.sale_price)
                     : "—";
               const isBusy = busyId === row.id;
               const previewUrl = `${

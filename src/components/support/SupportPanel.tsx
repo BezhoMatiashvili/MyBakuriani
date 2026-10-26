@@ -115,7 +115,13 @@ export function describeButton(
   if (Array.isArray(p.types))
     parts.push(p.types.map((type) => t(`types.${type}` as never)).join(", "));
   const priceMax = number(p.price_max);
-  if (priceMax) parts.push(t("params.priceMax", { amount: priceMax }));
+  if (priceMax)
+    parts.push(
+      t(
+        button.id === "search_sale" ? "params.priceMaxUsd" : "params.priceMax",
+        { amount: priceMax },
+      ),
+    );
   const budgetMin = number(p.budget_min);
   const budgetMax = number(p.budget_max);
   if (budgetMin !== undefined && budgetMax !== undefined)

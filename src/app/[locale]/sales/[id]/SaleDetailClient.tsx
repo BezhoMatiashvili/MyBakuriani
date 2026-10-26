@@ -24,7 +24,7 @@ import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { optionKeyFor } from "@/lib/constants/listing-options";
 import { readPaymentOptions } from "@/lib/constants/sale-listing";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
-import { formatPrice, formatRelativeGe } from "@/lib/utils/format";
+import { formatRelativeGe, formatSalePrice } from "@/lib/utils/format";
 import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
@@ -733,18 +733,18 @@ export default function SaleDetailClient({
               <div className="mb-1 text-sm text-[#94A3B8]">{t("price")}</div>
               {discountActive && salePrice > 0 && (
                 <div className="text-sm font-bold text-[#94A3B8] line-through">
-                  {formatPrice(salePrice)}
+                  {formatSalePrice(salePrice)}
                 </div>
               )}
               <div className="text-[32px] font-black leading-[34px] text-[#1E293B]">
                 {salePrice > 0
-                  ? formatPrice(Math.round(displaySalePrice))
+                  ? formatSalePrice(Math.round(displaySalePrice))
                   : t("negotiable")}
               </div>
               {property.area_sqm != null && salePrice > 0 && !isLand && (
                 <div className="mt-1 text-sm text-[#94A3B8]">
                   {t("pricePerSqm", {
-                    price: formatPrice(
+                    price: formatSalePrice(
                       Math.round(displaySalePrice / property.area_sqm),
                     ),
                   })}
@@ -965,7 +965,7 @@ export default function SaleDetailClient({
       <MobileStickyCTA
         primary={
           salePrice > 0
-            ? formatPrice(Math.round(displaySalePrice))
+            ? formatSalePrice(Math.round(displaySalePrice))
             : t("negotiable")
         }
         secondary={property.location ?? undefined}

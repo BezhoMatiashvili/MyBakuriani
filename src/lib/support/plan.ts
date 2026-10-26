@@ -310,7 +310,8 @@ const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const LONG_NUMBER = /\+?\d(?:[\s.()-]*\d){5,}/g;
 // ...except an amount of money ("300000 GEL", "₾ 1 500 000"): a budget is
 // what the user wants the search filtered by, not a personal number.
-const MONEY_AFTER = /^\s*(?:₾|\$|€|ლარ|лари|(?:gel|lari|usd|eur)\b)/i;
+const MONEY_AFTER =
+  /^\s*(?:₾|\$|€|ლარ|დოლარ|лари|доллар|(?:gel|lari|usd|eur|dollars?)\b)/i;
 const MONEY_BEFORE = /(?:₾|\$|€|\b(?:gel|usd|eur))\s*$/i;
 // C0/C1 controls, zero-width and bidi characters, line/paragraph separators.
 const INVISIBLE =
@@ -703,7 +704,7 @@ export function buildReplyTool(vocab: {
                     guests: whole("Number of guests."),
                     rooms: whole("Minimum number of rooms."),
                     price_max: whole(
-                      "Highest price in GEL (per night for rentals).",
+                      "Highest price: GEL per night for rentals, US dollars in total for sales.",
                     ),
                     budget_min: whole(
                       "Smart Match budget from, GEL per night.",

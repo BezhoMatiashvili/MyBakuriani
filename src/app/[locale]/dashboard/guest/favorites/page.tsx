@@ -15,7 +15,7 @@ import {
 } from "@/lib/favorites/store";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
-import { formatNumber, formatPrice } from "@/lib/utils/format";
+import { formatPrice, formatSalePrice } from "@/lib/utils/format";
 import { priceUnitPathFor } from "@/lib/constants/listing-options";
 import type { Database } from "@/lib/types/database";
 
@@ -280,7 +280,7 @@ function FavoritePropertyCard({
                 favourited sale listing. */}
             <span className="text-[16px] font-black text-[#0F172A]">
               {property.is_for_sale
-                ? `$${formatNumber(Number(property.sale_price ?? 0))}`
+                ? formatSalePrice(Number(property.sale_price ?? 0))
                 : formatPrice(Number(property.price_per_night ?? 0))}
             </span>
             {!property.is_for_sale && (

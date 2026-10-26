@@ -20,7 +20,7 @@ import type { BannerCreative } from "@/lib/banner-creative";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import { cn } from "@/lib/utils";
-import { formatNumber } from "@/lib/utils/format";
+import { formatSalePrice } from "@/lib/utils/format";
 import { HERO_NOISE_BACKGROUND } from "@/lib/utils/heroTexture";
 import { isDiscountActive } from "@/lib/utils/pricing";
 import type { LandingSaleProperty } from "./columns";
@@ -77,16 +77,8 @@ function renderZoneIcon(icon: string, zoneSlug: string, isLast: boolean) {
   );
 }
 
-// Convert GEL → USD for display (rough conversion; backend stores GEL).
-const GEL_TO_USD = 1 / 2.7;
-
 const ZONE_CARD_ROW_CLASS =
   "scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-px-4 px-4 sm:mx-0 sm:grid sm:grid-cols-4 sm:gap-4 sm:overflow-visible sm:px-0";
-
-function toUsd(gel: number | null | undefined): number {
-  if (!gel) return 0;
-  return Math.round(gel * GEL_TO_USD);
-}
 
 // Deterministic ROI estimate from id so cards stay stable.
 function estimatedRoi(id: string): number {
@@ -104,7 +96,8 @@ function toSaleCard(p: LandingSaleProperty) {
     title: p.title,
     location: p.location,
     photos: Array.isArray(p.photos) ? (p.photos as string[]) : [],
-    priceUsd: toUsd(p.sale_price ? Number(p.sale_price) : null),
+    // sale_price is already in US dollars (C54): shown as stored.
+    priceUsd: Number(p.sale_price ?? 0),
     type: p.type,
     area: p.area_sqm ?? null,
     rooms: p.rooms,
@@ -145,7 +138,7 @@ export default function SaleLandingBody({
 
   const formatPricePerSqm = (avg: number | null | undefined): string => {
     if (avg == null || !Number.isFinite(avg)) return "—";
-    return t("sale.pricePerSqm", { price: formatNumber(avg) });
+    return t("sale.pricePerSqm", { price: formatSalePrice(avg) });
   };
 
   // Research section: the admin's text or figure where set, else the catalog

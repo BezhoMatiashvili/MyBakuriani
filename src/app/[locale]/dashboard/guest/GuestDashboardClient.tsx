@@ -10,7 +10,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { trackAnalyticsEvent } from "@/lib/analytics/track-client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatNumber, formatPrice } from "@/lib/utils/format";
+import { formatPrice, formatSalePrice } from "@/lib/utils/format";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { priceUnitPathFor } from "@/lib/constants/listing-options";
 import { propertyViewUrl, serviceViewUrl } from "@/lib/utils/listingUrls";
@@ -457,7 +457,7 @@ function RecentListingCard({ entry }: { entry: RecentListing }) {
   // Sale prices are entered and stored in USD, so they render with "$" like
   // the sale cards do.
   const money = (n: number) =>
-    isSale ? `$${formatNumber(n)}` : formatPrice(n);
+    isSale ? formatSalePrice(n) : formatPrice(n);
   const unitPath =
     entry.kind === "service"
       ? priceUnitPathFor(entry.listing.price_unit)

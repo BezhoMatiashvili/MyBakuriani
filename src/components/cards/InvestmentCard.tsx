@@ -6,7 +6,7 @@ import Image from "next/image";
 import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { formatPrice } from "@/lib/utils/format";
+import { formatSalePrice } from "@/lib/utils/format";
 import { cardEnter } from "@/lib/utils/enterAnimation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
@@ -123,7 +123,7 @@ export default function InvestmentCard({
       ? applyDiscount(salePrice, discountPercent, discountExpiresAt)
       : null;
 
-  // Derived from the DISCOUNTED price so the ₾/m² line cannot contradict the
+  // Derived from the DISCOUNTED price so the $/m² line cannot contradict the
   // headline above it — same as SalePropertyCard and the sale detail sidebar.
   const pricePerSqm =
     !isLand && displayPrice != null && areaSqm && areaSqm > 0
@@ -344,7 +344,7 @@ export default function InvestmentCard({
                 <>
                   {discountActive && (
                     <span className="block whitespace-nowrap text-[12px] font-bold leading-[16px] text-[#94A3B8] line-through">
-                      {formatPrice(salePrice)}
+                      {formatSalePrice(salePrice)}
                     </span>
                   )}
                   <span
@@ -355,13 +355,13 @@ export default function InvestmentCard({
                         : "text-[24px] leading-[30px]",
                     )}
                   >
-                    {formatPrice(displayPrice!)}
+                    {formatSalePrice(displayPrice!)}
                   </span>
                 </>
               ) : null}
               {pricePerSqm != null && (
                 <span className="mt-0.5 block text-[12px] font-medium text-[#94A3B8]">
-                  {t("pricePerSqm", { price: formatPrice(pricePerSqm) })}
+                  {t("pricePerSqm", { price: formatSalePrice(pricePerSqm) })}
                 </span>
               )}
             </div>

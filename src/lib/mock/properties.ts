@@ -362,8 +362,6 @@ export const MOCK_SALES: MockSaleCard[] = [
   },
 ];
 
-const USD_TO_GEL = 2.7;
-
 export type MockFeaturedCard = MockSaleCard & { description: string };
 
 export const MOCK_FEATURED_SALES: MockFeaturedCard[] = [
@@ -555,7 +553,7 @@ function buildMockSaleProperty(
     roi_percent_max: null,
     room_type: null,
     rooms: source.rooms,
-    sale_price: Math.round(source.priceUsd * USD_TO_GEL),
+    sale_price: source.priceUsd,
     status: "active",
     title: source.title,
     type: "apartment",

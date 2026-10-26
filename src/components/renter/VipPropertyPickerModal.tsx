@@ -11,6 +11,7 @@ import type { PurchaseIntent } from "@/lib/payments/keepz/intent";
 import NumberField from "@/components/shared/NumberField";
 import { clampNumber, parseNumeric } from "@/lib/utils/number";
 import { formatGelAmount } from "@/lib/utils/pricing";
+import { formatSalePrice } from "@/lib/utils/format";
 
 export interface PickerProperty {
   id: string;
@@ -138,6 +139,8 @@ export default function VipPropertyPickerModal({
     tier === "discount"
       ? listingPrice(properties.find((p) => p.id === selectedId))
       : null;
+  // A sale price is in US dollars (C54); a rental's nightly price in ₾.
+  const saleListing = selectedProperty?.isForSale === true;
 
   const priceAtPercent = (base: number, pct: number) =>
     String(clampNumber(base * (1 - pct / 100), { decimals: 2 }));
@@ -519,7 +522,8 @@ export default function VipPropertyPickerModal({
                         {t("newPriceLabel")}
                       </p>
                       <p className="mt-0.5 text-[11px] font-medium text-[#94A3B8]">
-                        {t("currentPriceLabel")}: {basePrice} ₾
+                        {t("currentPriceLabel")}:{" "}
+                        {saleListing ? formatSalePrice(basePrice) : `${basePrice} ₾`}
                       </p>
                     </div>
                     <div className="w-36" onBlur={snapTargetPrice}>
@@ -529,7 +533,8 @@ export default function VipPropertyPickerModal({
                         min={basePrice * 0.1}
                         max={basePrice * 0.99}
                         decimals={2}
-                        suffix="₾"
+                        prefix={saleListing ? "$" : undefined}
+                        suffix={saleListing ? undefined : "₾"}
                         accent="green"
                       />
                     </div>

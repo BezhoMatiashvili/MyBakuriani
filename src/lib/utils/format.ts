@@ -31,6 +31,15 @@ export function formatPricePerNight(amount: number, locale?: string): string {
 }
 
 /**
+ * A sale listing's price. Sales are priced in US dollars: the sale form takes
+ * the price in USD (house_rules.price_currency = "USD") and sale_price stores
+ * it as typed, so it is never converted and never printed with ₾ (C54).
+ */
+export function formatSalePrice(amount: number): string {
+  return `$${formatNumber(amount)}`;
+}
+
+/**
  * Deterministic integer grouping with a thin space — identical on the server
  * (Node) and the client (browser) regardless of runtime locale/ICU data.
  * Use this instead of `Number.prototype.toLocaleString()` which varies per

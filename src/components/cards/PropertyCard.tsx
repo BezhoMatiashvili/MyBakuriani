@@ -5,7 +5,7 @@ import Image from "next/image";
 import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { formatPrice } from "@/lib/utils/format";
+import { formatPrice, formatSalePrice } from "@/lib/utils/format";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
@@ -386,14 +386,16 @@ export default function PropertyCard(props: PropertyCardProps) {
             <div className="min-w-0">
               {originalPrice != null ? (
                 <span className="block text-[11px] font-bold leading-[16px] text-[#94A3B8] line-through">
-                  {formatPrice(originalPrice)}
+                  {isForSale
+                    ? formatSalePrice(originalPrice)
+                    : formatPrice(originalPrice)}
                 </span>
               ) : (
                 <span className="hidden h-[16px] lg:block" aria-hidden="true" />
               )}
               {isForSale && displayPrice != null ? (
                 <span className={cn("whitespace-nowrap font-black text-[#1E293B]", compactGrid ? "text-[18px] leading-[24px] sm:text-[24px] sm:leading-[32px]" : "text-[24px] leading-[32px]")}>
-                  {formatPrice(Math.round(displayPrice))}
+                  {formatSalePrice(Math.round(displayPrice))}
                 </span>
               ) : displayPrice != null ? (
                 <span className="flex items-baseline gap-1">

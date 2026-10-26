@@ -217,7 +217,7 @@ const ACTIONS = {
     where: PUBLIC,
     params: ["zone", "types", "price_max", "rooms"],
     prompt:
-      "search property for sale (no account needed), prefilled: zone, types (only a kind the user names: flat, apartment, hotel, cottage, villa, house, studio, land), price_max (the highest total price in GEL), rooms (exact; 4 = four or more)",
+      "search property for sale (no account needed), prefilled: zone, types (only a kind the user names: flat, apartment, hotel, cottage, villa, house, studio, land), price_max (the highest total price in US dollars), rooms (exact; 4 = four or more)",
     href: (p) =>
       withQuery("/sales/all", {
         types: Array.isArray(p.types) ? p.types.join(",") : undefined,

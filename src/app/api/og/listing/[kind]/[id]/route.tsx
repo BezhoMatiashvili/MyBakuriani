@@ -68,6 +68,8 @@ async function loadCover(url: string | undefined): Promise<string | null> {
 }
 
 const gel = (n: number) => `${Math.round(n).toLocaleString("en-US")} ₾`;
+// Sale prices are US dollars (C54).
+const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
 type Card = {
   title: string;
@@ -160,7 +162,7 @@ export async function GET(
             : null;
         card = {
           title: row.title,
-          price: net == null ? null : row.is_for_sale ? gel(net) : `${gel(net)} / ღამე`,
+          price: net == null ? null : row.is_for_sale ? usd(net) : `${gel(net)} / ღამე`,
           location: row.location ?? null,
           cover: await loadCover(row.photos?.[0]),
         };
