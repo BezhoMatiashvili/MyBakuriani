@@ -4377,6 +4377,7 @@
     "invalidResponse": "Invalid server response",
     "redirecting": "Redirecting...",
     "close": "Close",
+    "clearSearch": "Clear search",
     "perNight": "/night",
     "perNightSpaced": " / night",
     "viewsMeta": "{meta} • {views, plural, one {# view} other {# views}} • {location}",

@@ -813,6 +813,8 @@ export default function ModerationPage() {
           role="presentation"
         >
           <div
+            role="dialog"
+            aria-modal="true"
             className="max-h-[90dvh] w-full max-w-[600px] overflow-y-auto rounded-[32px] bg-white p-6 shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)] sm:p-10 lg:max-h-[calc(100vh-2rem)]"
             onClick={handleModalContainerClick}
           >

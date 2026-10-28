@@ -134,7 +134,11 @@ export default function ConstructionManagementModal({
   return (
     <AnimatePresence>
       {open && property && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
+        >
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

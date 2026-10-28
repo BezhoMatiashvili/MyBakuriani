@@ -549,7 +549,9 @@ function SupportLauncher({
           : style),
         WebkitTouchCallout: "none",
       }}
-      className={`${corner} z-[80] flex h-14 min-w-14 touch-none select-none items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[#2563EB] to-[#4F46E5] text-white shadow-[0_12px_32px_-8px_rgba(37,99,235,0.65)] ring-4 ring-white/80 sm:pl-4 sm:pr-5`}
+      // Hidden while a modal dialog is open (aria-modal="true"), like the cookie
+      // banner: at z-80 it sat on the dialog's lower corner on phones.
+      className={`${corner} z-[80] flex h-14 min-w-14 touch-none [body:has([aria-modal=true])_&]:hidden select-none items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[#2563EB] to-[#4F46E5] text-white shadow-[0_12px_32px_-8px_rgba(37,99,235,0.65)] ring-4 ring-white/80 sm:pl-4 sm:pr-5`}
       initial={reduceMotion ? false : { opacity: 0, scale: 0.6 }}
       animate={{ opacity: 1, scale: drag && !reduceMotion ? 1.08 : 1 }}
       exit={{ opacity: 0, scale: 0.6 }}
@@ -1574,7 +1576,7 @@ export function SupportAssistant({ homeRole }: { homeRole?: string | null }) {
             role="status"
             data-testid="jev-nudge"
             style={liftStyle(lift, 68, raised)}
-            className={`${corner} z-[81] flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-2xl bg-white py-2 pl-3 pr-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.35)] ring-1 ring-[#DBEAFE] sm:max-w-[340px]`}
+            className={`${corner} z-[81] flex max-w-[calc(100vw-2rem)] [body:has([aria-modal=true])_&]:hidden items-center gap-2 rounded-2xl bg-white py-2 pl-3 pr-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.35)] ring-1 ring-[#DBEAFE] sm:max-w-[340px]`}
             initial={reduceMotion ? false : { opacity: 0, y: 10, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10 }}

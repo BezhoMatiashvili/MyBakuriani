@@ -7889,6 +7889,7 @@ export type Database = {
         };
         Returns: Json;
       };
+      admin_client_wallet_stats: { Args: { p_user_id: string }; Returns: Json };
       admin_clients_with_stats: { Args: never; Returns: Json };
       admin_free_period_stats: { Args: { p_admin_id: string }; Returns: Json };
       admin_gift_sms_credits: {

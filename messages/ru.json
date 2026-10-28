@@ -4377,6 +4377,7 @@
     "invalidResponse": "Некорректный ответ сервера",
     "redirecting": "Перенаправление...",
     "close": "Закрыть",
+    "clearSearch": "Очистить поиск",
     "perNight": "/ночь",
     "perNightSpaced": " / ночь",
     "viewsMeta": "{meta} • {views, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}} • {location}",

@@ -623,7 +623,8 @@ if (posture) {
 
 // C42 purchases (migration 20261028140100). admin_purchases_report()'s total gross equals
 // finance_wallet_usage()'s purchases, all time and for the last 90 days, over a closed hourly
-// window (no purchase lands mid-check); anon reaches neither the view nor the RPC.
+// window (no purchase lands mid-check); anon reaches neither the view nor the RPC. The client
+// modal's lifetime value (admin_client_wallet_stats, 20261028150000) equals the top customer's net.
 {
   const call = async (apikey, path, body) => {
     const res = await fetch(`${url}/rest/v1/${path}`, {
@@ -648,14 +649,22 @@ if (posture) {
     const theirs = JSON.parse(use.text).reduce((s, r) => s + cents(r.purchases), 0);
     if (ours !== theirs) problems.push(`${from ? "last 90 days" : "all time"}: purchases gross ${ours / 100} ≠ finance_wallet_usage ${theirs / 100}`);
   }
+  const all = await call(key, "rpc/admin_purchases_report", { p_from: null, p_to: to });
+  const top = all.status === 200 ? JSON.parse(all.text).customers?.[0] : null;
+  if (top?.id) {
+    const tiles = await call(key, "rpc/admin_client_wallet_stats", { p_user_id: top.id });
+    if (tiles.status !== 200) problems.push(`admin_client_wallet_stats HTTP ${tiles.status} — apply migration 20261028150000`);
+    else if (cents(JSON.parse(tiles.text).ltv) !== cents(top.net)) problems.push(`client LTV ${JSON.parse(tiles.text).ltv} ≠ the purchases net ${top.net} of the same customer`);
+  }
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!anon) warn("C42 purchases: NEXT_PUBLIC_SUPABASE_ANON_KEY not set — skipped the anon checks");
   else {
     if ((await call(anon, "admin_purchases_v?select=id&limit=1")).status === 200) problems.push("anon can read admin_purchases_v");
     if ((await call(anon, "rpc/admin_purchases_report", {})).status === 200) problems.push("anon can execute admin_purchases_report");
+    if ((await call(anon, "rpc/admin_client_wallet_stats", { p_user_id: "00000000-0000-0000-0000-000000000000" })).status === 200) problems.push("anon can execute admin_client_wallet_stats");
   }
   if (problems.length) problems.forEach((p) => fail(`C42 purchases: ${p}`));
-  else ok("C42 purchases: report gross = finance_wallet_usage (all time, 90 days); anon refused on the view and the RPC");
+  else ok("C42 purchases: report gross = finance_wallet_usage (all time, 90 days); client LTV = that customer's net; anon refused on the view and both RPCs");
 }
 
 // C44 — admin status management (migration 20261006120000). The membership status CHECK

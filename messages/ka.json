@@ -4377,6 +4377,7 @@
     "invalidResponse": "სერვერის პასუხი არასწორია",
     "redirecting": "გადახვევა...",
     "close": "დახურვა",
+    "clearSearch": "ძიების გასუფთავება",
     "perNight": "/ღამე",
     "perNightSpaced": " / ღამე",
     "viewsMeta": "{meta} • {views} ნახვა • {location}",

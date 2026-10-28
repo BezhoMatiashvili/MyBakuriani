@@ -2529,8 +2529,18 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     for (const s of services) if (typeof m.AdminPurchases?.services?.[s] !== "string") problems.push(`messages/${locale}.json lacks AdminPurchases.services.${s}`);
     if (word.test(JSON.stringify(m.AdminPurchases ?? {}))) problems.push(`messages/${locale}.json AdminPurchases calls wallet spend revenue`);
   }
+  // The client modal's lifetime tiles (C26): one SQL function over admin_purchases_v, read only by
+  // the client transactions route, which no longer sums amounts itself.
+  const statsFile = "supabase/migrations/20261028150000_admin_client_wallet_stats.sql";
+  const statsRoute = "src/app/api/admin/clients/[id]/transactions/route.ts";
+  const statsSql = existsSync(join(root, statsFile)) ? read(statsFile) : "";
+  if (!/REVOKE ALL ON FUNCTION public\.admin_client_wallet_stats\(uuid\) FROM PUBLIC, anon, authenticated;/.test(statsSql) || !/GRANT EXECUTE ON FUNCTION public\.admin_client_wallet_stats\(uuid\) TO service_role;/.test(statsSql)) problems.push(`${statsFile} must grant admin_client_wallet_stats to service_role only`);
+  if (/SECURITY DEFINER/i.test(statsSql) || !/FROM public\.admin_purchases_v v WHERE v\.user_id = p_user_id/.test(statsSql)) problems.push("admin_client_wallet_stats must be INVOKER and take the client's spend from admin_purchases_v");
+  const statsCallers = srcFiles.filter((f) => /rpc\(\s*"admin_client_wallet_stats"/.test(srcText.get(f)));
+  if (statsCallers.join() !== join(statsRoute)) problems.push(`admin_client_wallet_stats must be called only by ${statsRoute} (found ${statsCallers.join(", ") || "none"})`);
+  if (/\+=|Math\.abs\(/.test(existsSync(join(root, statsRoute)) ? read(statsRoute) : "")) problems.push(`${statsRoute} must not compute the lifetime tiles in TypeScript (C26)`);
   if (problems.length) problems.forEach((p) => fail(`C42 purchases: ${p}`));
-  else ok(`C42 purchases: view + RPC service_role only (INVOKER); spend list = finance_wallet_usage; ${services.size} services = view = RPC, labelled; RPC only in the requireAdmin route; menus wired; no revenue wording`);
+  else ok(`C42 purchases: view + RPC service_role only (INVOKER); spend list = finance_wallet_usage; ${services.size} services = view = RPC, labelled; RPC only in the requireAdmin route; menus wired; no revenue wording; client lifetime tiles from admin_client_wallet_stats`);
 }
 
 // ---------------------------------------------------------------------------

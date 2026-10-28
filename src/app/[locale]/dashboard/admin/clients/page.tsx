@@ -139,8 +139,8 @@ function ClientsPageContent() {
     useState<ProfileWithCounts | null>(null);
   // null = still loading the selected profile's transactions
   const [txns, setTxns] = useState<Txn[] | null>(null);
-  // Lifetime LTV/topup/VIP tiles — computed server-side over the client's
-  // FULL transaction history, not the 200-row cap that feeds `txns`.
+  // Lifetime LTV/topup/VIP tiles: one SQL definition (admin_client_wallet_stats)
+  // over the client's whole history, not the 200-row cap that feeds `txns`.
   const [txStats, setTxStats] = useState<{
     vipCount: number;
     topupCount: number;
@@ -391,6 +391,8 @@ function ClientsPageContent() {
           onClick={() => setSelectedProfile(null)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
             className="flex h-auto max-h-full w-full max-w-[700px] flex-col overflow-y-auto rounded-[32px] bg-white shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]"
             onClick={(event) => event.stopPropagation()}
           >

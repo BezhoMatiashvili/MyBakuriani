@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, Search, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 type AdminSearchInputProps = {
@@ -20,6 +21,7 @@ export function AdminSearchInput({
   loading = false,
   onClear,
 }: AdminSearchInputProps) {
+  const t = useTranslations("AdminShared");
   const showClear = Boolean(onClear) && value.length > 0;
 
   return (
@@ -36,14 +38,15 @@ export function AdminSearchInput({
         placeholder={placeholder}
         className={cn(
           "h-[42px] w-full rounded-xl border border-[#E2E8F0] bg-white pl-10 pr-4 text-[13px] font-medium text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/10",
-          showClear && "pr-9",
+          showClear && "pr-11",
         )}
       />
       {showClear ? (
         <button
           type="button"
           onClick={onClear}
-          className="absolute right-3 top-1/2 flex h-[18px] w-[18px] -translate-y-1/2 items-center justify-center rounded-full text-[#94A3B8] hover:text-[#475569]"
+          aria-label={t("clearSearch")}
+          className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-xl text-[#94A3B8] hover:text-[#475569]"
         >
           <X className="h-[14px] w-[14px]" />
         </button>
