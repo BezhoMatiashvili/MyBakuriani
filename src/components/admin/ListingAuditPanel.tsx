@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import PhotoUploader from "@/components/forms/PhotoUploader";
+import PhotoStrip from "@/components/admin/PhotoStrip";
 import SharedDateField from "@/components/shared/DateField";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import {
@@ -29,6 +30,7 @@ import {
   optionKeyFor,
   type OptionGroup,
 } from "@/lib/constants/listing-options";
+import { parseHotelRooms } from "@/lib/hotel-rooms";
 import { formatPhone } from "@/lib/utils/format";
 import { clampNumber, sanitizeCadastralCode } from "@/lib/utils/number";
 import type {
@@ -521,6 +523,7 @@ function PropertyForm({
   const smoking =
     typeof rulesObj.smoking === "boolean" ? rulesObj.smoking : null;
   const pets = typeof rulesObj.pets === "boolean" ? rulesObj.pets : null;
+  const hotelRooms = parseHotelRooms(listing.hotel_rooms);
 
   function updateRule(patch: Record<string, unknown>) {
     setField("house_rules", { ...rulesObj, ...patch });
@@ -823,6 +826,19 @@ function PropertyForm({
           maxPhotos={20}
         />
       </Section>
+
+      {hotelRooms.length > 0 && (
+        <Section title={t("hotelRoomPhotos")}>
+          {hotelRooms.map((room, i) => (
+            <div key={i} className="space-y-2">
+              <p className="text-[13px] font-bold text-[#0F172A] [overflow-wrap:anywhere]">
+                {room.name}
+              </p>
+              <PhotoStrip urls={room.photos} label={room.name} />
+            </div>
+          ))}
+        </Section>
+      )}
 
       <Section title={t("statusVisibility")} defaultOpen>
         <Grid3>

@@ -103,6 +103,14 @@ export type SmartMatchData = {
   matching_listings: number;
   responses: number;
   leads: number;
+  /** Distinct guests behind `requests` (same filter). */
+  guests: number;
+  /** Distinct owners who sent an offer in the period (never filtered). */
+  owners: number;
+  /** Offers sent in the period, withdrawn ones included (never filtered). */
+  offers_sent: number;
+  /** Every request ever: no period, no filter. */
+  requests_all_time: number;
 };
 
 export type AdsCounts = {
@@ -564,12 +572,14 @@ function smartMatchSection(
   const row = (
     label: string,
     pick: (x: SmartMatchData) => number | null,
+    comparable = true,
   ): MetricRow => ({
     label,
     value: pick(current),
     previous: previous ? pick(previous) : null,
+    comparable,
   });
-  const notes = [t("smartmatch.definitions")];
+  const notes = [t("smartmatch.definitions"), t("smartmatch.usageNote")];
   if (current.filtered) notes.unshift(t("smartmatch.filteredNote"));
   return metricSection(
     t("blocks.smartmatch"),
@@ -582,6 +592,10 @@ function smartMatchSection(
       row(t("smartmatch.matching"), (x) => x.matching_listings),
       row(t("smartmatch.responses"), (x) => x.responses),
       row(t("smartmatch.leads"), (x) => x.leads),
+      row(t("smartmatch.guests"), (x) => x.guests),
+      row(t("smartmatch.owners"), (x) => x.owners),
+      row(t("smartmatch.offersSent"), (x) => x.offers_sent),
+      row(t("smartmatch.requestsAllTime"), (x) => x.requests_all_time, false),
     ],
     compare,
     t,

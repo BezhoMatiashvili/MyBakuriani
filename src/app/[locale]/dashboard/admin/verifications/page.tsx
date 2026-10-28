@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import {
   AlertTriangle,
   Check,
@@ -21,6 +22,9 @@ import type { PendingListing } from "@/app/api/admin/listings/pending/route";
 import ListingAuditPanel from "@/components/admin/ListingAuditPanel";
 import OwnershipVerificationsPanel from "@/components/admin/OwnershipVerificationsPanel";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
+import ContentChangeDiff from "@/components/admin/ContentChangeDiff";
+import { TARGET_LABELS, fieldLabel } from "@/lib/content-change/diff-display";
+import type { FieldDiff } from "@/lib/content-change/types";
 
 const PAGE_SIZE = 8;
 
@@ -32,7 +36,7 @@ type ContentChangeRequest = {
   target_id: string;
   requester_id: string;
   proposed_values: Record<string, unknown>;
-  field_diff: Record<string, { before: unknown; after: unknown }>;
+  field_diff: FieldDiff;
   created_at: string;
   updated_at: string;
   request_kind: "content" | "food_discount" | "menu_item_discount";
@@ -703,6 +707,9 @@ function ContentChangeRequestsPanel({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const tShared = useTranslations("AdminShared");
+  const roleLabel = (role?: string | null) =>
+    !role ? "" : tShared.has(`roles.${role}`) ? tShared(`roles.${role}`) : role;
   const load = async () => {
     setLoading(true);
     try {
@@ -809,16 +816,17 @@ function ContentChangeRequestsPanel({
                       ? "რესტორნის ფასდაკლება"
                       : item.request_kind === "menu_item_discount"
                         ? "კერძის ფასდაკლება"
-                        : item.target_type}
+                        : (TARGET_LABELS[item.target_type] ?? item.target_type)}
                   </span>
                 </p>
                 <p className="mt-1 text-xs text-[#64748B]">
-                  {item.requester?.role ?? ""} · {formatDate(item.created_at)} ·{" "}
+                  {roleLabel(item.requester?.role)} ·{" "}
+                  {formatDate(item.created_at)} ·{" "}
                   {item.request_kind === "food_discount"
                     ? `−${String(item.proposed_values.discount_percent ?? "?")}% · ${Number(item.quoted_amount_gel ?? 0).toFixed(2)} ₾ · ${item.quoted_duration_hours ?? 0} სთ`
                     : item.request_kind === "menu_item_discount"
                       ? `${String(item.request_metadata?.menu_item_name ?? "—")} · ${String(item.request_metadata?.menu_item_price ?? "?")}₾ · −${String(item.proposed_values.discount_percent ?? "?")}% · ${Number(item.quoted_amount_gel ?? 0).toFixed(2)} ₾ · ${item.quoted_duration_hours ?? 0} სთ`
-                      : `${Object.keys(item.field_diff).length} ველი`}
+                      : `${Object.keys(item.field_diff).length} ველი: ${Object.keys(item.field_diff).map(fieldLabel).join(", ")}`}
                 </p>
                 {item.payment_error === "insufficient_balance" && (
                   <p className="mt-1 text-xs font-bold text-[#B45309]">
@@ -832,7 +840,7 @@ function ContentChangeRequestsPanel({
                   disabled={busy === item.id}
                   onClick={() => moderate(item, "approve")}
                   data-jev-label="დამტკიცება"
-                  className="rounded-xl bg-[#059669] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                  className="min-h-[44px] flex-1 rounded-xl bg-[#059669] px-4 py-2 text-sm font-bold text-white disabled:opacity-50 sm:flex-none"
                 >
                   დამტკიცება
                 </button>
@@ -841,28 +849,15 @@ function ContentChangeRequestsPanel({
                   disabled={busy === item.id}
                   onClick={() => moderate(item, "reject")}
                   data-jev-label="უარყოფა"
-                  className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-2 text-sm font-bold text-[#DC2626] disabled:opacity-50"
+                  className="min-h-[44px] flex-1 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-2 text-sm font-bold text-[#DC2626] disabled:opacity-50 sm:flex-none"
                 >
                   უარყოფა
                 </button>
               </div>
             </div>
             {expanded === item.id && (
-              <div className="grid gap-3 border-t border-[#EDF2F7] bg-[#F8FAFC] p-5">
-                {Object.entries(item.field_diff).map(([field, values]) => (
-                  <div
-                    key={field}
-                    className="grid gap-2 rounded-xl border border-[#E2E8F0] bg-white p-3 text-xs sm:grid-cols-[140px_1fr_1fr]"
-                  >
-                    <strong>{field}</strong>
-                    <span className="break-all text-[#64748B]">
-                      {JSON.stringify(values.before)}
-                    </span>
-                    <span className="break-all text-[#166534]">
-                      {JSON.stringify(values.after)}
-                    </span>
-                  </div>
-                ))}
+              <div className="border-t border-[#EDF2F7] bg-[#F8FAFC] p-3 sm:p-5">
+                <ContentChangeDiff diff={item.field_diff} />
               </div>
             )}
           </div>

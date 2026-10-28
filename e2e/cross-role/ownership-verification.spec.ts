@@ -265,9 +265,12 @@ async function expectDetailBadge(page: Page, url: string, shown: boolean) {
   await expect(async () => {
     await page.goto(url);
     await expect(page.locator("h1").first()).toBeVisible();
-    await expect(page.locator("[data-ownership-verified]")).toHaveCount(
-      shown ? 1 : 0,
-    );
+    // The page's own badge: related-listing cards carry their own.
+    await expect(
+      page.locator(
+        "[data-ownership-verified]:not([data-listing-card] [data-ownership-verified])",
+      ),
+    ).toHaveCount(shown ? 1 : 0);
   }).toPass({ timeout: 90_000, intervals: [1_000, 3_000, 5_000] });
 }
 
@@ -922,16 +925,13 @@ test.describe("Ownership verification", () => {
       .click();
     await expect(rentalItem).toHaveCount(0, { timeout: 30_000 });
     expect((await verificationFor(listings.rental)).status).toBe("approved");
-    // The rental's extract is deleted at once; the ID stays while the
-    // sale listing still needs it.
-    const rentalExtract = await documentRow(
-      rentalRequest.registry_extract_document_id,
-    );
-    expect(rentalExtract.purged_at).not.toBeNull();
-    expect(await objectExists(rentalExtract.storage_path)).toBe(false);
-    const identityWhilePending = await documentRow(identityId);
-    expect(identityWhilePending.purged_at).toBeNull();
-    expect(await objectExists(identityWhilePending.storage_path)).toBe(true);
+    // The decision route's purge ran, and an approved request keeps its
+    // files (C39): the ID and the rental's extract are both still there.
+    for (const id of [identityId, rentalRequest.registry_extract_document_id]) {
+      const row = await documentRow(id);
+      expect(row.purged_at, id).toBeNull();
+      expect(await objectExists(row.storage_path)).toBe(true);
+    }
 
     await saleItem
       .getByRole("button", { name: "უარყოფა", exact: true })
@@ -947,10 +947,11 @@ test.describe("Ownership verification", () => {
       decision_note: REJECT_REASON,
       reviewed_by: admin.id,
     });
+    // A rejected request keeps its files for 90 days.
     for (const id of [identityId, saleRequest.registry_extract_document_id]) {
       const row = await documentRow(id);
-      expect(row.purged_at, id).not.toBeNull();
-      expect(await objectExists(row.storage_path)).toBe(false);
+      expect(row.purged_at, id).toBeNull();
+      expect(await objectExists(row.storage_path)).toBe(true);
     }
 
     // Deciding twice is harmless; deciding a decided request is refused.
@@ -1014,6 +1015,37 @@ test.describe("Ownership verification", () => {
         )
         .first(),
     ).toBeVisible();
+  });
+
+  test("a rejected request's files are deleted 90 days after the decision", async () => {
+    const sale = await verificationFor(listings.sale);
+    const rental = await verificationFor(listings.rental);
+    const backdated = await supabaseAdmin
+      .from("ownership_verifications")
+      .update({
+        reviewed_at: new Date(Date.now() - 91 * 86_400_000).toISOString(),
+      })
+      .eq("id", sale.id);
+    expect(backdated.error).toBeNull();
+    // The documents route purges the uploader's due files before answering
+    // (no cron secret needed).
+    await uploadedId(
+      ownerContext.request,
+      "registry_extract",
+      extract("sweep.pdf"),
+    );
+    const gone = await documentRow(sale.registry_extract_document_id);
+    expect(gone.purged_at).not.toBeNull();
+    expect(await objectExists(gone.storage_path)).toBe(false);
+    // The shared ID and the rental's extract stay: the approved rental uses them.
+    for (const id of [
+      rental.identity_document_id,
+      rental.registry_extract_document_id,
+    ]) {
+      const row = await documentRow(id);
+      expect(row.purged_at, id).toBeNull();
+      expect(await objectExists(row.storage_path)).toBe(true);
+    }
   });
 
   test("the badge marks the approved rental, and only it", async () => {

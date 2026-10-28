@@ -439,6 +439,11 @@ const ACTIONS = {
     prompt: "card payments",
     href: () => "/dashboard/admin/payments",
   },
+  admin_purchases: {
+    where: ["admin"],
+    prompt: "who bought which paid service from the balance",
+    href: () => "/dashboard/admin/purchases",
+  },
   admin_prices: {
     where: ["admin"],
     prompt: "prices and packages",

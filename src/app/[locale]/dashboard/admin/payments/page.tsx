@@ -6,6 +6,7 @@ import { AlertTriangle, Loader2, RefreshCw, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "@/components/shared/Modal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "@/i18n/navigation";
 import { formatDateTime } from "@/lib/utils/format";
 import { gelToTetri } from "@/lib/payments/keepz/amount";
 
@@ -62,6 +63,7 @@ const STATUS_STYLE: Record<string, string> = {
  */
 export default function AdminPaymentsPage() {
   const t = useTranslations("AdminPayments");
+  const tNav = useTranslations("DashboardSidebar.nav");
   const [view, setView] = useState<View>("all");
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
@@ -176,6 +178,12 @@ export default function AdminPaymentsPage() {
           {t("title")}
         </h1>
         <p className="text-[14px] text-[#64748B]">{t("subtitle")}</p>
+        <Link
+          href="/dashboard/admin/purchases"
+          className="inline-flex min-h-[44px] items-center text-[13px] font-bold text-[#2563EB] underline"
+        >
+          {tNav("purchases")}
+        </Link>
       </div>
 
       <div className="flex flex-wrap gap-2" role="tablist">

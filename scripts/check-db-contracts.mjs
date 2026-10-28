@@ -264,10 +264,11 @@ for (const [table, values, name] of [
 // email is cancelled (C33) while every other check still passes. The two retention jobs
 // (20260927091000, C37) prune cron run history and strip personal data after 90 days. The
 // ownership-document purge (20261001200200, C39) deletes ID scans and registry extracts no
-// pending request needs and bounds abandoned uploads. The SMS finance job (20261007200000, C50)
-// keeps the SMS ledger synced and sends the low-balance warning. The free-period sweep
-// (20261020120000, C53) is SQL-only: it grants what the sign-up trigger missed. The
-// short-notice check-in job (20261023100000, C18) texts a booking the daily run cannot reach.
+// request keeps any more (90 days after a reject/revoke) and bounds abandoned uploads. The SMS
+// finance job (20261007200000, C50) keeps the SMS ledger synced and sends the low-balance
+// warning. The free-period sweep (20261020120000, C53) is SQL-only: it grants what the
+// sign-up trigger missed. The short-notice check-in job (20261023100000, C18) texts a booking
+// the daily run cannot reach.
 {
   const expected = [
     "rate-limit-gc", "booking-finalize-daily", "sms-automation-daily", "sms-dispatch-frequent", "vip-lifecycle-hourly",
@@ -618,6 +619,43 @@ if (posture) {
     if (broken.length) fail(`C42: triggers missing or disabled (ledger no longer append-only/audited): ${broken.join(", ")}`);
     else ok(`C42: ${required.length} forbid-delete, guard and audit triggers are enabled`);
   }
+}
+
+// C42 purchases (migration 20261028140100). admin_purchases_report()'s total gross equals
+// finance_wallet_usage()'s purchases, all time and for the last 90 days, over a closed hourly
+// window (no purchase lands mid-check); anon reaches neither the view nor the RPC.
+{
+  const call = async (apikey, path, body) => {
+    const res = await fetch(`${url}/rest/v1/${path}`, {
+      method: body ? "POST" : "GET",
+      headers: { apikey, Authorization: `Bearer ${apikey}`, "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { status: res.status, text: await res.text() };
+  };
+  const cents = (n) => Math.round(Number(n) * 100);
+  const hour = 3_600_000;
+  const to = new Date(Math.floor(Date.now() / hour) * hour).toISOString();
+  const problems = [];
+  for (const from of [null, new Date(Date.parse(to) - 90 * 24 * hour).toISOString()]) {
+    const w = { p_from: from, p_to: to };
+    const [rep, use] = await Promise.all([call(key, "rpc/admin_purchases_report", w), call(key, "rpc/finance_wallet_usage", w)]);
+    if (rep.status !== 200 || use.status !== 200) {
+      problems.push(`admin_purchases_report/finance_wallet_usage HTTP ${rep.status}/${use.status} — apply migration 20261028140100`);
+      break;
+    }
+    const ours = cents(JSON.parse(rep.text).summary?.gross);
+    const theirs = JSON.parse(use.text).reduce((s, r) => s + cents(r.purchases), 0);
+    if (ours !== theirs) problems.push(`${from ? "last 90 days" : "all time"}: purchases gross ${ours / 100} ≠ finance_wallet_usage ${theirs / 100}`);
+  }
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anon) warn("C42 purchases: NEXT_PUBLIC_SUPABASE_ANON_KEY not set — skipped the anon checks");
+  else {
+    if ((await call(anon, "admin_purchases_v?select=id&limit=1")).status === 200) problems.push("anon can read admin_purchases_v");
+    if ((await call(anon, "rpc/admin_purchases_report", {})).status === 200) problems.push("anon can execute admin_purchases_report");
+  }
+  if (problems.length) problems.forEach((p) => fail(`C42 purchases: ${p}`));
+  else ok("C42 purchases: report gross = finance_wallet_usage (all time, 90 days); anon refused on the view and the RPC");
 }
 
 // C44 — admin status management (migration 20261006120000). The membership status CHECK

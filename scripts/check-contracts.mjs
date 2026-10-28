@@ -2094,6 +2094,49 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C39: ${readers.length} browser reader(s) select the ${tsColumns.length} granted ownership_verifications columns`);
 }
 
+// C39 (e): a page that shows ownership documents loads them as a plain <img> or
+// link, never through next/image (the optimizer has no admin cookie and would
+// cache an ID card for a year).
+{
+  const docUrl = "/api/admin/ownership-verifications/documents/";
+  const viewers = srcFiles.filter((f) => !f.startsWith("src/app/api/") && srcText.get(f).includes(docUrl));
+  const optimized = viewers.filter((f) => /["']next\/image["']/.test(srcText.get(f)));
+  if (!viewers.length) fail(`C39: no file outside src/app/api references ${docUrl} (the admin panel moved? update this check)`);
+  else if (optimized.length) fail(`C39: files that show ownership documents must not import next/image: ${optimized.join(", ")}`);
+  else ok(`C39: ${viewers.length} file(s) show ownership documents without next/image`);
+}
+
+// C39 (f): ownership files are kept after the decision (20261028140200). Both
+// statements of the newest claim_ownership_documents_for_purge keep files of
+// pending/approved requests and of decided ones for the same N days, the newest
+// enforce_ownership_document_limit does not count files of approved or decided
+// requests, and the owner page, Baku's canned answer and knowledge.ts say N days.
+{
+  const sqls = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .map((f) => read(join("supabase/migrations", f)).replace(/--[^\n]*/g, ""));
+  const fnBody = (fn) => {
+    const re = new RegExp(`create\\s+or\\s+replace\\s+function\\s+public\\.${fn}\\([\\s\\S]*?(\\$[a-z_]*\\$)([\\s\\S]*?)\\1`, "i");
+    return [...sqls].reverse().find((s) => re.test(s))?.match(re)?.[2] ?? "";
+  };
+  const claim = fnBody("claim_ownership_documents_for_purge");
+  const days = [...claim.matchAll(/v\.status IN \('pending', 'approved'\) OR v\.reviewed_at > now\(\) - interval '(\d+) days'/g)].map((m) => m[1]);
+  const messages = (l) => JSON.parse(read(`messages/${l}.json`));
+  const copy = ["ka", "en", "ru"].flatMap((l) => [
+    [`${l} DashboardAccount.ownership.privacy`, messages(l).DashboardAccount?.ownership?.privacy],
+    [`${l} Support.canned.verifyOwnership`, messages(l).Support?.canned?.verifyOwnership],
+  ]);
+  copy.push(["knowledge.ts", read("src/lib/support/knowledge.ts").split("\n").find((l) => l.includes('Ownership verification ("'))]);
+  const silent = copy.filter(([, t]) => !new RegExp(`\\b${days[0]} (?:days|დღ|дн)`).test(t ?? ""));
+  if (days.length !== 2 || new Set(days).size !== 1 || /v\.status = 'pending'/.test(claim))
+    fail("C39: both statements of the newest claim_ownership_documents_for_purge must keep files of pending/approved requests and decided ones under N days");
+  else if (!/WHERE \(v\.status IN \('approved', 'revoked'\) OR v\.reviewed_by IS NOT NULL\)/.test(fnBody("enforce_ownership_document_limit")))
+    fail("C39: the newest enforce_ownership_document_limit must not count files an admin approved or decided (they are kept)");
+  else if (silent.length) fail(`C39: files are kept ${days[0]} days after a decision; say so in ${silent.map(([k]) => k).join(", ")}`);
+  else ok(`C39: decided files are kept ${days[0]} days, the cap skips them, and the owner page, Baku and knowledge.ts say so`);
+}
+
 // ---------------------------------------------------------------------------
 // C40 — the SEO surface. (a) robots.txt: NON_INDEXABLE_PREFIXES covers every
 // prefix middleware protects (C8) and is expanded for every routing locale.
@@ -2434,6 +2477,60 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 
   if (problems.length) problems.forEach((p) => fail(`C42: ${p}`));
   else ok(`C42: ${pairs.length} finance CHECK lists = constants.ts; document limit = bucket; pure modules bare; finance writes only in the finance API; public invoice link hashed + noindex; one filter per register`);
+}
+
+// ---------------------------------------------------------------------------
+// C42 purchases — /dashboard/admin/purchases (migration 20261028140100_admin_purchases.sql).
+// (a) the view and the RPC are service_role only and the RPC is INVOKER; (b) the view's
+// spend list = finance_wallet_usage()'s (minus the refund type); (c) PURCHASE_SERVICES =
+// the view's service list = the RPC's allow-list, each labelled in every locale; (d) only
+// the requireAdmin route calls the RPC and nothing reads the view directly; (e) both menus
+// link the page, the namespace is listed and no locale calls wallet spend revenue.
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  const file = "supabase/migrations/20261028140100_admin_purchases.sql";
+  const route = "src/app/api/admin/purchases/route.ts";
+  const page = "src/app/[locale]/dashboard/admin/purchases/page.tsx";
+  const sql = existsSync(join(root, file)) ? read(file) : "";
+  if (!sql) problems.push(`${file} is missing`);
+  for (const [on, name, priv] of [["", "admin_purchases_v", "SELECT"], ["FUNCTION ", "admin_purchases_report", "EXECUTE"]]) {
+    if (!new RegExp(`REVOKE ALL ON ${on}public\\.${name}\\b[^;]*FROM PUBLIC, anon, authenticated;`).test(sql)) problems.push(`${file} must REVOKE ALL ON ${on}public.${name} FROM PUBLIC, anon, authenticated`);
+    if (!new RegExp(`GRANT ${priv} ON ${on}public\\.${name}\\b[^;]*TO service_role;`).test(sql)) problems.push(`${file} must GRANT ${priv} ON ${on}public.${name} TO service_role`);
+  }
+  for (const f of readdirSync(join(root, "supabase/migrations")).filter((x) => x.endsWith(".sql")))
+    for (const g of read(join("supabase/migrations", f)).match(/GRANT[^;]*\bpublic\.admin_purchases_(?:v|report)\b[^;]*;/gi) ?? [])
+      if (/\bTO\b[^;]*\b(?:anon|authenticated|PUBLIC)\b/i.test(g)) problems.push(`${f} grants an admin purchases object to a client role`);
+  const head = sql.match(/FUNCTION public\.admin_purchases_report\([\s\S]*?\bAS \$\$/)?.[0] ?? "";
+  if (!/SET search_path = ''/.test(head) || /SECURITY DEFINER/i.test(head)) problems.push("admin_purchases_report must be INVOKER with SET search_path = ''");
+  const lits = (s) => new Set([...(s ?? "").matchAll(/'([a-z_]+)'/g)].map((m) => m[1]));
+  const usageFile = readdirSync(join(root, "supabase/migrations")).filter((x) => x.endsWith(".sql")).sort().reverse()
+    .find((f) => read(join("supabase/migrations", f)).includes("FUNCTION public.finance_wallet_usage("));
+  const usage = (usageFile ? read(join("supabase/migrations", usageFile)) : "").split("FUNCTION public.finance_wallet_usage(")[1] ?? "";
+  const spend = lits(usage.match(/WHERE t\.type IN \(([^)]*)\)/)?.[1]);
+  spend.delete("membership_refund");
+  const viewSpend = lits(sql.match(/WHERE t\.type IN \(([^)]*)\)/)?.[1]);
+  if (!spend.size || !setEq(spend, viewSpend)) problems.push(`admin_purchases_v spend list [${[...viewSpend]}] ≠ finance_wallet_usage [${[...spend]}]`);
+  const services = new Set([...(read("src/lib/admin-purchases.ts").match(/PURCHASE_SERVICES = \[([\s\S]*?)\]/)?.[1] ?? "").matchAll(/"([a-z_]+)"/g)].map((m) => m[1]));
+  const caseOut = lits((sql.match(/CASE\b((?:(?!\bCASE\b)[\s\S])*?)END AS service/)?.[1] ?? "").replace(/WHEN[\s\S]*?THEN/g, "THEN"));
+  const rpcList = lits(sql.match(/p_service NOT IN \(([^)]*)\)/)?.[1]);
+  if (!services.size || !setEq(services, caseOut) || !setEq(services, rpcList)) problems.push(`PURCHASE_SERVICES [${[...services]}] ≠ view [${[...caseOut]}] / RPC check [${[...rpcList]}]`);
+  const callers = srcFiles.filter((f) => !f.startsWith(join("src/lib/types")) && /rpc\(\s*"admin_purchases_report"/.test(srcText.get(f)));
+  if (callers.join() !== join(route)) problems.push(`admin_purchases_report must be called only by ${route} (found ${callers.join(", ") || "none"})`);
+  if (srcFiles.some((f) => /\.from\(\s*"admin_purchases_v"/.test(srcText.get(f)))) problems.push("admin_purchases_v is read only through the RPC");
+  if (!/export async function GET\([^)]*\)\s*\{\s*const guard = await requireAdmin\(\);\s*if \(!guard\.ok\) return guard\.response;/.test(existsSync(join(root, route)) ? read(route) : "")) problems.push(`${route} GET must start with the requireAdmin guard`);
+  if (/@\/lib\/supabase\/admin|getAdminStats/.test(existsSync(join(root, page)) ? read(page) : "")) problems.push(`${page} must not import the service-role client`);
+  for (const menu of ["src/components/layout/AdminSidebar.tsx", "src/components/layout/MobileBottomNav.tsx"])
+    if (!/labelKey:\s*"purchases"[\s\S]{0,80}href:\s*"\/dashboard\/admin\/purchases"/.test(read(menu))) problems.push(`${menu} must list /dashboard/admin/purchases`);
+  if (!/"AdminPurchases"/.test(read("src/i18n/namespaces.ts").match(/DASHBOARD_NAMESPACES = \[([\s\S]*?)\]/)?.[1] ?? "")) problems.push("AdminPurchases missing from DASHBOARD_NAMESPACES");
+  for (const [locale, word] of [["ka", /შემოსავალ/], ["en", /\b(?:revenue|income)\b/i], ["ru", /доход|выручк/i]]) {
+    const m = JSON.parse(read(`messages/${locale}.json`));
+    if (typeof m.DashboardSidebar?.nav?.purchases !== "string") problems.push(`messages/${locale}.json lacks DashboardSidebar.nav.purchases`);
+    for (const s of services) if (typeof m.AdminPurchases?.services?.[s] !== "string") problems.push(`messages/${locale}.json lacks AdminPurchases.services.${s}`);
+    if (word.test(JSON.stringify(m.AdminPurchases ?? {}))) problems.push(`messages/${locale}.json AdminPurchases calls wallet spend revenue`);
+  }
+  if (problems.length) problems.forEach((p) => fail(`C42 purchases: ${p}`));
+  else ok(`C42 purchases: view + RPC service_role only (INVOKER); spend list = finance_wallet_usage; ${services.size} services = view = RPC, labelled; RPC only in the requireAdmin route; menus wired; no revenue wording`);
 }
 
 // ---------------------------------------------------------------------------
@@ -2894,6 +2991,10 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   const events = new Set(tsList("EVENT_NAMES"));
   const strays = tsList("CLIENT_EVENTS").filter((e) => !events.has(e));
   if (strays.length) problems.push("CLIENT_EVENTS not in EVENT_NAMES: " + strays.join(", "));
+  const sm = body("admin_analytics_smart_match");
+  const smKeys = [...sm.slice(sm.indexOf("jsonb_build_object(")).matchAll(/'([a-z_]+)',/g)].map((m) => m[1]);
+  const smType = [...(read("src/lib/analytics/report.ts").match(/export type SmartMatchData = \{([\s\S]*?)\n\};/)?.[1] ?? "").matchAll(/^\s*([a-z_]+)\??:/gm)].map((m) => m[1]);
+  if (!smKeys.length || !setEq(new Set(smKeys), new Set(smType))) problems.push("admin_analytics_smart_match keys [" + smKeys + "] must equal report.ts SmartMatchData [" + smType + "]");
 
   const appFiles = srcFiles.filter((f) => !f.startsWith(join("src/lib/types")));
   const only = (label, pattern, allowed) => {
@@ -2944,7 +3045,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   }
 
   if (problems.length) problems.forEach((p) => fail("C49: " + p));
-  else ok("C49: analytics vocabularies = the migrations; beacons, the mb_sid cookie, analytics_events and analytics_ping each have one writer behind the consent check; admin_analytics_* only through the server-only loader behind requireAdmin; nothing granted to clients; pure modules bare; DB-IP attribution on the page and in exports");
+  else ok("C49: analytics vocabularies = the migrations; beacons, the mb_sid cookie, analytics_events and analytics_ping each have one writer behind the consent check; admin_analytics_* only through the server-only loader behind requireAdmin; nothing granted to clients; pure modules bare; DB-IP attribution on the page and in exports; Smart Match keys = SmartMatchData");
 }
 
 // ---------------------------------------------------------------------------

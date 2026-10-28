@@ -140,6 +140,7 @@ export const DASHBOARD_NAMESPACES = [
   "AdminModeration",
   "AdminPayments",
   "AdminPromocodes",
+  "AdminPurchases",
   "AdminSaleResearch",
   "AdminShared",
   "AdminSignupLinks",

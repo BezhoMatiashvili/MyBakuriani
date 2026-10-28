@@ -27,9 +27,10 @@ function authorized(request: Request): "ok" | "denied" | "unconfigured" {
 /**
  * Ownership-document purge (C39, C37), driven hourly by pg_cron
  * (ownership-document-purge-hourly). The routes already purge one owner after
- * every upload, submit and decision; this sweep bounds abandoned uploads and
- * retries what an earlier purge left. Server to server: exempt from the
- * middleware Origin check (server-paths.ts); reads no cookies.
+ * every upload, submit and decision; this sweep bounds abandoned uploads,
+ * deletes files 90 days after a reject or revoke and retries what an earlier
+ * purge left. Server to server: exempt from the middleware Origin check
+ * (server-paths.ts); reads no cookies.
  */
 export async function POST(request: Request) {
   const auth = authorized(request);

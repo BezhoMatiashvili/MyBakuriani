@@ -4,7 +4,8 @@
 // GET /api/admin/ownership-verifications: the pending queue (grouped by
 // submission, oldest first), approved requests (revocable) and the history of
 // rejected/revoked ones. Decisions go through POST on the same route; the
-// documents open in a new tab through the admin-only document route.
+// documents come from the admin-only document route: an ID or extract image
+// as a thumbnail (pending) or a dialog (approved/history), a PDF in a new tab.
 
 import { useEffect, useState } from "react";
 import {
@@ -24,8 +25,12 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
+import Modal from "@/components/shared/Modal";
 import { formatDate, formatDateTime, formatPhone } from "@/lib/utils/format";
-import { MAX_OWNERSHIP_DECISION_NOTE } from "@/lib/ownership/document-file";
+import {
+  MAX_OWNERSHIP_DECISION_NOTE,
+  OWNERSHIP_DOCUMENT_CONTENT_TYPES,
+} from "@/lib/ownership/document-file";
 import type {
   AdminOwnershipAction,
   AdminOwnershipDocument,
@@ -105,6 +110,17 @@ const REVIEW_ERROR_MESSAGES = new Map<AdminOwnershipReviewError, string>([
     "საკუთარ განცხადებაზე ვერ გადაწყვეტთ — მოთხოვნა სხვა ადმინისტრატორმა უნდა განიხილოს",
   ],
 ]);
+
+const IMAGE_DOCUMENT_TYPES = new Set([
+  OWNERSHIP_DOCUMENT_CONTENT_TYPES.jpeg,
+  OWNERSHIP_DOCUMENT_CONTENT_TYPES.png,
+  OWNERSHIP_DOCUMENT_CONTENT_TYPES.webp,
+]);
+const VIEW_ONLY = "მხოლოდ სანახავად — ნუ ჩამოტვირთავთ";
+const IDENTITY_LABEL = "პირადობის მოწმობა / პასპორტი";
+const EXTRACT_LABEL = "რეესტრის ამონაწერი";
+const documentHref = (id: string) =>
+  "/api/admin/ownership-verifications/documents/" + id;
 
 // The same registry link as the audit panel's NAPR card.
 const NAPR_URL = "https://napr.gov.ge/";
@@ -444,7 +460,25 @@ export default function OwnershipVerificationsPanel({
                     {item.decisionNote}
                   </p>
                 )}
-                <ListingLink href={item.listing.href} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <ListingLink href={item.listing.href} />
+                  <DocumentPreview
+                    doc={item.documents.identity}
+                    label={IDENTITY_LABEL}
+                    inline={false}
+                  />
+                  <DocumentPreview
+                    doc={item.documents.extract}
+                    label={EXTRACT_LABEL}
+                    inline={false}
+                  />
+                </div>
+                {(item.documents.identity.available ||
+                  item.documents.extract.available) && (
+                  <p className="text-[12px] font-semibold text-[#B45309]">
+                    {VIEW_ONLY}
+                  </p>
+                )}
               </div>
               {item.status === "approved" && (
                 <div className="w-full lg:w-[340px] lg:shrink-0">
@@ -471,12 +505,13 @@ export default function OwnershipVerificationsPanel({
                   </p>
                 </div>
                 <div className="flex flex-col items-start gap-1 md:items-end">
-                  <DocumentLink
+                  <DocumentPreview
                     doc={first.documents.identity}
-                    label="პირადობის მოწმობა / პასპორტი"
+                    label={IDENTITY_LABEL}
+                    inline
                   />
                   <p className="text-[12px] font-semibold text-[#B45309]">
-                    მხოლოდ სანახავად — ნუ ჩამოტვირთავთ
+                    {VIEW_ONLY}
                   </p>
                 </div>
               </header>
@@ -498,11 +533,12 @@ export default function OwnershipVerificationsPanel({
                       {item.listing.kind === "property" && (
                         <CadastralLine code={item.listing.cadastralCode} />
                       )}
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <ListingLink href={item.listing.href} />
-                        <DocumentLink
+                        <DocumentPreview
                           doc={item.documents.extract}
-                          label="რეესტრის ამონაწერი"
+                          label={EXTRACT_LABEL}
+                          inline
                         />
                       </div>
                     </div>
@@ -626,7 +662,7 @@ function DocumentLink({
   }
   return (
     <a
-      href={"/api/admin/ownership-verifications/documents/" + doc.id}
+      href={documentHref(doc.id)}
       target="_blank"
       rel="noopener noreferrer"
       className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 text-[13px] font-bold text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE]"
@@ -635,6 +671,101 @@ function DocumentLink({
       {label}
       <ExternalLink className="h-3 w-3 shrink-0" />
     </a>
+  );
+}
+
+/** Each mounted <img> is one read of the document route (120 / 10 min per
+ * admin; the 302 is no-store with a fresh 60 s URL): thumbnails mount only in
+ * the pending queue; 50-row approved/history pages open a dialog on demand.
+ * Plain <img>, never next/image (the optimizer has no admin cookie and caches
+ * for a year). PDFs and deleted files keep DocumentLink. */
+function DocumentPreview({
+  doc,
+  label,
+  inline,
+}: {
+  doc: AdminOwnershipDocument;
+  label: string;
+  inline: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (!doc.available || !IMAGE_DOCUMENT_TYPES.has(doc.contentType)) {
+    return <DocumentLink doc={doc} label={label} />;
+  }
+  const loadFailed = (
+    <p className="text-sm font-semibold text-[#B91C1C]">ფაილი ვერ ჩაიტვირთა</p>
+  );
+  return (
+    <>
+      {inline ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {failed ? (
+            loadFailed
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setFailed(false);
+                setOpen(true);
+              }}
+              aria-label={`${label} — გადიდება`}
+              className="block h-24 w-32 shrink-0 overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F1F5F9]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- never next/image (see above) */}
+              <img
+                src={documentHref(doc.id)}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                onError={() => setFailed(true)}
+                className="size-full object-cover"
+              />
+            </button>
+          )}
+          <DocumentLink doc={doc} label={label} />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setFailed(false);
+            setOpen(true);
+          }}
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 text-[13px] font-bold text-[#1D4ED8] transition-colors hover:bg-[#DBEAFE]"
+        >
+          <Eye className="h-4 w-4 shrink-0" />
+          {label}
+        </button>
+      )}
+      <Modal
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        title={label}
+        size="xl"
+      >
+        <div className="space-y-3">
+          {failed ? (
+            loadFailed
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element -- never next/image (see above)
+            <img
+              src={documentHref(doc.id)}
+              alt={label}
+              decoding="async"
+              referrerPolicy="no-referrer"
+              onError={() => setFailed(true)}
+              className="mx-auto max-h-[60dvh] w-auto max-w-full object-contain"
+            />
+          )}
+          <p className="text-[12px] font-semibold text-[#B45309]">
+            {VIEW_ONLY}
+          </p>
+          <DocumentLink doc={doc} label={label} />
+        </div>
+      </Modal>
+    </>
   );
 }
 

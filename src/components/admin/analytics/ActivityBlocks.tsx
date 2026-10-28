@@ -177,6 +177,8 @@ const SMART_MATCH_TILES: {
   key: string;
   pick: (x: SmartMatchData) => number | null;
   format?: ValueFormat;
+  /** Every request ever: the previous period has none. */
+  allTime?: boolean;
 }[] = [
   { key: "requests", pick: (x) => x.requests },
   { key: "requestsWithOffer", pick: (x) => x.requests_with_offer },
@@ -188,6 +190,10 @@ const SMART_MATCH_TILES: {
   { key: "matching", pick: (x) => x.matching_listings },
   { key: "responses", pick: (x) => x.responses },
   { key: "leads", pick: (x) => x.leads },
+  { key: "guests", pick: (x) => x.guests },
+  { key: "owners", pick: (x) => x.owners },
+  { key: "offersSent", pick: (x) => x.offers_sent },
+  { key: "requestsAllTime", pick: (x) => x.requests_all_time, allTime: true },
 ];
 
 /** Spec §6: Smart Match requests, matches, answers and leads. */
@@ -228,7 +234,11 @@ export function SmartMatchBlock({
               testId={`analytics-smartmatch-${tile.key}`}
               label={t(`smartmatch.${tile.key}`)}
               value={tile.pick(data)}
-              previous={previousOf(query, previous, tile.pick)}
+              previous={
+                tile.allTime
+                  ? undefined
+                  : previousOf(query, previous, tile.pick)
+              }
               format={tile.format}
             />
           ))
@@ -238,6 +248,7 @@ export function SmartMatchBlock({
         lines={[
           data?.filtered ? t("smartmatch.filteredNote") : null,
           t("smartmatch.definitions"),
+          t("smartmatch.usageNote"),
         ]}
       />
     </BlockCard>

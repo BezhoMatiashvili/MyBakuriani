@@ -396,6 +396,7 @@
       "memberships": "Membership approvals",
       "statuses": "Memberships & VIP",
       "payments": "Card payments",
+      "purchases": "Purchases",
       "signupLinks": "Sign-up links",
       "freePeriods": "Free periods",
       "adAnalytics": "Ad analytics",
@@ -3367,7 +3368,7 @@
     "ownership": {
       "title": "Ownership verification",
       "intro": "Upload an extract from the Public Registry for each listing and your ID card or passport. Once verified, the listing shows the “Verified owner” badge.",
-      "privacy": "Only the administration sees your documents; they are deleted after review.",
+      "privacy": "Only the administration sees your documents. They are kept while the request is under review or ownership is verified, and deleted automatically 90 days after a rejection or revocation.",
       "createdBanner": "Your listing was sent for review — you can verify ownership right now.",
       "later": "Later",
       "backToCabinet": "Back to my dashboard",
@@ -4490,6 +4491,7 @@
       "smokingAllowed": "Smoking allowed",
       "petsAllowed": "Pets allowed",
       "photos": "Photos",
+      "hotelRoomPhotos": "Room photos",
       "statusVisibility": "Status and visibility",
       "status": "Status",
       "b2bPartner": "B2B partner",
@@ -6225,7 +6227,12 @@
       "matching": "Matching listings",
       "responses": "Responses received",
       "leads": "Leads",
-      "definitions": "Matching listings — listings that sent an offer to the requests of this period. Match rate — requests with at least one offer ÷ all requests. Responses received — offers sent. Leads — offers after which the guest revealed the number of that listing or contacted it.",
+      "guests": "Guests who used it",
+      "owners": "Owners who responded",
+      "offersSent": "Offers sent",
+      "requestsAllTime": "Total requests (all time)",
+      "definitions": "Matching listings — listings that sent an offer to the requests of this period. Match rate — requests with at least one offer ÷ all requests. Responses received — offers to the requests of this period, withdrawn ones excluded. Leads — offers after which the guest revealed the number of that listing or contacted it.",
+      "usageNote": "Guests — people who created a request in this period, each counted once. Offers sent — every offer sent in this period, withdrawn ones included; owners — the people who sent them. These two and the all-time total do not depend on visitor filters.",
       "filteredNote": "With a filter, only requests from visitors who accepted analytics cookies are counted, from the moment this feature went live."
     },
     "ads": {
@@ -7655,6 +7662,49 @@
     "prev": "Previous",
     "next": "Next"
   },
+  "AdminPurchases": {
+    "title": "Purchases",
+    "subtitle": "Paid services customers bought from their balance: who, what, when and for how much.",
+    "note": "A card payment first tops up the balance and is then spent from it, so each purchase appears here once.",
+    "periods": {
+      "month": "This month",
+      "last30": "Last 30 days",
+      "last90": "Last 90 days",
+      "year": "This year",
+      "all": "All time"
+    },
+    "allServices": "All services",
+    "services": {
+      "sms": "SMS package",
+      "vip": "VIP",
+      "super_vip": "SUPER VIP",
+      "discount": "Discount badge",
+      "membership": "Seasonal membership",
+      "company_plan": "Company plan",
+      "other": "Other"
+    },
+    "searchPlaceholder": "Name or phone",
+    "byService": "By service",
+    "total": "Total",
+    "columns": {
+      "service": "Service",
+      "purchases": "Purchases",
+      "buyers": "Buyers",
+      "spent": "Spent from balance",
+      "refunded": "Returned to balance",
+      "net": "Net of refunds"
+    },
+    "netNote": "A refund is subtracted from the purchase it belongs to, whatever its date.",
+    "customersTitle": "Customers (top 20)",
+    "lastAt": "Last purchase: {date}",
+    "rowsTitle": "Purchase list",
+    "refundedLine": "{amount} refunded",
+    "empty": "No purchases in this period.",
+    "emptyService": "No purchases of this service in this period.",
+    "loadError": "Could not load purchases.",
+    "prev": "Previous",
+    "next": "Next"
+  },
   "CategoryIntro": {
     "faqTitle": "Frequently asked questions",
     "apartments": {
@@ -8035,6 +8085,7 @@
       "admin_memberships": "Membership approvals",
       "admin_clients": "Users",
       "admin_payments": "Card payments",
+      "admin_purchases": "Purchases",
       "admin_prices": "Tariffs & Packages",
       "admin_finances": "Finances"
     },
@@ -8103,7 +8154,7 @@
       "reviewListings": "New listings are on \"Verifications\", in the new listings tab: open one and approve or reject it.",
       "reviewOwnership": "Ownership requests are in the ownership tab of \"Verifications\": check the documents and approve or reject. You can't decide your own request; another admin does.",
       "findUser": "Search for users on \"Users\" with the search box.",
-      "verifyOwnership": "On \"Ownership verification\" pick your listings (rentals, hotels or sales), upload an ID card or passport and a Public Registry extract for each, then send them for review. Only admins see the files, and they are deleted after the decision.",
+      "verifyOwnership": "On \"Ownership verification\" pick your listings (rentals, hotels or sales), upload an ID card or passport and a Public Registry extract for each, then send them for review. Only admins see the files; they are kept while the request is pending or approved and deleted 90 days after a rejection or revocation.",
       "linkGoogle": "On \"Sign-in methods\" press the Google button and choose your Google account.",
       "findPlace": "When are you coming and how many guests? Write it, for example: 20-25 December, 4 guests, and I'll fill in the search. Or see all apartments now.",
       "findPlaceExample1": "This weekend, 2 guests",

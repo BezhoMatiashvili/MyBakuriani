@@ -56,12 +56,36 @@ test.describe("Admin Dashboard", () => {
     const csv = await filtered.text();
     expect(csv).toContain("აქტიური ფილტრები: მოწყობილობა: მობილური");
     expect(csv).toContain("გენერირების თარიღი:");
+    expect(csv).toContain("სულ მოთხოვნები (ყველა დრო)");
 
     const full = await adminPage.request.get(
       "/api/admin/analytics/export?period=last7&device=mobile&block=kpis&scope=full&format=xlsx",
     );
     expect(full.status()).toBe(200);
     expect(full.headers()["content-type"]).toContain("spreadsheetml");
+  });
+
+  test("Smart Match usage tiles read the new keys (C49)", async ({
+    adminPage,
+  }) => {
+    await adminPage.goto("/dashboard/admin?period=last30");
+    if (!(await assertDashboard(adminPage))) return;
+
+    // An empty data-value = a key the SQL no longer sends (the tile shows "—").
+    const value = async (key: string) => {
+      const tile = adminPage.getByTestId(`analytics-smartmatch-${key}`);
+      await expect(tile).toBeVisible();
+      await expect(tile).not.toHaveAttribute("data-value", "");
+      return Number(await tile.getAttribute("data-value"));
+    };
+    const requests = await value("requests");
+    const guests = await value("guests");
+    const owners = await value("owners");
+    const offersSent = await value("offersSent");
+    const requestsAllTime = await value("requestsAllTime");
+    expect(guests).toBeLessThanOrEqual(requests);
+    expect(requests).toBeLessThanOrEqual(requestsAllTime);
+    expect(owners).toBeLessThanOrEqual(offersSent);
   });
 
   test("every ad analytics card exports (C46)", async ({ adminPage }) => {
@@ -858,6 +882,40 @@ test.describe("SMS control (C50)", () => {
       return [summary.status, record.status, exported.status];
     });
     expect(result).toEqual([403, 403, 403]);
+  });
+});
+
+test.describe("Admin purchases (C42)", () => {
+  test("the page shows its heading", async ({ adminPage }) => {
+    await adminPage.goto("/dashboard/admin/purchases");
+    if (!(await assertDashboard(adminPage))) return;
+    await expect(
+      adminPage.getByRole("heading", {
+        level: 1,
+        name: "შესყიდვები",
+        exact: true,
+      }),
+    ).toBeVisible();
+  });
+
+  test("the API answers the report shape", async ({ adminPage }) => {
+    await adminPage.goto("/dashboard/admin/purchases");
+    if (!(await assertDashboard(adminPage))) return;
+    const res = await adminPage.request.get("/api/admin/purchases?period=all");
+    expect(res.status()).toBe(200);
+    const { report } = await res.json();
+    expect(Array.isArray(report.totals)).toBe(true);
+    expect(Array.isArray(report.customers)).toBe(true);
+    expect(Array.isArray(report.rows)).toBe(true);
+    expect(typeof report.summary.gross).toBe("number");
+  });
+
+  test("a non-admin cannot read purchases", async ({ renterPage }) => {
+    await renterPage.goto("/dashboard/renter");
+    const status = await renterPage.evaluate(
+      async () => (await fetch("/api/admin/purchases?period=all")).status,
+    );
+    expect(status).toBe(403);
   });
 });
 

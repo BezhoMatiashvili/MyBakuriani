@@ -188,6 +188,11 @@ function getNavigation(role: string): RoleNavigation {
             icon: CreditCard,
           },
           {
+            labelKey: "purchases",
+            href: "/dashboard/admin/purchases",
+            icon: ShoppingBag,
+          },
+          {
             labelKey: "ads",
             href: "/dashboard/admin/moderation",
             icon: ClipboardList,

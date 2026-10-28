@@ -6805,6 +6805,13 @@ export type Database = {
             foreignKeyName: "user_subscriptions_payment_transaction_id_fkey";
             columns: ["payment_transaction_id"];
             isOneToOne: false;
+            referencedRelation: "admin_purchases_v";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_subscriptions_payment_transaction_id_fkey";
+            columns: ["payment_transaction_id"];
+            isOneToOne: false;
             referencedRelation: "transactions";
             referencedColumns: ["id"];
           },
@@ -7098,6 +7105,45 @@ export type Database = {
           user_id: string | null;
         };
         Relationships: [];
+      };
+      admin_purchases_v: {
+        Row: {
+          amount: number | null;
+          created_at: string | null;
+          description: string | null;
+          id: string | null;
+          listing_id: string | null;
+          listing_kind: string | null;
+          listing_title: string | null;
+          membership_status: string | null;
+          organization_name: string | null;
+          refunded: number | null;
+          service: string | null;
+          user_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "transactions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "admin_membership_overview_v";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "transactions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transactions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "public_listing_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       analytics_person_map_v: {
         Row: {
@@ -7873,6 +7919,16 @@ export type Database = {
           visits_7d: number;
           weekly_visitors: number;
         }[];
+      };
+      admin_purchases_report: {
+        Args: {
+          p_from?: string;
+          p_page?: number;
+          p_search?: string;
+          p_service?: string;
+          p_to?: string;
+        };
+        Returns: Json;
       };
       admin_save_user_group: {
         Args: {

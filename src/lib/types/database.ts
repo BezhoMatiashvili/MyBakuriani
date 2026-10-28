@@ -73,6 +73,9 @@ type PublicViews = {
   admin_membership_overview_v: GenPublic["Views"]["admin_membership_overview_v"];
   admin_listing_promotions_v: GenPublic["Views"]["admin_listing_promotions_v"];
   admin_company_plans_v: GenPublic["Views"]["admin_company_plans_v"];
+  // Admin purchases (C42): service role only, read through
+  // admin_purchases_report.
+  admin_purchases_v: GenPublic["Views"]["admin_purchases_v"];
   // Admin analytics (C49): service role only, read by the admin_analytics_*
   // functions.
   analytics_person_map_v: GenPublic["Views"]["analytics_person_map_v"];

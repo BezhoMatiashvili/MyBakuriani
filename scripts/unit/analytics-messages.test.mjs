@@ -86,6 +86,10 @@ test("every key built from data has a label in every locale", () => {
       "matching",
       "responses",
       "leads",
+      "guests",
+      "owners",
+      "offersSent",
+      "requestsAllTime",
     ],
     ads: [
       "impressions",

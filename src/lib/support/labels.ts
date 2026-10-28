@@ -649,6 +649,10 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
     en: "Apply",
     ru: "Выполнить",
   },
+  შესყიდვები: {
+    en: "Purchases",
+    ru: "Покупки",
+  },
   შეტყობინებები: {
     en: "Notifications",
     ru: "Уведомления",

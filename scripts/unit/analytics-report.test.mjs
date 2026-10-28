@@ -116,6 +116,19 @@ const ads = (n) => ({
   ],
   tracked_since: null,
 });
+const smartmatch = (n) => ({
+  filtered: false,
+  requests: 2 * n,
+  requests_with_offer: n,
+  match_rate: 0.5,
+  matching_listings: n,
+  responses: 2 * n,
+  leads: 1,
+  guests: 3 * n,
+  owners: n,
+  offers_sent: 3 * n,
+  requests_all_time: 40,
+});
 const live = {
   at: "2026-10-06T14:00:00Z",
   window_minutes: 5,
@@ -276,6 +289,42 @@ test("the whole-page export: meta lines, every block, comparison twins", () => {
     "T:Tbilisi",
     "notRecorded",
     "2026-10-06 17:59",
+  ]);
+});
+
+test("smart match: usage rows compare, the all-time total does not", () => {
+  const report = buildAnalyticsReport(
+    {
+      block: "smartmatch",
+      scope: "filtered",
+      query: query({ compare: true }),
+      previousRange,
+      generatedAt: "2026-10-06 18:00",
+      smartmatch: {
+        current: smartmatch(2),
+        previous: smartmatch(1),
+        previousRange,
+      },
+    },
+    labels,
+  );
+  const [section] = report.sections;
+  const byLabel = Object.fromEntries(section.rows.map((r) => [r[0], r]));
+  assert.deepEqual(byLabel["smartmatch.guests"], [
+    "smartmatch.guests",
+    6,
+    3,
+    100,
+  ]);
+  assert.deepEqual(byLabel["smartmatch.requestsAllTime"], [
+    "smartmatch.requestsAllTime",
+    40,
+    null,
+    null,
+  ]);
+  assert.deepEqual(section.notes, [
+    "smartmatch.definitions",
+    "smartmatch.usageNote",
   ]);
 });
 

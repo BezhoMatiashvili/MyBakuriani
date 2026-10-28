@@ -394,6 +394,16 @@ export function buildCases({ nextDate }) {
       expect: { actionsAny: ["account"] },
     },
     {
+      name: "account-ka-ownership-files-kept",
+      locale: "ka",
+      cabinet: "account",
+      path: "/dashboard/account/ownership",
+      signedIn: true,
+      message:
+        "რამდენ ხანს ინახავთ ჩემს პასპორტს მესაკუთრეობის დადასტურების შემდეგ?",
+      expect: { textAny: ["90"] },
+    },
+    {
       name: "create-ka-required-fields",
       locale: "ka",
       cabinet: "create",

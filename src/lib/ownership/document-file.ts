@@ -5,7 +5,10 @@
 /** 10 MiB — matches the `ownership-documents` bucket's file_size_limit. */
 export const MAX_OWNERSHIP_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
-/** Unpurged files one owner may hold (the documents table's insert trigger). */
+/**
+ * Unpurged files one owner may hold that no approved, revoked or admin-decided
+ * request uses (the documents table's insert trigger).
+ */
 export const MAX_OWNERSHIP_DOCUMENTS_PER_OWNER = 60;
 
 /** Listings one submission may cover (submit_ownership_verifications). */

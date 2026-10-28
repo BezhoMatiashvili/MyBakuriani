@@ -428,8 +428,9 @@ export async function POST(req: NextRequest) {
     const listingId = result.property_id ?? result.service_id;
     if (listingId) revalidateTag(listingTag(kind, listingId));
     revalidateListingLists(kind);
-    // Best effort (never throws): a decided request's files are not needed
-    // any more; the hourly purge catches whatever this misses.
+    // Best effort (never throws): sweeps this owner's due files; a decision
+    // keeps its own (C39: until 90 days after a reject/revoke), the hourly
+    // purge deletes them then.
     await purgeOwnershipDocuments({ ownerId: result.owner_id });
   }
 

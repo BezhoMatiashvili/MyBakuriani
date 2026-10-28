@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   MAX_OWNERSHIP_DECISION_NOTE,
   MAX_OWNERSHIP_DOCUMENT_BYTES,
@@ -22,6 +22,16 @@ const MIGRATION = readFileSync(
   fromRoot("supabase/migrations/20261001200000_ownership_verification.sql"),
   "utf8",
 );
+// The cap is redefined by later migrations (20261028140200 keeps decided files).
+const CAP_MIGRATION = readdirSync(fromRoot("supabase/migrations"))
+  .filter((f) => f.endsWith(".sql"))
+  .sort()
+  .map((f) => readFileSync(fromRoot(`supabase/migrations/${f}`), "utf8"))
+  .findLast((sql) =>
+    sql.includes(
+      "CREATE OR REPLACE FUNCTION public.enforce_ownership_document_limit(",
+    ),
+  );
 
 function concat(...parts) {
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
@@ -85,7 +95,7 @@ test("kinds, statuses and content types equal the migration CHECK lists", () => 
 
 test("the per-owner cap, batch size and note length equal the SQL", () => {
   assert.match(
-    MIGRATION,
+    CAP_MIGRATION,
     new RegExp(
       `\\) >= ${MAX_OWNERSHIP_DOCUMENTS_PER_OWNER} THEN\\s+RAISE EXCEPTION 'OWNERSHIP_DOCUMENT_LIMIT'`,
     ),
