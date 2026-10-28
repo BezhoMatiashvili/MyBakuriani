@@ -7,7 +7,7 @@ import { formatPhone, maskPhone } from "@/lib/utils/format";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { trackContactClick } from "@/lib/contact-tracking";
-import { normalizeE164Phone } from "@/lib/security";
+import { toGeContactE164 } from "@/lib/utils/number";
 import { getTurnstileToken } from "@/lib/turnstile-client";
 
 interface CallButtonProps {
@@ -51,7 +51,7 @@ export function CallButton({
     className,
   );
 
-  const normalizedPhone = normalizeE164Phone(resolvedPhone ?? phone);
+  const normalizedPhone = toGeContactE164(resolvedPhone ?? phone);
 
   const revealContact = useCallback(async () => {
     const kind = propertyId ? "property" : serviceId ? "service" : null;
@@ -77,7 +77,7 @@ export function CallButton({
         return;
       }
       const result = (await response.json()) as { phone?: string | null };
-      const resolved = normalizeE164Phone(result.phone);
+      const resolved = toGeContactE164(result.phone);
       if (!resolved) {
         setRevealFailed(true);
         return;

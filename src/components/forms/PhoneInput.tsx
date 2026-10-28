@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, ChangeEvent } from "react";
+import { groupGePhone, sanitizeGePhone } from "@/lib/utils/number";
 
 interface PhoneInputProps {
   value: string;
@@ -7,14 +8,15 @@ interface PhoneInputProps {
   error?: string | null;
   id?: string;
   autoComplete?: string;
-}
-
-function formatPhone(raw: string): string {
-  const d = raw.replace(/\D/g, "").slice(0, 9);
-  if (d.length <= 3) return d;
-  if (d.length <= 5) return `${d.slice(0, 3)} ${d.slice(3)}`;
-  if (d.length <= 7) return `${d.slice(0, 3)} ${d.slice(3, 5)} ${d.slice(5)}`;
-  return `${d.slice(0, 3)} ${d.slice(3, 5)} ${d.slice(5, 7)} ${d.slice(7)}`;
+  /**
+   * A listing's or company's contact number, which may also be a landline
+   * (C56): the placeholder gives a landline example, and the caller checks the
+   * number with isValidGeContactPhone and passes the error. Never on a
+   * WhatsApp, profile or sign-in field.
+   */
+  allowLandline?: boolean;
+  /** For a column too narrow for the landline example. */
+  placeholder?: string;
 }
 
 export default function PhoneInput({
@@ -23,16 +25,14 @@ export default function PhoneInput({
   error,
   id,
   autoComplete,
+  allowLandline,
+  placeholder = allowLandline ? "5XX XX XX XX / 32 2XX XX XX" : "5XX XX XX XX",
 }: PhoneInputProps) {
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
-      const digits = e.target.value.replace(/\D/g, "");
-      // A pasted or autofilled "+995 5XX …" keeps the local number, not "9955XXXXX".
-      const local =
-        digits.length > 9 && digits.startsWith("995")
-          ? digits.slice(3)
-          : digits;
-      onChange(local.slice(0, 9));
+      // A pasted or autofilled "+995 5XX …", "00995 …" or "0322 …" keeps the
+      // local number, not "9955XXXXX".
+      onChange(sanitizeGePhone(e.target.value));
     },
     [onChange],
   );
@@ -51,9 +51,9 @@ export default function PhoneInput({
           aria-invalid={error ? true : undefined}
           type="tel"
           inputMode="numeric"
-          value={formatPhone(value)}
+          value={groupGePhone(value.replace(/\D/g, "").slice(0, 9))}
           onChange={handleChange}
-          placeholder="5XX XX XX XX"
+          placeholder={placeholder}
           className="w-full bg-transparent px-4 py-3 text-sm font-bold outline-none placeholder:font-medium placeholder:text-[#94A3B8]/50"
         />
       </div>

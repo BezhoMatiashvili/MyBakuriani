@@ -22,7 +22,12 @@ import { useActiveZones } from "@/lib/zones/client";
 import { AMENITY_GROUPS, HOSTING_LANGS } from "@/lib/constants/listing-options";
 import { createClient } from "@/lib/supabase/client";
 import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
-import { isValidGePhone, sanitizeCadastralCode } from "@/lib/utils/number";
+import {
+  isValidGeContactPhone,
+  isValidGePhone,
+  sanitizeCadastralCode,
+  sanitizeGePhone,
+} from "@/lib/utils/number";
 import {
   useCadastralTaken,
   isCadastralDuplicateError,
@@ -310,10 +315,8 @@ function CreateRentalPageInner() {
       if (typeof rules.pets === "boolean") setPetsAllowed(rules.pets);
       if (typeof rules.meals_included === "boolean")
         setMealsIncluded(rules.meals_included);
-      const stripPrefix = (v: string | null) =>
-        v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
-      setPhone(stripPrefix(data.phone));
-      setWhatsapp(stripPrefix(data.whatsapp));
+      setPhone(sanitizeGePhone(data.phone));
+      setWhatsapp(sanitizeGePhone(data.whatsapp));
       setPhotos(Array.isArray(data.photos) ? data.photos : []);
 
       // Hydrate availability for the next-30-day window from existing rows
@@ -471,8 +474,11 @@ function CreateRentalPageInner() {
         });
       }
     } else if (s === 4) {
-      if (!isValidGePhone(phone))
-        errs.push({ key: "phone", message: t("phoneRequired") });
+      if (!isValidGeContactPhone(phone))
+        errs.push({
+          key: "phone",
+          message: phone ? tShared("invalidContactPhone") : t("phoneRequired"),
+        });
       if (photos.length === 0)
         errs.push({ key: "photos", message: t("photosRequired") });
     }
@@ -519,8 +525,10 @@ function CreateRentalPageInner() {
         throw new Error(t("specifyMeals"));
       }
 
-      if (!isValidGePhone(phone)) {
-        throw new Error(t("phoneRequired"));
+      if (!isValidGeContactPhone(phone)) {
+        throw new Error(
+          phone ? tShared("invalidContactPhone") : t("phoneRequired"),
+        );
       }
 
       const areaNum = Number(areaSqm);
@@ -1217,11 +1225,12 @@ function CreateRentalPageInner() {
                       <PhoneInput
                         value={phone}
                         onChange={setPhone}
+                        allowLandline
                         error={
-                          invalidFields.has("phone")
-                            ? t("phoneRequired")
-                            : phone && !isValidGePhone(phone)
-                              ? tShared("invalidPhone")
+                          phone && !isValidGeContactPhone(phone)
+                            ? tShared("invalidContactPhone")
+                            : invalidFields.has("phone")
+                              ? t("phoneRequired")
                               : null
                         }
                       />

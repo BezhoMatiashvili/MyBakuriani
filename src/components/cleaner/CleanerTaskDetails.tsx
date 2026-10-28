@@ -15,6 +15,7 @@ import { googleMapsDirectionsUrl } from "@/lib/maps/googleMapsUrl";
 import { normalizeE164Phone } from "@/lib/security";
 import { formatPhone } from "@/lib/utils/format";
 import { propertyViewUrl } from "@/lib/utils/listingUrls";
+import { toGeContactE164 } from "@/lib/utils/number";
 
 /**
  * Pieces of a platform call-out a cleaner needs before and after accepting it.
@@ -27,9 +28,9 @@ const CONTACT_BUTTON =
   "inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-[12px] font-bold text-white transition-colors";
 
 /**
- * The owner's number (and WhatsApp) as tappable buttons. Only a normalized
- * Georgian mobile becomes a `tel:`/wa.me link; any other stored value is still
- * shown as text so the cleaner can read it.
+ * The owner's number (and WhatsApp) as tappable buttons. A Georgian mobile or
+ * landline becomes a `tel:` link and only a mobile a wa.me one (C56); any other
+ * stored value is still shown as text so the cleaner can read it.
  */
 export function TaskContact({ task }: { task: CleanerTaskItem }) {
   const t = useTranslations("CleanerDashboard");
@@ -48,7 +49,7 @@ export function TaskContact({ task }: { task: CleanerTaskItem }) {
   }
 
   const phone = task.contactPhone;
-  const phoneE164 = normalizeE164Phone(phone);
+  const phoneE164 = toGeContactE164(phone);
   const whatsappE164 = normalizeE164Phone(task.contactWhatsapp);
 
   if (!phone && !whatsappE164) {
@@ -68,13 +69,13 @@ export function TaskContact({ task }: { task: CleanerTaskItem }) {
         (phoneE164 ? (
           <a
             href={`tel:${phoneE164}`}
-            aria-label={`${t("call")} ${formatPhone(phone)}`}
+            aria-label={`${t("call")} ${formatPhone(phoneE164)}`}
             data-jev-label={t("call")}
             data-testid="cleaner-task-call"
             className={`${CONTACT_BUTTON} bg-[#0369A1] hover:bg-[#075985]`}
           >
             <Phone className="size-4 shrink-0" />
-            {formatPhone(phone)}
+            {formatPhone(phoneE164)}
           </a>
         ) : (
           <span

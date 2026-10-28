@@ -823,11 +823,11 @@ test.describe("Cleaner call-out details", () => {
     await expect(day).toContainText("შეთანხმებით");
   });
 
-  test("a number that is not a mobile is shown as text; with no number the hint stops saying to call", async ({
+  test("a landline is dialled, a number that is neither a mobile nor a landline is shown as text; with no number the hint stops saying to call", async ({
     cleanerPage,
   }) => {
     await answerCookieBanner(cleanerPage);
-    let mode: "landline" | "none" = "landline";
+    let mode: "landline" | "voip" | "none" = "landline";
     // What the owner left in the listing is out of this test's hands: rewrite the answer.
     await cleanerPage.route(
       "**/rest/v1/rpc/get_my_cleaning_task_owner_details*",
@@ -839,13 +839,18 @@ test.describe("Cleaner call-out details", () => {
           json: rows.map((row) =>
             mode === "none"
               ? { ...row, phone: null, whatsapp: null }
-              : { ...row, phone: "032 2 00 00 00", whatsapp: null },
+              : {
+                  ...row,
+                  phone:
+                    mode === "landline" ? "032 2 00 00 00" : "706 12 34 56",
+                  whatsapp: null,
+                },
           ),
         });
       },
     );
 
-    for (const next of ["landline", "none"] as const) {
+    for (const next of ["landline", "voip", "none"] as const) {
       mode = next;
       await cleanerPage.goto("/dashboard/cleaner/schedule");
       expect(cleanerPage.url()).not.toContain("/auth/");
@@ -853,8 +858,16 @@ test.describe("Cleaner call-out details", () => {
       const day = cleanerPage.getByTestId("cleaner-selected-day-schedule");
       const hint = day.getByTestId("cleaner-task-area-only");
       if (next === "landline") {
+        // A Tbilisi landline (C56) dials, shown as it is dialled.
         const call = day.getByTestId("cleaner-task-call");
-        await expect(call).toContainText("032 2 00 00 00");
+        await expect(call).toHaveAttribute("href", "tel:+995322000000");
+        await expect(call).toContainText("+995 32 200 00 00");
+        await expect(day.getByTestId("cleaner-task-whatsapp")).toHaveCount(0);
+        await expect(hint).toContainText("დაურეკეთ მესაკუთრეს");
+      } else if (next === "voip") {
+        // A VoIP number is neither: the cleaner can still read it.
+        const call = day.getByTestId("cleaner-task-call");
+        await expect(call).toContainText("706 12 34 56");
         await expect(call).not.toHaveAttribute("href", /.+/);
         await expect(hint).toContainText("დაურეკეთ მესაკუთრეს");
       } else {

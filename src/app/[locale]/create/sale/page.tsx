@@ -24,9 +24,11 @@ import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { readStoredActiveOrgId } from "@/lib/dashboard/orgScope";
 import { updateSelfServiceProfile } from "@/lib/self-service/client";
 import {
+  isValidGeContactPhone,
   isValidGePhone,
   isValidCadastralCode,
   sanitizeCadastralCode,
+  sanitizeGePhone,
 } from "@/lib/utils/number";
 import {
   useCadastralTaken,
@@ -502,10 +504,8 @@ function CreateSalePageInner() {
       // seller's payment terms.
       setPaymentOptions(readPaymentOptions(rules));
 
-      const stripPrefix = (v: string | null) =>
-        v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
-      setPhone(stripPrefix(data.phone));
-      setWhatsapp(stripPrefix(data.whatsapp));
+      setPhone(sanitizeGePhone(data.phone));
+      setWhatsapp(sanitizeGePhone(data.whatsapp));
       setPhotos(Array.isArray(data.photos) ? data.photos : []);
 
       setHydrating(false);
@@ -600,8 +600,8 @@ function CreateSalePageInner() {
       });
     }
 
-    if (!isValidGePhone(phone)) {
-      errs.push({ key: "phone", message: tShared("invalidPhone") });
+    if (!isValidGeContactPhone(phone)) {
+      errs.push({ key: "phone", message: tShared("invalidContactPhone") });
     }
 
     // Attaching to / switching company needs an active package; keeping the
@@ -851,7 +851,7 @@ function CreateSalePageInner() {
     areaSqm.trim().length > 0,
     priceUsd.trim().length > 0 || pricePerSqm.trim().length > 0,
     photos.length >= MIN_PHOTOS,
-    isValidGePhone(phone),
+    isValidGeContactPhone(phone),
   ].filter(Boolean).length;
   const fieldPct = Math.round((requiredFilled / 6) * 100);
 
@@ -1474,9 +1474,10 @@ function CreateSalePageInner() {
                       <PhoneInput
                         value={phone}
                         onChange={setPhone}
+                        allowLandline
                         error={
                           invalidFields.has("phone")
-                            ? tShared("invalidPhone")
+                            ? tShared("invalidContactPhone")
                             : null
                         }
                       />
@@ -1485,7 +1486,15 @@ function CreateSalePageInner() {
                       label={tShared("whatsappNumber")}
                       helper={tShared("optional")}
                     >
-                      <PhoneInput value={whatsapp} onChange={setWhatsapp} />
+                      <PhoneInput
+                        value={whatsapp}
+                        onChange={setWhatsapp}
+                        error={
+                          whatsapp && !isValidGePhone(whatsapp)
+                            ? tShared("invalidPhone")
+                            : null
+                        }
+                      />
                     </Field>
                   </div>
                 </WizardInnerCard>

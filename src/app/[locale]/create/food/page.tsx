@@ -28,7 +28,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
 import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
-import { isValidGePhone } from "@/lib/utils/number";
+import { isValidGeContactPhone, sanitizeGePhone } from "@/lib/utils/number";
 import { safeHttpsUrl } from "@/lib/security";
 import { readMenuPdf, type MenuPdfProblem } from "@/lib/menu-pdf";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
@@ -217,9 +217,7 @@ function CreateFoodPageInner() {
       );
       setMenuUrlInput(data.menu_url ?? "");
       setDescription(data.description ?? "");
-      const stripPrefix = (v: string | null) =>
-        v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
-      setPhone(stripPrefix(data.phone));
+      setPhone(sanitizeGePhone(data.phone));
       setPhotos(Array.isArray(data.photos) ? data.photos : []);
 
       setHydrating(false);
@@ -318,6 +316,8 @@ function CreateFoodPageInner() {
     }
     if (!phone.trim()) {
       errs.push({ key: "phone", message: tShared("enterPhone") });
+    } else if (!isValidGeContactPhone(phone)) {
+      errs.push({ key: "phone", message: tShared("invalidContactPhone") });
     }
     if (menuUrlInput.trim() && !safeHttpsUrl(menuUrlInput.trim())) {
       errs.push({ key: "menuUrl", message: t("invalidMenuUrl") });
@@ -399,7 +399,7 @@ function CreateFoodPageInner() {
     zone.length > 0,
     isValidTimeRange(operatingHours),
     photos.length >= MIN_PHOTOS,
-    isValidGePhone(phone),
+    isValidGeContactPhone(phone),
   ].filter(Boolean).length;
   const progressPercent = Math.max(10, Math.round((requiredFilled / 5) * 100));
 
@@ -695,11 +695,12 @@ function CreateFoodPageInner() {
               <PhoneInput
                 value={phone}
                 onChange={setPhone}
+                allowLandline
                 error={
-                  invalidFields.has("phone")
-                    ? tShared("enterPhone")
-                    : phone && !isValidGePhone(phone)
-                      ? tShared("invalidPhone")
+                  phone && !isValidGeContactPhone(phone)
+                    ? tShared("invalidContactPhone")
+                    : invalidFields.has("phone")
+                      ? tShared("enterPhone")
                       : null
                 }
               />

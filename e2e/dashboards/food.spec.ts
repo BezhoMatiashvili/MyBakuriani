@@ -136,6 +136,80 @@ test.describe("Food Dashboard", () => {
         await services.delete(serviceId);
       }
     });
+
+    test("the parameters page takes a landline and saves it with +995", async ({
+      foodPage,
+    }) => {
+      const serviceId = randomUUID();
+      await services.create({
+        id: serviceId,
+        owner_id: TEST_IDS.food,
+        category: "food",
+        title: `E2E ქალაქის ნომერი ${serviceId.slice(0, 6)}`,
+        description: "Landline contact phone fixture",
+        location: "ბაკურიანი",
+        // A stored trunk 0 must load as the 9 digits (C56), not block the save.
+        phone: "0322 11 80 47",
+        photos: [],
+        status: "active",
+        // The page edits the newest restaurant, and other spec files add ones
+        // for this user in parallel: date it ahead of them, by minutes only, so
+        // a row left by a killed run soon stops shadowing the tests above.
+        created_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      });
+
+      try {
+        // The edit is only captured: no review request is left behind.
+        const posted: unknown[] = [];
+        await foodPage.route(
+          "**/api/content-change-requests",
+          async (route) => {
+            posted.push(route.request().postDataJSON());
+            await route.fulfill({
+              status: 200,
+              contentType: "application/json",
+              body: JSON.stringify({ request: { id: randomUUID() } }),
+            });
+          },
+        );
+        await foodPage.goto("/dashboard/food/parameters");
+        if (!(await assertDashboard(foodPage, "/dashboard/food/parameters"))) {
+          return;
+        }
+
+        const phone = foodPage.locator(
+          '[data-field="phone"] input[type="tel"]',
+        );
+        const refused = foodPage.getByText(
+          "შეიყვანეთ სწორი მობილურის ან ქალაქის ნომერი",
+        );
+        await expect(phone).toHaveValue("32 211 80 47");
+        await expect(refused).toHaveCount(0);
+
+        // VoIP is not a contact number; a Bakuriani landline is.
+        await phone.fill("706 12 34 56");
+        await expect(refused).toBeVisible();
+        await phone.fill("367 24 12 34");
+        await expect(refused).toHaveCount(0);
+        await phone.fill("0322 11 80 47");
+        await expect(phone).toHaveValue("32 211 80 47");
+        await expect(refused).toHaveCount(0);
+
+        await foodPage
+          .locator("form")
+          .filter({ has: phone })
+          .locator('button[type="submit"]')
+          .click();
+        await expect.poll(() => posted.length).toBe(1);
+        expect(posted[0]).toMatchObject({
+          targetType: "service",
+          targetId: serviceId,
+          proposedValues: { phone: "+995322118047" },
+        });
+      } finally {
+        await services.delete(serviceId);
+      }
+    });
   });
 
   test("orders page loads", async ({ foodPage }) => {

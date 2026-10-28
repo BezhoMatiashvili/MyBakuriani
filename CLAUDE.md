@@ -107,7 +107,7 @@ Premium real estate rental/sales + services marketplace for Bakuriani ski resort
 
 - **Georgian text**: Copy exact Georgian strings from `.claude/prompts/mybakuriani-full-build.md` Section 10. Do NOT translate or transliterate.
 - **Currency**: Georgian Lari (₾), displayed as `X ₾` (symbol after number)
-- **Phone format**: +995 5XX XX XX XX
+- **Phone format**: +995 5XX XX XX XX (mobile; a listing/company contact phone may also be a landline, C56)
 - **Figma**: File key `CmWL25icqZwDX4dtEqT5ZJ`. Always fetch design before building any page using `get_design_context(fileKey, nodeId)`. Node IDs are in `.claude/prompts/mybakuriani-full-build.md` Section 2.
 - **Images**: Use Next.js `<Image>` component for all property photos
 - **SEO**: Every public page needs `metadata` export with Georgian titles/descriptions

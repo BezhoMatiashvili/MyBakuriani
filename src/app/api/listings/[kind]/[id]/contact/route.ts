@@ -9,6 +9,7 @@ import {
 } from "@/lib/rateLimit";
 import { isUuid } from "@/lib/utils/uuid";
 import { normalizeE164Phone } from "@/lib/security";
+import { toGeContactE164 } from "@/lib/utils/number";
 import { isTurnstileConfigured, verifyTurnstile } from "@/lib/turnstile";
 
 export const runtime = "nodejs";
@@ -177,9 +178,9 @@ export async function POST(
   });
   // This is the only public contact representation: a deliberate detail
   // lookup, individually rate-limited and never part of list/search payloads.
+  // The call number may be a landline; WhatsApp stays a mobile (C56).
   return Response.json({
-    phone:
-      normalizeE164Phone(row.phone) ?? normalizeE164Phone(row.profiles?.phone),
+    phone: toGeContactE164(row.phone) ?? toGeContactE164(row.profiles?.phone),
     whatsapp: normalizeE164Phone(row.whatsapp),
   });
 }

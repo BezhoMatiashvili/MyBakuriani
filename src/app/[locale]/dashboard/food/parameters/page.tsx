@@ -14,7 +14,12 @@ import {
 } from "@/lib/content-change/client";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { CUISINE_TYPES } from "@/lib/constants/listing-options";
-import { isValidGePhone, toLocalGePhone } from "@/lib/utils/number";
+import {
+  groupGePhone,
+  isValidGeContactPhone,
+  isValidGePhone,
+  sanitizeGePhone,
+} from "@/lib/utils/number";
 import type { Tables } from "@/lib/types/database";
 import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
 import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
@@ -77,7 +82,7 @@ export default function FoodParametersPage() {
               t.label === data.cuisine_type || t.value === data.cuisine_type,
           )?.value ?? "",
         );
-        setPhone(toLocalGePhone(data.phone));
+        setPhone(sanitizeGePhone(data.phone));
       }
       setLoading(false);
     }
@@ -89,7 +94,7 @@ export default function FoodParametersPage() {
     e.preventDefault();
     if (!service) return;
     const invalid = [
-      ...(phone && !isValidGePhone(phone) ? ["phone"] : []),
+      ...(phone && !isValidGeContactPhone(phone) ? ["phone"] : []),
       ...(whatsapp && !isValidGePhone(whatsapp) ? ["whatsapp"] : []),
     ];
     if (invalid.length) {
@@ -205,17 +210,15 @@ export default function FoodParametersPage() {
                 <input
                   type="tel"
                   inputMode="numeric"
-                  value={phone}
-                  onChange={(e) =>
-                    setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))
-                  }
+                  value={groupGePhone(phone)}
+                  onChange={(e) => setPhone(sanitizeGePhone(e.target.value))}
                   placeholder="+995 5XX XX XX XX"
                   className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-semibold text-[#0F172A] placeholder:text-[#94A3B8] focus:border-[#F97316] focus:outline-none focus:ring-2 focus:ring-[#F97316]/10"
                 />
               )}
-              {phone && !isValidGePhone(phone) && (
+              {phone && !isValidGeContactPhone(phone) && (
                 <p className="mt-1 text-xs text-[#EF4444]">
-                  {tShared("invalidPhone")}
+                  {tCreate("invalidContactPhone")}
                 </p>
               )}
             </div>

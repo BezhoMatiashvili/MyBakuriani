@@ -22,7 +22,11 @@ import { Link } from "@/i18n/navigation";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient, createUploadClient } from "@/lib/supabase/client";
 import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
-import { isValidGePhone } from "@/lib/utils/number";
+import {
+  isValidGeContactPhone,
+  isValidGePhone,
+  sanitizeGePhone,
+} from "@/lib/utils/number";
 import { cn } from "@/lib/utils";
 import {
   contentChangeErrorKey,
@@ -208,10 +212,10 @@ function CreateServicePageInner() {
 
       setPrice(data.price != null ? String(data.price) : "");
 
-      const stripPrefix = (v: string | null | undefined) =>
-        v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
-      setPhone(stripPrefix(data.phone));
-      setWhatsapp(stripPrefix((data as { whatsapp?: string | null }).whatsapp));
+      setPhone(sanitizeGePhone(data.phone));
+      setWhatsapp(
+        sanitizeGePhone((data as { whatsapp?: string | null }).whatsapp),
+      );
 
       setHydrating(false);
     })();
@@ -221,6 +225,17 @@ function CreateServicePageInner() {
     };
   }, [editId, user, supabase, tShared]);
 
+  const isCleaningListing = isEditMode
+    ? loadedCategory === "cleaning"
+    : sphere === "cleaning";
+  // A cleaner's number is the call-out SMS fallback (C18), so it stays a
+  // mobile; any other service may give a landline (C56).
+  const phoneValid = isCleaningListing
+    ? isValidGePhone(phone)
+    : isValidGeContactPhone(phone);
+  const invalidPhoneKey = isCleaningListing
+    ? "invalidPhone"
+    : "invalidContactPhone";
   const requiredFilled = [
     name.trim().length > 0,
     serviceTitle.trim().length > 0,
@@ -231,12 +246,9 @@ function CreateServicePageInner() {
     description.trim().length > 0,
     is24_7 || isValidTimeRange(workingHours),
     price.trim().length > 0,
-    isValidGePhone(phone),
+    phoneValid,
   ].filter(Boolean).length;
   const progressPercent = Math.max(10, Math.round((requiredFilled / 10) * 100));
-  const isCleaningListing = isEditMode
-    ? loadedCategory === "cleaning"
-    : sphere === "cleaning";
 
   function toggleZone(zone: string) {
     setCoverageZones((prev) =>
@@ -280,6 +292,8 @@ function CreateServicePageInner() {
     if (!price.trim()) errs.push({ key: "price", message: t("enterPrice") });
     if (!phone.trim())
       errs.push({ key: "phone", message: tShared("enterPhone") });
+    else if (!phoneValid)
+      errs.push({ key: "phone", message: tShared(invalidPhoneKey) });
     return errs;
   }
 
@@ -668,11 +682,12 @@ function CreateServicePageInner() {
                 <PhoneInput
                   value={phone}
                   onChange={setPhone}
+                  allowLandline={!isCleaningListing}
                   error={
-                    invalidFields.has("phone")
-                      ? tShared("enterPhone")
-                      : phone && !isValidGePhone(phone)
-                        ? tShared("invalidPhone")
+                    phone && !phoneValid
+                      ? tShared(invalidPhoneKey)
+                      : invalidFields.has("phone")
+                        ? tShared("enterPhone")
                         : null
                   }
                 />

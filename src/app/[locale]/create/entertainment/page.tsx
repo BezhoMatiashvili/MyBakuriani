@@ -21,7 +21,11 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
 import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
-import { isValidGePhone } from "@/lib/utils/number";
+import {
+  isValidGeContactPhone,
+  isValidGePhone,
+  sanitizeGePhone,
+} from "@/lib/utils/number";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
@@ -290,10 +294,10 @@ function CreateEntertainmentPageInner() {
 
       setPhotos(Array.isArray(data.photos) ? data.photos : []);
 
-      const stripPrefix = (v: string | null | undefined) =>
-        v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
-      setPhone(stripPrefix(data.phone));
-      setWhatsapp(stripPrefix((data as { whatsapp?: string | null }).whatsapp));
+      setPhone(sanitizeGePhone(data.phone));
+      setWhatsapp(
+        sanitizeGePhone((data as { whatsapp?: string | null }).whatsapp),
+      );
 
       setHydrating(false);
     })();
@@ -308,7 +312,7 @@ function CreateEntertainmentPageInner() {
     description.trim().length > 0,
     price.trim().length > 0,
     photos.length > 0,
-    isValidGePhone(phone),
+    isValidGeContactPhone(phone),
   ].filter(Boolean).length;
   const progressPercent = Math.max(10, Math.round((requiredFilled / 5) * 100));
 
@@ -322,6 +326,8 @@ function CreateEntertainmentPageInner() {
       errs.push({ key: "photos", message: tShared("uploadMinOnePhoto") });
     if (!phone.trim())
       errs.push({ key: "phone", message: tShared("enterPhone") });
+    else if (!isValidGeContactPhone(phone))
+      errs.push({ key: "phone", message: tShared("invalidContactPhone") });
     return errs;
   }
 
@@ -622,11 +628,12 @@ function CreateEntertainmentPageInner() {
             <PhoneInput
               value={phone}
               onChange={setPhone}
+              allowLandline
               error={
-                invalidFields.has("phone")
-                  ? tShared("enterPhone")
-                  : phone && !isValidGePhone(phone)
-                    ? tShared("invalidPhone")
+                phone && !isValidGeContactPhone(phone)
+                  ? tShared("invalidContactPhone")
+                  : invalidFields.has("phone")
+                    ? tShared("enterPhone")
                     : null
               }
             />

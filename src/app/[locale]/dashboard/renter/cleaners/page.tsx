@@ -51,6 +51,7 @@ import {
   type CleaningTaskCleanerDetails,
 } from "@/lib/cleaner/tasks";
 import { normalizeE164Phone } from "@/lib/security";
+import { toGeContactE164 } from "@/lib/utils/number";
 
 type PlatformCleaner =
   Database["public"]["Functions"]["get_platform_cleaners"]["Returns"][number];
@@ -1258,7 +1259,7 @@ export default function RenterCleanersPage() {
             "completed",
           ].includes(task.status ?? "");
           const phone = contactMayBeVisible
-            ? normalizeE164Phone(detail?.phone)
+            ? toGeContactE164(detail?.phone)
             : null;
           const whatsapp = contactMayBeVisible
             ? normalizeE164Phone(detail?.whatsapp)

@@ -18,7 +18,11 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
-import { isValidGePhone } from "@/lib/utils/number";
+import {
+  isValidGeContactPhone,
+  isValidGePhone,
+  sanitizeGePhone,
+} from "@/lib/utils/number";
 import { scrollToField } from "@/lib/forms/scroll-to-error";
 import { cn } from "@/lib/utils";
 import {
@@ -205,8 +209,6 @@ function CreateTransportPageInner() {
         Array.isArray(v)
           ? v.filter((x): x is string => typeof x === "string")
           : [];
-      const stripPrefix = (v: string | null) =>
-        v ? v.replace(/^\+995/, "").replace(/\D/g, "") : "";
 
       const loadedDriverName = data.driver_name ?? data.title ?? "";
       loadedNamesRef.current = {
@@ -251,9 +253,9 @@ function CreateTransportPageInner() {
       setFeatures(toStringArray(data.features));
       setLanguages(toStringArray(data.languages));
       setDescription(data.description ?? "");
-      setPhone(stripPrefix(data.phone));
+      setPhone(sanitizeGePhone(data.phone));
       setWhatsapp(
-        stripPrefix((data as { whatsapp?: string | null }).whatsapp ?? null),
+        sanitizeGePhone((data as { whatsapp?: string | null }).whatsapp),
       );
       setPhotos(toStringArray(data.photos));
 
@@ -323,7 +325,8 @@ function CreateTransportPageInner() {
     setError(null);
 
     try {
-      if (!isValidGePhone(phone)) throw new Error(tShared("enterPhone"));
+      if (!isValidGeContactPhone(phone))
+        throw new Error(tShared("invalidContactPhone"));
 
       const cleanedRows = routeRows
         .filter((r) => r.route && Number(r.price) > 0)
@@ -400,7 +403,7 @@ function CreateTransportPageInner() {
     routeRows.some((r) => r.route),
     routeRows.some((r) => Number(r.price) > 0),
     photos.length >= MIN_PHOTOS,
-    isValidGePhone(phone),
+    isValidGeContactPhone(phone),
   ].filter(Boolean).length;
   const progressPercent = Math.max(10, Math.round((requiredFilled / 6) * 100));
 
@@ -674,11 +677,12 @@ function CreateTransportPageInner() {
                 <PhoneInput
                   value={phone}
                   onChange={setPhone}
+                  allowLandline
                   error={
-                    invalidFields.has("phone")
-                      ? tShared("enterPhone")
-                      : phone && !isValidGePhone(phone)
-                        ? tShared("invalidPhone")
+                    phone && !isValidGeContactPhone(phone)
+                      ? tShared("invalidContactPhone")
+                      : invalidFields.has("phone")
+                        ? tShared("enterPhone")
                         : null
                   }
                 />

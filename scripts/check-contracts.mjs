@@ -3652,6 +3652,108 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C55: NBG called only by ${NBG} (dated, server-only), no rate constant, conversion only inside src/lib/currency; pick and rate behind the null server snapshot; switcher on ${[...wantMounts.values()].reduce((a, b) => a + b, 0)} public/guest header mounts; ${surfaces.length} public price surfaces through <Money>/useMoney; payments, balances, forms, cabinets and Smart Match offers untouched`);
 }
 
+// C56 — Georgian phone kinds: only a listing's or company's contact phone may be a landline; everything texted,
+// signed in with, matched or opened in WhatsApp stays a mobile (^5). (a) allowLandline/isValidGeContactPhone only in
+// the 8 contact forms (and where they are defined), each checking its phone with isValidGeContactPhone and worded
+// CreateShared.invalidContactPhone (the company form keeps its own text); (b) each PhoneInput form marks exactly one
+// PhoneInput allowLandline (a marker), on value={phone}, never WhatsApp, and create/service keeps its cleaning sphere
+// mobile through phoneValid, its only isValidGeContactPhone call; no WhatsApp number is checked as a contact phone;
+// (c) the reveal dials toGeContactE164 and keeps WhatsApp on normalizeE164Phone, every wa.me link is built from
+// normalizeE164Phone, and every tel: link dials the site's number or a toGeContactE164 result, in a file that runs
+// normalizeE164Phone only on WhatsApp; (d) isValidGePhone, normalizeE164Phone, the newest sms_canonical_ge_phone and
+// toUbillNumber accept only a mobile; (e) number.ts has no imports (scripts/unit/ge-phone.test.mjs loads it bare).
+{
+  const problems = [];
+  const NUMBER = "src/lib/utils/number.ts";
+  const INPUT = "src/components/forms/PhoneInput.tsx";
+  const ORG = "src/app/[locale]/dashboard/seller/organizations/new/page.tsx";
+  const SERVICE = "src/app/[locale]/create/service/page.tsx";
+  const SUPPORT = "src/lib/support/actions.ts";
+  const inputForms = [
+    "src/app/[locale]/create/rental/page.tsx",
+    "src/app/[locale]/create/sale/page.tsx",
+    "src/app/[locale]/create/food/page.tsx",
+    SERVICE,
+    "src/app/[locale]/create/entertainment/page.tsx",
+    "src/app/[locale]/create/transport/page.tsx",
+    ORG,
+  ];
+  const plainForms = ["src/app/[locale]/dashboard/food/parameters/page.tsx"];
+  const forms = new Set([...inputForms, ...plainForms]);
+  for (const [file, text] of srcText) {
+    if (file === NUMBER || file === INPUT || forms.has(file)) continue;
+    if (/\ballowLandline\b|\bisValidGeContactPhone\b/.test(text)) problems.push(`${file} takes a landline (only the ${forms.size} contact forms may)`);
+  }
+  for (const file of forms) {
+    const text = srcText.get(file);
+    if (!text) {
+      problems.push(`${file} is missing (update the C56 list)`);
+      continue;
+    }
+    if (!/\bisValidGeContactPhone\(phone\)/.test(text)) problems.push(`${file} must check its contact phone with isValidGeContactPhone(phone)`);
+    if (file !== SERVICE && /\bisValidGePhone\(phone\)/.test(text)) problems.push(`${file} still checks its contact phone as a mobile (isValidGePhone(phone)); only create/service's cleaning sphere may`);
+    if (file !== ORG && !/["']invalidContactPhone["']/.test(text)) problems.push(`${file} must word a refused contact phone with CreateShared.invalidContactPhone`);
+  }
+  for (const file of inputForms) {
+    const text = srcText.get(file);
+    if (!text) continue;
+    const marked = (text.match(/<PhoneInput\b[\s\S]*?\/>/g) || []).filter((el) => /\ballowLandline\b/.test(el));
+    if ((text.match(/\ballowLandline\b/g) || []).length !== 1 || marked.length !== 1) problems.push(`${file} must mark exactly one PhoneInput allowLandline`);
+    else if (!/\bvalue=\{phone\}/.test(marked[0]) || /whatsapp/i.test(marked[0])) problems.push(`${file}: allowLandline must sit on the contact phone (value={phone}), never on WhatsApp`);
+  }
+  for (const file of plainForms) {
+    if (/\ballowLandline\b/.test(srcText.get(file) ?? "")) problems.push(`${file} has no PhoneInput, so no allowLandline`);
+  }
+  if (!/allowLandline=\{!isCleaningListing\}/.test(srcText.get(SERVICE) ?? "")) problems.push(`${SERVICE} must keep allowLandline={!isCleaningListing} (a cleaner's number is the call-out SMS fallback, C18)`);
+  const service = srcText.get(SERVICE) ?? "";
+  if (!/\bphoneValid\s*=\s*isCleaningListing\s*\?\s*isValidGePhone\(phone\)\s*:\s*isValidGeContactPhone\(phone\)/.test(service)) problems.push(`${SERVICE} must build phoneValid = isCleaningListing ? isValidGePhone(phone) : isValidGeContactPhone(phone) (a cleaner's number is the call-out SMS fallback, C18)`);
+  if ((service.match(/\bisValidGeContactPhone\(/g) || []).length !== 1) problems.push(`${SERVICE} must check its phone only through phoneValid (one isValidGeContactPhone call, inside it), so the cleaning sphere stays a mobile`);
+  if (!JSON.parse(read("messages/ka.json")).CreateShared?.invalidContactPhone) problems.push("messages/ka.json lacks CreateShared.invalidContactPhone");
+  const route = read("src/app/api/listings/[kind]/[id]/contact/route.ts");
+  if (!/phone:\s*toGeContactE164\(row\.phone\)\s*\?\?\s*toGeContactE164\(row\.profiles\?\.phone\)/.test(route)) problems.push("the contact route must reveal phone through toGeContactE164 (listing, then profile)");
+  if (!/whatsapp:\s*normalizeE164Phone\(row\.whatsapp\)/.test(route)) problems.push("the contact route must keep whatsapp on normalizeE164Phone (mobile only)");
+  let waLinks = 0;
+  let telLinks = 0;
+  for (const [file, text] of srcText) {
+    if (/toGeContactE164\([^)\n]*whatsapp/i.test(text)) problems.push(`${file} dials a WhatsApp number through toGeContactE164`);
+    if (/\bisValidGeContactPhone\([^)\n]*whatsapp/i.test(text)) problems.push(`${file} accepts a landline as WhatsApp (isValidGeContactPhone on a WhatsApp number)`);
+    let dials = false;
+    for (const m of text.matchAll(/tel:\$\{([\w.?]+)/g)) {
+      telLinks += 1;
+      const target = m[1];
+      if (target === "CONTACT_PHONE_E164" || target === "toGeContactE164" || (file === SUPPORT && /^(?:ctx\.)?contact\.phone$/.test(target))) continue;
+      dials = true;
+      const escaped = target.replace(/[.?]/g, "\\$&");
+      if (!new RegExp(`(?:^|[^\\w.])${escaped}\\s*=\\s*[^;]*?\\btoGeContactE164\\(`).test(text)) problems.push(`${file}: its tel: link dials ${target}, which toGeContactE164 did not build (a landline would not dial)`);
+    }
+    if (dials) for (const m of text.matchAll(/\bnormalizeE164Phone\(([^)\n]*)\)/g)) if (!/whatsapp/i.test(m[1])) problems.push(`${file} dials a number but runs normalizeE164Phone(${m[1]}), which refuses a landline (only WhatsApp stays mobile-only)`);
+    for (const m of text.matchAll(/wa\.me\/\$\{(\w+)/g)) {
+      waLinks += 1;
+      if (!new RegExp(`\\b${m[1]}\\s*=\\s*[^;]*?\\bnormalizeE164Phone\\(`).test(text)) problems.push(`${file}: its wa.me link uses ${m[1]}, which normalizeE164Phone did not build`);
+    }
+  }
+  const fnBody = (text, name) => text.match(new RegExp(`export function ${name}\\([^)]*\\)[^{]*\\{([\\s\\S]*?)\\n\\}`))?.[1] ?? "";
+  const mobileOnly = (body, allowed) => {
+    const tests = [...body.matchAll(/\/(\^[^/\n]*\$)\/\.test\(/g)].map((m) => m[1]);
+    return tests.length > 0 && tests.every((p) => allowed.includes(p));
+  };
+  const number = read(NUMBER);
+  if (!mobileOnly(fnBody(number, "isValidGePhone"), ["^5\\d{8}$"])) problems.push(`${NUMBER}: isValidGePhone must accept only a mobile (^5\\d{8})`);
+  if (!mobileOnly(fnBody(read("src/lib/security.ts"), "normalizeE164Phone"), ["^5\\d{8}$"])) problems.push("src/lib/security.ts: normalizeE164Phone (WhatsApp, job applicants) must accept only a mobile (^5\\d{8})");
+  if (!mobileOnly(fnBody(read("supabase/functions/_shared/ubill.ts"), "toUbillNumber"), ["^5\\d{8}$", "^9955\\d{8}$"])) problems.push("supabase/functions/_shared/ubill.ts: toUbillNumber must accept only a Georgian mobile");
+  const canon = readdirSync(join(root, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .filter((f) => /function\s+public\.sms_canonical_ge_phone\s*\(/i.test(read(`supabase/migrations/${f}`)));
+  const newest = canon.at(-1);
+  const canonBody = newest ? (read(`supabase/migrations/${newest}`).match(/function\s+public\.sms_canonical_ge_phone\s*\([\s\S]*?\$\$([\s\S]*?)\$\$/i)?.[1] ?? "") : "";
+  const canonPatterns = [...canonBody.matchAll(/~\s*'([^']*)'/g)].map((m) => m[1]);
+  if (!canonPatterns.length || canonPatterns.some((p) => p !== "^5[0-9]{8}$")) problems.push(`${newest ?? "supabase/migrations"}: the newest sms_canonical_ge_phone must accept only '^5[0-9]{8}$' (a landline is never texted)`);
+  if (/^\s*import\s|^\s*export\s+(?:\*|\{[^}]*\})\s+from\b|\brequire\(/m.test(number)) problems.push(`${NUMBER} must stay import-free (scripts/unit loads it bare)`);
+  if (problems.length) problems.forEach((p) => fail(`C56: ${p}`));
+  else ok(`C56: landlines only on the ${forms.size} contact forms (${inputForms.length} PhoneInput allowLandline, one each on the phone, never WhatsApp; create/service's cleaning sphere stays isValidGePhone through phoneValid); the reveal and ${telLinks} tel: links dial toGeContactE164 or the site's number, WhatsApp stays normalizeE164Phone on ${waLinks} wa.me links; isValidGePhone, normalizeE164Phone, toUbillNumber and the newest sms_canonical_ge_phone (${newest}) stay mobile-only; number.ts import-free`);
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);

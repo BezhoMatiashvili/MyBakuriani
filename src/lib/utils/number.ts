@@ -119,6 +119,71 @@ export function toLocalGePhone(value: string | null | undefined): string {
   return d.slice(0, 9);
 }
 
+/**
+ * Georgian fixed lines: libphonenumber's GE fixed-line ranges (Tbilisi 32,
+ * Bakuriani/Borjomi 367, Batumi 422, Kutaisi 431, …) plus the 790/791
+ * fixed-wireless home phones. Never 70X VoIP, 800 toll-free or 9XX premium.
+ */
+const GE_LANDLINE =
+  /^(?:(?:3(?:[256]\d|4[124-9]|7[0-4])|4(?:1\d|2[2-7]|3[1-79]|4[2-8]|7[239]|9[1-7]))\d{6}|79[01]\d{6})$/;
+
+/**
+ * A listing's or company's public contact phone (C56): a Georgian mobile or a
+ * landline, 9 digits without +995. Anything texted, signed in with, matched or
+ * opened in WhatsApp stays isValidGePhone (mobile only).
+ */
+export function isValidGeContactPhone(
+  value: string | null | undefined,
+): boolean {
+  if (!value) return false;
+  return isValidGePhone(value) || GE_LANDLINE.test(value.replace(/\D/g, ""));
+}
+
+/**
+ * The local digits: without +995/00995 and the trunk 0 of a 10-digit number
+ * ("0322 11 80 47"), never truncated. A shorter value keeps its 0, so deleting
+ * the 5 of "507 12 34 56" while typing leaves "07 12 34 56".
+ */
+function geLocalDigits(value: string): string {
+  let d = value.replace(/\D/g, "");
+  if (d.startsWith("00995")) d = d.slice(5);
+  else if (d.length > 9 && d.startsWith("995")) d = d.slice(3);
+  return d.length === 10 && d.startsWith("0") ? d.slice(1) : d;
+}
+
+/**
+ * What a phone field holds (at most 9 digits, as PhoneInput stores them) from
+ * typed, pasted or stored text: "+995 …", "00995 …" and a trunk 0 are dropped,
+ * so "0322 11 80 47" becomes "322118047".
+ */
+export function sanitizeGePhone(value: string | null | undefined): string {
+  if (!value) return "";
+  return geLocalDigits(value).slice(0, 9);
+}
+
+/**
+ * Local digits grouped for display, also while typing: Tbilisi (32) 2-3-2-2
+ * "32 211 80 47", every other number 3-2-2-2 "599 12 34 56".
+ */
+export function groupGePhone(digits: string): string {
+  const d = digits.replace(/\D/g, "");
+  const first = d.startsWith("32") ? 2 : 3;
+  return [d.slice(0, first), d.slice(first, 5), d.slice(5, 7), d.slice(7)]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/**
+ * The tel: target ("+995" + 9 digits) of a stored contact phone that is a
+ * Georgian mobile or landline, else null. Never truncates. WhatsApp links stay
+ * on normalizeE164Phone (mobile only).
+ */
+export function toGeContactE164(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const local = geLocalDigits(value);
+  return isValidGeContactPhone(local) ? `+995${local}` : null;
+}
+
 /** Georgian personal ID: exactly 11 digits. */
 export function isValidPersonalId(value: string | null | undefined): boolean {
   if (!value) return false;

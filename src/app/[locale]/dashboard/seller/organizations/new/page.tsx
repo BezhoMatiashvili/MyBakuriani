@@ -17,7 +17,7 @@ import SingleImageUploader from "@/components/forms/SingleImageUploader";
 import { SkierLoader } from "@/components/shared/SkierLoader";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
-import { isValidGePhone } from "@/lib/utils/number";
+import { isValidGeContactPhone } from "@/lib/utils/number";
 import { cn } from "@/lib/utils";
 import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
 
@@ -118,7 +118,7 @@ export default function OrganizationNewPage() {
     // exactly 9 or 11 digits — mirrors the DB organizations_identification_code_check constraint
     if (!/^(\d{9}|\d{11})$/.test(idCode.trim())) errs.push("idCode");
     if (!brandName.trim()) errs.push("brandName");
-    if (!isValidGePhone(phone)) errs.push("phone");
+    if (!isValidGeContactPhone(phone)) errs.push("phone");
     if (!city.trim()) errs.push("city");
     if (!address.trim()) errs.push("address");
     return errs;
@@ -298,6 +298,9 @@ export default function OrganizationNewPage() {
               <PhoneInput
                 value={phone}
                 onChange={setPhone}
+                allowLandline
+                // the landline example clips in this narrow column
+                placeholder="5XX XX XX XX"
                 error={invalid.has("phone") ? "არასწორი ნომერი" : null}
               />
             </Field>

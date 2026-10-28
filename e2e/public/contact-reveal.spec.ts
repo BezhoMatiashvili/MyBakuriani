@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { expect, test } from "../helpers/fixtures";
 import { PHONES } from "../helpers/seed";
+import { services } from "../helpers/supabase";
 
 function apartmentPath(id: string) {
   return `/en/apartments/${id}`;
@@ -123,6 +125,84 @@ test.describe("public contact reveals", () => {
     await expect(callButton).toContainText("+995 599 00 00 03");
     await expect(guestPage).toHaveURL(new RegExp(`${path}$`));
     await expect(guestPage).not.toHaveURL(/\/auth\/login/);
+  });
+
+  test("a landline number is revealed as a dialable tel: link, without WhatsApp", async ({
+    page,
+    testIds,
+  }) => {
+    const path = apartmentPath(testIds.apartment);
+    await page.route(
+      `**/api/listings/property/${testIds.apartment}/contact`,
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ phone: "+995322118047", whatsapp: null }),
+        }),
+    );
+
+    await page.goto(path);
+    const callButton = page.locator('[data-slot="call-button"]');
+    await callButton.click();
+
+    await expect(callButton).toHaveAttribute("href", "tel:+995322118047");
+    await expect(callButton).toContainText("+995 32 211 80 47");
+    await expect(page.locator('[data-slot="whatsapp-button"]')).toHaveCount(0);
+  });
+
+  test("the real contact endpoint reveals a listing's landline, not the owner's mobile", async ({
+    guestPage,
+    testIds,
+  }) => {
+    // Its own listing (C56): an entertainment provider no other spec counts,
+    // dated in the past so it never tops the public lists; deleted at the end.
+    const serviceId = randomUUID();
+    await services.create({
+      id: serviceId,
+      owner_id: testIds.entertainment,
+      category: "entertainment",
+      title: `E2E ქალაქის ნომერი ${serviceId.slice(0, 6)}`,
+      description: "Landline contact fixture",
+      price: 50,
+      location: "ბაკურიანი",
+      phone: "+995322118047",
+      whatsapp: null,
+      status: "active",
+      created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+
+    try {
+      const path = `/en/entertainment/${serviceId}`;
+      await guestPage.goto(path);
+      const sidebar = guestPage.locator("#contact-sidebar");
+      const callButton = sidebar.locator('[data-slot="call-button"]');
+      await expect(callButton).toBeVisible();
+      await expect(
+        sidebar.locator('[data-slot="whatsapp-button"]'),
+      ).toHaveCount(0);
+
+      const contactResponse = guestPage.waitForResponse(
+        (response) =>
+          response
+            .url()
+            .includes(`/api/listings/service/${serviceId}/contact`) &&
+          response.request().method() === "POST",
+      );
+      await callButton.click();
+      const response = await contactResponse;
+      expect(response.ok()).toBeTruthy();
+      expect(await response.json()).toEqual({
+        phone: "+995322118047",
+        whatsapp: null,
+      });
+
+      await expect(callButton).toHaveAttribute("href", "tel:+995322118047");
+      await expect(callButton).toContainText("+995 32 211 80 47");
+      await expect(guestPage).toHaveURL(new RegExp(`${path}$`));
+    } finally {
+      await services.delete(serviceId);
+    }
   });
 
   test("a rejected reveal stays on the listing and offers a retry", async ({
