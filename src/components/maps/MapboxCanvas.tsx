@@ -294,10 +294,16 @@ export default function MapboxMapView({
           if (selectedIdRef.current === property.id) return;
           card.style.opacity = "1";
           card.style.visibility = "visible";
+          // Every marker is its own stacking context (Mapbox transforms it),
+          // so the card rises only with its wrapper: above every other pin,
+          // the selected one (1000) included.
+          wrapper.style.zIndex = "1001";
         });
         pill.addEventListener("mouseleave", () => {
           card.style.opacity = "0";
           card.style.visibility = "hidden";
+          wrapper.style.zIndex =
+            selectedIdRef.current === property.id ? "1000" : "0";
         });
         pill.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -392,7 +398,12 @@ export default function MapboxMapView({
     markersRef.current.forEach(({ pillEl, wrapperEl, cardEl, isVip }, id) => {
       const isSelected = id === selectedId;
       pillEl.className = `${pillBaseClasses()} ${pillStateClasses(isSelected, isVip)}`;
-      wrapperEl.style.zIndex = isSelected ? "1000" : "0";
+      // A pin whose hover card is open stays on top (see its mouseenter).
+      wrapperEl.style.zIndex = isSelected
+        ? "1000"
+        : cardEl.style.visibility === "visible"
+          ? "1001"
+          : "0";
       if (isSelected) {
         cardEl.style.opacity = "0";
         cardEl.style.visibility = "hidden";

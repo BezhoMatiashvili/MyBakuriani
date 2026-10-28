@@ -7,6 +7,7 @@ import {
   roleToCabinetKey,
   serviceCategoryToCabinetKey,
 } from "../../src/lib/cabinets.ts";
+import { safeInternalPath, stripLocalePrefix } from "../../src/lib/security.ts";
 
 const root = new URL("../../", import.meta.url);
 const read = (rel) => readFileSync(new URL(rel, root), "utf8");
@@ -106,4 +107,37 @@ test("an account with no profile is sent to the wizard, not the login page", () 
       '"/auth/register"',
     ),
   );
+});
+
+test("/create sends an account with no profile to the wizard, which returns only once the profile exists", () => {
+  // Without a profile no free period (C53) or membership can reach the account,
+  // so /create/rental would ask for a membership it can never see.
+  const layout = read("src/app/[locale]/create/layout.tsx");
+  assert.ok(layout.includes('"/auth/register?next=/create"'));
+  assert.ok(layout.includes("getCurrentProfile().catch(() => null)"));
+
+  // `next` is validated like login's (C8) and used only after persistProfile():
+  // an existing profile still opens its cabinet, so the two cannot loop.
+  const wizard = read("src/app/[locale]/auth/register/page.tsx");
+  assert.ok(
+    /safeInternalPath\(\s*stripLocalePrefix\(searchParams\.get\("next"\)/.test(
+      wizard,
+    ),
+  );
+  const check = wizard.slice(
+    wizard.indexOf("async function checkExistingProfile"),
+    wizard.indexOf("checkExistingProfile();"),
+  );
+  assert.ok(check.includes("roleHomePath(profile.role)"));
+  assert.ok(!check.includes("nextPath"));
+  assert.equal(wizard.match(/\?\? nextPath \?\? "\/"/g)?.length, 2);
+
+  const next = (raw) =>
+    safeInternalPath(stripLocalePrefix(raw, ["ka", "en", "ru"]));
+  assert.equal(next("/create"), "/create");
+  assert.equal(next("/en/create"), "/create");
+  assert.equal(next("https://evil.example"), null);
+  assert.equal(next("//evil.example"), null);
+  assert.equal(next("/en//evil.example"), "/evil.example");
+  assert.equal(next(""), null);
 });

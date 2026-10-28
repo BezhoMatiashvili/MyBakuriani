@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Link, useRouter } from "@/i18n/navigation";
+import { routing } from "@/i18n/routing";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User,
@@ -20,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import { roleHomePath } from "@/lib/cabinets";
+import { safeInternalPath, stripLocalePrefix } from "@/lib/security";
 import { toCanonicalGePhone } from "@/lib/sms/phone";
 import { withRetry } from "@/lib/with-timeout";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
@@ -83,6 +86,13 @@ export default function RegisterPage() {
   const tShared = useTranslations("Shared");
   const locale = useLocale();
   const router = useRouter();
+  // /create sends a signed-in account with no profile here (create/layout.tsx).
+  // Once the profile exists, go back there; validated like the login page's
+  // `next` (C8). An existing profile still opens its cabinet, so no loop.
+  const searchParams = useSearchParams();
+  const nextPath = safeInternalPath(
+    stripLocalePrefix(searchParams.get("next") ?? "", routing.locales),
+  );
   const { user, loading: authLoading } = useAuth();
   const supabase = createClient();
 
@@ -336,7 +346,7 @@ export default function RegisterPage() {
         openExistingCabinet(savedRole);
         return;
       }
-      router.push((await signupLinkDestination()) ?? "/");
+      router.push((await signupLinkDestination()) ?? nextPath ?? "/");
     } catch (err) {
       setError(registerErrorText(err));
     } finally {
@@ -368,7 +378,7 @@ export default function RegisterPage() {
       }
 
       if (sellerKind === "individual") {
-        router.push((await signupLinkDestination()) ?? "/");
+        router.push((await signupLinkDestination()) ?? nextPath ?? "/");
       } else if (sellerKind === "company") {
         router.push("/dashboard/seller/organizations/new");
       } else if (sellerKind === "agent" && selectedOrg) {

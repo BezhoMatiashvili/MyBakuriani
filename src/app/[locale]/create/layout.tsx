@@ -7,7 +7,8 @@ import {
   setRequestLocale,
 } from "next-intl/server";
 import { CREATE_NAMESPACES, pickMessages } from "@/i18n/namespaces";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { getPathname } from "@/i18n/navigation";
+import { getCurrentProfile, getCurrentUser } from "@/lib/auth/current-user";
 import { requireConsent } from "@/lib/auth/require-consent";
 import { CreateHeader } from "@/components/layout/CreateHeader";
 import { SupportAssistantLoader } from "@/components/support/SupportAssistantLoader";
@@ -57,6 +58,14 @@ export default async function CreateLayout({
   // as well as on auth. Unlike the dashboard layout this tree did not fetch the
   // profile at all, so this adds one memoized read.
   await requireConsent();
+  // Signed in with no profile row: /auth/register was never finished. The
+  // rental membership, a free period's grant (C53) and every listing need the
+  // profile, so finish the wizard first; it returns here through `next`. As on
+  // /dashboard, a failed read lands there too: the wizard finds the profile
+  // and opens its cabinet, so this cannot loop.
+  if (!(await getCurrentProfile().catch(() => null))) {
+    redirect(getPathname({ href: "/auth/register?next=/create", locale }));
+  }
 
   // The create forms' namespaces are not in the root provider (they used to be
   // shipped to every public page); a nested provider replaces the root messages
