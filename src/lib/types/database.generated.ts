@@ -4306,6 +4306,8 @@ export type Database = {
           room_type: string | null;
           rooms: number | null;
           sale_price: number | null;
+          sale_price_currency: string;
+          sale_price_gel: number | null;
           status: Database["public"]["Enums"]["listing_status"] | null;
           title: string;
           type: Database["public"]["Enums"]["property_type"];
@@ -4367,6 +4369,8 @@ export type Database = {
           room_type?: string | null;
           rooms?: number | null;
           sale_price?: number | null;
+          sale_price_currency?: string;
+          sale_price_gel?: number | null;
           status?: Database["public"]["Enums"]["listing_status"] | null;
           title: string;
           type: Database["public"]["Enums"]["property_type"];
@@ -4428,6 +4432,8 @@ export type Database = {
           room_type?: string | null;
           rooms?: number | null;
           sale_price?: number | null;
+          sale_price_currency?: string;
+          sale_price_gel?: number | null;
           status?: Database["public"]["Enums"]["listing_status"] | null;
           title?: string;
           type?: Database["public"]["Enums"]["property_type"];
@@ -7405,6 +7411,8 @@ export type Database = {
           room_type: string | null;
           rooms: number | null;
           sale_price: number | null;
+          sale_price_currency: string | null;
+          sale_price_gel: number | null;
           title: string | null;
           type: Database["public"]["Enums"]["property_type"] | null;
           units_reserved: number | null;

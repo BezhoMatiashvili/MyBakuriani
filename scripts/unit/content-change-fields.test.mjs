@@ -22,3 +22,9 @@ test("hasOnlyReviewableValues is all-or-nothing", () => {
 test("pickReviewableValues drops non-allow-listed keys", () => {
   assert.deepEqual(pickReviewableValues("service", { title: "t", status: "active", price: 5 }), { title: "t", price: 5 });
 });
+
+test("the sale price pair is reviewable (C54)", () => {
+  const pair = { sale_price: 57757, sale_price_gel: 150000, sale_price_currency: "GEL" };
+  assert.equal(hasOnlyReviewableValues("property", pair), true);
+  assert.deepEqual(pickReviewableValues("property", { ...pair, status: "active" }), pair);
+});

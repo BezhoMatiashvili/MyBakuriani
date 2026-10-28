@@ -3596,6 +3596,59 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C54: sale prices print as $ through formatSalePrice on ${saleOnly.length + mixed.length} surfaces (${saleOnly.length} sale-only without formatPrice); no ₾↔$ rate, no sale price handed to formatPrice; Baku's sale budget prompted in dollars`);
 }
 
+// C54/pair — repo twins of 20261028120000 (a sale price typed in ₾ or $, both stored), read from the migrations with
+// comments stripped and DDL matched case-insensitively: (a) the newest public_properties view still ends with the pair
+// after hotel_rooms, and nothing drops it later; (b) the newest properties_sale_price_pair trigger still fires BEFORE
+// UPDATE OF sale_price with its WHEN (a dollar change with unchanged lari), its function still clears the lari and sets
+// 'USD', and nothing later drops the trigger or the function or leaves the trigger disabled; (c) the plausibility
+// CHECK's band equals src/lib/currency/money.ts:SALE_PAIR_BAND (the band salePriceToSave keeps every saved pair in),
+// and nothing drops it later.
+{
+  const problems = [];
+  const migs = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
+  const texts = migs.map((f) => read(join("supabase/migrations", f)).replace(/--[^\n]*/g, ""));
+  const all = texts.join("\n");
+  const last = (re) => [...all.matchAll(re)].at(-1);
+  const later = (re, m) => Boolean(m) && [...all.matchAll(re)].some((d) => d.index > m.index);
+  const viewRe = /\bcreate\s+(?:or\s+replace\s+)?view\s+(?:public\.)?public_properties\b[^;]*;/gi;
+  const view = last(viewRe);
+  const viewFile = migs.filter((_, i) => new RegExp(viewRe.source, "i").test(texts[i])).at(-1);
+  if (!view || !/\bpr\.hotel_rooms\s*,\s*pr\.sale_price_gel\s*,\s*pr\.sale_price_currency\s+from\b/i.test(view[0]))
+    problems.push(`${viewFile ?? "no migration"}: public_properties must end with pr.hotel_rooms, pr.sale_price_gel, pr.sale_price_currency (a view re-created from an older text drops the pair)`);
+  if (later(/\bdrop\s+view\b[^;]*\bpublic_properties\b/gi, view)) problems.push("a migration drops public_properties after its newest definition");
+  const trig = last(/\bcreate\s+(?:or\s+replace\s+)?(?:constraint\s+)?trigger\s+properties_sale_price_pair\b[^;]*;/gi);
+  const when = "WHEN (NEW.sale_price IS DISTINCT FROM OLD.sale_price AND OLD.sale_price_gel IS NOT NULL AND NEW.sale_price_gel IS NOT DISTINCT FROM OLD.sale_price_gel)";
+  const flat = (s) => s.toLowerCase().replace(/\s+/g, " ").replace(/ ?([()]) ?/g, "$1");
+  if (!trig) problems.push("no migration creates the properties_sale_price_pair trigger");
+  else {
+    const def = flat(trig[0]);
+    if (!/\bbefore update of sale_price on (?:public\.)?properties for each row\b/.test(def) || !def.includes(flat(when)) || !/\bexecute (?:function|procedure) (?:public\.)?properties_sale_price_pair\(\)/.test(def))
+      problems.push(`the newest properties_sale_price_pair trigger must be BEFORE UPDATE OF sale_price ON public.properties FOR EACH ROW ${when} EXECUTE FUNCTION public.properties_sale_price_pair()`);
+    if (later(/\bdrop\s+(?:trigger|function)\b[^;]*\bproperties_sale_price_pair\b/gi, trig))
+      problems.push("a migration drops the properties_sale_price_pair trigger or its function after creating the trigger");
+    const toggles = [...all.matchAll(/\balter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?(?:public\.)?properties\s[^;]*/gi)]
+      .flatMap((s) => [...s[0].matchAll(/\b(disable|enable(?:\s+(?:always|replica))?)\s+trigger\s+(?:properties_sale_price_pair|all|user)\b/gi)].map((t) => ({ index: s.index + t.index, on: /^enable(?:\s+always)?$/i.test(t[1]) })))
+      .filter((t) => t.index > trig.index);
+    if (toggles.length && !toggles.at(-1).on)
+      problems.push("a migration leaves the properties_sale_price_pair trigger disabled (DISABLE TRIGGER or ENABLE REPLICA on public.properties) after creating it");
+  }
+  const fn = last(/\bcreate\s+(?:or\s+replace\s+)?function\s+(?:public\.)?properties_sale_price_pair\s*\(\s*\)[^;$]*\$(\w*)\$([\s\S]*?)\$\1\$/gi)?.[2] ?? "";
+  const assigned = (col) => fn.match(new RegExp(`\\bnew\\.${col}\\s*:?=\\s*([^;]*?)\\s*;`, "i"))?.[1];
+  if (!/^null$/i.test(assigned("sale_price_gel") ?? "") || assigned("sale_price_currency") !== "'USD'")
+    problems.push("the newest public.properties_sale_price_pair() must set NEW.sale_price_gel := NULL and NEW.sale_price_currency := 'USD'");
+  const band = read("src/lib/currency/money.ts").match(/export const SALE_PAIR_BAND = \{ min: ([\d.]+), max: ([\d.]+) \} as const;/);
+  const plausible = last(/\badd\s+constraint\s+properties_sale_price_pair_plausible\s+check\b([^;]*)/gi);
+  const sqlBand = plausible?.[1].match(/\bsale_price_gel\s+between\s+([\d.]+)\s*\*\s*sale_price\s+and\s+([\d.]+)\s*\*\s*sale_price\b/i);
+  if (!band) problems.push("src/lib/currency/money.ts must export SALE_PAIR_BAND = { min: <n>, max: <n> } as const");
+  if (!sqlBand) problems.push("no migration adds properties_sale_price_pair_plausible CHECK (sale_price_gel IS NULL OR sale_price_gel BETWEEN <min> * sale_price AND <max> * sale_price)");
+  if (band && sqlBand && (Number(band[1]) !== Number(sqlBand[1]) || Number(band[2]) !== Number(sqlBand[2])))
+    problems.push(`SALE_PAIR_BAND ${band[1]}–${band[2]} differs from properties_sale_price_pair_plausible ${sqlBand[1]}–${sqlBand[2]}`);
+  if (later(/\bdrop\s+constraint\b[^;]*\bproperties_sale_price_pair_plausible\b/gi, plausible))
+    problems.push("a migration drops properties_sale_price_pair_plausible after adding it");
+  if (problems.length) problems.forEach((p) => fail(`C54/pair: ${p}`));
+  else ok(`C54/pair: ${viewFile} ends public_properties with the pair; properties_sale_price_pair fires BEFORE UPDATE OF sale_price with its WHEN and clears the lari, not dropped or disabled since; the plausibility CHECK's band = SALE_PAIR_BAND (${band[1]}–${band[2]})`);
+}
+
 // C55 — visitor currency: a public price follows the header's GEL/USD pick, converted only by <Money>/useMoney after
 // hydration, at the National Bank of Georgia's official rate for the Tbilisi day. (a) only src/lib/currency/nbg.ts
 // (server-only) calls nbg.gov.ge, with ?date=; nothing outside src/lib/currency converts, nothing hard-codes a rate,

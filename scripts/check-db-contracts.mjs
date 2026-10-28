@@ -321,8 +321,8 @@ if (posture) {
           "description", "developer", "hotel_rooms", "hotel_stars", "house_rules", "is_for_sale", "location",
           "location_lat", "location_lng",
           "min_booking_days", "organization_id", "owner_id", "phone", "photos", "price_per_night",
-          "renovation_status", "roi_percent", "roi_percent_max", "rooms", "sale_price", "status", "title",
-          "type", "units_reserved", "units_sold", "units_total", "whatsapp"
+          "renovation_status", "roi_percent", "roi_percent_max", "rooms", "sale_price", "sale_price_currency",
+          "sale_price_gel", "status", "title", "type", "units_reserved", "units_sold", "units_total", "whatsapp"
         ],
         ["cadastral_code_public", "organization_id"],
       ),
@@ -845,6 +845,16 @@ if (posture) {
   }
   if (problems.length) problems.forEach((p) => fail(`C53: ${p}`));
   else ok(`C53: benefit CHECK = FREE_PERIOD_BENEFITS, ${tables.length} period tables answer the service role and are refused to anon (42501), admin_free_period_stats refuses a non-admin actor, ${entryPoints.length} entry points refused to anon, no client role reaches a free-period function, RLS is on`);
+}
+
+// C54 — the sale price currency CHECK (migration 20261028120000) lists exactly money.ts:CURRENCY_CODES: the codes
+// salePrice reads and the sale form saves (a code missing from the CHECK fails every save in it with 23514).
+{
+  const { CURRENCY_CODES } = await import("../src/lib/currency/money.ts");
+  const codes = checkList("properties", "sale_price_currency");
+  if (!Array.isArray(CURRENCY_CODES)) fail("C54: src/lib/currency/money.ts does not export CURRENCY_CODES (ship it with this check)");
+  else if (!codes) fail("C54: properties.sale_price_currency CHECK not found (migration 20261028120000)");
+  else compareSets("C54 properties.sale_price_currency", codes, [...CURRENCY_CODES], "CHECK constraint", "CURRENCY_CODES");
 }
 
 finish();

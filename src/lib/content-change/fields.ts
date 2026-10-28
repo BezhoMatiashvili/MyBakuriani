@@ -47,6 +47,8 @@ export const REVIEWABLE_FIELDS = {
     "construction_progress_percent",
     "construction_image_url",
     "hotel_rooms",
+    "sale_price_gel",
+    "sale_price_currency",
   ],
   service: [
     "category",
