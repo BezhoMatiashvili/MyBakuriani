@@ -1,5 +1,11 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { NON_INDEXABLE_PREFIXES } from "../../src/lib/seo/robots";
+import {
+  FIXTURE_BLOG_COVER_PATH,
+  FIXTURE_BLOG_GEORGIAN_SLUG,
+  FIXTURE_BLOG_SLUG,
+  FIXTURE_IDS,
+} from "../helpers/fixture-manifest.mjs";
 
 // SEO surface (C40). Every assertion reads what a crawler gets: raw HTML and
 // headers, no JavaScript.
@@ -571,6 +577,99 @@ test.describe("blog and long-form pages", () => {
     const blocks = jsonLd(post.body, href);
     expect(typesIn(blocks)).toContain("BlogPosting");
     expect(breadcrumbItems(blocks).length).toBeGreaterThanOrEqual(3);
+  });
+
+  // A post has one URL, its Latin slug (C40). Older links (the uuid, and the
+  // percent-encoded Georgian slug with the same token that posts had before
+  // scripts/blog-latin-slugs.mjs) 308 to it in their own locale.
+  test("every older link to a post 308s to its Latin slug", async ({
+    request,
+  }) => {
+    const canonical = `/blog/${FIXTURE_BLOG_SLUG}`;
+    const post = await get(request, canonical);
+    expect(post.status).toBe(200);
+    expect(new URL(canonicalOf(post.body) ?? "http://none").pathname).toBe(
+      canonical,
+    );
+
+    const georgian = `/blog/${encodeURIComponent("e2e-ტესტ-ბლოგი--e2e00001")}`;
+    const redirects: [string, string][] = [
+      [`/blog/${FIXTURE_IDS.blogPost}`, canonical],
+      [`/en/blog/${FIXTURE_IDS.blogPost}`, `/en${canonical}`],
+      [georgian, canonical],
+      [`/en${georgian}`, `/en${canonical}`],
+      [`/ru${georgian}`, `/ru${canonical}`],
+      ["/blog/other-words-e2e00001", canonical],
+    ];
+    for (const [from, to] of redirects) {
+      const res = await get(request, from);
+      expect(res.status, from).toBe(308);
+      // Next sends a locale-prefixed redirect's Location twice (the listing
+      // redirects too), which the request API joins with ", "; browsers take
+      // identical copies. A raw Georgian Location makes Node throw (a 500).
+      const locations = new Set(res.headers.location.split(", "));
+      expect(locations.size, from).toBe(1);
+      const [target] = locations;
+      expect(target, from).toMatch(/^[\x21-\x7e]+$/);
+      expect(new URL(target, "http://x").pathname, from).toBe(to);
+    }
+
+    for (const missing of [
+      "/blog/no-such-post",
+      "/blog/no-such-post-zzzzzzzz",
+      "/blog/00000000-0000-4000-8000-000000000000",
+    ]) {
+      expect((await get(request, missing)).status, missing).toBe(404);
+    }
+  });
+
+  // Until scripts/blog-latin-slugs.mjs renames it (for good, if it skips one),
+  // a post keeps its Georgian slug: that URL still serves, its uuid 308s there
+  // (percent-encoded), and a Latin link with its token 404s instead of 308ing
+  // to the Georgian URL, a loop once the backfill ran.
+  test("a post still on its Georgian slug keeps that URL", async ({
+    request,
+  }) => {
+    const georgian = `/blog/${encodeURIComponent(FIXTURE_BLOG_GEORGIAN_SLUG)}`;
+    for (const path of [georgian, `/en${georgian}`]) {
+      const post = await get(request, path);
+      expect(post.status, path).toBe(200);
+      expect(
+        new URL(canonicalOf(post.body) ?? "http://none").pathname,
+        path,
+      ).toBe(path);
+    }
+
+    const uuid = await get(request, `/blog/${FIXTURE_IDS.blogPostGeorgian}`);
+    expect(uuid.status).toBe(308);
+    expect(uuid.headers.location).toMatch(/^[\x21-\x7e]+$/);
+    expect(new URL(uuid.headers.location, "http://x").pathname).toBe(georgian);
+
+    const latin = "/blog/e2e-dzveli-bmuli-e2e00002";
+    expect((await get(request, latin)).status, latin).toBe(404);
+  });
+
+  // WhatsApp and Telegram take only the first og:image; a raw upload often
+  // gives no thumbnail, so a cover leads as the optimizer's 1200 px copy.
+  test("a post's first og:image is the optimized copy of its cover", async ({
+    request,
+  }) => {
+    // The seeded post has a real Storage cover (e2e/helpers/seed.ts).
+    const post = await get(request, `/blog/${FIXTURE_BLOG_SLUG}`);
+    expect(post.status).toBe(200);
+    const [first, second] = metaContent(post.body, "property", "og:image");
+    expect(second).toContain(`/landing-media/${FIXTURE_BLOG_COVER_PATH}`);
+    const optimized = new URL(first);
+    expect(optimized.pathname).toBe("/_next/image");
+    expect(optimized.searchParams.get("w")).toBe("1200");
+    expect(optimized.searchParams.get("q")).toBe("75");
+    expect(optimized.searchParams.get("url")).toBe(second);
+
+    // And the optimizer serves it. Asked of the server under test: the
+    // absolute URL's origin is whatever site URL the build was made with.
+    const image = await request.get(`${optimized.pathname}${optimized.search}`);
+    expect(image.status()).toBe(200);
+    expect(image.headers()["content-type"]).toMatch(/^image\//);
   });
 
   test("FAQ answers are in the HTML while collapsed", async ({ request }) => {

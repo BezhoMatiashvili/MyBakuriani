@@ -1,4 +1,5 @@
-// Share targets for a listing detail page (src/components/shared/ShareMenu.tsx).
+// Share targets for a listing detail page or a blog post
+// (src/components/shared/ShareMenu.tsx).
 // Deliberately pure and free of `@/` imports so `scripts/unit/*.test.mjs` can
 // import this module directly under `node --test` type-stripping (see C29).
 

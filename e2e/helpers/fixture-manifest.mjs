@@ -30,6 +30,7 @@ export const FIXTURE_IDS = Object.freeze({
   calendarBlock3: "aae2ff00-5003-4000-a000-000000000003",
   smartMatch: "aae2ff00-6001-4000-a000-000000000001",
   blogPost: "aae2ff00-7001-4000-a000-000000000001",
+  blogPostGeorgian: "aae2ff00-7002-4000-a000-000000000002",
   cleaningTask: "aae2ff00-8001-4000-a000-000000000001",
   cleanerScheduleTask: "aae2ff00-8002-4000-a000-000000000002",
   cleanerManualTask: "aae2ff00-8003-4000-a000-000000000003",
@@ -48,6 +49,21 @@ export const FIXTURE_IDS = Object.freeze({
   transaction: "aae2ff00-b001-4000-a000-000000000001",
   sellerLead: "aae2ff00-c001-4000-a000-000000000001",
 });
+
+/**
+ * The seeded blog post's slug: Latin words plus the 8-character token every
+ * post's slug ends in (src/lib/blog-slug.ts), so old links resolve by token.
+ */
+export const FIXTURE_BLOG_SLUG = "e2e-test-blog-e2e00001";
+
+/** Its cover in landing-media, outside the blog/ folder the admin routes clean up. */
+export const FIXTURE_BLOG_COVER_PATH = "e2e/blog-cover-e2e00001.jpg";
+
+/**
+ * A second post still on a Georgian slug of the old form, title words then
+ * its token, as posts had before scripts/blog-latin-slugs.mjs renamed them.
+ */
+export const FIXTURE_BLOG_GEORGIAN_SLUG = "e2e-ძველი-ბმული--e2e00002";
 
 /**
  * Content-variation listings for the card-geometry audit (see stress-fixtures.ts).

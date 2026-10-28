@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import {
   createTestUser,
   elevateTestUserToAal2,
@@ -21,7 +23,12 @@ import {
   organizations,
   organizationSubscriptions,
 } from "./supabase";
-import { FIXTURE_IDS } from "./fixture-manifest.mjs";
+import {
+  FIXTURE_BLOG_COVER_PATH,
+  FIXTURE_BLOG_GEORGIAN_SLUG,
+  FIXTURE_BLOG_SLUG,
+  FIXTURE_IDS,
+} from "./fixture-manifest.mjs";
 import {
   seedStressFixtures,
   cleanupStressFixtures,
@@ -557,13 +564,44 @@ export async function seedTestData(): Promise<{ users: TestUserMap }> {
     })),
   );
 
-  // ---- Blog post ----
+  // ---- Blog posts ----
+  // Still on a Georgian slug, as posts were before the Latin backfill
+  // (seo.spec). Created first, so the covered post below is the newest on
+  // /blog and the home rail.
+  await blogPosts.create({
+    id: TEST_IDS.blogPostGeorgian,
+    title: "E2E ძველი ბმული",
+    slug: FIXTURE_BLOG_GEORGIAN_SLUG,
+    content: "ეს არის ტესტ ბლოგ პოსტი ავტომატური ტესტებისთვის.",
+    excerpt: "ტესტ ბლოგი",
+    published: true,
+    published_at: new Date().toISOString(),
+    author_id: TEST_IDS.admin,
+  });
+
+  // A real Storage cover, so seo.spec can check that its optimized copy leads
+  // og:image. The placeholder's bytes: /blog shows that file for a post with
+  // no cover, so the cards look the same.
+  const covers = supabaseAdmin.storage.from("landing-media");
+  const { error: coverError } = await covers.upload(
+    FIXTURE_BLOG_COVER_PATH,
+    readFileSync(
+      path.resolve(__dirname, "../../public/placeholder-property.jpg"),
+    ),
+    { contentType: "image/jpeg", upsert: true },
+  );
+  if (coverError) {
+    throw new Error(
+      `[landing-media] ${FIXTURE_BLOG_COVER_PATH} upload failed: ${coverError.message}`,
+    );
+  }
   await blogPosts.create({
     id: TEST_IDS.blogPost,
     title: "E2E ტესტ ბლოგი",
-    slug: "e2e-test-blog",
+    slug: FIXTURE_BLOG_SLUG,
     content: "ეს არის ტესტ ბლოგ პოსტი ავტომატური ტესტებისთვის.",
     excerpt: "ტესტ ბლოგი",
+    image_url: covers.getPublicUrl(FIXTURE_BLOG_COVER_PATH).data.publicUrl,
     published: true,
     published_at: new Date().toISOString(),
     author_id: TEST_IDS.admin,
@@ -747,8 +785,13 @@ export async function cleanupTestData(): Promise<void> {
     await notifications.delete(id).catch(ignore);
   }
 
-  // Blog posts
+  // Blog posts and the cover
   await blogPosts.delete(TEST_IDS.blogPost).catch(ignore);
+  await blogPosts.delete(TEST_IDS.blogPostGeorgian).catch(ignore);
+  await supabaseAdmin.storage
+    .from("landing-media")
+    .remove([FIXTURE_BLOG_COVER_PATH])
+    .catch(ignore);
 
   // Properties (depends on profiles)
   await properties.delete(TEST_IDS.apartment).catch(ignore);

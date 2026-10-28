@@ -1,19 +1,10 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { blogSlug } from "@/lib/blog-slug";
 import { createServiceClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
-
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\u10A0-\u10FF\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .slice(0, 80);
-}
 
 export async function GET() {
   const guard = await requireAdmin();
@@ -45,7 +36,9 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  const slug = `${slugify(body.title)}-${Date.now().toString(36)}`;
+  // Set once: PATCH never rewrites it, so a shared link stays the post's URL
+  // (C40). The time token also resolves the post if its words ever change.
+  const slug = blogSlug(body.title, Date.now().toString(36));
   const db = createServiceClient(guard.admin.userId);
   const { data, error } = await db
     .from("blog_posts")

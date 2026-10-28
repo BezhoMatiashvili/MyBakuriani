@@ -4,6 +4,11 @@ import {
   isListingNewlyAdded,
 } from "../../src/lib/utils/format";
 import { normalizePublicPageviewPath } from "../../src/lib/analytics/pageview";
+import { configureIsolatedE2E } from "../helpers/env";
+import {
+  FIXTURE_BLOG_SLUG,
+  FIXTURE_IDS,
+} from "../helpers/fixture-manifest.mjs";
 
 // ---------------------------------------------------------------------------
 // Landing page
@@ -786,6 +791,57 @@ test.describe("Blog page", () => {
     const hasArticles = (await articles.count()) > 0;
     const hasContent = (await emptyState.count()) > 0;
     expect(hasArticles || hasContent).toBeTruthy();
+  });
+
+  // Owner request 2026-10-28: posts had no share button, and a shared link
+  // was the percent-encoded Georgian title (693 characters).
+  test("a post shares its clean link from the date row and the end box", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    // The cookie banner sits over the bottom of the page, where the end box is.
+    await context.addCookies([
+      {
+        name: "mb_cookie_consent",
+        value: encodeURIComponent("v2|analytics=0|location=0"),
+        url: configureIsolatedE2E().baseUrl,
+      },
+    ]);
+    // The old uuid link 308s to the Latin slug, which is what gets shared.
+    await page.goto(`/blog/${FIXTURE_IDS.blogPost}`);
+    const clean = new URL(`/blog/${FIXTURE_BLOG_SLUG}`, page.url()).href;
+    await expect(page).toHaveURL(clean);
+
+    const share = { name: "გაზიარება", exact: true }; // ShareListing.label
+    const buttons = page.locator("main article").getByRole("button", share);
+    await expect(buttons).toHaveCount(2);
+    const endBox = page.getByTestId("blog-share-end");
+    await expect(endBox).toContainText(
+      "მოგეწონათ სტატია? გაუზიარეთ მეგობრებს", // BlogPage.shareCta
+    );
+    for (const button of [buttons.first(), endBox.getByRole("button", share)]) {
+      const box = await button.boundingBox();
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(43.5);
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(43.5);
+    }
+
+    // A click before React attaches its handlers is lost.
+    const trigger = buttons.first();
+    await expect
+      .poll(() =>
+        trigger.evaluate((node) =>
+          Object.keys(node).some((key) => key.startsWith("__reactProps$")),
+        ),
+      )
+      .toBe(true);
+    await trigger.click();
+    await page
+      .getByRole("menuitem", { name: "კოპირება", exact: true }) // ShareListing.copyLink
+      .click();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe(clean);
   });
 });
 

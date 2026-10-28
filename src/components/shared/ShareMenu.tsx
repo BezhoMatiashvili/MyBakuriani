@@ -113,9 +113,9 @@ interface ShareMenuProps {
 }
 
 /**
- * Share button + dropdown for a listing detail page: the system share sheet
- * (where the browser has one), copy link, Facebook, WhatsApp, print. The
- * trigger IS the page's button element (no wrapper), so
+ * Share button + dropdown for a listing detail page or a blog post: the system
+ * share sheet (where the browser has one), copy link, Facebook, WhatsApp,
+ * print. The trigger IS the page's button element (no wrapper), so
  * absolutely-positioned triggers and `[&>div:first-child]` selectors on the
  * surrounding markup keep working.
  */

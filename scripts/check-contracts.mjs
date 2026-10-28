@@ -2265,6 +2265,48 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   }
   if (faqProblems.length) for (const p of faqProblems) fail(`C40: ${p}`);
   else ok("C40: /faq reads its admin-editable copy through loadFaqContent, revalidates every minute and is edge-cached like the blog index");
+
+  // Blog URLs (C40/blog): src/lib/blog-slug.ts is the one slug builder (import-free: scripts/unit and
+  // scripts/blog-latin-slugs.mjs load it directly), the admin POST is the only code that inserts a post and sets its slug
+  // once, and PATCH never writes it. The post page reads through one cache()d getPublishedPost (slug, uuid, else the
+  // token) that throws its read errors (a swallowed one caches a live post as a 404), takes a token match only as the
+  // one published Latin slug (a 308 to a Georgian one would loop once the backfill ran), 308s every other key to the
+  // encoded slug, leads og:image with the relative optimizer cover (buildListingMetadata drops an absolute non-Storage
+  // URL) and stays ISR (C28).
+  const blogSlugLib = "src/lib/blog-slug.ts";
+  const blogPostRoute = "src/app/api/admin/blog/route.ts";
+  const blogPatchRoute = "src/app/api/admin/blog/[id]/route.ts";
+  const blogPage = `${localeDir}/blog/[id]/page.tsx`;
+  const blogBackfill = "scripts/blog-latin-slugs.mjs";
+  const blogPageSrc = read(blogPage);
+  const blogLookup = blogPageSrc.match(/const getPublishedPost = cache\(async \(key: string\) => \{([\s\S]*?)\n\}\);/)?.[1] ?? "";
+  const blogBackfillSrc = read(blogBackfill);
+  const blogPatchWrites = [...read(blogPatchRoute).matchAll(/\.update\(\{([\s\S]*?)\}\)/g)].map((m) => m[1]);
+  const blogProblems = [];
+  if (/^\s*import\b|\bfrom\s+["']|\brequire\(/m.test(read(blogSlugLib))) blogProblems.push(`${blogSlugLib} must stay import-free (C29)`);
+  if (!/const slug = blogSlug\(body\.title, Date\.now\(\)\.toString\(36\)\);/.test(read(blogPostRoute)))
+    blogProblems.push(`${blogPostRoute} must build the slug with blogSlug(body.title, Date.now().toString(36))`);
+  if (!blogPatchWrites.length || blogPatchWrites.some((w) => /\bslug\b/.test(w))) blogProblems.push(`${blogPatchRoute} must not write slug (a post keeps its URL)`);
+  const blogInserters = [...srcFiles, ...walk("scripts", [".mjs", ".js", ".ts"]), ...walk("supabase/functions", [".ts"])].filter(
+    (f) => f !== blogPostRoute && /\.from\(\s*["'`]blog_posts["'`]\s*\)\s*\.(?:insert|upsert)\(/.test(srcText.get(f) ?? read(f)),
+  );
+  if (blogInserters.length) blogProblems.push(`a second blog slug builder: ${blogInserters.join(", ")} insert posts; only ${blogPostRoute} may (blogSlug)`);
+  if (!/const getPublishedPost = cache\(/.test(blogPageSrc) || (blogPageSrc.match(/\bgetPublishedPost\(/g) ?? []).length < 2)
+    blogProblems.push(`${blogPage}: generateMetadata and the page must both read through the one cache()d getPublishedPost`);
+  if (!/if \(error\) throw error;/.test(blogLookup) || !/if \(tokenError\) throw tokenError;/.test(blogLookup) || /\bcatch\b/.test(blogLookup))
+    blogProblems.push(`${blogPage}: getPublishedPost must throw both read errors, uncaught (a swallowed one caches a live post as a 404)`);
+  if (!/\.like\("slug", `%-\$\{token\}`\)[\s\S]{0,80}?\.limit\(2\)/.test(blogPageSrc) || !/matches\.length === 1 && isLatinSlug\(matches\[0\]\.slug\)/.test(blogPageSrc))
+    blogProblems.push(`${blogPage}: a token match must be the one published post, and only with a Latin slug`);
+  if (!/if \(post\.slug !== key\) \{[\s\S]*?permanentRedirect\([\s\S]*?encodeURIComponent\(post\.slug\)/.test(blogPageSrc))
+    blogProblems.push(`${blogPage} must 308 every other key to the percent-encoded post.slug`);
+  if (!/images: \[\s*\.\.\.optimizedImageUrls\([\s\S]{0,120}?\)\.map\(sameOriginPath\)/.test(blogPageSrc))
+    blogProblems.push(`${blogPage}: og:image must lead with the relative /_next/image cover (an absolute one is dropped)`);
+  if (!/export const revalidate = \d+;/.test(blogPageSrc) || /dynamicParams\s*=\s*false|from "next\/headers"/.test(blogPageSrc))
+    blogProblems.push(`${blogPage} must stay ISR: a revalidate, no dynamicParams = false, no next/headers`);
+  if (!/from "\.\.\/src\/lib\/blog-slug\.ts"/.test(blogBackfillSrc) || !/\.eq\("id", id\)\s*\.eq\("slug", from\)/.test(blogBackfillSrc) || !/"x-actor-id"/.test(blogBackfillSrc))
+    blogProblems.push(`${blogBackfill} must reuse ${blogSlugLib}, write only the slug it read (.eq("id").eq("slug", from)) and send x-actor-id`);
+  if (blogProblems.length) for (const p of blogProblems) fail(`C40: ${p}`);
+  else ok("C40: blog slugs come only from blog-slug.ts, set once at POST (the only post insert); the post page resolves the slug, the uuid or one Latin token match through one cached reader that throws its read errors, 308s every other key, leads og:image with the optimizer cover and stays ISR; the backfill reuses the module");
 }
 
 // ---------------------------------------------------------------------------
