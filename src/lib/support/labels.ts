@@ -53,6 +53,10 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
     en: "Report",
     ru: "Отчёт",
   },
+  "ასეთი ნომრების რაოდენობა": {
+    en: "Rooms of this type",
+    ru: "Количество таких номеров",
+  },
   "ახალი ბინა": {
     en: "New Rental",
     ru: "Новая квартира",
@@ -333,6 +337,10 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
     en: "Mass Broadcast",
     ru: "Массовая рассылка",
   },
+  "მაქს. სტუმარი ნომერში": {
+    en: "Max guests per room",
+    ru: "Макс. гостей в номере",
+  },
   მესაკუთრეობა: {
     en: "Ownership",
     ru: "Собственность",
@@ -377,9 +385,25 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
     en: "Rooms",
     ru: "Номера",
   },
-  "ნომრის ტიპი": {
-    en: "Room type",
-    ru: "Тип номера",
+  "ნომრის დამატება": {
+    en: "Add number",
+    ru: "Добавить номер",
+  },
+  "ნომრის დასახელება": {
+    en: "Room name",
+    ru: "Название номера",
+  },
+  "ნომრის ტიპის დამატება": {
+    en: "Add room type",
+    ru: "Добавить тип номера",
+  },
+  "ნომრის ფართობი (მ²)": {
+    en: "Room area (m²)",
+    ru: "Площадь номера (м²)",
+  },
+  "ნომრის ფასი ღამეში": {
+    en: "Room price per night",
+    ru: "Цена номера за ночь",
   },
   "ნომრის შეცვლა": {
     en: "Change number",
@@ -416,10 +440,6 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
   "პროფილის შექმნა": {
     en: "Create profile",
     ru: "Создание профиля",
-  },
-  რაოდენობა: {
-    en: "How many",
-    ru: "Количество",
   },
   რეგისტრაცია: {
     en: "Register",
@@ -476,6 +496,10 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
   "საწევროს დადასტურება": {
     en: "Membership approvals",
     ru: "Одобрение членства",
+  },
+  "საწოლები ნომერში": {
+    en: "Beds per room",
+    ru: "Кроватей в номере",
   },
   სახელი: {
     en: "Name",
@@ -552,10 +576,6 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
   "ფასი და ხელმისაწვდომობა": {
     en: "Price & Availability",
     ru: "Цена и доступность",
-  },
-  "ფასი ღამეში": {
-    en: "Price per night",
-    ru: "Цена за ночь",
   },
   ფილტრები: {
     en: "Filters",

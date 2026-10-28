@@ -28,10 +28,7 @@ const OVERRIDES = {
   "დასრულება": "AuthRegister.finish",
   "მთავარი გვერდი": "DashboardSidebar.nav.homePage",
   "მოლოდინში": "ListingOptions.listingStatuses.pending",
-  "რაოდენობა": "CreateRental.hotel.fields.quantity",
   "ყველას ნახვა": "Navbar.viewAll",
-  // The hotel form's "add a room" and the account's "add a phone number".
-  "ნომრის დამატება": null,
 };
 
 function flatten(object, prefix = "", out = new Map()) {

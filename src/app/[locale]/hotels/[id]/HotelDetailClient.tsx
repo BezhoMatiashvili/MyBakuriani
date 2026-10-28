@@ -54,7 +54,7 @@ import BannerSlot from "@/components/banners/BannerSlot";
 import PropertyAmenities from "@/components/detail/PropertyAmenities";
 import HostLanguages from "@/components/detail/HostLanguages";
 import HotelRooms from "@/components/detail/HotelRooms";
-import { parseHotelRooms } from "@/lib/hotel-rooms";
+import { hotelRoomsSummary, parseHotelRooms } from "@/lib/hotel-rooms";
 import {
   previewContactPhone,
   previewContactWhatsapp,
@@ -158,6 +158,9 @@ export default function HotelDetailClient({
     () => parseHotelRooms(property.hotel_rooms),
     [property.hotel_rooms],
   );
+  // "სულ N ნომერი" by the rooms heading, only with 2+ room types.
+  const roomsSummary =
+    hotelRooms.length > 1 ? hotelRoomsSummary(hotelRooms) : null;
   const hotelStars = property.hotel_stars ?? 0;
   // Stable across re-renders (a date click, a lightbox open): the map rebuilds
   // every marker whenever this array's identity changes.
@@ -287,36 +290,52 @@ export default function HotelDetailClient({
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-12 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-8">
-          <div style={enterUp(0.18)}>
-            {/* Quick specs — pill badges per Figma */}
-            <div className="mt-4 flex flex-wrap gap-2">
-              {property.rooms != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <BedDouble className="h-4 w-4 text-brand-accent" />
-                  {t("roomsCount", { count: property.rooms })}
-                </span>
-              )}
-              {property.bathrooms != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <Bath className="h-4 w-4 text-brand-accent" />
-                  {tDetail("bathrooms", { count: property.bathrooms })}
-                </span>
-              )}
-              {property.capacity != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <Users className="h-4 w-4 text-brand-accent" />
-                  {tDetail("guests", { count: property.capacity })}
-                </span>
-              )}
-              {property.area_sqm != null && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]">
-                  <Maximize className="h-4 w-4 text-brand-accent" />
-                  {tDetail("areaSqm", { area: property.area_sqm })}
-                </span>
-              )}
+        <div className="lg:col-span-2 space-y-8 pt-4">
+          {/* Quick specs — pill badges per Figma, only for a hotel without
+              room types. One with them gives guests, beds, area and count in
+              each room card; the hotel-wide sums here read as one room's. */}
+          {hotelRooms.length === 0 && (
+            <div style={enterUp(0.18)}>
+              <div className="flex flex-wrap gap-2">
+                {property.rooms != null && (
+                  <span
+                    data-testid="property-quick-spec-rooms"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
+                  >
+                    <BedDouble className="h-4 w-4 text-brand-accent" />
+                    {t("roomsCount", { count: property.rooms })}
+                  </span>
+                )}
+                {property.bathrooms != null && (
+                  <span
+                    data-testid="property-quick-spec-bathrooms"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
+                  >
+                    <Bath className="h-4 w-4 text-brand-accent" />
+                    {tDetail("bathrooms", { count: property.bathrooms })}
+                  </span>
+                )}
+                {property.capacity != null && (
+                  <span
+                    data-testid="property-quick-spec-guests"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
+                  >
+                    <Users className="h-4 w-4 text-brand-accent" />
+                    {tDetail("guests", { count: property.capacity })}
+                  </span>
+                )}
+                {property.area_sqm != null && (
+                  <span
+                    data-testid="property-quick-spec-area"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-[7px] text-[13px] font-medium text-[#334155]"
+                  >
+                    <Maximize className="h-4 w-4 text-brand-accent" />
+                    {tDetail("areaSqm", { area: property.area_sqm })}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Description */}
           {property.description && (
@@ -333,9 +352,19 @@ export default function HotelDetailClient({
           {/* Rooms (C45) */}
           {hotelRooms.length > 0 && (
             <div style={enterUp(0.22)}>
-              <h2 className="mb-3 text-[20px] font-black leading-[30px] text-[#0F172A]">
-                {t("roomsTitle")}
-              </h2>
+              <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h2 className="text-[20px] font-black leading-[30px] text-[#0F172A]">
+                  {t("roomsTitle")}
+                </h2>
+                {roomsSummary && (
+                  <span
+                    data-testid="hotel-rooms-total"
+                    className="text-[14px] font-medium text-[#64748B]"
+                  >
+                    {t("roomsTotal", { count: roomsSummary.totalRooms })}
+                  </span>
+                )}
+              </div>
               <HotelRooms
                 rooms={hotelRooms}
                 discountPercent={property.discount_percent}

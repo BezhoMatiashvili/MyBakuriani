@@ -1483,9 +1483,16 @@ test.describe("Hotel rooms", () => {
     await renterPage
       .locator('[data-field="location"] [role="combobox"]')
       .click();
-    // the type list is still fading out; only the zone list may be left
-    await expect(renterPage.getByRole("listbox")).toHaveCount(1);
-    await renterPage.getByRole("option").first().click();
+    // The closed type list can stay in the page, empty and invisible: wait for
+    // its options to go, then pick the first option of the open zone list.
+    await expect(
+      renterPage.getByRole("option", { name: "სასტუმრო ოთახი", exact: true }),
+    ).toBeHidden();
+    await renterPage
+      .getByRole("option")
+      .filter({ visible: true })
+      .first()
+      .click();
     await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
     await renterPage
       .locator('[data-field="title"] input')
@@ -1498,14 +1505,19 @@ test.describe("Hotel rooms", () => {
 
     await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
     await expect(
-      renterPage.getByText("ნომერი 1: შეავსეთ ველი „ნომრის ტიპი“").first(),
+      renterPage
+        .getByText("ნომრის ტიპი 1: შეავსეთ ველი „ნომრის დასახელება“")
+        .first(),
     ).toBeVisible();
 
     const rooms = renterPage.getByTestId("hotel-room");
     await rooms.nth(0).locator('input[type="text"]').first().fill("ლუქსი");
     await rooms.nth(0).getByPlaceholder("120").fill("150");
-    await editor.getByRole("button", { name: "ნომრის დამატება" }).click();
+    await editor.getByRole("button", { name: "ნომრის ტიპის დამატება" }).click();
     await expect(rooms).toHaveCount(2);
+    await expect(
+      rooms.nth(1).getByRole("button", { name: "ნომრის ტიპის წაშლა (2)" }),
+    ).toBeVisible();
     await rooms.nth(1).locator('input[type="text"]').first().fill("ეკონომი");
     await rooms.nth(1).getByPlaceholder("120").fill("90");
 
@@ -1529,6 +1541,115 @@ test.describe("Hotel rooms", () => {
     );
   });
 
+  // The labels say each field is for one room ("რაოდენობა" alone left owners
+  // guessing), so some wrap on a phone; the fields of a row stay level anyway.
+  test("the room fields read per room and stay level on phones and tablets", async ({
+    renterPage,
+  }) => {
+    await answerCookieBanner(renterPage);
+    await renterPage.goto("/create/rental");
+    if (!(await assertDashboard(renterPage, "/create/rental"))) return;
+
+    await renterPage.getByRole("combobox").first().click();
+    await renterPage
+      .getByRole("option", { name: "სასტუმრო ოთახი", exact: true })
+      .click();
+    await renterPage
+      .locator('[data-field="location"] [role="combobox"]')
+      .click();
+    // The closed type list can stay in the page, empty and invisible: wait for
+    // its options to go, then pick the first option of the open zone list.
+    await expect(
+      renterPage.getByRole("option", { name: "სასტუმრო ოთახი", exact: true }),
+    ).toBeHidden();
+    await renterPage
+      .getByRole("option")
+      .filter({ visible: true })
+      .first()
+      .click();
+    await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
+    await renterPage
+      .locator('[data-field="title"] input')
+      .fill("E2E სასტუმროს ნომრის ველები");
+    await renterPage.getByRole("button", { name: "გაგრძელება" }).click();
+
+    const editor = renterPage.getByTestId("hotel-rooms-editor");
+    const room = renterPage.getByTestId("hotel-room").first();
+    await expect(
+      room.getByText("ნომრის ტიპი 1", { exact: true }),
+    ).toBeVisible();
+    // The grid's fields: price | guests, quantity | beds, area on a phone.
+    const gridFields = [
+      "ნომრის ფასი ღამეში",
+      "მაქს. სტუმარი ნომერში",
+      "ასეთი ნომრების რაოდენობა",
+      "საწოლები ნომერში",
+      "ნომრის ფართობი (მ²)",
+    ];
+    for (const text of ["ნომრის დასახელება", ...gridFields])
+      await expect(
+        room.locator("label").filter({ hasText: text }),
+      ).toBeVisible();
+
+    // Fields whose control is not level with the first field of its row.
+    const misaligned = async () => {
+      const cells: { text: string; labelY: number; controlY: number }[] = [];
+      for (const text of gridFields) {
+        const label = room.locator("label").filter({ hasText: text });
+        const [labelBox, controlBox] = await Promise.all([
+          label.boundingBox(),
+          label.locator("xpath=following-sibling::*[1]").boundingBox(),
+        ]);
+        if (!labelBox || !controlBox) return [`${text}: not laid out`];
+        cells.push({ text, labelY: labelBox.y, controlY: controlBox.y });
+      }
+      const rows: (typeof cells)[] = [];
+      for (const cell of cells.sort((a, b) => a.labelY - b.labelY)) {
+        const row = rows.at(-1);
+        if (row && Math.abs(row[0].labelY - cell.labelY) < 4) row.push(cell);
+        else rows.push([cell]);
+      }
+      if (!rows.some((row) => row.length > 1))
+        return ["no row holds two fields"];
+      return rows.flatMap((row) =>
+        row
+          .filter((cell) => Math.abs(cell.controlY - row[0].controlY) > 1)
+          .map((cell) => `${cell.text} vs ${row[0].text}`),
+      );
+    };
+    for (const width of [360, 375, 768]) {
+      await renterPage.setViewportSize({ width, height: 900 });
+      await expect
+        .poll(misaligned, { message: `room fields level at ${width}px` })
+        .toEqual([]);
+      // The editor fits the viewport, so a page-level overflow below is
+      // not the editor's.
+      await expect
+        .poll(
+          async () => {
+            const box = await editor.boundingBox();
+            const contained = await editor.evaluate(
+              (el) => el.scrollWidth <= el.clientWidth,
+            );
+            return !!box && box.x + box.width <= width + 0.5 && contained;
+          },
+          { message: `editor within the viewport at ${width}px` },
+        )
+        .toBe(true);
+      await expect
+        .poll(
+          () =>
+            renterPage.evaluate(
+              () =>
+                document.documentElement.scrollWidth <=
+                document.documentElement.clientWidth,
+            ),
+          { message: `no horizontal scroll at ${width}px` },
+        )
+        .toBe(true);
+    }
+  });
+
   test("the hotel page lists its rooms and stars", async ({ page }) => {
     await answerCookieBanner(page);
     await page.goto(`/hotels/${TEST_IDS.hotel}`);
@@ -1538,5 +1659,182 @@ test.describe("Hotel rooms", () => {
     await expect(rooms.getByText("სტანდარტული ორადგილიანი")).toBeVisible();
     await expect(rooms.getByText("220 ₾ / ღამე")).toBeVisible();
     await expect(page.getByRole("img", { name: "4 ვარსკვლავი" })).toBeVisible();
+    // A prod hotel (2026-10-27) showed "1 ნომერი · 1 სააბაზანო" under its
+    // photos: hotel-wide sums that read as one room's. With room types the
+    // counts are in the room cards only, and one type gets no "სულ N ნომერი".
+    await expect(page.getByText("1 ნომერი", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("1 სააბაზანო", { exact: true })).toHaveCount(0);
+    await expect(
+      page.locator('[data-testid^="property-quick-spec-"]'),
+    ).toHaveCount(0);
+    await expect(page.getByTestId("hotel-rooms-total")).toHaveCount(0);
+  });
+
+  // The columns stand for the rooms (hotelRoomsSummary): rooms = 3 + 4,
+  // capacity = 2×3 + 3×4; bathrooms and area are leftovers of the old form.
+  // A hotel from before room types keeps its pills.
+  test("a hotel's room counts live in its room cards; an old hotel keeps its pills", async ({
+    adminPage,
+  }) => {
+    await answerCookieBanner(adminPage);
+    // The hotels get an owner of their own: "Renter membership" may clear the
+    // renter's membership on another worker, and C31 then hides the renter's
+    // rentals. Only the signed-in /preview twin can render the draft copy
+    // (the public page 404s); a draft notifies nobody, and an admin may
+    // preview any listing.
+    const ownerId = randomUUID();
+    const typedId = randomUUID();
+    const legacyId = randomUUID();
+    const draftId = randomUUID();
+    const base = {
+      owner_id: ownerId,
+      type: "hotel",
+      description: "სასტუმროს გვერდის რეგრესიული ტესტი",
+      location: "ბაკურიანი, კოხტა",
+      currency: "GEL",
+      photos: [] as string[],
+      status: "active",
+      is_for_sale: false,
+    } as const;
+    const typed = {
+      ...base,
+      rooms: 7,
+      capacity: 18,
+      bathrooms: 1,
+      area_sqm: 32,
+      price_per_night: 150,
+      hotel_rooms: [
+        {
+          name: "ორადგილიანი",
+          guests: 2,
+          beds: 1,
+          area_sqm: 24,
+          price: 150,
+          quantity: 3,
+          photos: [],
+        },
+        {
+          name: "სამადგილიანი",
+          guests: 3,
+          beds: 2,
+          area_sqm: 30,
+          price: 210,
+          quantity: 4,
+          photos: [],
+        },
+      ],
+    };
+
+    try {
+      const { error: userError } = await supabaseAdmin.auth.admin.createUser({
+        id: ownerId,
+        email: `hotel-owner-${ownerId.slice(0, 8)}@e2e.mybakuriani.test`,
+        email_confirm: true,
+      });
+      if (userError) throw new Error(`owner: ${userError.message}`);
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .insert({
+          id: ownerId,
+          role: "renter",
+          display_name: "E2E სასტუმროს მფლობელი",
+        });
+      if (profileError) throw new Error(`profile: ${profileError.message}`);
+      const { error: membershipError } = await supabaseAdmin
+        .from("user_subscriptions")
+        .insert({
+          user_id: ownerId,
+          starts_at: new Date(Date.now() - 86_400_000).toISOString(),
+          expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+          status: "active",
+        });
+      if (membershipError)
+        throw new Error(`membership: ${membershipError.message}`);
+      await properties.create({
+        ...typed,
+        id: typedId,
+        title: `E2E სასტუმრო ნომრის ტიპებით ${typedId.slice(0, 6)}`,
+      });
+      await properties.create({
+        ...base,
+        id: legacyId,
+        title: `E2E სასტუმრო ნომრების გარეშე ${legacyId.slice(0, 6)}`,
+        rooms: 6,
+        capacity: 12,
+        bathrooms: 2,
+        area_sqm: 180,
+        price_per_night: 200,
+      });
+      await properties.create({
+        ...typed,
+        id: draftId,
+        title: `E2E სასტუმროს მონახაზი ${draftId.slice(0, 6)}`,
+        status: "draft",
+      });
+
+      // The public page, then the /preview twin with the same rooms.
+      for (const path of [
+        `/hotels/${typedId}`,
+        `/hotels/${draftId}?preview=1`,
+      ]) {
+        await adminPage.goto(path);
+        await expect(
+          adminPage.getByRole("heading", { name: "ნომრები", exact: true }),
+        ).toBeVisible();
+        await expect(adminPage.getByTestId("hotel-rooms-total")).toHaveText(
+          "სულ 7 ნომერი",
+        );
+        const cards = adminPage.getByTestId("hotel-rooms");
+        await expect(
+          cards.getByText("3 ასეთი ნომერი", { exact: true }),
+        ).toBeVisible();
+        await expect(
+          cards.getByText("4 ასეთი ნომერი", { exact: true }),
+        ).toBeVisible();
+        await expect(
+          adminPage.locator('[data-testid^="property-quick-spec-"]'),
+        ).toHaveCount(0);
+        await expect(
+          adminPage.getByText("7 ნომერი", { exact: true }),
+        ).toHaveCount(0);
+        await expect(
+          adminPage.getByText("18 სტუმარი", { exact: true }),
+        ).toHaveCount(0);
+      }
+      // Still on the twin: only it passes isPending, so its banner shows the
+      // draft came through the twin's own read.
+      await expect(
+        adminPage
+          .getByRole("status")
+          .filter({ hasText: "განცხადება განხილვაშია" }),
+      ).toBeVisible();
+
+      await adminPage.goto(`/hotels/${legacyId}`);
+      await expect(
+        adminPage.getByTestId("property-quick-spec-rooms"),
+      ).toHaveText("6 ნომერი");
+      await expect(
+        adminPage.getByTestId("property-quick-spec-bathrooms"),
+      ).toHaveText("2 სააბაზანო");
+      await expect(
+        adminPage.getByTestId("property-quick-spec-guests"),
+      ).toHaveText("12 სტუმარი");
+      await expect(
+        adminPage.getByTestId("property-quick-spec-area"),
+      ).toHaveText("180 მ²");
+    } finally {
+      // Each step tolerates rows that were never created.
+      await supabaseAdmin
+        .from("properties")
+        .delete()
+        .in("id", [typedId, legacyId, draftId]);
+      await supabaseAdmin.from("notifications").delete().eq("user_id", ownerId);
+      await supabaseAdmin
+        .from("user_subscriptions")
+        .delete()
+        .eq("user_id", ownerId);
+      await supabaseAdmin.from("profiles").delete().eq("id", ownerId);
+      await supabaseAdmin.auth.admin.deleteUser(ownerId).catch(() => undefined);
+    }
   });
 });

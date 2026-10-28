@@ -202,7 +202,9 @@ function RoomField({
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-2">
+    // Label at the top, control at the bottom of the stretched grid cell: when
+    // one label wraps on a phone, the labels and controls in its row stay level.
+    <div className="flex flex-col justify-between gap-2">
       <label className="block text-[12px] font-bold leading-4 text-[#475569]">
         {label}
         {required && <span className="ml-0.5 text-[#EF4444]">*</span>}

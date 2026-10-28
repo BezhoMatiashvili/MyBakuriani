@@ -2554,8 +2554,22 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     if (!row) problems.push(`could not read SupportQuestionRow from ${planFile}`);
     else if (/\b(?:user_id|ip|email|phone|answer)\b/.test(row)) problems.push(`SupportQuestionRow in ${planFile} must not carry a user id, IP, contact or answer text`);
   }
+  // (o) the knowledge quotes the hotel room card's labels whole
+  // (CreateRental.hotel.fields.* and addRoom): (j) matches substrings, and
+  // "რაოდენობა", "სტუმრები" or "ნომრის დამატება" are other keys' values, so a
+  // renamed label left unrequoted passed (j), and (l) after a regen.
+  {
+    const hotel = JSON.parse(read("messages/ka.json")).CreateRental?.hotel ?? {};
+    const fields = Object.values(hotel.fields ?? {});
+    const knowledge = read("src/lib/support/knowledge.ts");
+    if (!fields.length || typeof hotel.addRoom !== "string") problems.push("could not read CreateRental.hotel.fields / addRoom from messages/ka.json");
+    else {
+      const missing = [...fields, hotel.addRoom].filter((label) => !knowledge.includes(`"${label}"`));
+      if (missing.length) problems.push(`knowledge.ts must quote the hotel room editor's labels whole (CreateRental.hotel.fields.*, addRoom); missing: ${missing.map((l) => `"${l}"`).join(", ")}`);
+    }
+  }
   if (problems.length) problems.forEach((p) => fail(`C43: ${p}`));
-  else ok("C43: OpenRouter key server-only; steps forced through show_steps + parseJevPlan; answers through the forced reply tool + parseReply, buttons are ids whose links the route builds; account facts under the user's own session; every quoted label exists on the site; answers and plans pass checkReply/checkPlan; en/ru label table current; knowledge pages exist; question log written only in after(), no user id/IP; no-retention on both calls; per-user/per-IP limits; Gemini Flash + Jev (Gemini Flash pool) only; snapshot carries no values");
+  else ok("C43: OpenRouter key server-only; steps forced through show_steps + parseJevPlan; answers through the forced reply tool + parseReply, buttons are ids whose links the route builds; account facts under the user's own session; every quoted label exists on the site; hotel room labels quoted whole; answers and plans pass checkReply/checkPlan; en/ru label table current; knowledge pages exist; question log written only in after(), no user id/IP; no-retention on both calls; per-user/per-IP limits; Gemini Flash + Jev (Gemini Flash pool) only; snapshot carries no values");
 }
 
 // ---------------------------------------------------------------------------
