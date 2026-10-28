@@ -3959,6 +3959,41 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C57: both listing forms start the cadastral switch off and write it; the preview masks a hidden code; ${migs[viewAt]} masks it; ${migs[defaultAt]} defaults it to hidden`);
 }
 
+// C58 — short share links. (a) A listing page's share menu hands out shortLinkPathForPath's /l/<code>, the folder
+// of (b) src/app/[locale]/l/[code]/route.ts, which reads only public_properties + public_services with the anon
+// client, by parseShortLinkCode + shortLinkIdRange, and answers 301 for a found listing; (c) /l/ stays crawlable:
+// Facebook builds no preview for a URL robots.txt disallows.
+{
+  const problems = [];
+  const route = "src/app/[locale]/l/[code]/route.ts";
+  if (!existsSync(join(root, route))) problems.push(`${route} is missing`);
+  else {
+    const text = read(route);
+    if (!/createPublicClient\(\)/.test(text) || /createServiceClient|\bcreateClient\(/.test(text))
+      problems.push(`${route}: must read with createPublicClient only (C31)`);
+    const tables = new Set([...text.matchAll(/\.from\("([^"]+)"\)/g)].map((m) => m[1]));
+    if (!setEq(tables, new Set(["public_properties", "public_services"])))
+      problems.push(`${route}: reads ${[...tables].join(", ") || "nothing"}; only public_properties + public_services (C31)`);
+    if (!/parseShortLinkCode\(rawCode\)/.test(text) || !/shortLinkIdRange\(code\)/.test(text))
+      problems.push(`${route}: must parse the code with parseShortLinkCode and read by shortLinkIdRange`);
+    if (!/,\s*301,?\s*\)/.test(text)) problems.push(`${route}: a found listing must answer 301`);
+    if (!/if \(key !== "preview"\)/.test(text))
+      problems.push(`${route}: the redirect must carry the query except "preview" (fbclid/utm_* reach PageviewTracker)`);
+  }
+  if (!/searchParams\.has\("preview"\)/.test(read("src/middleware.ts")))
+    problems.push(`src/middleware.ts: the owner-preview switch is no longer "preview"; update ${route}`);
+  if (!/return `\$\{prefix\}\/l\/\$\{code\}`;/.test(read("src/lib/utils/listingUrls.ts")))
+    problems.push("src/lib/utils/listingUrls.ts: shortLinkPathForPath must build `${prefix}/l/${code}` (the route's folder)");
+  if (!/shortLinkPathForPath\(\s*window\.location\.pathname/.test(read("src/components/shared/ShareMenu.tsx")))
+    problems.push("src/components/shared/ShareMenu.tsx: must share shortLinkPathForPath(window.location.pathname, …)");
+  const disallowed = [...read("src/lib/seo/robots.ts").matchAll(/^\s+"(\/[^"]*)",$/gm)].map((m) => m[1]);
+  if (!disallowed.length) problems.push("src/lib/seo/robots.ts: NON_INDEXABLE_PREFIXES not found");
+  for (const prefix of disallowed)
+    if ("/l/621660307a14".startsWith(prefix)) problems.push(`src/lib/seo/robots.ts: "${prefix}" disallows /l/ (no preview)`);
+  if (problems.length) problems.forEach((p) => fail(`C58: ${p}`));
+  else ok(`C58: listing pages share /l/<code> (shortLinkPathForPath); ${route} reads only the public views with the anon client and answers 301 carrying the query except "preview"; /l/ is not among ${disallowed.length} robots prefixes`);
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);

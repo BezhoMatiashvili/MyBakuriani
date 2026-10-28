@@ -3,10 +3,12 @@
 import { useRef, type ReactNode } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Link, Printer, Share } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { WhatsAppIcon } from "@/components/shared/WhatsAppButton";
+import { routing } from "@/i18n/routing";
 import { facebookShareUrl, shareableUrl, whatsappShareUrl } from "@/lib/share";
+import { shortLinkPathForPath } from "@/lib/utils/listingUrls";
 
 const ITEM =
   "flex min-h-11 w-full cursor-pointer select-none items-center gap-3 rounded-xl px-3.5 text-[14px] font-medium text-[#1E293B] outline-none transition-colors data-[highlighted]:bg-[#F1F5F9]";
@@ -38,7 +40,17 @@ function FacebookIcon({ className }: { className?: string }) {
  */
 function ShareMenuItems({ onPrint }: { onPrint: () => void }) {
   const t = useTranslations("ShareListing");
-  const url = shareableUrl(window.location);
+  const locale = useLocale();
+  // A listing page hands out its short link (C58), which opens the same page
+  // and unfurls the same card; a blog post shares its own URL.
+  const shortPath = shortLinkPathForPath(
+    window.location.pathname,
+    locale,
+    routing.defaultLocale,
+  );
+  const url = shortPath
+    ? `${window.location.origin}${shortPath}`
+    : shareableUrl(window.location);
   // Phones (and Safari, Edge, Chrome on Windows) hand the link to the system
   // share sheet, i.e. to the Facebook, Messenger, Viber or WhatsApp app itself
   // rather than its website, where the user may not be signed in.

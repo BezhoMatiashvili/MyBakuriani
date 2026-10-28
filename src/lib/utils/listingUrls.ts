@@ -186,3 +186,53 @@ export function ogCardUrlForPath(
   if (!target) return null;
   return `/api/og/listing/${target.kind}/${target.id}${ogCardSearch(format === "story")}`;
 }
+
+// ---------------------------------------------------------------------------
+// Short share links (C58): /l/<code>, where <code> is the first 12 hex digits
+// of the listing id. Ids come from uuid_generate_v4() and clients cannot pick
+// one (no INSERT grant on `id`, C34), so those 48 random bits make two public
+// listings sharing a code a ~1-in-10^10 event; the route answers an ambiguous
+// code with the home page rather than guess.
+// ---------------------------------------------------------------------------
+
+/** Hex digits of the listing id that a short link carries. */
+export const SHORT_LINK_CODE_LENGTH = 12;
+
+const SHORT_LINK_CODE_RE = new RegExp(`^[0-9a-f]{${SHORT_LINK_CODE_LENGTH}}$`);
+
+/**
+ * The short link a public detail page shares (`/l/621660307a14`; en and ru
+ * keep their prefix: `/en/l/…`), or null for any other page — a blog post
+ * shares its own URL. `pathname` is the browser's, locale prefix included.
+ */
+export function shortLinkPathForPath(
+  pathname: string,
+  locale: string,
+  defaultLocale: string,
+): string | null {
+  const prefix = locale === defaultLocale ? "" : `/${locale}`;
+  if (prefix && !pathname.startsWith(`${prefix}/`)) return null;
+  const target = ogCardTargetForPath(pathname.slice(prefix.length));
+  if (!target) return null;
+  const code = target.id
+    .replace(/-/g, "")
+    .slice(0, SHORT_LINK_CODE_LENGTH)
+    .toLowerCase();
+  return `${prefix}/l/${code}`;
+}
+
+/** The code of a short link as typed (any case), or null if it is not one. */
+export function parseShortLinkCode(raw: string): string | null {
+  const code = raw.toLowerCase();
+  return SHORT_LINK_CODE_RE.test(code) ? code : null;
+}
+
+/**
+ * Every listing id that starts with `code`, as an inclusive uuid range. uuids
+ * compare byte by byte, i.e. in hex order, so this is a primary-key range read.
+ */
+export function shortLinkIdRange(code: string): { from: string; to: string } {
+  const uuid = (hex: string) =>
+    `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  return { from: uuid(code.padEnd(32, "0")), to: uuid(code.padEnd(32, "f")) };
+}

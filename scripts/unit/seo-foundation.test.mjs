@@ -158,6 +158,21 @@ test("robots: /api/og/ stays allowed under the /api/ disallow (Facebook fetches 
   assert.ok(cfg.rules.allow.includes("/"));
 });
 
+// C58: Facebook builds no preview for a URL robots.txt disallows.
+test("robots: short share links (/l/<code>) stay crawlable in every locale", () => {
+  const cfg = buildRobotsConfig({
+    locales: LOCALES,
+    defaultLocale: "ka",
+    indexable: true,
+    siteUrl: "https://mybakuriani.ge",
+  });
+  for (const link of ["/l/621660307a14", "/en/l/621660307a14", "/ru/l/621660307a14"]) {
+    for (const prefix of cfg.rules.disallow ?? []) {
+      assert.ok(!link.startsWith(prefix), `${prefix} disallows ${link}`);
+    }
+  }
+});
+
 test("protected prefixes carry no trailing slash (so /create is covered, not just /create/…)", () => {
   for (const prefix of NON_INDEXABLE_PREFIXES) {
     assert.match(prefix, /^\/[a-z-]+$/);
