@@ -904,4 +904,14 @@ if (posture) {
   else compareSets("C54 properties.sale_price_currency", codes, [...CURRENCY_CODES], "CHECK constraint", "CURRENCY_CODES");
 }
 
+// C57 — a cadastral code its owner hid never reaches public_properties (the view masks it; 20261028170000 hid every
+// code and made hidden the default).
+{
+  const hidden = await rest("properties?select=id&cadastral_code=not.is.null&cadastral_code_public=is.false");
+  const ids = hidden.map((r) => r.id);
+  const leaked = ids.length ? await rest(`public_properties?select=id&cadastral_code=not.is.null&id=in.(${ids.join(",")})`) : [];
+  if (leaked.length) fail(`C57: public_properties shows ${leaked.length} cadastral code(s) their owners hid: ${leaked.map((r) => r.id).join(", ")}`);
+  else ok(`C57: none of the ${ids.length} hidden cadastral codes reaches public_properties`);
+}
+
 finish();

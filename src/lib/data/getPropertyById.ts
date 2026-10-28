@@ -89,6 +89,9 @@ export const getPropertyById = cache(
       // the RSC payload, or og:image — see sanitizePhotos.
       row.photos = sanitizePhotos(row.photos);
       row.has_whatsapp = hasValidWhatsapp(row.whatsapp);
+      // public_properties masks a cadastral code its owner did not choose to
+      // show (C57); the preview reads the raw table, so it masks it the same way.
+      if (!row.cadastral_code_public) row.cadastral_code = null;
       return { data: row, isMock: false };
     } catch (err) {
       // Never swallow Next's control-flow signals (dynamic-rendering bail-out,

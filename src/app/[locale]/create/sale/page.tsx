@@ -224,7 +224,7 @@ function CreateSalePageInner() {
     String(new Date().getFullYear() + 1),
   );
   const [cadastralCode, setCadastralCode] = useState("");
-  const [cadastralCodePublic, setCadastralCodePublic] = useState(true);
+  const [cadastralCodePublic, setCadastralCodePublic] = useState(false);
   const cadastralTaken = useCadastralTaken(cadastralCode, editId);
   const [exactLocation, setExactLocation] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
@@ -440,7 +440,7 @@ function CreateSalePageInner() {
       setDeveloper(data.developer ?? "");
       setRoiPercent(data.roi_percent != null ? String(data.roi_percent) : "");
       setCadastralCode(data.cadastral_code ?? "");
-      setCadastralCodePublic(data.cadastral_code_public ?? true);
+      setCadastralCodePublic(data.cadastral_code_public ?? false);
       if (data.renovation_status) {
         setRenovationStatus(data.renovation_status);
       }

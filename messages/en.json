@@ -1177,6 +1177,8 @@
     "exactLocation": "Exact location on map",
     "cadastralCode": "Cadastral Code",
     "cadastralDigitsHint": "Only digits and dots (e.g. 01.10.05.123)",
+    "cadastralCodePublicLabel": "Show code publicly",
+    "cadastralCodePublicHelper": "When off, the code won't appear on the listing page or be searchable",
     "area": "Total area (m²)",
     "rooms": "Number of rooms",
     "bathroom": "Bathrooms",

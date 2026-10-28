@@ -17,6 +17,7 @@ import PhoneInput from "@/components/forms/PhoneInput";
 import AvailabilityWizardStep from "@/components/forms/AvailabilityWizardStep";
 import NumberField from "@/components/shared/NumberField";
 import { StyledSelect } from "@/components/ui/styled-select";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { AMENITY_GROUPS, HOSTING_LANGS } from "@/lib/constants/listing-options";
@@ -164,6 +165,7 @@ function CreateRentalPageInner() {
     : [...PROPERTY_TYPES, propertyType];
   const [location, setLocation] = useState("");
   const [cadastralCode, setCadastralCode] = useState("");
+  const [cadastralCodePublic, setCadastralCodePublic] = useState(false);
   const cadastralTaken = useCadastralTaken(cadastralCode, editId);
   const [description, setDescription] = useState("");
 
@@ -275,6 +277,7 @@ function CreateRentalPageInner() {
       }
       setLocation(data.location ?? "");
       setCadastralCode(data.cadastral_code ?? "");
+      setCadastralCodePublic(data.cadastral_code_public ?? false);
       setDescription(data.description ?? "");
       setTitle(data.title ?? "");
       if (data.location_lat != null && data.location_lng != null) {
@@ -594,7 +597,13 @@ function CreateRentalPageInner() {
         // listing is already awaiting review), and the calendar_blocks /
         // price_overrides writes are NOT review-gated — running them first keeps a
         // failed review submit from silently discarding the renter's availability
-        // and per-day price edits.
+        // and per-day price edits. cadastral_code_public is not review-gated
+        // either: the owner's own choice, written directly as the sale form does.
+        const { error: visibilityError } = await supabase
+          .from("properties")
+          .update({ cadastral_code_public: cadastralCodePublic })
+          .eq("id", editId);
+        if (visibilityError) throw visibilityError;
         propertyId = editId;
       } else {
         const { data: inserted, error: insertError } = await supabase
@@ -602,6 +611,7 @@ function CreateRentalPageInner() {
           .insert({
             ...payload,
             owner_id: user.id,
+            cadastral_code_public: cadastralCodePublic,
             status: "pending" as Enums<"listing_status">,
             is_for_sale: false,
           })
@@ -876,6 +886,23 @@ function CreateRentalPageInner() {
                     <p className="text-xs font-bold text-[#EF4444]">
                       {tShared("cadastralAlreadyUsed")}
                     </p>
+                  )}
+                  {cadastralCode.trim().length > 0 && (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
+                      <div>
+                        <p className="text-[13px] font-bold text-[#334155]">
+                          {t("cadastralCodePublicLabel")}
+                        </p>
+                        <p className="text-xs text-[#64748B]">
+                          {t("cadastralCodePublicHelper")}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={cadastralCodePublic}
+                        onCheckedChange={setCadastralCodePublic}
+                        aria-label={t("cadastralCodePublicLabel")}
+                      />
+                    </div>
                   )}
                 </Field>
 

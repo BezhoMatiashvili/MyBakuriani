@@ -3932,6 +3932,33 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C56: landlines only on the ${forms.size} contact forms (${inputForms.length} PhoneInput allowLandline, one each on the phone, never WhatsApp; create/service's cleaning sphere stays isValidGePhone through phoneValid); the reveal and ${telLinks} tel: links dial toGeContactE164 or the site's number, WhatsApp stays normalizeE164Phone on ${waLinks} wa.me links; isValidGePhone, normalizeE164Phone, toUbillNumber and the newest sms_canonical_ge_phone (${newest}) stay mobile-only; number.ts import-free`);
 }
 
+// C57 — a cadastral code is public only when its owner turns the switch on. (a) Both listing forms start the switch
+// off, load a missing value as off and write it on insert and edit; (b) getPropertyById masks a hidden code the way
+// public_properties does; (c) the newest public_properties keeps the CASE on cadastral_code_public; (d) the newest
+// migration that sets the column's default sets false.
+{
+  const problems = [];
+  for (const form of ["src/app/[locale]/create/rental/page.tsx", "src/app/[locale]/create/sale/page.tsx"]) {
+    const text = read(form);
+    if (!/\[cadastralCodePublic, setCadastralCodePublic\] = useState\(false\)/.test(text)) problems.push(`${form}: the cadastral switch must start off (useState(false))`);
+    if (!/setCadastralCodePublic\(data\.cadastral_code_public \?\? false\)/.test(text)) problems.push(`${form}: an edit must load a missing cadastral_code_public as off`);
+    if ((text.match(/cadastral_code_public: cadastralCodePublic\b/g) ?? []).length < 2) problems.push(`${form}: must write cadastral_code_public on insert and on edit`);
+  }
+  if (!/if \(!row\.cadastral_code_public\) row\.cadastral_code = null;/.test(read("src/lib/data/getPropertyById.ts")))
+    problems.push("src/lib/data/getPropertyById.ts: the preview must mask a cadastral code its owner hid");
+  const migs = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
+  const texts = migs.map((f) => read(join("supabase/migrations", f)).replace(/--[^\n]*/g, ""));
+  const viewRe = /\bcreate\s+(?:or\s+replace\s+)?view\s+(?:public\.)?public_properties\b[^;]*;/i;
+  const viewAt = texts.findLastIndex((t) => viewRe.test(t));
+  if (viewAt < 0 || !/\bcase\s+when\s+pr\.cadastral_code_public\s+then\s+pr\.cadastral_code\b/i.test(texts[viewAt].match(viewRe)[0]))
+    problems.push(`${migs[viewAt] ?? "no migration"}: the newest public_properties must mask cadastral_code (CASE WHEN pr.cadastral_code_public)`);
+  const defaultAt = texts.findLastIndex((t) => /\bcadastral_code_public\s+(?:boolean\s+not\s+null\s+|set\s+)?default\b/i.test(t));
+  if (defaultAt < 0 || !/\balter\s+column\s+cadastral_code_public\s+set\s+default\s+false\b/i.test(texts[defaultAt]))
+    problems.push(`${migs[defaultAt] ?? "no migration"}: the newest default of properties.cadastral_code_public must be false`);
+  if (problems.length) problems.forEach((p) => fail(`C57: ${p}`));
+  else ok(`C57: both listing forms start the cadastral switch off and write it; the preview masks a hidden code; ${migs[viewAt]} masks it; ${migs[defaultAt]} defaults it to hidden`);
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);
