@@ -64,6 +64,15 @@ interface BookingSidebarProps {
   priceOverrides?: PriceOverride[];
   discountPercent?: number | null;
   discountExpiresAt?: string | null;
+  /**
+   * A hotel's room types (C45), 2 or more: the guest picks the room, and the
+   * caller passes that room's price as pricePerNight (and its priceOverrides).
+   */
+  roomPicker?: {
+    rooms: readonly { name: string; price: number }[];
+    selected: number;
+    onSelect: (index: number) => void;
+  };
 }
 
 function localDayKey(date: Date) {
@@ -220,6 +229,7 @@ export function BookingSidebar({
   priceOverrides,
   discountPercent,
   discountExpiresAt,
+  roomPicker,
 }: BookingSidebarProps) {
   const t = useTranslations("BookingSidebar");
   const money = useMoney();
@@ -246,6 +256,8 @@ export function BookingSidebar({
   const hasMixedPricing = days > 0 && nightlySum !== days * pricePerNight;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const guestRef = useRef<HTMLDivElement>(null);
+  const [roomDropdownOpen, setRoomDropdownOpen] = useState(false);
+  const roomRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -259,12 +271,15 @@ export function BookingSidebar({
       if (guestRef.current && !guestRef.current.contains(e.target as Node)) {
         setGuestDropdownOpen(false);
       }
+      if (roomRef.current && !roomRef.current.contains(e.target as Node)) {
+        setRoomDropdownOpen(false);
+      }
     }
-    if (calendarOpen || guestDropdownOpen) {
+    if (calendarOpen || guestDropdownOpen || roomDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [calendarOpen, guestDropdownOpen]);
+  }, [calendarOpen, guestDropdownOpen, roomDropdownOpen]);
 
   const handleDateClick = (date: Date) => {
     if (!onRangeChange) return;
@@ -354,6 +369,63 @@ export function BookingSidebar({
             </div>
           )}
         </div>
+        {roomPicker && (
+          <div className="relative" ref={roomRef}>
+            <button
+              type="button"
+              data-testid="booking-room-type"
+              aria-expanded={roomDropdownOpen}
+              onClick={() => setRoomDropdownOpen(!roomDropdownOpen)}
+              className={`mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${roomDropdownOpen ? "border-[#F97316]" : "border-[#CBD5E1]"} cursor-pointer hover:border-[#F97316]`}
+            >
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-[0.5px] text-[#94A3B8]">
+                  {t("roomType")}
+                </span>
+                <p className="mt-0.5 text-[13px] font-bold text-[#1E293B] [overflow-wrap:anywhere]">
+                  {roomPicker.rooms[roomPicker.selected]?.name}
+                </p>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 text-[#94A3B8] transition-transform ${roomDropdownOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {roomDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[200px] overflow-y-auto rounded-2xl border border-[#E2E8F0] bg-white py-1 shadow-[0px_16px_40px_-12px_rgba(0,0,0,0.15)]">
+                {roomPicker.rooms.map((room, i) => {
+                  const price = applyDiscount(
+                    room.price,
+                    discountPercent,
+                    discountExpiresAt,
+                  );
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        roomPicker.onSelect(i);
+                        setRoomDropdownOpen(false);
+                      }}
+                      className={`flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-[13px] font-medium transition-colors ${
+                        i === roomPicker.selected
+                          ? "bg-[#FFF7ED] font-bold text-[#F97316]"
+                          : "text-[#1E293B] hover:bg-[#F8FAFC]"
+                      }`}
+                    >
+                      <span className="min-w-0 [overflow-wrap:anywhere]">
+                        {room.name}
+                      </span>
+                      <span className="shrink-0">
+                        {money.format(price, "GEL", formatPrice(price))}{" "}
+                        {t("perNight")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
         {showGuestCount && (
           <div className="relative" ref={guestRef}>
             <button

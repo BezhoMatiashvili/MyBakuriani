@@ -16,7 +16,10 @@ import {
   roomFromDraft,
   checkHotelRoomDrafts,
   hotelRoomsSummary,
+  defaultRoomIndex,
+  roomPriceOverrides,
 } from "../../src/lib/hotel-rooms.ts";
+import { sumNightlyPrice } from "../../src/lib/utils/pricing.ts";
 
 const room = (over = {}) => ({
   name: "სტანდარტული",
@@ -228,4 +231,46 @@ test("limits equal hotel_rooms_valid() in the newest migration that defines it",
     price: "1",
   });
   assert.deepEqual([...keys].sort(), Object.keys(written.room).sort());
+});
+
+// Hotel Hills on prod (2026-11-01): four room types, the sidebar priced 250.
+const hills = [290, 250, 350, 380].map((price, i) => ({
+  name: `room ${i}`,
+  price,
+}));
+
+test("the booking sidebar opens on the room priced at the listing price", () => {
+  assert.equal(defaultRoomIndex(hills, 250), 1);
+  // Same price twice: the first of them.
+  assert.equal(defaultRoomIndex([...hills, { name: "x", price: 250 }], 250), 1);
+  // No room at the listing price: the cheapest.
+  assert.equal(defaultRoomIndex(hills, 200), 1);
+  assert.equal(defaultRoomIndex([], 250), -1);
+});
+
+test("a pricier room keeps its difference on the owner's per-day prices", () => {
+  const overrides = [{ date: "2026-12-31", price: 400 }];
+  // The cheapest room: the owner's prices as they are.
+  assert.deepEqual(roomPriceOverrides(overrides, 250, 250), overrides);
+  assert.deepEqual(roomPriceOverrides(overrides, 380, 250), [
+    { date: "2026-12-31", price: 530 },
+  ]);
+  // A numeric column read as text still adds, never concatenates.
+  assert.deepEqual(
+    roomPriceOverrides([{ date: "2026-12-31", price: "400.00" }], 290, 250),
+    [{ date: "2026-12-31", price: 440 }],
+  );
+  assert.deepEqual(roomPriceOverrides([], 380, 250), []);
+
+  // Dec 30 - Jan 1 (3 days, Dec 31 at 400) in the 380 room: 380 + 530 + 380.
+  const d = (iso) => new Date(`${iso}T12:00:00`);
+  assert.equal(
+    sumNightlyPrice(
+      d("2026-12-30"),
+      d("2027-01-01"),
+      380,
+      roomPriceOverrides(overrides, 380, 250),
+    ),
+    1290,
+  );
 });

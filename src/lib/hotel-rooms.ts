@@ -194,3 +194,37 @@ export function hotelRoomsSummary(rooms: readonly HotelRoom[]): {
     totalGuests: rooms.reduce((sum, r) => sum + r.guests * r.quantity, 0),
   };
 }
+
+/**
+ * The room type the booking sidebar opens on: the first priced at the
+ * listing's price_per_night (the cheapest room, see hotelRoomsSummary), so the
+ * page opens on the price it always showed; else the cheapest. -1 = no rooms.
+ */
+export function defaultRoomIndex(
+  rooms: readonly Pick<HotelRoom, "price">[],
+  listingPrice: number,
+): number {
+  if (rooms.length === 0) return -1;
+  const atListingPrice = rooms.findIndex((r) => r.price === listingPrice);
+  if (atListingPrice !== -1) return atListingPrice;
+  const minPrice = Math.min(...rooms.map((r) => r.price));
+  return rooms.findIndex((r) => r.price === minPrice);
+}
+
+/**
+ * One room type's per-day prices. price_overrides belong to the whole hotel
+ * and are entered against its listing price (the cheapest room); a pricier
+ * room keeps its usual difference from that price on those days (owner's
+ * choice, 2026-11-01).
+ */
+export function roomPriceOverrides(
+  overrides: readonly { date: string; price: number }[],
+  roomPrice: number,
+  listingPrice: number,
+): { date: string; price: number }[] {
+  const difference = roomPrice - listingPrice;
+  return overrides.map((o) => ({
+    date: o.date,
+    price: Number(o.price) + difference,
+  }));
+}

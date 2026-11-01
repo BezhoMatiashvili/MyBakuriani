@@ -646,6 +646,7 @@
     "checkIn": "Check-in",
     "checkOut": "Check-out",
     "datePlaceholder": "Date",
+    "roomType": "Room type",
     "guestsLabel": "Guests",
     "personCount": "{count, plural, =1 {# person} other {# people}}",
     "nightsLine": "{price} x {count, plural, =1 {# night} other {# nights}}",

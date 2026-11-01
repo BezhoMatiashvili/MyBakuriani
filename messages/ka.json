@@ -646,6 +646,7 @@
     "checkIn": "შესვლა",
     "checkOut": "გამოსვლა",
     "datePlaceholder": "თარიღი",
+    "roomType": "ნომრის ტიპი",
     "guestsLabel": "რაოდენობა",
     "personCount": "{count} ადამიანი",
     "nightsLine": "{price} x {count} ღამე",

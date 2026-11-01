@@ -1837,4 +1837,178 @@ test.describe("Hotel rooms", () => {
       await supabaseAdmin.auth.admin.deleteUser(ownerId).catch(() => undefined);
     }
   });
+
+  // Owner's report 2026-11-01 (Hotel Hills, rooms 250 to 380 ₾): the sidebar
+  // priced every stay at the cheapest room. With 2+ room types the guest picks
+  // the room; per-day prices are the hotel's, entered against the cheapest
+  // room, so a pricier room adds its difference on those days (owner's choice).
+  test("the booking sidebar prices the room type the guest picks", async ({
+    page,
+  }) => {
+    await answerCookieBanner(page);
+    const ownerId = randomUUID();
+    const hotelId = randomUUID();
+    const oneRoomId = randomUUID();
+    const apartmentId = randomUUID();
+    // Days of next month: in the future and inside the page's 3-month window
+    // of per-day prices.
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const day = (d: number) =>
+      [
+        next.getFullYear(),
+        String(next.getMonth() + 1).padStart(2, "0"),
+        String(d).padStart(2, "0"),
+      ].join("-");
+    const base = {
+      owner_id: ownerId,
+      description: "ნომრის ტიპის არჩევის რეგრესიული ტესტი",
+      location: "ბაკურიანი, კოხტა",
+      currency: "GEL",
+      photos: [] as string[],
+      status: "active",
+      is_for_sale: false,
+    } as const;
+
+    try {
+      const { error: userError } = await supabaseAdmin.auth.admin.createUser({
+        id: ownerId,
+        email: `hotel-room-price-${ownerId.slice(0, 8)}@e2e.mybakuriani.test`,
+        email_confirm: true,
+      });
+      if (userError) throw new Error(`owner: ${userError.message}`);
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .insert({
+          id: ownerId,
+          role: "renter",
+          display_name: "E2E სასტუმროს მფლობელი",
+        });
+      if (profileError) throw new Error(`profile: ${profileError.message}`);
+      const { error: membershipError } = await supabaseAdmin
+        .from("user_subscriptions")
+        .insert({
+          user_id: ownerId,
+          starts_at: new Date(Date.now() - 86_400_000).toISOString(),
+          expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+          status: "active",
+        });
+      if (membershipError)
+        throw new Error(`membership: ${membershipError.message}`);
+      await properties.create({
+        ...base,
+        id: hotelId,
+        type: "hotel",
+        title: `E2E სასტუმრო ნომრის ფასებით ${hotelId.slice(0, 6)}`,
+        rooms: 7,
+        capacity: 18,
+        price_per_night: 150,
+        hotel_rooms: [
+          {
+            name: "ორადგილიანი",
+            guests: 2,
+            beds: 1,
+            area_sqm: 24,
+            price: 150,
+            quantity: 3,
+            photos: [],
+          },
+          {
+            name: "სამადგილიანი",
+            guests: 3,
+            beds: 2,
+            area_sqm: 30,
+            price: 210,
+            quantity: 4,
+            photos: [],
+          },
+        ],
+      });
+      // The owner's price for the 11th, entered against the cheapest room.
+      const { error: overrideError } = await supabaseAdmin
+        .from("price_overrides")
+        .insert({ property_id: hotelId, date: day(11), price: 300 });
+      if (overrideError) throw new Error(`override: ${overrideError.message}`);
+      await properties.create({
+        ...base,
+        id: oneRoomId,
+        type: "hotel",
+        title: `E2E სასტუმრო ერთი ნომრით ${oneRoomId.slice(0, 6)}`,
+        rooms: 1,
+        capacity: 2,
+        price_per_night: 220,
+        hotel_rooms: [
+          {
+            name: "სტანდარტული ორადგილიანი",
+            guests: 2,
+            beds: 1,
+            area_sqm: 32,
+            price: 220,
+            quantity: 1,
+            photos: [],
+          },
+        ],
+      });
+      await properties.create({
+        ...base,
+        id: apartmentId,
+        type: "apartment",
+        title: `E2E ბინა ნომრის ტიპის გარეშე ${apartmentId.slice(0, 6)}`,
+        rooms: 2,
+        capacity: 4,
+        price_per_night: 180,
+      });
+
+      await page.goto(`/hotels/${hotelId}`);
+      const sidebar = page.locator("#booking-sidebar");
+      const picker = sidebar.getByTestId("booking-room-type");
+      // It opens on the room at the listing's price, the price it always showed.
+      await expect(picker).toContainText("ნომრის ტიპი");
+      await expect(picker).toContainText("ორადგილიანი");
+      await expect(sidebar.getByText("150 ₾", { exact: true })).toBeVisible();
+
+      // The 10th to the 12th: every selected day is billed, the 11th at 300.
+      await sidebar.getByRole("button", { name: /შესვლა/ }).click();
+      await sidebar.locator("button:has(svg.lucide-chevron-right)").click();
+      await sidebar.getByRole("button", { name: "10", exact: true }).click();
+      await sidebar.getByRole("button", { name: "12", exact: true }).click();
+      await expect(sidebar.getByText("≈200 ₾ x 3 დღე")).toBeVisible();
+      // The days line and the total.
+      await expect(sidebar.getByText("600 ₾", { exact: true })).toHaveCount(2);
+
+      await picker.click();
+      await sidebar.getByRole("button", { name: /სამადგილიანი/ }).click();
+      await expect(picker).toContainText("სამადგილიანი");
+      await expect(sidebar.getByText("210 ₾", { exact: true })).toBeVisible();
+      // 210 + (300 + 60) + 210.
+      await expect(sidebar.getByText("≈260 ₾ x 3 დღე")).toBeVisible();
+      await expect(sidebar.getByText("780 ₾", { exact: true })).toHaveCount(2);
+
+      // One room type, or an apartment: the sidebar as before, no picker.
+      await page.goto(`/hotels/${oneRoomId}`);
+      await expect(
+        page.locator("#booking-sidebar").getByText("220 ₾", { exact: true }),
+      ).toBeVisible();
+      await expect(page.getByTestId("booking-room-type")).toHaveCount(0);
+      await page.goto(`/apartments/${apartmentId}`);
+      await expect(
+        page.locator("#booking-sidebar").getByText("180 ₾", { exact: true }),
+      ).toBeVisible();
+      await expect(page.getByTestId("booking-room-type")).toHaveCount(0);
+    } finally {
+      // Each step tolerates rows that were never created; price_overrides go
+      // with their property (ON DELETE CASCADE).
+      await supabaseAdmin
+        .from("properties")
+        .delete()
+        .in("id", [hotelId, oneRoomId, apartmentId]);
+      await supabaseAdmin.from("notifications").delete().eq("user_id", ownerId);
+      await supabaseAdmin
+        .from("user_subscriptions")
+        .delete()
+        .eq("user_id", ownerId);
+      await supabaseAdmin.from("profiles").delete().eq("id", ownerId);
+      await supabaseAdmin.auth.admin.deleteUser(ownerId).catch(() => undefined);
+    }
+  });
 });

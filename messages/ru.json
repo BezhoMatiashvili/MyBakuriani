@@ -646,6 +646,7 @@
     "checkIn": "Заезд",
     "checkOut": "Выезд",
     "datePlaceholder": "Дата",
+    "roomType": "Тип номера",
     "guestsLabel": "Количество",
     "personCount": "{count, plural, one {# человек} few {# человека} many {# человек} other {# человека}}",
     "nightsLine": "{price} x {count, plural, one {# ночь} few {# ночи} many {# ночей} other {# ночи}}",

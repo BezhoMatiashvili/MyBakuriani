@@ -54,7 +54,12 @@ import BannerSlot from "@/components/banners/BannerSlot";
 import PropertyAmenities from "@/components/detail/PropertyAmenities";
 import HostLanguages from "@/components/detail/HostLanguages";
 import HotelRooms from "@/components/detail/HotelRooms";
-import { hotelRoomsSummary, parseHotelRooms } from "@/lib/hotel-rooms";
+import {
+  defaultRoomIndex,
+  hotelRoomsSummary,
+  parseHotelRooms,
+  roomPriceOverrides,
+} from "@/lib/hotel-rooms";
 import {
   previewContactPhone,
   previewContactWhatsapp,
@@ -161,6 +166,21 @@ export default function HotelDetailClient({
   // "სულ N ნომერი" by the rooms heading, only with 2+ room types.
   const roomsSummary =
     hotelRooms.length > 1 ? hotelRoomsSummary(hotelRooms) : null;
+  // With 2+ room types the guest picks the room the sidebar prices (C45). It
+  // opens on the room at the listing's own price, the price it always showed.
+  const listingPrice = Number(property.price_per_night);
+  const [roomIndex, setRoomIndex] = useState(() =>
+    defaultRoomIndex(hotelRooms, listingPrice),
+  );
+  const pickedRoom =
+    hotelRooms.length > 1 ? (hotelRooms[roomIndex] ?? null) : null;
+  const sidebarPriceOverrides = useMemo(
+    () =>
+      pickedRoom
+        ? roomPriceOverrides(priceOverrides, pickedRoom.price, listingPrice)
+        : priceOverrides,
+    [pickedRoom, priceOverrides, listingPrice],
+  );
   const hotelStars = property.hotel_stars ?? 0;
   // Stable across re-renders (a date click, a lightbox open): the map rebuilds
   // every marker whenever this array's identity changes.
@@ -490,7 +510,7 @@ export default function HotelDetailClient({
         >
           {property.price_per_night != null && (
             <BookingSidebar
-              pricePerNight={property.price_per_night}
+              pricePerNight={pickedRoom?.price ?? property.price_per_night}
               minBookingDays={property.min_booking_days ?? 0}
               ownerName={owner?.display_name ?? t("hotel")}
               ownerAvatar={owner?.avatar_url ?? null}
@@ -506,9 +526,18 @@ export default function HotelDetailClient({
               // A room's price is per room and night (C45); hotels without
               // rooms keep the per-person estimate they always had.
               perPersonPricing={hotelRooms.length === 0}
-              priceOverrides={priceOverrides}
+              priceOverrides={sidebarPriceOverrides}
               discountPercent={property.discount_percent}
               discountExpiresAt={property.discount_expires_at}
+              roomPicker={
+                pickedRoom
+                  ? {
+                      rooms: hotelRooms,
+                      selected: roomIndex,
+                      onSelect: setRoomIndex,
+                    }
+                  : undefined
+              }
             />
           )}
         </div>
