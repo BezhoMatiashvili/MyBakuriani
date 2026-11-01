@@ -529,6 +529,137 @@ test.describe("Renter Dashboard", () => {
     await expect(renterPage.locator('[data-field="location"]')).toHaveCount(0);
   });
 
+  // Owner screenshot 2026-11-01: step 4 showed 150₾ on every day, a default
+  // nobody chose. A new listing is asked its price once ("სწრაფი შევსება") and
+  // that price fills the calendar; nothing is published here.
+  test("a new rental asks for one price on step 4 and fills the calendar with it", async ({
+    renterPage,
+  }) => {
+    await answerCookieBanner(renterPage);
+    await renterPage.goto("/create/rental");
+    if (!(await assertDashboard(renterPage, "/create/rental"))) return;
+
+    const next = renterPage.getByRole("button", { name: "გაგრძელება" });
+    await renterPage
+      .locator('[data-field="location"] [role="combobox"]')
+      .click();
+    await renterPage
+      .getByRole("option")
+      .filter({ visible: true })
+      .first()
+      .click();
+    await next.click();
+    const title = renterPage.locator('[data-field="title"] input');
+    await title.fill("E2E სწრაფი შევსება");
+    // This step loads its map lazily; under load the render that takes the
+    // typed title can lag the fill (the field reads empty until it lands),
+    // and "გაგრძელება" would then validate an empty title.
+    await expect(title).toHaveValue("E2E სწრაფი შევსება");
+    await next.click();
+    await renterPage.locator('[data-field="area"] input').fill("45");
+    const forbidden = renterPage
+      .locator('[data-field="houseRules"]')
+      .getByRole("button", { name: "აკრძალულია", exact: true });
+    await forbidden.nth(0).click();
+    await forbidden.nth(1).click();
+    await next.click();
+
+    const dialog = renterPage.getByRole("dialog", { name: "სწრაფი შევსება" });
+    await expect(dialog).toBeVisible();
+    const price = dialog.getByRole("textbox");
+    await expect(price).toHaveValue("");
+    await expect(price).toHaveAttribute("placeholder", "მაგ: 150");
+    await expect(price).toBeFocused();
+    // Enter without a price does nothing; with one it fills the calendar and
+    // stays on this step (the dialog is outside the wizard's form).
+    await price.press("Enter");
+    await expect(dialog).toBeVisible();
+    await price.fill("220");
+    await expect(price).toHaveValue("220");
+    await price.press("Enter");
+    await expect(dialog).toBeHidden();
+    await expect(
+      renterPage.getByText("ფასი და ხელმისაწვდომობა").first(),
+    ).toBeVisible();
+    const field = renterPage.locator('[data-field="pricePerNight"] input');
+    await expect(field).toHaveValue("220");
+    await expect(
+      renterPage.getByRole("button", { name: / — ხელმისაწვდომი, 220₾$/ }),
+    ).toHaveCount(30);
+    await expect(
+      renterPage.getByRole("button", { name: / — ხელმისაწვდომი, (?!220₾$)/ }),
+    ).toHaveCount(0);
+
+    // Asked once: back and on again does not reopen it; the button does.
+    await renterPage
+      .getByRole("button", { name: "უკან დაბრუნება", exact: true })
+      .click();
+    await next.click();
+    await expect(field).toHaveValue("220");
+    await expect(dialog).toHaveCount(0);
+    await renterPage.getByRole("button", { name: "სწრაფი შევსება" }).click();
+    await expect(dialog.getByRole("textbox")).toHaveValue("220");
+
+    // It replaces day-specific prices too (the owner's choice), and says so.
+    await renterPage.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    const at220 = renterPage.getByRole("button", {
+      name: / — ხელმისაწვდომი, 220₾$/,
+    });
+    await at220.nth(0).click();
+    await at220.nth(1).click();
+    await renterPage.getByPlaceholder("ახალი ფასი").fill("300");
+    await renterPage.getByRole("button", { name: "გადატარება" }).click();
+    await expect(
+      renterPage.getByRole("button", { name: / — ხელმისაწვდომი, 300₾$/ }),
+    ).toHaveCount(2);
+    await renterPage.getByRole("button", { name: "სწრაფი შევსება" }).click();
+    await expect(dialog).toContainText("2 დღეზე");
+    await price.fill("230");
+    await expect(price).toHaveValue("230");
+    await price.press("Enter");
+    await expect(dialog).toBeHidden();
+    await expect(field).toHaveValue("230");
+    await expect(
+      renterPage.getByRole("button", { name: / — ხელმისაწვდომი, 230₾$/ }),
+    ).toHaveCount(30);
+    await expect(
+      renterPage.getByRole("button", { name: / — ხელმისაწვდომი, 300₾$/ }),
+    ).toHaveCount(0);
+  });
+
+  test("editing a rental has no quick fill", async ({ renterPage }) => {
+    await answerCookieBanner(renterPage);
+    await renterPage.goto(`/create/rental?edit=${TEST_IDS.apartment}`);
+    if (!(await assertDashboard(renterPage, "/create/rental"))) return;
+    await expect(renterPage.locator("textarea")).toHaveValue(
+      "ტესტ ბინა ავტომატური ტესტებისთვის",
+    );
+
+    const next = renterPage.getByRole("button", { name: "გაგრძელება" });
+    await next.click();
+    await next.click();
+    // The seeded apartment has no smoking/pets answer yet.
+    const forbidden = renterPage
+      .locator('[data-field="houseRules"]')
+      .getByRole("button", { name: "აკრძალულია", exact: true });
+    await forbidden.nth(0).click();
+    await forbidden.nth(1).click();
+    await next.click();
+
+    await expect(
+      renterPage.locator('[data-field="pricePerNight"] input'),
+    ).toHaveValue("150");
+    // An edit's price waits for review while dropped day prices would go live
+    // at once, so quick fill is for new listings only.
+    await expect(
+      renterPage.getByRole("button", { name: "სწრაფი შევსება" }),
+    ).toHaveCount(0);
+    await expect(
+      renterPage.getByRole("dialog", { name: "სწრაფი შევსება" }),
+    ).toHaveCount(0);
+  });
+
   test("win-back automation shows the live production SMS template", async ({
     renterPage,
   }) => {

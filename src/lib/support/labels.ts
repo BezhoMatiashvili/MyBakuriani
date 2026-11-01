@@ -545,6 +545,10 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
     en: "Guest mode",
     ru: "Режим гостя",
   },
+  "სწრაფი შევსება": {
+    en: "Quick fill",
+    ru: "Быстрое заполнение",
+  },
   "სხვა თარიღი": {
     en: "Custom date",
     ru: "Другая дата",

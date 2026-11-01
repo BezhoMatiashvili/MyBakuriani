@@ -1202,6 +1202,7 @@
     "checkIn": "შესვლა",
     "checkOut": "გასვლა",
     "pricePerNight": "ფასი 1 ღამეზე (GEL)",
+    "pricePlaceholder": "მაგ: 150",
     "minBookingDays": "მინიმალური დღეები",
     "discount": "ფასდაკლება (%)",
     "preview": "გადახედვა",
@@ -2466,7 +2467,14 @@
     "footerHint": "შეგიძლიათ მოგვიანებით განაახლოთ კალენდარი და ფასები თქვენი დაშბორდიდან.",
     "booked": "დაჯავშნა",
     "blockedSelect": "დაკავებული, დააწექი რომ აირჩიო",
-    "availablePrice": "ხელმისაწვდომი, {price}₾"
+    "availablePrice": "ხელმისაწვდომი, {price}₾",
+    "availableNoPrice": "ხელმისაწვდომი, ფასი ჯერ არ არის",
+    "fastFill": "სწრაფი შევსება",
+    "fastFillBody": "რა ღირს ერთი ღამე? ეს ფასი კალენდრის ყველა დღეს ჩაიწერება და სტუმრები სწორედ მას დაინახავენ. ცალკეული დღის ფასს მერეც შეცვლი.",
+    "fastFillPriceLabel": "ფასი 1 ღამეზე (GEL)",
+    "fastFillPlaceholder": "მაგ: 150",
+    "fastFillApply": "კალენდრის შევსება",
+    "fastFillReplaces": "ცალკე დაყენებული ფასი {count} დღეზე ასევე შეიცვლება."
   },
   "CreateShared": {
     "listingNotFound": "განცხადება ვერ მოიძებნა",

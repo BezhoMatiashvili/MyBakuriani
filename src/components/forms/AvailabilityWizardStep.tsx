@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, X, RotateCcw, Lock, Unlock } from "lucide-react";
+import { Check, X, RotateCcw, Lock, Unlock, Zap } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import BulkActionBar from "@/components/calendar/BulkActionBar";
 import NumberField from "@/components/shared/NumberField";
@@ -25,6 +25,8 @@ interface AvailabilityWizardStepProps {
   basePrice: number;
   /** Dates that already have server-side bookings — render as red & disabled */
   bookedDates?: ReadonlySet<string>;
+  /** Opens the quick-fill price dialog; no button when absent (hotels, edits). */
+  onFastFill?: () => void;
 }
 
 const DAY_KEYS = [
@@ -66,6 +68,7 @@ export default function AvailabilityWizardStep({
   onPriceOverridesChange,
   basePrice,
   bookedDates,
+  onFastFill,
 }: AvailabilityWizardStepProps) {
   const t = useTranslations("AvailabilityWizard");
   const tCal = useTranslations("Calendar");
@@ -291,6 +294,16 @@ export default function AvailabilityWizardStep({
             ),
           })}
         </p>
+        {onFastFill && (
+          <button
+            type="button"
+            onClick={onFastFill}
+            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#2563EB] bg-white px-4 text-[13px] font-black text-[#2563EB] transition-colors hover:bg-[#DBEAFE] sm:w-auto"
+          >
+            <Zap className="size-4" strokeWidth={2.4} />
+            {t("fastFill")}
+          </button>
+        )}
       </div>
 
       {/* Counter card */}
@@ -376,6 +389,7 @@ export default function AvailabilityWizardStep({
                         blockedSelect: t("blockedSelect"),
                         availablePrice: (price) =>
                           t("availablePrice", { price }),
+                        availableNoPrice: t("availableNoPrice"),
                       }}
                     />
                   );
@@ -421,7 +435,7 @@ export default function AvailabilityWizardStep({
                             count: selectedBlocked.length,
                           })}
                   </div>
-                  {selectedAvailable.length > 0 && (
+                  {selectedAvailable.length > 0 && avgSelectedPrice > 0 && (
                     <div className="text-[11px] font-semibold text-[#64748B]">
                       {t("avgPrice", { price: avgSelectedPrice })}
                     </div>
@@ -521,6 +535,7 @@ function DayCell({
     booked: string;
     blockedSelect: string;
     availablePrice: (price: number) => string;
+    availableNoPrice: string;
   };
 }) {
   if (!inWindow) {
@@ -543,6 +558,8 @@ function DayCell({
   }
 
   const isBlocked = status === "blocked";
+  // A new listing before the owner gave a price: "—", not 0₾.
+  const noPrice = !hasOverride && price <= 0;
   return (
     <button
       type="button"
@@ -555,7 +572,11 @@ function DayCell({
           : "border-[#BBF7D0] bg-[#DCFCE7] text-[#15803D] hover:border-[#16A34A]"
       } ${isSelected ? "ring-2 ring-inset ring-[#2563EB]" : ""}`}
       aria-label={`${day} — ${
-        isBlocked ? labels.blockedSelect : labels.availablePrice(price)
+        isBlocked
+          ? labels.blockedSelect
+          : noPrice
+            ? labels.availableNoPrice
+            : labels.availablePrice(price)
       }`}
     >
       <span className="text-[13px] font-bold leading-none">{day}</span>
@@ -570,7 +591,7 @@ function DayCell({
           {hasOverride && (
             <span className="h-1.5 w-1.5 rounded-full bg-[#F97316]" />
           )}
-          {price}₾
+          {noPrice ? "—" : `${price}₾`}
         </span>
       )}
     </button>

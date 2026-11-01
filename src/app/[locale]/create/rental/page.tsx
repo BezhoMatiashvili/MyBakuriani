@@ -15,6 +15,7 @@ import PhotoUploader from "@/components/forms/PhotoUploader";
 import HotelRoomsEditor from "@/components/forms/HotelRoomsEditor";
 import PhoneInput from "@/components/forms/PhoneInput";
 import AvailabilityWizardStep from "@/components/forms/AvailabilityWizardStep";
+import FastFillPriceDialog from "@/components/forms/FastFillPriceDialog";
 import NumberField from "@/components/shared/NumberField";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { Switch } from "@/components/ui/switch";
@@ -211,9 +212,15 @@ function CreateRentalPageInner() {
     () => new Map(),
   );
   const priceOverridesBaselineRef = useRef<Map<string, number>>(new Map());
+  // Quick fill ("სწრაფი შევსება"): a new listing is asked its price once, on
+  // its first arrival at the price step; the step's button reopens the dialog.
+  const [fastFillOpen, setFastFillOpen] = useState(false);
+  const fastFillAskedRef = useRef(false);
 
   // Step 5: pricing + contact + photos
-  const [pricePerNight, setPricePerNight] = useState("150");
+  // A new listing starts without a price: the quick-fill dialog or the field
+  // asks for it, so nothing is published at a price the owner never chose.
+  const [pricePerNight, setPricePerNight] = useState("");
   const [minBookingDays, setMinBookingDays] = useState("3");
   const [hostingLangs, setHostingLangs] = useState<string[]>(["ka"]);
   const [phone, setPhone] = useState("");
@@ -418,6 +425,16 @@ function CreateRentalPageInner() {
     setHostingLangs((prev) =>
       prev.includes(key) ? prev.filter((l) => l !== key) : [...prev, key],
     );
+  }
+
+  // The entered price becomes the listing's price (price_per_night: cards,
+  // search, the detail page and booking totals use it) and every day's price:
+  // per-day prices are dropped. New listings only: an edit's price waits for
+  // review (C14) while dropped day prices would go live at once.
+  function applyFastFill(price: number) {
+    setPricePerNight(String(price));
+    setPriceOverrides(new Map());
+    setFastFillOpen(false);
   }
 
   // Recomputed every render: cheap, and the red room clears as it is fixed.
@@ -753,6 +770,17 @@ function CreateRentalPageInner() {
         if (isFinalStep) {
           handleSubmit();
         } else {
+          // A new listing's first arrival at the price step (2 → 3) asks
+          // for the price; hotels take theirs from the rooms.
+          if (
+            step === 2 &&
+            !isEditMode &&
+            !isHotel &&
+            !fastFillAskedRef.current
+          ) {
+            fastFillAskedRef.current = true;
+            setFastFillOpen(true);
+          }
           setStep((s) => Math.min(totalSteps - 1, s + 1));
         }
       }}
@@ -1149,7 +1177,7 @@ function CreateRentalPageInner() {
                         integer
                         accent="blue"
                         suffix="₾"
-                        placeholder="150"
+                        placeholder={t("pricePlaceholder")}
                       />
                     </Field>
                   )}
@@ -1182,6 +1210,11 @@ function CreateRentalPageInner() {
                   }
                   priceOverrides={priceOverrides}
                   onPriceOverridesChange={setPriceOverrides}
+                  onFastFill={
+                    isHotel || isEditMode
+                      ? undefined
+                      : () => setFastFillOpen(true)
+                  }
                 />
               </WizardSection>
             )}
@@ -1307,6 +1340,13 @@ function CreateRentalPageInner() {
           </motion.div>
         </AnimatePresence>
       )}
+      <FastFillPriceDialog
+        isOpen={fastFillOpen}
+        onClose={() => setFastFillOpen(false)}
+        initialPrice={pricePerNight}
+        replacedDays={priceOverrides.size}
+        onApply={applyFastFill}
+      />
     </WizardShell>
   );
 }

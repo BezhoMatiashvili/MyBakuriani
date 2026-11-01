@@ -1202,6 +1202,7 @@
     "checkIn": "Check-in",
     "checkOut": "Check-out",
     "pricePerNight": "Price per night (GEL)",
+    "pricePlaceholder": "e.g. 150",
     "minBookingDays": "Minimum days",
     "discount": "Discount (%)",
     "preview": "Preview",
@@ -2466,7 +2467,14 @@
     "footerHint": "You can update the calendar and prices later from your dashboard.",
     "booked": "Booked",
     "blockedSelect": "Blocked — click to select",
-    "availablePrice": "Available, {price}₾"
+    "availablePrice": "Available, {price}₾",
+    "availableNoPrice": "Available, no price yet",
+    "fastFill": "Quick fill",
+    "fastFillBody": "How much is one night? This price goes on every day of the calendar, and it is the price guests will see. You can still change a single day's price afterwards.",
+    "fastFillPriceLabel": "Price per night (GEL)",
+    "fastFillPlaceholder": "e.g. 150",
+    "fastFillApply": "Fill the calendar",
+    "fastFillReplaces": "Custom prices on {count} days will be replaced too."
   },
   "CreateShared": {
     "listingNotFound": "Listing not found",

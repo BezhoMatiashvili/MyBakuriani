@@ -1202,6 +1202,7 @@
     "checkIn": "Заселение",
     "checkOut": "Выселение",
     "pricePerNight": "Цена за ночь (GEL)",
+    "pricePlaceholder": "напр. 150",
     "minBookingDays": "Минимум дней",
     "discount": "Скидка (%)",
     "preview": "Предпросмотр",
@@ -2466,7 +2467,14 @@
     "footerHint": "Календарь и цены можно обновить позже в личном кабинете.",
     "booked": "Бронь",
     "blockedSelect": "Занято — нажмите для выбора",
-    "availablePrice": "Доступно, {price}₾"
+    "availablePrice": "Доступно, {price}₾",
+    "availableNoPrice": "Доступно, цена не указана",
+    "fastFill": "Быстрое заполнение",
+    "fastFillBody": "Сколько стоит одна ночь? Эта цена встанет на все дни календаря, и именно её увидят гости. Цену отдельного дня можно изменить и потом.",
+    "fastFillPriceLabel": "Цена за ночь (GEL)",
+    "fastFillPlaceholder": "напр. 150",
+    "fastFillApply": "Заполнить календарь",
+    "fastFillReplaces": "Отдельные цены ({count} дн.) тоже заменятся."
   },
   "CreateShared": {
     "listingNotFound": "Объявление не найдено",
