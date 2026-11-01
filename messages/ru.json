@@ -4463,6 +4463,8 @@
       "cadastralCode": "Кадастровый код",
       "cadastralPlaceholder": "00.00.0000.000",
       "naprCheck": "Проверка на napr.gov.ge",
+      "cadastralPublicLabel": "Показывать код публично",
+      "cadastralPublicHelper": "Если отмечено, код виден на странице объявления и в поиске. Если нет — его видят только администратор и владелец.",
       "basicInfo": "Основная информация",
       "title": "Заголовок",
       "propertyType": "Тип объекта",

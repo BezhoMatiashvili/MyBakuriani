@@ -4463,6 +4463,8 @@
       "cadastralCode": "საკადასტრო კოდი",
       "cadastralPlaceholder": "00.00.0000.000",
       "naprCheck": "napr.gov.ge შემოწმება",
+      "cadastralPublicLabel": "კოდის საჯაროდ გამოჩენა",
+      "cadastralPublicHelper": "მონიშვნისას კოდი გამოჩნდება განცხადების გვერდზე და ძებნაში. თუ არ არის მონიშნული, კოდს მხოლოდ ადმინისტრატორი და მფლობელი ხედავენ.",
       "basicInfo": "ძირითადი ინფო",
       "title": "სათაური",
       "propertyType": "ბინის ტიპი",

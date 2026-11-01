@@ -25,6 +25,7 @@ const PROPERTY_FIELDS = new Set<string>([
   "amenities",
   "house_rules",
   "cadastral_code",
+  "cadastral_code_public",
   "is_for_sale",
   "price_per_night",
   "sale_price",
@@ -125,6 +126,7 @@ const NUMERIC_FIELDS = new Set<string>([
 
 const BOOLEAN_FIELDS = new Set<string>([
   "is_for_sale",
+  "cadastral_code_public",
   "is_vip",
   "is_super_vip",
   "is_b2b_partner",

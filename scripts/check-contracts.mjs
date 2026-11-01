@@ -3935,7 +3935,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // C57 — a cadastral code is public only when its owner turns the switch on. (a) Both listing forms start the switch
 // off, load a missing value as off and write it on insert and edit; (b) getPropertyById masks a hidden code the way
 // public_properties does; (c) the newest public_properties keeps the CASE on cadastral_code_public; (d) the newest
-// migration that sets the column's default sets false.
+// migration that sets the column's default sets false; (e) the admin NAPR card writes it through the update route.
 {
   const problems = [];
   for (const form of ["src/app/[locale]/create/rental/page.tsx", "src/app/[locale]/create/sale/page.tsx"]) {
@@ -3946,6 +3946,14 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   }
   if (!/if \(!row\.cadastral_code_public\) row\.cadastral_code = null;/.test(read("src/lib/data/getPropertyById.ts")))
     problems.push("src/lib/data/getPropertyById.ts: the preview must mask a cadastral code its owner hid");
+  // (e) the admin NAPR card's checkbox writes the flag, and the admin update route takes it as a boolean.
+  if (!/setField\("cadastral_code_public", v\)/.test(read("src/components/admin/ListingAuditPanel.tsx")))
+    problems.push("src/components/admin/ListingAuditPanel.tsx: the NAPR card's checkbox must setField(\"cadastral_code_public\", v)");
+  const adminRoute = "src/app/api/admin/listings/update/route.ts";
+  for (const set of ["PROPERTY_FIELDS", "BOOLEAN_FIELDS"]) {
+    const body = read(adminRoute).match(new RegExp(`const ${set} = new Set<string>\\(\\[([^\\]]*)\\]\\)`))?.[1] ?? "";
+    if (!/"cadastral_code_public"/.test(body)) problems.push(`${adminRoute}: ${set} must contain "cadastral_code_public"`);
+  }
   const migs = readdirSync(join(root, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
   const texts = migs.map((f) => read(join("supabase/migrations", f)).replace(/--[^\n]*/g, ""));
   const viewRe = /\bcreate\s+(?:or\s+replace\s+)?view\s+(?:public\.)?public_properties\b[^;]*;/i;
@@ -3956,7 +3964,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (defaultAt < 0 || !/\balter\s+column\s+cadastral_code_public\s+set\s+default\s+false\b/i.test(texts[defaultAt]))
     problems.push(`${migs[defaultAt] ?? "no migration"}: the newest default of properties.cadastral_code_public must be false`);
   if (problems.length) problems.forEach((p) => fail(`C57: ${p}`));
-  else ok(`C57: both listing forms start the cadastral switch off and write it; the preview masks a hidden code; ${migs[viewAt]} masks it; ${migs[defaultAt]} defaults it to hidden`);
+  else ok(`C57: both listing forms start the cadastral switch off and write it; the admin NAPR checkbox saves it as a boolean; the preview masks a hidden code; ${migs[viewAt]} masks it; ${migs[defaultAt]} defaults it to hidden`);
 }
 
 // C58 — short share links. (a) A listing page's share menu hands out shortLinkPathForPath's /l/<code>, the folder

@@ -306,6 +306,8 @@ export default function ListingAuditPanel({
           <NaprCard
             cadastralCode={effective<string | null>("cadastral_code", null)}
             onChange={(v) => setField("cadastral_code", v)}
+            codePublic={effective<boolean>("cadastral_code_public", false)}
+            onPublicChange={(v) => setField("cadastral_code_public", v)}
           />
         )}
       </div>
@@ -449,9 +451,13 @@ export function OwnerCard({ owner }: { owner: AuditPayload["owner"] }) {
 function NaprCard({
   cadastralCode,
   onChange,
+  codePublic,
+  onPublicChange,
 }: {
   cadastralCode: string | null;
   onChange: (v: string) => void;
+  codePublic: boolean;
+  onPublicChange: (v: boolean) => void;
 }) {
   const t = useTranslations("AdminShared.listingAudit");
 
@@ -473,6 +479,23 @@ function NaprCard({
             placeholder={t("cadastralPlaceholder")}
             className="w-full rounded-xl border border-[#BFDBFE] bg-white px-3 py-2 font-mono text-[15px] font-bold text-[#0F172A] focus:border-[#2563EB] focus:outline-none"
           />
+        </label>
+        {/* C57: the public listing page and search show the code only when this is ticked. */}
+        <label className="flex min-h-[44px] cursor-pointer items-start gap-3 rounded-xl border border-[#BFDBFE] bg-white px-3 py-2.5">
+          <input
+            type="checkbox"
+            checked={codePublic}
+            onChange={(e) => onPublicChange(e.target.checked)}
+            className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-[#2563EB]"
+          />
+          <span>
+            <span className="block text-[13px] font-bold text-[#0F172A]">
+              {t("cadastralPublicLabel")}
+            </span>
+            <span className="block text-[11px] text-[#64748B]">
+              {t("cadastralPublicHelper")}
+            </span>
+          </span>
         </label>
         <a
           href="https://napr.gov.ge/"
