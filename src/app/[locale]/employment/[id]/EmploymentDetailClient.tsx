@@ -37,6 +37,12 @@ import { revalidatePublicService } from "@/app/actions/revalidateListing";
 import { ShareMenu } from "@/components/shared/ShareMenu";
 import type { Tables } from "@/lib/types/database";
 import PhoneInput from "@/components/forms/PhoneInput";
+import { CallButton } from "@/components/shared/CallButton";
+import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
+import {
+  previewContactPhone,
+  previewContactWhatsapp,
+} from "@/lib/utils/preview-contact";
 import { formatDate, getDateFnsLocale } from "@/lib/utils/format";
 import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
@@ -60,6 +66,8 @@ type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
   /** Ownership badge (C39); absent on base-table preview reads. */
   ownership_verified?: boolean;
+  /** From `public_services`; the number itself is revealed on click. */
+  has_whatsapp?: boolean;
 };
 
 interface Props {
@@ -230,6 +238,26 @@ export default function EmploymentDetailClient({
       : []),
   ];
   const conditionLanguages = service.languages ?? [];
+
+  // Call + WhatsApp, as on a rental's booking card. Both conditions cards
+  // render it (one shows per width). The public page holds no number (C28):
+  // the buttons reveal it through the contact route; a preview passes it in.
+  const contactButtons = (
+    <div className="flex min-w-0 gap-2">
+      <CallButton
+        phone={previewContactPhone(service)}
+        className="min-w-0 flex-1 shadow-[0px_8px_20px_rgba(34,197,94,0.25)]"
+        label={t("callEmployer")}
+        serviceId={service.id}
+        alwaysShowLabel
+      />
+      <WhatsAppButton
+        hasWhatsApp={service.has_whatsapp ?? false}
+        whatsapp={previewContactWhatsapp(service)}
+        serviceId={service.id}
+      />
+    </div>
+  );
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [cvFile, setCvFile] = useState<File | null>(null);
@@ -576,6 +604,7 @@ export default function EmploymentDetailClient({
                 </div>
               )}
             </dl>
+            <div className="mt-4">{contactButtons}</div>
           </div>
 
           {service.description && (
@@ -1024,6 +1053,7 @@ export default function EmploymentDetailClient({
                 </div>
               ) : null}
             </dl>
+            <div className="mt-5">{contactButtons}</div>
           </div>
           {/* Below lg the conditions card above is hidden, so this banner is
               the aside's only content; its own margin (not the grid gap)

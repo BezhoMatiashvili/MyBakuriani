@@ -229,6 +229,10 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
     en: "Call",
     ru: "Позвонить",
   },
+  "დარეკვა დამსაქმებელთან": {
+    en: "Call the employer",
+    ru: "Позвонить работодателю",
+  },
   დასაქმება: {
     en: "Employment",
     ru: "Работа",

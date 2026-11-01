@@ -10,11 +10,17 @@ import {
 } from "@/components/forms/WizardShell";
 import { StyledSelect } from "@/components/ui/styled-select";
 import NumberField from "@/components/shared/NumberField";
+import PhoneInput from "@/components/forms/PhoneInput";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useActiveZones } from "@/lib/zones/client";
 import { createClient } from "@/lib/supabase/client";
 import { formatSupabaseError } from "@/lib/utils/formatSupabaseError";
 import { cn } from "@/lib/utils";
+import {
+  isValidGeContactPhone,
+  isValidGePhone,
+  sanitizeGePhone,
+} from "@/lib/utils/number";
 import {
   contentChangeErrorKey,
   isContentChangeError,
@@ -186,6 +192,8 @@ function CreateEmploymentPageInner() {
   const [requirements, setRequirements] = useState("");
   const [languages, setLanguages] = useState<string[]>([]);
   const [experience, setExperience] = useState<string>("");
+  const [phone, setPhone] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
 
   useEffect(() => {
     if (!editId || !user) return;
@@ -236,6 +244,8 @@ function CreateEmploymentPageInner() {
           : [],
       );
       setExperience(data.experience_required ?? "");
+      setPhone(sanitizeGePhone(data.phone));
+      setWhatsapp(sanitizeGePhone(data.whatsapp));
 
       setHydrating(false);
     })();
@@ -256,6 +266,7 @@ function CreateEmploymentPageInner() {
     location.trim().length > 0,
     position.trim().length > 0,
     workDescription.trim().length > 0,
+    isValidGeContactPhone(phone),
   ];
   const requiredFilled = requiredFlags.filter(Boolean).length;
   const progressPercent = Math.max(
@@ -297,6 +308,12 @@ function CreateEmploymentPageInner() {
       errs.push({ key: "salary", message: t("salaryMinGtMax") });
     if (!workDescription.trim())
       errs.push({ key: "workDescription", message: t("enterJobDescription") });
+    if (!phone.trim())
+      errs.push({ key: "phone", message: tShared("enterPhone") });
+    else if (!isValidGeContactPhone(phone))
+      errs.push({ key: "phone", message: tShared("invalidContactPhone") });
+    if (whatsapp && !isValidGePhone(whatsapp))
+      errs.push({ key: "whatsapp", message: tShared("invalidPhone") });
     return errs;
   }
 
@@ -334,6 +351,8 @@ function CreateEmploymentPageInner() {
         requirements: requirements.trim() || null,
         languages: languages.length > 0 ? languages : null,
         experience_required: experience || null,
+        phone: phone ? `+995${phone}` : null,
+        whatsapp: whatsapp ? `+995${whatsapp}` : null,
         salary_range:
           usesRange && salaryMin && salaryMax
             ? `${salaryMin}-${salaryMax} ₾`
@@ -624,6 +643,46 @@ function CreateEmploymentPageInner() {
               options={experienceOptions}
               accent="blue"
               placeholder={tShared("choose")}
+            />
+          </Field>
+        </div>
+      </WizardInnerCard>
+
+      <WizardInnerCard number={4} title={tShared("contactInfo")} accent="blue">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field
+            label={tShared("phoneNumber")}
+            required
+            fieldKey="phone"
+            error={invalidFields.has("phone")}
+          >
+            <PhoneInput
+              value={phone}
+              onChange={setPhone}
+              allowLandline
+              error={
+                phone && !isValidGeContactPhone(phone)
+                  ? tShared("invalidContactPhone")
+                  : invalidFields.has("phone")
+                    ? tShared("enterPhone")
+                    : null
+              }
+            />
+          </Field>
+          <Field
+            label={tShared("whatsappNumber")}
+            helper={tShared("optional")}
+            fieldKey="whatsapp"
+            error={invalidFields.has("whatsapp")}
+          >
+            <PhoneInput
+              value={whatsapp}
+              onChange={setWhatsapp}
+              error={
+                whatsapp && !isValidGePhone(whatsapp)
+                  ? tShared("invalidPhone")
+                  : null
+              }
             />
           </Field>
         </div>

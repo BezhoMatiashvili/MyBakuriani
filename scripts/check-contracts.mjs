@@ -3832,7 +3832,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 
 // C56 — Georgian phone kinds: only a listing's or company's contact phone may be a landline; everything texted,
 // signed in with, matched or opened in WhatsApp stays a mobile (^5). (a) allowLandline/isValidGeContactPhone only in
-// the 8 contact forms (and where they are defined), each checking its phone with isValidGeContactPhone and worded
+// the 9 contact forms (and where they are defined), each checking its phone with isValidGeContactPhone and worded
 // CreateShared.invalidContactPhone (the company form keeps its own text); (b) each PhoneInput form marks exactly one
 // PhoneInput allowLandline (a marker), on value={phone}, never WhatsApp, and create/service keeps its cleaning sphere
 // mobile through phoneValid, its only isValidGeContactPhone call; no WhatsApp number is checked as a contact phone;
@@ -3854,6 +3854,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     SERVICE,
     "src/app/[locale]/create/entertainment/page.tsx",
     "src/app/[locale]/create/transport/page.tsx",
+    "src/app/[locale]/create/employment/page.tsx",
     ORG,
   ];
   const plainForms = ["src/app/[locale]/dashboard/food/parameters/page.tsx"];
