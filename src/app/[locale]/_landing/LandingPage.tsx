@@ -1051,6 +1051,8 @@ function EmploymentSection({
     location: string | null;
     salary?: SalaryDescriptor;
     createdAt: string | null;
+    isVip: boolean;
+    isSuperVip: boolean;
     isOwnershipVerified?: boolean;
   }>;
   href: string;
@@ -1111,9 +1113,12 @@ function EmploymentSection({
                 location={null}
                 salary={card.salary}
                 scheduleLabel={availabilities[i % availabilities.length]}
-                badge={i === 0 ? "vip" : null}
+                // VIP badge and orange border only for a listing whose own
+                // VIP tier is on, as on /employment (C23), never for
+                // whichever vacancy happens to come first.
+                badge={card.isSuperVip || card.isVip ? "vip" : null}
                 createdAt={card.createdAt}
-                highlighted={i === 0}
+                highlighted={card.isSuperVip || card.isVip}
                 isOwnershipVerified={card.isOwnershipVerified ?? false}
               />
             </ScrollReveal>

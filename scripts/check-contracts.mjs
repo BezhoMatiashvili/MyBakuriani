@@ -3994,6 +3994,34 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C58: listing pages share /l/<code> (shortLinkPathForPath); ${route} reads only the public views with the anon client and answers 301 carrying the query except "preview"; /l/ is not among ${disallowed.length} robots prefixes`);
 }
 
+// C23/badges — a card's VIP badge is the listing's own tier. An <EmploymentCard> mount that sets badge or
+// highlighted takes them from the row's is_vip/is_super_vip (directly or via deriveBadge), never from the card's
+// place in the list: the home page's vacancy row marked whichever card came first "VIP" from 2026-05-12 to
+// 2026-11-01 although no listing had paid for it.
+{
+  const problems = [];
+  let mounts = 0;
+  const vipFlag = /\bis_?(super_?)?vip\b|\bderiveBadge\(/i;
+  const indexTest = /\b(i|idx|index)\s*(?:[<>]=?|[!=]==?|%)|(?:[<>]=?|[!=]==?)\s*(i|idx|index)\b/;
+  for (const [file, text] of srcText) {
+    for (const m of text.matchAll(/<EmploymentCard\b([\s\S]*?)\/>/g)) {
+      mounts++;
+      const attrs = m[1].replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+      for (const prop of ["badge", "highlighted"]) {
+        const value = attrs.match(new RegExp(`\\b${prop}=\\{([^\\n]*)\\}`))?.[1];
+        if (value !== undefined) {
+          if (!vipFlag.test(value) || indexTest.test(value))
+            problems.push(`${file}: <EmploymentCard ${prop}={${value}}> must come from the listing's is_vip/is_super_vip, never its position`);
+        } else if (new RegExp(`(^|\\s)${prop}(?=\\s*=|\\s|$)`).test(attrs))
+          problems.push(`${file}: <EmploymentCard ${prop}> must be ${prop}={…} on one line, from the listing's is_vip/is_super_vip (no literal or bare attribute)`);
+      }
+    }
+  }
+  if (!mounts) problems.push("no <EmploymentCard> mount found in src; update this check");
+  if (problems.length) problems.forEach((p) => fail(`C23/badges: ${p}`));
+  else ok(`C23/badges: ${mounts} <EmploymentCard> mounts take badge/highlighted from the listing's VIP flags, not its position`);
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);

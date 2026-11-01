@@ -195,8 +195,11 @@ test.describe("Designer PDF mobile fixes", () => {
           };
           const heart = c.querySelector("button[aria-pressed]");
           if (!heart) return "missing heart";
+          // A badge only in the card's first row: a vacancy with no VIP,
+          // urgent or new chip has none (until 2026-11-01 the home page gave
+          // its first card a VIP chip, so this test always found one).
           const ys = [
-            c.querySelector("div.flex-wrap > *"),
+            c.firstElementChild?.querySelector("div.flex-wrap > *") ?? null,
             c.querySelector("time[data-listing-age]"),
             heart,
           ]

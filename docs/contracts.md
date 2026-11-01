@@ -129,7 +129,7 @@ Condensed 2026-10-17 from ~318K characters: invariants, anchors, **Breaks** and 
 
 ## C23 — Standard & SUPER VIP mutually exclusive
 
-**Invariant:** an active SUPER VIP blocks standard VIP (23P01 / `vip_tier_conflict`); activation clears `is_vip`; a stale expiry allows standard. **Breaks:** trigger dropped; raw `is_super_vip` checks.
+**Invariant:** an active SUPER VIP blocks standard VIP (23P01 / `vip_tier_conflict`); activation clears `is_vip`; a stale expiry allows standard. A card shows VIP (badge, orange border) only from its row's `is_vip`/`is_super_vip`, never from its place in a list (`check-contracts` C23/badges). **Breaks:** trigger dropped; raw `is_super_vip` checks; a badge by position (the home vacancy row called its first card VIP, unpaid, 2026-05-12..11-01).
 
 ## C24 — Cleaner call-out terms & consent-based cancel
 
