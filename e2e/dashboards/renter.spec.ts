@@ -2097,6 +2097,12 @@ test.describe("Hotel rooms", () => {
       await expect(picker).toContainText("ნომრის ტიპი");
       await expect(picker).toContainText("ორადგილიანი");
       await expect(sidebar.getByText("150 ₾", { exact: true })).toBeVisible();
+      // The mobile sticky bar (lg:hidden, so read as text here) shows the same
+      // nightly price as the sidebar and follows the picked room.
+      const stickyBar = page.locator(
+        "div:has(> button[data-slot='mobile-sticky-cta'])",
+      );
+      await expect(stickyBar).toContainText("150 ₾ / ღამე");
 
       // The 10th to the 12th: every selected day is billed, the 11th at 300.
       await sidebar.getByRole("button", { name: /შესვლა/ }).click();
@@ -2111,6 +2117,7 @@ test.describe("Hotel rooms", () => {
       await sidebar.getByRole("button", { name: /სამადგილიანი/ }).click();
       await expect(picker).toContainText("სამადგილიანი");
       await expect(sidebar.getByText("210 ₾", { exact: true })).toBeVisible();
+      await expect(stickyBar).toContainText("210 ₾ / ღამე");
       // 210 + (300 + 60) + 210.
       await expect(sidebar.getByText("≈260 ₾ x 3 დღე")).toBeVisible();
       await expect(sidebar.getByText("780 ₾", { exact: true })).toHaveCount(2);

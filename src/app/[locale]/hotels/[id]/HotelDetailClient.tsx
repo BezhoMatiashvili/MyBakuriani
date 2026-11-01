@@ -174,6 +174,9 @@ export default function HotelDetailClient({
   );
   const pickedRoom =
     hotelRooms.length > 1 ? (hotelRooms[roomIndex] ?? null) : null;
+  // The sidebar and the mobile sticky bar show this one nightly price, so the
+  // bar follows the picked room too. Read only where price_per_night is set.
+  const nightlyPrice = pickedRoom?.price ?? listingPrice;
   const sidebarPriceOverrides = useMemo(
     () =>
       pickedRoom
@@ -207,7 +210,7 @@ export default function HotelDetailClient({
     property.price_per_night != null
       ? money.converted(
           applyDiscount(
-            property.price_per_night,
+            nightlyPrice,
             property.discount_percent,
             property.discount_expires_at,
           ),
@@ -510,7 +513,7 @@ export default function HotelDetailClient({
         >
           {property.price_per_night != null && (
             <BookingSidebar
-              pricePerNight={pickedRoom?.price ?? property.price_per_night}
+              pricePerNight={nightlyPrice}
               minBookingDays={property.min_booking_days ?? 0}
               ownerName={owner?.display_name ?? t("hotel")}
               ownerAvatar={owner?.avatar_url ?? null}
@@ -553,7 +556,7 @@ export default function HotelDetailClient({
               : formatPricePerNight(
                   Math.round(
                     applyDiscount(
-                      property.price_per_night,
+                      nightlyPrice,
                       property.discount_percent,
                       property.discount_expires_at,
                     ),
