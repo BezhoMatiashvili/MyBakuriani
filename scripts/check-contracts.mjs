@@ -3838,8 +3838,9 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // mobile through phoneValid, its only isValidGeContactPhone call; no WhatsApp number is checked as a contact phone;
 // (c) the reveal dials toGeContactE164 and keeps WhatsApp on normalizeE164Phone, every wa.me link is built from
 // normalizeE164Phone, and every tel: link dials the site's number or a toGeContactE164 result, in a file that runs
-// normalizeE164Phone only on WhatsApp; (d) isValidGePhone, normalizeE164Phone, the newest sms_canonical_ge_phone and
-// toUbillNumber accept only a mobile; (e) number.ts has no imports (scripts/unit/ge-phone.test.mjs loads it bare).
+// normalizeE164Phone only on WhatsApp; (d) isValidGePhone, normalizeE164Phone, localToE164, the newest
+// sms_canonical_ge_phone and toUbillNumber accept only a mobile, and only PhoneOtpForm uses isGeLandline (to word its
+// refusal; it sends only localToE164's number); (e) number.ts has no imports (scripts/unit/ge-phone.test.mjs loads it bare).
 {
   const problems = [];
   const NUMBER = "src/lib/utils/number.ts";
@@ -3847,6 +3848,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   const ORG = "src/app/[locale]/dashboard/seller/organizations/new/page.tsx";
   const SERVICE = "src/app/[locale]/create/service/page.tsx";
   const SUPPORT = "src/lib/support/actions.ts";
+  const OTP = "src/components/auth/PhoneOtpForm.tsx";
   const inputForms = [
     "src/app/[locale]/create/rental/page.tsx",
     "src/app/[locale]/create/sale/page.tsx",
@@ -3860,6 +3862,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   const plainForms = ["src/app/[locale]/dashboard/food/parameters/page.tsx"];
   const forms = new Set([...inputForms, ...plainForms]);
   for (const [file, text] of srcText) {
+    if (file !== NUMBER && file !== OTP && /\bisGeLandline\b/.test(text)) problems.push(`${file} uses isGeLandline (only PhoneOtpForm may, to word why sign-in refuses a landline)`);
     if (file === NUMBER || file === INPUT || forms.has(file)) continue;
     if (/\ballowLandline\b|\bisValidGeContactPhone\b/.test(text)) problems.push(`${file} takes a landline (only the ${forms.size} contact forms may)`);
   }
@@ -3919,6 +3922,11 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   const number = read(NUMBER);
   if (!mobileOnly(fnBody(number, "isValidGePhone"), ["^5\\d{8}$"])) problems.push(`${NUMBER}: isValidGePhone must accept only a mobile (^5\\d{8})`);
   if (!mobileOnly(fnBody(read("src/lib/security.ts"), "normalizeE164Phone"), ["^5\\d{8}$"])) problems.push("src/lib/security.ts: normalizeE164Phone (WhatsApp, job applicants) must accept only a mobile (^5\\d{8})");
+  if (!mobileOnly(fnBody(read("src/lib/auth/phone.ts"), "localToE164"), ["^5\\d{8}$"])) problems.push("src/lib/auth/phone.ts: localToE164 (the SMS sign-in number) must accept only a mobile (^5\\d{8})");
+  const otp = srcText.get(OTP) ?? "";
+  const otpArgs = (call) => [...otp.matchAll(new RegExp(`\\b${call}\\(([^)]*)\\)`, "g"))].map((m) => m[1].trim());
+  const onSends = otpArgs("onSend");
+  if (!/const target = localToE164\(local\);[\s\S]*?void send\(target\)/.test(otp) || otpArgs("send").some((a) => !/^(?:target|phone)(?::\s*string)?$/.test(a)) || onSends.length !== 1 || onSends[0] !== "target" || otpArgs("setPhone").some((a) => a !== "target" && a !== "null")) problems.push(`${OTP} must send only localToE164's number: send(target|phone), one onSend(target), setPhone(target|null) (a landline is refused, never texted)`);
   if (!mobileOnly(fnBody(read("supabase/functions/_shared/ubill.ts"), "toUbillNumber"), ["^5\\d{8}$", "^9955\\d{8}$"])) problems.push("supabase/functions/_shared/ubill.ts: toUbillNumber must accept only a Georgian mobile");
   const canon = readdirSync(join(root, "supabase/migrations"))
     .filter((f) => f.endsWith(".sql"))
@@ -3930,7 +3938,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (!canonPatterns.length || canonPatterns.some((p) => p !== "^5[0-9]{8}$")) problems.push(`${newest ?? "supabase/migrations"}: the newest sms_canonical_ge_phone must accept only '^5[0-9]{8}$' (a landline is never texted)`);
   if (/^\s*import\s|^\s*export\s+(?:\*|\{[^}]*\})\s+from\b|\brequire\(/m.test(number)) problems.push(`${NUMBER} must stay import-free (scripts/unit loads it bare)`);
   if (problems.length) problems.forEach((p) => fail(`C56: ${p}`));
-  else ok(`C56: landlines only on the ${forms.size} contact forms (${inputForms.length} PhoneInput allowLandline, one each on the phone, never WhatsApp; create/service's cleaning sphere stays isValidGePhone through phoneValid); the reveal and ${telLinks} tel: links dial toGeContactE164 or the site's number, WhatsApp stays normalizeE164Phone on ${waLinks} wa.me links; isValidGePhone, normalizeE164Phone, toUbillNumber and the newest sms_canonical_ge_phone (${newest}) stay mobile-only; number.ts import-free`);
+  else ok(`C56: landlines only on the ${forms.size} contact forms (${inputForms.length} PhoneInput allowLandline, one each on the phone, never WhatsApp; create/service's cleaning sphere stays isValidGePhone through phoneValid); the reveal and ${telLinks} tel: links dial toGeContactE164 or the site's number, WhatsApp stays normalizeE164Phone on ${waLinks} wa.me links; isValidGePhone, normalizeE164Phone, localToE164, toUbillNumber and the newest sms_canonical_ge_phone (${newest}) stay mobile-only; isGeLandline only in PhoneOtpForm, which sends only localToE164 numbers; number.ts import-free`);
 }
 
 // C57 — a cadastral code is public only when its owner turns the switch on. (a) Both listing forms start the switch

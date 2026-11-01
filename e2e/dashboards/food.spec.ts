@@ -149,7 +149,7 @@ test.describe("Food Dashboard", () => {
         description: "Landline contact phone fixture",
         location: "ბაკურიანი",
         // A stored trunk 0 must load as the 9 digits (C56), not block the save.
-        phone: "0322 11 80 47",
+        phone: "0322 12 34 56",
         photos: [],
         status: "active",
         // The page edits the newest restaurant, and other spec files add ones
@@ -183,7 +183,7 @@ test.describe("Food Dashboard", () => {
         const refused = foodPage.getByText(
           "შეიყვანეთ სწორი მობილურის ან ქალაქის ნომერი",
         );
-        await expect(phone).toHaveValue("32 211 80 47");
+        await expect(phone).toHaveValue("32 212 34 56");
         await expect(refused).toHaveCount(0);
 
         // VoIP is not a contact number; a Bakuriani landline is.
@@ -191,8 +191,8 @@ test.describe("Food Dashboard", () => {
         await expect(refused).toBeVisible();
         await phone.fill("367 24 12 34");
         await expect(refused).toHaveCount(0);
-        await phone.fill("0322 11 80 47");
-        await expect(phone).toHaveValue("32 211 80 47");
+        await phone.fill("0322 12 34 56");
+        await expect(phone).toHaveValue("32 212 34 56");
         await expect(refused).toHaveCount(0);
 
         await foodPage
@@ -204,7 +204,7 @@ test.describe("Food Dashboard", () => {
         expect(posted[0]).toMatchObject({
           targetType: "service",
           targetId: serviceId,
-          proposedValues: { phone: "+995322118047" },
+          proposedValues: { phone: "+995322123456" },
         });
       } finally {
         await services.delete(serviceId);

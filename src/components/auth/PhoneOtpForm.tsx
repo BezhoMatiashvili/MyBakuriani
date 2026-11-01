@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { localToE164, phoneAuthErrorKey } from "@/lib/auth/phone";
 import { formatPhone } from "@/lib/utils/format";
+import { isGeLandline } from "@/lib/utils/number";
 
 // Phone sign-in / phone change (C48): number -> SMS code -> verified. Shared by
 // /auth/login and /dashboard/account; the caller decides what the code does.
@@ -22,6 +23,8 @@ interface PhoneOtpFormProps {
   onVerify: (phone: string, code: string) => Promise<void>;
   idPrefix: string;
   hint?: string;
+  /** Shown under the refusal of a city number, which never gets a code (C56). */
+  landlineHint?: ReactNode;
   onCancel?: () => void;
 }
 
@@ -30,6 +33,7 @@ export default function PhoneOtpForm({
   onVerify,
   idPrefix,
   hint,
+  landlineHint,
   onCancel,
 }: PhoneOtpFormProps) {
   const t = useTranslations("PhoneOtp");
@@ -125,13 +129,14 @@ export default function PhoneOtpForm({
   }
 
   if (!phone) {
+    const landline = isGeLandline(local);
     return (
       <form
         onSubmit={(e) => {
           e.preventDefault();
           const target = localToE164(local);
           if (!target) {
-            setError(t("errors.invalidPhone"));
+            setError(t(landline ? "errors.landline" : "errors.invalidPhone"));
             return;
           }
           void send(target);
@@ -153,6 +158,7 @@ export default function PhoneOtpForm({
             }}
             error={error}
           />
+          {error && landline && landlineHint}
           {hint && <p className="text-xs text-[#94A3B8]">{hint}</p>}
         </div>
         <Button

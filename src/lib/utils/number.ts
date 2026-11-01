@@ -128,6 +128,16 @@ const GE_LANDLINE =
   /^(?:(?:3(?:[256]\d|4[124-9]|7[0-4])|4(?:1\d|2[2-7]|3[1-79]|4[2-8]|7[239]|9[1-7]))\d{6}|79[01]\d{6})$/;
 
 /**
+ * A Georgian landline, 9 digits without +995. Taken only as a contact phone
+ * (isValidGeContactPhone); the SMS sign-in form uses it just to say why it
+ * refuses one (C56).
+ */
+export function isGeLandline(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return GE_LANDLINE.test(value.replace(/\D/g, ""));
+}
+
+/**
  * A listing's or company's public contact phone (C56): a Georgian mobile or a
  * landline, 9 digits without +995. Anything texted, signed in with, matched or
  * opened in WhatsApp stays isValidGePhone (mobile only).
@@ -136,12 +146,12 @@ export function isValidGeContactPhone(
   value: string | null | undefined,
 ): boolean {
   if (!value) return false;
-  return isValidGePhone(value) || GE_LANDLINE.test(value.replace(/\D/g, ""));
+  return isValidGePhone(value) || isGeLandline(value);
 }
 
 /**
  * The local digits: without +995/00995 and the trunk 0 of a 10-digit number
- * ("0322 11 80 47"), never truncated. A shorter value keeps its 0, so deleting
+ * ("0322 12 34 56"), never truncated. A shorter value keeps its 0, so deleting
  * the 5 of "507 12 34 56" while typing leaves "07 12 34 56".
  */
 function geLocalDigits(value: string): string {
@@ -154,7 +164,7 @@ function geLocalDigits(value: string): string {
 /**
  * What a phone field holds (at most 9 digits, as PhoneInput stores them) from
  * typed, pasted or stored text: "+995 …", "00995 …" and a trunk 0 are dropped,
- * so "0322 11 80 47" becomes "322118047".
+ * so "0322 12 34 56" becomes "322123456".
  */
 export function sanitizeGePhone(value: string | null | undefined): string {
   if (!value) return "";
@@ -163,7 +173,7 @@ export function sanitizeGePhone(value: string | null | undefined): string {
 
 /**
  * Local digits grouped for display, also while typing: Tbilisi (32) 2-3-2-2
- * "32 211 80 47", every other number 3-2-2-2 "599 12 34 56".
+ * "32 212 34 56", every other number 3-2-2-2 "599 12 34 56".
  */
 export function groupGePhone(digits: string): string {
   const d = digits.replace(/\D/g, "");

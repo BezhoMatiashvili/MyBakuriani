@@ -2256,6 +2256,7 @@
       "invalidOtp": "Please enter the 6-digit code",
       "wrongCode": "The code is wrong or has expired. Try again or ask for a new code.",
       "phoneNotSupported": "Phone sign-in works with Georgian mobile numbers only.",
+      "landline": "We can't send an SMS code to a landline: signing in needs a mobile number.",
       "numberLimit": "Too many codes were sent to this number. Try again later.",
       "ipLimit": "Too many requests from this network. Try again later or sign in with email.",
       "unavailable": "Phone sign-in is unavailable right now. Try again later or sign in with email.",
@@ -2472,7 +2473,7 @@
     "genericError": "Error. Please try again.",
     "cadastralAlreadyUsed": "This cadastral code is already in use",
     "invalidPhone": "Enter a valid number (9 digits, starting with 5)",
-    "invalidContactPhone": "Enter a valid mobile or landline number (9 digits, e.g. 599 12 34 56 or 32 211 80 47)",
+    "invalidContactPhone": "Enter a valid mobile or landline number (e.g. 599 12 34 56 or 032 2XX XX XX)",
     "invalidPersonalId": "Personal ID must be 11 digits",
     "save": "Save",
     "publishListing": "Publish listing",
@@ -3447,7 +3448,9 @@
       "none": "No number added",
       "add": "Add number",
       "change": "Change number",
-      "saved": "Number verified."
+      "saved": "Number verified.",
+      "landlineHint": "Guests call the number given in your listing — you can enter a landline there.",
+      "myListings": "My listings"
     },
     "password": {
       "title": "Password",

@@ -16,6 +16,8 @@ const NUMBER_LIMIT =
   "ამ ნომერზე ძალიან ბევრი კოდი გაიგზავნა. სცადეთ მოგვიანებით.";
 const NOT_SUPPORTED =
   "SMS-ით შესვლა მხოლოდ საქართველოს მობილურ ნომრებზე მუშაობს.";
+const LANDLINE =
+  "ქალაქის ნომერზე SMS კოდს ვერ გავგზავნით: შესვლისთვის მობილური ნომერია საჭირო.";
 const USER_ID = "00000000-0000-4000-8000-0000000000d1";
 
 const phoneUser = {
@@ -94,6 +96,22 @@ test.describe("Phone sign-in", () => {
         timeout: 1_000,
       });
     }).toPass();
+    expect(bodies).toHaveLength(0);
+  });
+
+  // C56: a city number never gets a sign-in code; the refusal says why.
+  test("a city number is refused with the reason before any request", async ({
+    page,
+  }) => {
+    const bodies = await mockOtp(page);
+    await openLogin(page);
+    await expect(async () => {
+      await page.locator("#auth-phone").fill("0322 12 34 56");
+      await page.getByRole("button", { name: GET_CODE }).click();
+      await expect(page.getByText(LANDLINE)).toBeVisible({ timeout: 1_000 });
+    }).toPass();
+    await expect(page.locator("#auth-phone")).toHaveValue("32 212 34 56");
+    await expect(page.getByText(INVALID_PHONE)).toHaveCount(0);
     expect(bodies).toHaveLength(0);
   });
 

@@ -138,7 +138,7 @@ test.describe("public contact reveals", () => {
         route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({ phone: "+995322118047", whatsapp: null }),
+          body: JSON.stringify({ phone: "+995322123456", whatsapp: null }),
         }),
     );
 
@@ -146,8 +146,8 @@ test.describe("public contact reveals", () => {
     const callButton = page.locator('[data-slot="call-button"]');
     await callButton.click();
 
-    await expect(callButton).toHaveAttribute("href", "tel:+995322118047");
-    await expect(callButton).toContainText("+995 32 211 80 47");
+    await expect(callButton).toHaveAttribute("href", "tel:+995322123456");
+    await expect(callButton).toContainText("+995 32 212 34 56");
     await expect(page.locator('[data-slot="whatsapp-button"]')).toHaveCount(0);
   });
 
@@ -166,7 +166,7 @@ test.describe("public contact reveals", () => {
       description: "Landline contact fixture",
       price: 50,
       location: "ბაკურიანი",
-      phone: "+995322118047",
+      phone: "+995322123456",
       whatsapp: null,
       status: "active",
       created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -193,12 +193,12 @@ test.describe("public contact reveals", () => {
       const response = await contactResponse;
       expect(response.ok()).toBeTruthy();
       expect(await response.json()).toEqual({
-        phone: "+995322118047",
+        phone: "+995322123456",
         whatsapp: null,
       });
 
-      await expect(callButton).toHaveAttribute("href", "tel:+995322118047");
-      await expect(callButton).toContainText("+995 32 211 80 47");
+      await expect(callButton).toHaveAttribute("href", "tel:+995322123456");
+      await expect(callButton).toContainText("+995 32 212 34 56");
       await expect(guestPage).toHaveURL(new RegExp(`${path}$`));
     } finally {
       await services.delete(serviceId);

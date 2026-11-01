@@ -14,6 +14,7 @@ import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
+import { serviceCategoryToCabinetKey, type CabinetKey } from "@/lib/cabinets";
 import {
   NotificationPreferences,
   type NotificationPreferenceValues,
@@ -31,6 +32,18 @@ function providerLabelKey(provider: string) {
     ? provider
     : null;
 }
+
+// Where a host changes the number guests call, which may be a city number
+// (C56): the cabinet of a listing they own. Cleaning and employment listings
+// take no city number.
+const LANDLINE_LISTINGS: Partial<Record<CabinetKey, string>> = {
+  renter: "/dashboard/renter/listings",
+  seller: "/dashboard/seller/listings",
+  food: "/dashboard/food",
+  transport: "/dashboard/transport",
+  entertainment: "/dashboard/entertainment",
+  services: "/dashboard/services",
+};
 
 export default function LinkedAccountsPage() {
   const t = useTranslations("DashboardAccount");
@@ -56,6 +69,7 @@ export default function LinkedAccountsPage() {
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<NotificationPreferenceValues | null>(null);
+  const [listingsHref, setListingsHref] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -81,6 +95,27 @@ export default function LinkedAccountsPage() {
       .then(({ data }) => {
         if (data) setPrefs(data);
       });
+
+    // The phone card's city-number hint links the cabinet of a listing the
+    // user owns whose phone may be one (C56); none, and the card only refuses.
+    if (!phoneEnabled) return;
+    const db = createClient();
+    Promise.all([
+      db.from("properties").select("is_for_sale").eq("owner_id", user.id),
+      db.from("services").select("category").eq("owner_id", user.id),
+    ]).then(([properties, services]) => {
+      const cabinets: CabinetKey[] = [
+        ...(properties.data ?? []).map((p) =>
+          p.is_for_sale ? "seller" : "renter",
+        ),
+        ...(services.data ?? []).map((s) =>
+          serviceCategoryToCabinetKey(s.category),
+        ),
+      ];
+      setListingsHref(
+        cabinets.map((key) => LANDLINE_LISTINGS[key]).find(Boolean) ?? null,
+      );
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user]);
 
@@ -303,6 +338,19 @@ export default function LinkedAccountsPage() {
                 onSend={startPhoneChange}
                 onVerify={verifyNewPhone}
                 onCancel={() => setEditingPhone(false)}
+                landlineHint={
+                  listingsHref && (
+                    <div className="text-xs text-[#475569]">
+                      <p>{t("phone.landlineHint")}</p>
+                      <Link
+                        href={listingsHref}
+                        className="inline-flex min-h-11 items-center font-medium text-brand-accent hover:underline lg:min-h-0"
+                      >
+                        {t("phone.myListings")}
+                      </Link>
+                    </div>
+                  )
+                }
               />
             </div>
           )}

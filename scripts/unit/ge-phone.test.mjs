@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   groupGePhone,
   hasValidWhatsapp,
+  isGeLandline,
   isValidGeContactPhone,
   isValidGePhone,
   sanitizeGePhone,
@@ -15,7 +16,7 @@ import { normalizeE164Phone } from "../../src/lib/security.ts";
 // stays a mobile (5XX XX XX XX).
 
 const LANDLINES = [
-  "322118047", // Tbilisi 32
+  "322123456", // Tbilisi 32
   "367241234", // Bakuriani / Borjomi 367
   "341123456", // Rustavi
   "350123456", // Telavi
@@ -36,9 +37,9 @@ const NOT_CONTACT = [
   "900123456", // premium-rate
   "995123456", // 9 digits that start with 995 are not a number
   "330123456", // no such range
-  "32211804", // 8 digits
-  "3221180471", // 10 digits
-  "0322118047", // a trunk 0 is the field's to drop, not the validator's
+  "32212345", // 8 digits
+  "3221234567", // 10 digits
+  "0322123456", // a trunk 0 is the field's to drop, not the validator's
   "",
 ];
 
@@ -64,13 +65,24 @@ test("mobile-only checks still refuse a landline", () => {
   assert.equal(isValidGePhone("599123456"), true);
 });
 
+test("isGeLandline is a landline, never a mobile (sign-in words its refusal with it)", () => {
+  for (const landline of LANDLINES) {
+    assert.equal(isGeLandline(landline), true, landline);
+  }
+  for (const value of ["599123456", ...NOT_CONTACT]) {
+    assert.equal(isGeLandline(value), false, value);
+  }
+  assert.equal(isGeLandline(null), false);
+  assert.equal(isGeLandline(undefined), false);
+});
+
 test("sanitizeGePhone keeps the local number of typed, pasted or stored text", () => {
   const cases = [
-    ["0322 11 80 47", "322118047"],
-    ["+995 32 211 80 47", "322118047"],
-    ["00995 32 211 80 47", "322118047"],
-    ["+995 0322 11 80 47", "322118047"],
-    ["995322118047", "322118047"],
+    ["0322 12 34 56", "322123456"],
+    ["+995 32 212 34 56", "322123456"],
+    ["00995 32 212 34 56", "322123456"],
+    ["+995 0322 12 34 56", "322123456"],
+    ["995322123456", "322123456"],
     ["+995 599 12 34 56", "599123456"],
     ["995599123456", "599123456"],
     ["0599123456", "599123456"],
@@ -81,7 +93,7 @@ test("sanitizeGePhone keeps the local number of typed, pasted or stored text", (
     ["995", "995"],
     ["995123456", "995123456"],
     ["0", "0"],
-    ["032211804", "032211804"],
+    ["032212345", "032212345"],
     ["07 12 34 56", "07123456"],
     // a field holds 9 digits at most
     ["5991234567", "599123456"],
@@ -107,21 +119,21 @@ test("groupGePhone groups mobiles exactly as PhoneInput did, Tbilisi 2-3-2-2", (
   for (let n = 0; n <= mobile.length; n += 1) {
     assert.equal(groupGePhone(mobile.slice(0, n)), before(mobile.slice(0, n)));
   }
-  assert.equal(groupGePhone("322118047"), "32 211 80 47");
+  assert.equal(groupGePhone("322123456"), "32 212 34 56");
   assert.equal(groupGePhone("3"), "3");
   assert.equal(groupGePhone("32"), "32");
   assert.equal(groupGePhone("322"), "32 2");
-  assert.equal(groupGePhone("32211"), "32 211");
-  assert.equal(groupGePhone("322118"), "32 211 8");
+  assert.equal(groupGePhone("32212"), "32 212");
+  assert.equal(groupGePhone("322123"), "32 212 3");
   assert.equal(groupGePhone("367241234"), "367 24 12 34");
   assert.equal(groupGePhone("790123456"), "790 12 34 56");
 });
 
 test("toGeContactE164 dials a mobile or a landline and never truncates", () => {
   const cases = [
-    ["+995322118047", "+995322118047"],
-    ["322118047", "+995322118047"],
-    ["0322 11 80 47", "+995322118047"],
+    ["+995322123456", "+995322123456"],
+    ["322123456", "+995322123456"],
+    ["0322 12 34 56", "+995322123456"],
     ["032 2 00 00 00", "+995322000000"],
     ["00995 367 24 12 34", "+995367241234"],
     ["+995 790 12 34 56", "+995790123456"],
