@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { test, expect } from "../helpers/fixtures";
 import { properties } from "../helpers/supabase";
 import { TEST_IDS } from "../helpers/seed";
+import { configureIsolatedE2E } from "../helpers/env";
 
 // C57: a listing's cadastral code is private unless its owner turns on
 // "კოდის საჯაროდ გამოჩენა". Fresh ids and codes per run, so neither the ISR
@@ -95,6 +96,15 @@ test("an admin's NAPR checkbox shows the code on the public page and hides it ag
   const publicHtml = async () =>
     (await request.get(`/apartments/${row.id}`)).text();
 
+  // The cookie banner covers the panel's sticky save bar and would take the
+  // click (as in admin.spec.ts), so the admin has already answered it.
+  await adminPage.context().addCookies([
+    {
+      name: "mb_cookie_consent",
+      value: encodeURIComponent("v2|analytics=0|location=0"),
+      url: configureIsolatedE2E().baseUrl,
+    },
+  ]);
   await adminPage.goto("/dashboard/admin/listings");
   const search = adminPage.getByPlaceholder("ძიება (ID, სახელი, მფლობელი)...");
   const listingRow = adminPage
