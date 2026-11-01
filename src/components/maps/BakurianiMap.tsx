@@ -7,6 +7,7 @@ import { staticMapUrl } from "@/lib/maps/staticMapUrl";
 import type { LatLng, RouteLineString } from "@/lib/maps/directions";
 import { googleMapsDirectionsUrl } from "@/lib/maps/googleMapsUrl";
 import Modal from "@/components/shared/Modal";
+import type { SalePriceRow } from "@/lib/currency/money";
 import { loadMapboxCanvas, loadedMapboxCanvas } from "./loadMapboxCanvas";
 
 /**
@@ -27,9 +28,12 @@ const BAKURIANI_CENTER: [number, number] = [41.7509, 43.5294];
 export interface MapProperty {
   id: string;
   title: string;
-  /** Omitted for a listing with no single price (a restaurant): the marker
-   * then shows a pin instead of a price pill. */
+  /** A price in lari. Omitted for a listing with no single price (a
+   * restaurant): the marker then shows a pin instead of a price pill. */
   price?: number;
+  /** A sale's price columns instead (C54): the pill shows its seller's
+   * currency, or the other stored number after a pick (undiscounted). */
+  sale?: SalePriceRow;
   lat: number;
   lng: number;
   isVip?: boolean;
@@ -51,7 +55,6 @@ interface BakurianiMapProps {
   embedded?: boolean;
   properties?: MapProperty[];
   onPropertyClick?: (id: string) => void;
-  isForSale?: boolean;
   /** For detail pages: center map on a single location */
   center?: { lat: number; lng: number };
   zoom?: number;
@@ -110,7 +113,6 @@ export default function BakurianiMap({
   embedded,
   properties,
   onPropertyClick,
-  isForSale,
   center,
   zoom,
   expandable,
@@ -301,7 +303,6 @@ export default function BakurianiMap({
       hasProperties={hasProperties}
       properties={properties}
       zones={zones}
-      isForSale={isForSale}
       selectedId={selectedId}
       setSelectedId={setSelectedId}
       onPropertyClick={onPropertyClick}

@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ListingAuditPanel from "@/components/admin/ListingAuditPanel";
 import { AdminSearchInput } from "@/components/admin/AdminSearchInput";
 import { Link } from "@/i18n/navigation";
-import { formatPrice, formatSalePrice } from "@/lib/utils/format";
+import { formatPrice, formatSaleOwnPrice } from "@/lib/utils/format";
 import { propertyViewUrl, serviceViewUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
 
@@ -32,7 +32,10 @@ type ListingRow = {
   views_count: number | null;
   owner: { display_name: string } | null;
   price_per_night?: number | null;
-  sale_price?: number | null;
+  // A sale's price columns (C54), printed in its seller's currency.
+  sale_price: number | null;
+  sale_price_gel: number | null;
+  sale_price_currency: string | null;
   type?: string;
   category?: string;
   location?: string | null;
@@ -116,6 +119,10 @@ export default function ListingsPage() {
             owner: r.owner,
             price_per_night: isProperty ? asProperty.price_per_night : null,
             sale_price: isProperty ? asProperty.sale_price : null,
+            sale_price_gel: isProperty ? asProperty.sale_price_gel : null,
+            sale_price_currency: isProperty
+              ? asProperty.sale_price_currency
+              : null,
             type: isProperty ? asProperty.type : undefined,
             category: isProperty ? undefined : asService.category,
             location: r.location ?? null,
@@ -319,9 +326,7 @@ export default function ListingsPage() {
               const price =
                 row.price_per_night != null
                   ? `${formatPrice(row.price_per_night)}${tShared("perNight")}`
-                  : row.sale_price != null
-                    ? formatSalePrice(row.sale_price)
-                    : "—";
+                  : (formatSaleOwnPrice(row) ?? "—");
               const isBusy = busyId === row.id;
               const previewUrl = `${
                 row.kind === "property"

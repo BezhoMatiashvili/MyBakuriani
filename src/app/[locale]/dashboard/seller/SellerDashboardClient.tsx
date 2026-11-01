@@ -10,7 +10,11 @@ import { Building2, Eye, Plus, Heart, BarChart3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useActiveOrgScope } from "@/lib/dashboard/orgScope";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatNumber, formatSalePrice } from "@/lib/utils/format";
+import {
+  formatNumber,
+  formatSaleOwnPrice,
+  saleOwnPrice,
+} from "@/lib/utils/format";
 import { useStatsFilter } from "@/lib/hooks/useStatsFilter";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import {
@@ -325,7 +329,7 @@ export default function SellerDashboardClient({
                     </span>
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span className="text-[16px] font-black text-[#2563EB] sm:text-[17px]">
-                        {formatSalePrice(Number(property.sale_price ?? 0))}
+                        {formatSaleOwnPrice(property) ?? "—"}
                       </span>
                       <span className="flex items-center gap-1 text-xs text-[#94A3B8]">
                         <Eye className="h-3 w-3" />
@@ -414,7 +418,11 @@ export default function SellerDashboardClient({
           subtitle: p.location ?? undefined,
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? true,
-          price: (p.is_for_sale ? p.sale_price : p.price_per_night) ?? null,
+          // A sale's discount is picked in its seller's currency (C54).
+          price: p.is_for_sale
+            ? (saleOwnPrice(p)?.amount ?? null)
+            : (p.price_per_night ?? null),
+          priceCurrency: p.is_for_sale ? saleOwnPrice(p)?.currency : undefined,
           standardVipDisabled: isSuperVipActive(
             p.is_super_vip,
             p.vip_expires_at,

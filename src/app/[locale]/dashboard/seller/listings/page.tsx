@@ -15,7 +15,7 @@ import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar
 import MultiSegmentBar from "@/components/shared/MultiSegmentBar";
 import ConstructionManagementModal from "@/components/seller/ConstructionManagementModal";
 import { getUnitsBreakdown } from "@/lib/constants/construction";
-import { formatRelativeGe } from "@/lib/utils/format";
+import { formatRelativeGe, saleOwnPrice } from "@/lib/utils/format";
 import ListingActions from "@/components/dashboard/ListingActions";
 import { propertyViewUrl, propertyEditUrl } from "@/lib/utils/listingUrls";
 import PackagePromotionPicker from "@/components/dashboard/PackagePromotionPicker";
@@ -341,7 +341,11 @@ export default function SellerListingsPage() {
           subtitle: p.location ?? undefined,
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? false,
-          price: (p.is_for_sale ? p.sale_price : p.price_per_night) ?? null,
+          // A sale's discount is picked in its seller's currency (C54).
+          price: p.is_for_sale
+            ? (saleOwnPrice(p)?.amount ?? null)
+            : (p.price_per_night ?? null),
+          priceCurrency: p.is_for_sale ? saleOwnPrice(p)?.currency : undefined,
           standardVipDisabled: isSuperVipActive(
             p.is_super_vip,
             p.vip_expires_at,

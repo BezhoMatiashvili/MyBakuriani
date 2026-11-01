@@ -6,11 +6,11 @@ import Image from "next/image";
 import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { formatSalePrice } from "@/lib/utils/format";
 import { useMoney } from "@/lib/currency/client";
+import type { SalePriceRow } from "@/lib/currency/money";
 import { cardEnter } from "@/lib/utils/enterAnimation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
-import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
+import { isDiscountActive } from "@/lib/utils/pricing";
 import { FALLBACK_ZONES } from "@/lib/zones/types";
 import {
   optionKeyFor,
@@ -44,7 +44,8 @@ interface InvestmentCardProps {
   title: string;
   location: string;
   photo: string;
-  salePrice: number | null;
+  /** The listing's sale price columns (C54). */
+  sale: SalePriceRow | null;
   /** `properties.type` — only used to render land plots as plots, not houses. */
   type?: string | null;
   areaSqm: number | null;
@@ -68,7 +69,7 @@ export default function InvestmentCard({
   title,
   location,
   photo,
-  salePrice,
+  sale,
   type,
   areaSqm,
   roiPercent,
@@ -120,20 +121,20 @@ export default function InvestmentCard({
   const subtitle = subtitleParts.join(" • ");
 
   const discountActive = isDiscountActive(discountPercent, discountExpiresAt);
-  const displayPrice =
-    salePrice != null
-      ? applyDiscount(salePrice, discountPercent, discountExpiresAt)
-      : null;
-
-  // Derived from the DISCOUNTED price so the $/m² line cannot contradict the
-  // headline above it — same as SalePropertyCard and the sale detail sidebar.
-  const pricePerSqm =
-    !isLand && displayPrice != null && areaSqm && areaSqm > 0
-      ? Math.round(displayPrice / areaSqm)
-      : null;
-  // Unrounded, so a converted $/m² (C55) is not rounded twice.
-  const exactPricePerSqm =
-    displayPrice != null && areaSqm ? displayPrice / areaSqm : 0;
+  // Through useMoney().sale (C54): its seller's currency until a pick, then
+  // the other stored number. The per-m² line starts from the DISCOUNTED shown
+  // price so it cannot contradict the headline above it — same as
+  // SalePropertyCard and the sale detail sidebar.
+  const saleMoney = sale
+    ? money.sale(
+        {
+          ...sale,
+          discount_percent: discountPercent,
+          discount_expires_at: discountExpiresAt,
+        },
+        { areaSqm: isLand ? null : areaSqm },
+      )
+    : null;
 
   return (
     <motion.div
@@ -206,7 +207,7 @@ export default function InvestmentCard({
               </span>
             )}
 
-            {discountActive && salePrice != null && (
+            {discountActive && saleMoney && (
               <span className="inline-flex items-center rounded-full bg-[#F97316] px-3 py-1.5 text-[12px] font-bold text-white shadow-[0px_1px_2px_rgba(0,0,0,0.1)]">
                 -{discountPercent}%
               </span>
@@ -345,15 +346,11 @@ export default function InvestmentCard({
             )}
           >
             <div className="min-w-0">
-              {salePrice != null ? (
+              {saleMoney ? (
                 <>
-                  {discountActive && (
+                  {saleMoney.originalText && (
                     <span className="block whitespace-nowrap text-[12px] font-bold leading-[16px] text-[#94A3B8] line-through">
-                      {money.format(
-                        salePrice,
-                        "USD",
-                        formatSalePrice(salePrice),
-                      )}
+                      {saleMoney.originalText}
                     </span>
                   )}
                   <span
@@ -364,23 +361,13 @@ export default function InvestmentCard({
                         : "text-[24px] leading-[30px]",
                     )}
                   >
-                    {money.format(
-                      displayPrice!,
-                      "USD",
-                      formatSalePrice(displayPrice!),
-                    )}
+                    {saleMoney.text}
                   </span>
                 </>
               ) : null}
-              {pricePerSqm != null && (
+              {saleMoney?.perSqmText && (
                 <span className="mt-0.5 block text-[12px] font-medium text-[#94A3B8]">
-                  {t("pricePerSqm", {
-                    price: money.format(
-                      exactPricePerSqm,
-                      "USD",
-                      formatSalePrice(pricePerSqm),
-                    ),
-                  })}
+                  {t("pricePerSqm", { price: saleMoney.perSqmText })}
                 </span>
               )}
             </div>

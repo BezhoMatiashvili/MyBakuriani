@@ -136,7 +136,7 @@ export function LanguageSelector({
       onOpenChange={(next) => {
         setOpen(next);
         // Shows the rate line even before a currency is picked.
-        if (next && withCurrency) refreshRate();
+        if (next && withCurrency) void refreshRate();
       }}
     >
       <PopoverTrigger

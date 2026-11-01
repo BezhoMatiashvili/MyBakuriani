@@ -64,6 +64,8 @@ type SearchListing = Pick<
   | "photos"
   | "price_per_night"
   | "sale_price"
+  | "sale_price_gel"
+  | "sale_price_currency"
   | "capacity"
   | "rooms"
   | "bathrooms"
@@ -847,7 +849,7 @@ export default function SearchPageClient({
                         pricePerNight={
                           p.price_per_night ? Number(p.price_per_night) : null
                         }
-                        salePrice={p.sale_price ? Number(p.sale_price) : null}
+                        sale={p}
                         capacity={p.capacity}
                         rooms={p.rooms}
                         isVip={p.is_vip ?? false}
@@ -1100,7 +1102,7 @@ function PropertiesGrid({ items }: { items: SearchListing[] }) {
             location={p.location}
             photos={p.photos ?? []}
             pricePerNight={p.price_per_night ? Number(p.price_per_night) : null}
-            salePrice={p.sale_price ? Number(p.sale_price) : null}
+            sale={p}
             capacity={p.capacity}
             rooms={p.rooms}
             isVip={p.is_vip ?? false}

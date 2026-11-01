@@ -7,6 +7,13 @@ import {
   type FormatLocale,
 } from "./format-locale-labels";
 import { groupGePhone } from "./number";
+// Relative, not "@/": e2e specs import this file bare.
+import {
+  salePrice,
+  salePriceShown,
+  type CurrencyCode,
+  type SalePriceRow,
+} from "../currency/money";
 
 const DATE_FNS_LOCALES: Record<FormatLocale, Locale> = {
   ka,
@@ -32,12 +39,41 @@ export function formatPricePerNight(amount: number, locale?: string): string {
 }
 
 /**
- * A sale listing's price. Sales are priced in US dollars: the sale form takes
- * the price in USD (house_rules.price_currency = "USD") and sale_price stores
- * it as typed, so it is never converted and never printed with ₾ (C54).
+ * A dollar amount as a sale prints it ("$55 000"). sale_price is US dollars
+ * (C54); a sale's price in its seller's currency prints through
+ * formatSaleOwnPrice, or useMoney().sale / <Money sale> on public pages (C55).
  */
 export function formatSalePrice(amount: number): string {
   return `$${formatNumber(amount)}`;
+}
+
+/** An amount in `currency` as its own text: formatPrice ("150 000 ₾") or
+ * formatSalePrice ("$55 000"). */
+export function formatInCurrency(
+  amount: number,
+  currency: CurrencyCode,
+): string {
+  return currency === "GEL" ? formatPrice(amount) : formatSalePrice(amount);
+}
+
+/**
+ * A sale's price in the currency its seller typed (C54), before any discount,
+ * or null without a price. What the server prints before a visitor's pick, and
+ * all that cabinets, the OG card and metadata print.
+ */
+export function saleOwnPrice(
+  row: SalePriceRow,
+): { amount: number; currency: CurrencyCode } | null {
+  const price = salePrice(row);
+  if (!price) return null;
+  const { amount, currency } = salePriceShown(price, null);
+  return { amount, currency };
+}
+
+/** saleOwnPrice as text ("150 000 ₾", "$55 000"), or null without a price. */
+export function formatSaleOwnPrice(row: SalePriceRow): string | null {
+  const own = saleOwnPrice(row);
+  return own ? formatInCurrency(own.amount, own.currency) : null;
 }
 
 /**

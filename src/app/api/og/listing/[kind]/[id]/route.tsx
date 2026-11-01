@@ -8,6 +8,7 @@ import {
 import { isUuid } from "@/lib/utils/uuid";
 import { ogCardSearch } from "@/lib/utils/listingUrls";
 import { renderableImageUrl } from "@/lib/banner-creative";
+import { saleOwnPrice } from "@/lib/utils/format";
 // applyDiscount is a no-op when the discount is inactive/expired, so it alone
 // satisfies C10 ("every price surface applies the shared helper").
 import { applyDiscount } from "@/lib/utils/pricing";
@@ -68,7 +69,7 @@ async function loadCover(url: string | undefined): Promise<string | null> {
 }
 
 const gel = (n: number) => `${Math.round(n).toLocaleString("en-US")} ₾`;
-// Sale prices are US dollars (C54).
+// A sale typed in dollars (C54); one typed in lari prints through gel().
 const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
 type Card = {
@@ -155,14 +156,23 @@ export async function GET(
     if (kind === "property") {
       const row = await getCachedPublicProperty(id);
       if (row) {
-        const base = row.is_for_sale ? row.sale_price : row.price_per_night;
+        // A sale in its seller's currency only (C54): neither font has "≈".
+        const own = row.is_for_sale ? saleOwnPrice(row) : null;
+        const base = row.is_for_sale ? own?.amount : row.price_per_night;
         const net =
           typeof base === "number"
             ? applyDiscount(base, row.discount_percent, row.discount_expires_at)
             : null;
         card = {
           title: row.title,
-          price: net == null ? null : row.is_for_sale ? usd(net) : `${gel(net)} / ღამე`,
+          price:
+            net == null
+              ? null
+              : !row.is_for_sale
+                ? `${gel(net)} / ღამე`
+                : own?.currency === "GEL"
+                  ? gel(net)
+                  : usd(net),
           location: row.location ?? null,
           cover: await loadCover(row.photos?.[0]),
         };

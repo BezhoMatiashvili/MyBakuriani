@@ -6,7 +6,8 @@ import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useMoney } from "@/lib/currency/client";
-import { formatPrice, formatSalePrice } from "@/lib/utils/format";
+import type { SalePriceRow } from "@/lib/currency/money";
+import { formatPrice } from "@/lib/utils/format";
 import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
@@ -31,7 +32,9 @@ interface PropertyCardProps {
   location: string;
   photos: string[];
   pricePerNight: number | null;
-  salePrice: number | null;
+  /** A sale's price columns (C54), read only when `isForSale`; rental
+   * callers pass null. */
+  sale: SalePriceRow | null;
   capacity: number | null;
   rooms: number | null;
   isVip: boolean;
@@ -75,7 +78,7 @@ export default function PropertyCard(props: PropertyCardProps) {
     location,
     photos,
     pricePerNight,
-    salePrice,
+    sale,
     capacity,
     rooms,
     isVip,
@@ -143,12 +146,27 @@ export default function PropertyCard(props: PropertyCardProps) {
   const shownTags = shownPaymentChips.length > 0 ? tags.slice(0, 1) : tags;
 
   const active = isDiscountActive(discountPercent, discountExpiresAt);
-  const currentPrice = isForSale ? salePrice : pricePerNight;
+  // A sale prints through useMoney().sale (C54): its seller's currency until
+  // a pick, then the other stored number, the discount on the shown one.
+  const saleMoney =
+    isForSale && sale
+      ? money.sale({
+          ...sale,
+          discount_percent: discountPercent,
+          discount_expires_at: discountExpiresAt,
+        })
+      : null;
+  const currentPrice = isForSale ? null : pricePerNight;
   const displayPrice =
     active && currentPrice != null
       ? applyDiscount(currentPrice, discountPercent, discountExpiresAt)
       : currentPrice;
   const originalPrice = active && currentPrice != null ? currentPrice : null;
+  const originalText = saleMoney
+    ? saleMoney.originalText
+    : originalPrice != null
+      ? money.format(originalPrice, "GEL", formatPrice(originalPrice))
+      : null;
   // A rental's number and its "₾/ღამე" suffix are two spans: one conversion
   // (C55) switches both, and null keeps them as they are.
   const convertedPerNight =
@@ -392,30 +410,16 @@ export default function PropertyCard(props: PropertyCardProps) {
 
           <div className={cn("mt-auto gap-2 pt-3 lg:pt-4", compactGrid ? "flex flex-col items-stretch sm:flex-row sm:flex-wrap sm:items-end sm:justify-between" : "flex flex-wrap items-end justify-between")}>
             <div className="min-w-0">
-              {originalPrice != null ? (
+              {originalText != null ? (
                 <span className="block text-[11px] font-bold leading-[16px] text-[#94A3B8] line-through">
-                  {isForSale
-                    ? money.format(
-                        originalPrice,
-                        "USD",
-                        formatSalePrice(originalPrice),
-                      )
-                    : money.format(
-                        originalPrice,
-                        "GEL",
-                        formatPrice(originalPrice),
-                      )}
+                  {originalText}
                 </span>
               ) : (
                 <span className="hidden h-[16px] lg:block" aria-hidden="true" />
               )}
-              {isForSale && displayPrice != null ? (
+              {saleMoney ? (
                 <span className={cn("whitespace-nowrap font-black text-[#1E293B]", compactGrid ? "text-[18px] leading-[24px] sm:text-[24px] sm:leading-[32px]" : "text-[24px] leading-[32px]")}>
-                  {money.format(
-                    displayPrice,
-                    "USD",
-                    formatSalePrice(Math.round(displayPrice)),
-                  )}
+                  {saleMoney.text}
                 </span>
               ) : displayPrice != null ? (
                 <span className="flex items-baseline gap-1">

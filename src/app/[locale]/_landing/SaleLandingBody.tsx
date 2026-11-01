@@ -21,6 +21,7 @@ import { SkierLoader } from "@/components/shared/SkierLoader";
 import type { MapProperty } from "@/components/maps/BakurianiMap";
 import { cn } from "@/lib/utils";
 import { formatSalePrice } from "@/lib/utils/format";
+import { useMoney } from "@/lib/currency/client";
 import { HERO_NOISE_BACKGROUND } from "@/lib/utils/heroTexture";
 import { isDiscountActive } from "@/lib/utils/pricing";
 import type { LandingSaleProperty } from "./columns";
@@ -96,8 +97,9 @@ function toSaleCard(p: LandingSaleProperty) {
     title: p.title,
     location: p.location,
     photos: Array.isArray(p.photos) ? (p.photos as string[]) : [],
-    // sale_price is already in US dollars (C54): shown as stored.
-    priceUsd: Number(p.sale_price ?? 0),
+    // The card prints these in its seller's currency, or the other stored
+    // number after a pick (C54).
+    sale: p,
     type: p.type,
     area: p.area_sqm ?? null,
     rooms: p.rooms,
@@ -131,14 +133,19 @@ export default function SaleLandingBody({
   bannerCreatives = [],
 }: SaleLandingBodyProps) {
   const t = useTranslations("Landing");
+  const money = useMoney();
   const locale = useLocale();
   const tZones = useTranslations("Zones");
   const router = useRouter();
   const { setListingMode } = useHomeListingMode();
 
+  // A zone's average stays dollars (sale_price, C54); a pick converts it like
+  // the SaleSearchBox appraisal beside it (C55).
   const formatPricePerSqm = (avg: number | null | undefined): string => {
     if (avg == null || !Number.isFinite(avg)) return "—";
-    return t("sale.pricePerSqm", { price: formatSalePrice(avg) });
+    return t("sale.pricePerSqm", {
+      price: money.format(avg, "USD", formatSalePrice(avg)),
+    });
   };
 
   // Research section: the admin's text or figure where set, else the catalog
@@ -210,7 +217,12 @@ export default function SaleLandingBody({
         .map((p) => ({
           id: p.id,
           title: p.title,
-          price: Number(p.sale_price ?? 0),
+          // The price columns only: a pin shows no discount.
+          sale: {
+            sale_price: p.sale_price,
+            sale_price_gel: p.sale_price_gel,
+            sale_price_currency: p.sale_price_currency,
+          },
           lat: Number(p.location_lat),
           lng: Number(p.location_lng),
           isVip: p.is_vip ?? false,
@@ -355,7 +367,6 @@ export default function SaleLandingBody({
               className="h-[420px] w-full"
               embedded
               expandable
-              isForSale
               properties={mapProperties}
               onPropertyClick={(id) => router.push(`/sales/${id}`)}
               zones={zones}

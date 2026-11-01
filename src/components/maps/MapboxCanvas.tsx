@@ -7,9 +7,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import type { Zone } from "@/lib/zones/types";
-import { formatSalePrice } from "@/lib/utils/format";
-import { useMoney } from "@/lib/currency/client";
-import type { CurrencyCode } from "@/lib/currency/money";
+import { useMoney, type MoneyFormat } from "@/lib/currency/client";
 import type { MapProperty, RouteDisplay } from "./BakurianiMap";
 
 // ── Mapbox light basemap (closest built-in equivalent to the previous
@@ -17,10 +15,17 @@ import type { MapProperty, RouteDisplay } from "./BakurianiMap";
 // default (enabled) per Mapbox ToS — never suppress it. ──
 const MAPBOX_STYLE = "mapbox://styles/mapbox/light-v11";
 
-// ── Price formatting (sale prices are US dollars, C54) ──
-function formatPrice(price: number, isForSale?: boolean): string {
-  if (isForSale) return formatSalePrice(price);
-  return `${price} ₾`;
+// ── A pin's price for the visitor's currency pick (C55), or null for a pin
+// glyph. Per pin: a sale's through useMoney().sale (C54: its seller's
+// currency, after a pick the other stored number; undiscounted, as pins
+// always were), any other listing's in lari. ──
+function pinPriceText(
+  property: MapProperty,
+  money: MoneyFormat,
+): string | null {
+  if (property.sale) return money.sale(property.sale)?.text ?? null;
+  if (property.price == null) return null;
+  return money.format(property.price, "GEL", `${property.price} ₾`);
 }
 
 // ── Price pill classes (the `.bk-pill` base class in globals.css handles
@@ -113,13 +118,11 @@ interface MarkerEntry {
   pillEl: HTMLDivElement;
   cardEl: HTMLDivElement;
   isVip?: boolean;
-  // A priced pin (none for a pin glyph): its amount in its own currency,
-  // today's text for it, and the hover card's price line, so a currency pick
-  // (C55) re-texts the pill and that line without rebuilding the marker.
+  // A priced pin (none for a pin glyph): its listing, which pinPriceText
+  // prints again, and the hover card's price line, so a currency pick (C55)
+  // re-texts the pill and that line without rebuilding the marker.
   price?: {
-    amount: number;
-    from: CurrencyCode;
-    native: string;
+    property: MapProperty;
     cardPriceEl: HTMLParagraphElement | null;
   };
 }
@@ -130,7 +133,6 @@ export interface MapboxMapViewProps {
   hasProperties: boolean;
   properties?: MapProperty[];
   zones: Zone[];
-  isForSale?: boolean;
   selectedId: string | null;
   setSelectedId: React.Dispatch<React.SetStateAction<string | null>>;
   onPropertyClick?: (id: string) => void;
@@ -156,7 +158,6 @@ export default function MapboxMapView({
   hasProperties,
   properties,
   zones,
-  isForSale,
   selectedId,
   setSelectedId,
   onPropertyClick,
@@ -250,22 +251,10 @@ export default function MapboxMapView({
     zoneMarkersRef.current = [];
 
     if (hasProperties && properties) {
-      // A sale map's prices are dollars (C54), every other map's lari.
-      const from: CurrencyCode = isForSale ? "USD" : "GEL";
       properties.forEach((property) => {
         const isVip = property.isSuperVip || property.isVip;
         const isSelected = selectedIdRef.current === property.id;
-        const price =
-          property.price != null
-            ? {
-                amount: property.price,
-                from,
-                native: formatPrice(property.price, isForSale),
-              }
-            : null;
-        const priceText = price
-          ? moneyRef.current.format(price.amount, price.from, price.native)
-          : null;
+        const priceText = pinPriceText(property, moneyRef.current);
 
         const wrapper = document.createElement("div");
         wrapper.className = "bk-price-marker";
@@ -276,7 +265,7 @@ export default function MapboxMapView({
         const pill = document.createElement("div");
         pill.className = `${pillBaseClasses()} ${pillStateClasses(isSelected, isVip)}`;
         pill.style.minHeight = "32px";
-        pill.style.minWidth = property.price != null ? "48px" : "32px";
+        pill.style.minWidth = priceText != null ? "48px" : "32px";
         pill.style.display = "flex";
         pill.style.alignItems = "center";
         pill.style.justifyContent = "center";
@@ -324,7 +313,8 @@ export default function MapboxMapView({
           pillEl: pill,
           cardEl: card,
           isVip,
-          price: price ? { ...price, cardPriceEl: priceEl } : undefined,
+          price:
+            priceText != null ? { property, cardPriceEl: priceEl } : undefined,
         });
       });
     } else {
@@ -377,7 +367,7 @@ export default function MapboxMapView({
       zoneMarkers.forEach((marker) => marker.remove());
       zoneMarkersRef.current = [];
     };
-  }, [hasProperties, properties, zones, isForSale, setSelectedId]);
+  }, [hasProperties, properties, zones, setSelectedId]);
 
   // Re-text the priced pills and their hover-card lines on a currency pick
   // (or once the day's rate arrives) without rebuilding the markers. A pin
@@ -385,7 +375,8 @@ export default function MapboxMapView({
   useEffect(() => {
     markersRef.current.forEach(({ pillEl, price }) => {
       if (!price) return;
-      const text = money.format(price.amount, price.from, price.native);
+      const text = pinPriceText(price.property, money);
+      if (text == null) return;
       pillEl.textContent = text;
       if (price.cardPriceEl) price.cardPriceEl.textContent = text;
     });

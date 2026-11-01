@@ -17,7 +17,7 @@ export const LANDING_RENTAL_COLUMNS =
 export const LANDING_HOTEL_COLUMNS =
   "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, location_lat, location_lng, hotel_stars, is_b2b_partner, room_type, ownership_verified";
 export const LANDING_SALE_COLUMNS =
-  "id, title, location, photos, price_per_night, sale_price, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, location_lat, location_lng, type, area_sqm, construction_status, construction_progress_percent, house_rules, ownership_verified";
+  "id, title, location, photos, price_per_night, sale_price, sale_price_gel, sale_price_currency, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, location_lat, location_lng, type, area_sqm, construction_status, construction_progress_percent, house_rules, ownership_verified";
 export const LANDING_SERVICE_COLUMNS =
   "id, title, category, location, photos, price, price_unit, discount_percent, discount_expires_at, best_active_menu_item_discount_percent, created_at, is_vip, is_super_vip, schedule, operating_hours, has_whatsapp, vehicle_capacity, transport_type, vehicle_make, route, routes, salary_type, salary_min, salary_max, salary_daily, salary_range, ownership_verified";
 export const LANDING_BLOG_COLUMNS =
@@ -53,6 +53,8 @@ export type LandingHotel = LandingProperty &
 export type LandingSaleProperty = LandingProperty &
   Pick<
     PropertyRow,
+    | "sale_price_gel"
+    | "sale_price_currency"
     | "type"
     | "area_sqm"
     | "construction_status"

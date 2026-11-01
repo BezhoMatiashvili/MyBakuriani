@@ -14,6 +14,7 @@ import {
 import { createTestUser, type TestUser } from "../helpers/auth";
 import { configureIsolatedE2E } from "../helpers/env";
 import { formatDateTime } from "../../src/lib/utils/format";
+import { formatRateDay, tbilisiDay } from "../../src/lib/currency/money";
 
 const SELLER_LEADS_PATH = "/dashboard/seller/leads";
 const LEAD_NAME = "E2E Drag Lead";
@@ -839,5 +840,442 @@ test.describe("Seller lead board", () => {
       .poll(async () => (await leads.get(TEST_IDS.sellerLead))?.stage)
       .toBe("contacted");
     expect(patchCount).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sale price typed in ₾ or $ (C54): /create/sale's ₾/$ chip and the line under
+// the price, what an edit proposes for review, and the cabinet's own currency.
+// The NBG rate (/api/fx/usd) is mocked. Each test makes its own listing and
+// removes it and its review requests in finally; the shared seed is untouched.
+// ---------------------------------------------------------------------------
+
+const RATE_DAY = tbilisiDay(new Date());
+const RATE_DATE = formatRateDay(RATE_DAY);
+const GEL_PRICE = {
+  sale_price: 57757,
+  sale_price_gel: 150000,
+  sale_price_currency: "GEL",
+};
+const TAP_FOR_GEL = "ფასის ლარში მისათითებლად დააჭირეთ $-ს";
+const NO_RATE_GEL =
+  "ეროვნული ბანკის კურსი ახლა მიუწვდომელია, ამიტომ ფასს ლარში ვერ შევინახავთ. სცადეთ მოგვიანებით ან მიუთითეთ ფასი დოლარში.";
+const NO_RATE_USD =
+  "ეროვნული ბანკის კურსი ახლა მიუწვდომელია: ფასი მხოლოდ დოლარში შეინახება.";
+const SUBMIT_FOR_REVIEW = "განხილვაზე გაგზავნა";
+
+/** Serves `gelPerUsd` as today's NBG rate (null: a 503, NBG down). */
+async function preparePricePage(page: Page, gelPerUsd: number | null) {
+  // The cookie + location card would cover the lower half of the form.
+  await page.context().addCookies([
+    {
+      name: "mb_cookie_consent",
+      value: encodeURIComponent("v2|analytics=0|location=0"),
+      url: configureIsolatedE2E().baseUrl,
+    },
+  ]);
+  await page.route("**/api/fx/usd", (route) =>
+    gelPerUsd === null
+      ? route.fulfill({ status: 503, json: { error: "rate_unavailable" } })
+      : route.fulfill({
+          json: { gelPerUsd, date: RATE_DAY, validFrom: RATE_DAY },
+        }),
+  );
+  // A rate this browser kept would skip the request.
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.removeItem("mybakuriani:fx_usd");
+    } catch {
+      // Storage blocked: nothing is kept either.
+    }
+  });
+}
+
+function priceFields(page: Page) {
+  return {
+    total: page.locator('[data-field="price"] input'),
+    chip: page.locator('[data-field="price"] button'),
+    perSqm: page.locator('[data-field="pricePerSqm"] input'),
+    lines: page.locator("#sale-price-line p"),
+  };
+}
+
+/** /create/sale past the "post as" screen; false when signed out. */
+async function openNewSaleForm(page: Page): Promise<boolean> {
+  // Continuing as an individual saves profile_type on the shared seller.
+  await page.route("**/api/self-service/profile", (route) =>
+    route.fulfill({ json: { profile: {}, cleaner_profile: null } }),
+  );
+  await page.goto("/create/sale");
+  if (page.url().includes("/auth/login")) return false;
+  const { total } = priceFields(page);
+  const postAs = page.getByRole("button", { name: "გაგრძელება", exact: true });
+  await expect(total.or(postAs).first()).toBeVisible();
+  if (await postAs.isVisible()) await postAs.click();
+  await expect(total).toBeVisible();
+  return true;
+}
+
+async function openSaleEdit(page: Page, id: string): Promise<boolean> {
+  await page.goto(`/create/sale?edit=${id}`);
+  if (page.url().includes("/auth/login")) return false;
+  await expect(priceFields(page).total).toBeVisible();
+  return true;
+}
+
+/**
+ * A sale listing of the seller's. The edit form sends back every column a test
+ * leaves alone, rebuilt with these values, so a proposal holds only the change.
+ */
+async function createSaleListing(
+  price: {
+    sale_price: number;
+    sale_price_gel: number | null;
+    sale_price_currency: string;
+    /** Overrides the 47 m² default. */
+    area_sqm?: number;
+  },
+  createdAt?: string,
+): Promise<string> {
+  const id = randomUUID();
+  await properties.create({
+    id,
+    owner_id: TEST_IDS.seller,
+    type: "apartment",
+    title: `E2E sale price ${id.slice(0, 8)}`,
+    description: "Sale price pair fixture",
+    location: "ბაკურიანი",
+    area_sqm: 47,
+    photos: [
+      "/placeholder-property.jpg",
+      "/placeholder-property.jpg",
+      "/placeholder-property.jpg",
+    ],
+    phone: "+995599000004",
+    status: "active",
+    is_for_sale: true,
+    construction_status: "completed",
+    construction_progress_percent: null,
+    completion_year: null,
+    renovation_status: "white_frame",
+    units_total: null,
+    units_sold: 0,
+    units_reserved: 0,
+    house_rules: {
+      handover_month: null,
+      exact_location: null,
+      management_service: "complex_management",
+      price_currency: "USD",
+    },
+    ...price,
+    ...(createdAt ? { created_at: createdAt } : {}),
+  });
+  return id;
+}
+
+async function removeSaleListing(id: string) {
+  await supabaseAdmin
+    .from("content_change_requests")
+    .delete()
+    .eq("target_id", id);
+  await properties.delete(id);
+}
+
+async function reviewRequests(id: string) {
+  const { data, error } = await supabaseAdmin
+    .from("content_change_requests")
+    .select("proposed_values, field_diff")
+    .eq("target_id", id);
+  expect(error).toBeNull();
+  return data ?? [];
+}
+
+/** Sends the edit for review: the one request it filed, and its changed keys. */
+async function submitSaleEdit(page: Page, id: string) {
+  await page.getByRole("button", { name: SUBMIT_FOR_REVIEW }).click();
+  await expect(page).toHaveURL(/\/dashboard\/seller(?:$|[/?#])/);
+  const requests = await reviewRequests(id);
+  expect(requests).toHaveLength(1);
+  return {
+    proposed: requests[0].proposed_values as Record<string, unknown>,
+    changed: Object.keys(
+      requests[0].field_diff as Record<string, unknown>,
+    ).sort(),
+  };
+}
+
+test.describe("Sale price in ₾ or $", () => {
+  test("create: the chip switches only the unit, and the line shows the NBG rate", async ({
+    sellerPage,
+  }) => {
+    await preparePricePage(sellerPage, 2.5971);
+    if (!(await openNewSaleForm(sellerPage))) return;
+    const { total, chip, perSqm, lines } = priceFields(sellerPage);
+
+    await sellerPage.locator('[data-field="areaSqm"] input').fill("47");
+    await total.fill("55000");
+    await expect(perSqm).toHaveValue("1170.21");
+    // Leaving the per-m² field keeps its cents, so the total stays (not 54 990).
+    await perSqm.focus();
+    await perSqm.blur();
+    await expect(perSqm).toHaveValue("1170.21");
+    await expect(total).toHaveValue("55000");
+
+    await expect(chip).toHaveText("$");
+    await expect(chip).toHaveAttribute("aria-label", "ლარზე გადართვა");
+    const box = await chip.boundingBox();
+    expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    await expect(total).toHaveAttribute("aria-describedby", "sale-price-line");
+    await expect(perSqm).toHaveAttribute("aria-describedby", "sale-price-line");
+    await expect(lines).toHaveText([
+      `განცხადებაში ასევე: 142 841 ₾ ($1 = 2.5971 ₾, ეროვნული ბანკი, ${RATE_DATE})`,
+      TAP_FOR_GEL,
+    ]);
+
+    await chip.click();
+    await expect(chip).toHaveText("₾");
+    await expect(chip).toHaveAttribute("aria-label", "დოლარზე გადართვა");
+    await expect(total).toHaveValue("55000");
+    await expect(perSqm).toHaveValue("1170.21");
+    await expect(
+      sellerPage.locator('[data-field="pricePerSqm"]'),
+    ).toContainText("₾");
+    await expect(lines).toHaveText([
+      `განცხადებაში ასევე: $21 177 ($1 = 2.5971 ₾, ეროვნული ბანკი, ${RATE_DATE})`,
+    ]);
+  });
+
+  test("create: without an NBG rate the price stays in dollars", async ({
+    sellerPage,
+  }) => {
+    await preparePricePage(sellerPage, null);
+    if (!(await openNewSaleForm(sellerPage))) return;
+    const { total, chip, lines } = priceFields(sellerPage);
+
+    await sellerPage.locator('[data-field="areaSqm"] input').fill("47");
+    await total.fill("55000");
+    await expect(lines).toHaveText([NO_RATE_USD, TAP_FOR_GEL]);
+    // The tap asks for the rate once more, then keeps the dollars.
+    await chip.click();
+    await expect(lines).toHaveText([NO_RATE_GEL]);
+    await expect(chip).toHaveText("$");
+    await expect(total).toHaveValue("55000");
+  });
+
+  test("edit: a ₾ listing opens in ₾, and a title edit proposes its stored price", async ({
+    sellerPage,
+  }) => {
+    const id = await createSaleListing(GEL_PRICE);
+    try {
+      // At this rate 150 000 ₾ would convert to $55 556: the stored $57 757 shows.
+      await preparePricePage(sellerPage, 2.7);
+      if (!(await openSaleEdit(sellerPage, id))) return;
+      const { total, chip, lines } = priceFields(sellerPage);
+      await expect(total).toHaveValue("150000");
+      await expect(chip).toHaveText("₾");
+      await expect(lines).toHaveText(["განცხადებაში ასევე: $57 757"]);
+
+      await sellerPage
+        .locator('[data-field="title"] input')
+        .fill(`E2E sale price edited ${id.slice(0, 8)}`);
+      const { proposed, changed } = await submitSaleEdit(sellerPage, id);
+      expect(proposed).toMatchObject(GEL_PRICE);
+      expect(changed).toEqual(["title"]);
+    } finally {
+      await removeSaleListing(id);
+    }
+  });
+
+  test("edit: a tap shows the stored dollars, and tapping back saves nothing", async ({
+    sellerPage,
+  }) => {
+    const id = await createSaleListing(GEL_PRICE);
+    try {
+      await preparePricePage(sellerPage, 2.7);
+      if (!(await openSaleEdit(sellerPage, id))) return;
+      const { total, chip, lines } = priceFields(sellerPage);
+
+      await chip.click();
+      await expect(chip).toHaveText("$");
+      await expect(total).toHaveValue("57757");
+      await expect(lines).toHaveText([
+        "განცხადებაში ასევე: 150 000 ₾",
+        TAP_FOR_GEL,
+      ]);
+      await chip.click();
+      await expect(chip).toHaveText("₾");
+      await expect(total).toHaveValue("150000");
+
+      await sellerPage.getByRole("button", { name: SUBMIT_FOR_REVIEW }).click();
+      await expect(
+        sellerPage.getByRole("alert").filter({ hasText: "ცვლილება არ არის" }),
+      ).toBeVisible();
+      expect(await reviewRequests(id)).toHaveLength(0);
+    } finally {
+      await removeSaleListing(id);
+    }
+  });
+
+  test("edit: saving after a tap changes only the listing's currency", async ({
+    sellerPage,
+  }) => {
+    const id = await createSaleListing(GEL_PRICE);
+    try {
+      await preparePricePage(sellerPage, 2.7);
+      if (!(await openSaleEdit(sellerPage, id))) return;
+      const { total, chip } = priceFields(sellerPage);
+
+      await chip.click();
+      await expect(total).toHaveValue("57757");
+      const { proposed, changed } = await submitSaleEdit(sellerPage, id);
+      expect(proposed).toMatchObject({
+        ...GEL_PRICE,
+        sale_price_currency: "USD",
+      });
+      expect(changed).toEqual(["sale_price_currency"]);
+    } finally {
+      await removeSaleListing(id);
+    }
+  });
+
+  test("edit: a stored price above the caps survives a tap and a blur", async ({
+    sellerPage,
+  }) => {
+    // ₾30M (the ₾ cap) on 10 m² stores more than the $10M and $1M-per-m² caps.
+    const price = {
+      sale_price: 11551791,
+      sale_price_gel: 30000000,
+      sale_price_currency: "GEL",
+    };
+    const id = await createSaleListing({ ...price, area_sqm: 10 });
+    try {
+      await preparePricePage(sellerPage, 2.7);
+      if (!(await openSaleEdit(sellerPage, id))) return;
+      const { total, chip, perSqm } = priceFields(sellerPage);
+      const blurBoth = async () => {
+        for (const field of [total, perSqm]) {
+          await field.focus();
+          await field.blur();
+        }
+      };
+
+      await chip.click();
+      await blurBoth();
+      await expect(total).toHaveValue("11551791");
+      await expect(perSqm).toHaveValue("1155179.1");
+      await chip.click();
+      await blurBoth();
+      await expect(total).toHaveValue("30000000");
+      await sellerPage.getByRole("button", { name: SUBMIT_FOR_REVIEW }).click();
+      await expect(
+        sellerPage.getByRole("alert").filter({ hasText: "ცვლილება არ არის" }),
+      ).toBeVisible();
+      expect(await reviewRequests(id)).toHaveLength(0);
+
+      await chip.click();
+      await blurBoth();
+      const { proposed, changed } = await submitSaleEdit(sellerPage, id);
+      expect(proposed).toMatchObject({ ...price, sale_price_currency: "USD" });
+      expect(changed).toEqual(["sale_price_currency"]);
+    } finally {
+      await removeSaleListing(id);
+    }
+  });
+
+  test("edit: a retyped dollar price gets its lari at the rate the line shows", async ({
+    sellerPage,
+  }) => {
+    const id = await createSaleListing(GEL_PRICE);
+    try {
+      await preparePricePage(sellerPage, 2.7);
+      if (!(await openSaleEdit(sellerPage, id))) return;
+      const { total, chip, lines } = priceFields(sellerPage);
+
+      await chip.click();
+      await expect(total).toHaveValue("57757");
+      await total.fill("56000");
+      await expect(lines).toHaveText([
+        `განცხადებაში ასევე: 151 200 ₾ ($1 = 2.7000 ₾, ეროვნული ბანკი, ${RATE_DATE})`,
+        TAP_FOR_GEL,
+      ]);
+      const { proposed, changed } = await submitSaleEdit(sellerPage, id);
+      expect(proposed).toMatchObject({
+        sale_price: 56000,
+        sale_price_gel: 151200,
+        sale_price_currency: "USD",
+      });
+      expect(changed).toEqual([
+        "sale_price",
+        "sale_price_currency",
+        "sale_price_gel",
+      ]);
+    } finally {
+      await removeSaleListing(id);
+    }
+  });
+
+  test("edit: a legacy dollar price keeps its cents through a blur and a title edit", async ({
+    sellerPage,
+  }) => {
+    const id = await createSaleListing({
+      sale_price: 55000.5,
+      sale_price_gel: null,
+      sale_price_currency: "USD",
+    });
+    try {
+      await preparePricePage(sellerPage, 2.5971);
+      if (!(await openSaleEdit(sellerPage, id))) return;
+      const { total, chip, lines } = priceFields(sellerPage);
+
+      await expect(total).toHaveValue("55000.5");
+      await expect(chip).toHaveText("$");
+      await total.focus();
+      await total.blur();
+      await expect(total).toHaveValue("55000.5");
+      // It has no saved lari, and an untouched edit adds none: only the hint.
+      await expect(lines).toHaveText([TAP_FOR_GEL]);
+
+      await sellerPage
+        .locator('[data-field="title"] input')
+        .fill(`E2E sale price edited ${id.slice(0, 8)}`);
+      const { proposed, changed } = await submitSaleEdit(sellerPage, id);
+      expect(proposed).toMatchObject({
+        sale_price: 55000.5,
+        sale_price_gel: null,
+        sale_price_currency: "USD",
+      });
+      expect(changed).toEqual(["title"]);
+    } finally {
+      await removeSaleListing(id);
+    }
+  });
+
+  test("the seller dashboard prints a ₾ listing in ₾ whatever the visitor's pick", async ({
+    sellerPage,
+  }) => {
+    // Newest, so it is among the overview's four latest listings.
+    const id = await createSaleListing(
+      GEL_PRICE,
+      new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    );
+    try {
+      await sellerPage.goto("/dashboard/seller");
+      if (!(await assertDashboard(sellerPage, "/dashboard/seller"))) return;
+      const card = sellerPage.locator(`[data-listing-id="${id}"]`);
+      await expect(card).toContainText("150 000 ₾");
+
+      for (const pick of ["USD", "GEL"]) {
+        await sellerPage.evaluate(
+          (value) => window.localStorage.setItem("mybakuriani:currency", value),
+          pick,
+        );
+        await sellerPage.reload();
+        await expect(card).toContainText("150 000 ₾");
+        await expect(card).not.toContainText("$57 757");
+      }
+    } finally {
+      await removeSaleListing(id);
+    }
   });
 });

@@ -7,11 +7,11 @@ import { CARD_BLUR_DATA_URL } from "@/lib/image-blur";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
-import { formatSalePrice } from "@/lib/utils/format";
 import { useMoney } from "@/lib/currency/client";
+import type { SalePriceRow } from "@/lib/currency/money";
 import { cardEnter } from "@/lib/utils/enterAnimation";
 import { useFavorite } from "@/lib/hooks/useFavorite";
-import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
+import { isDiscountActive } from "@/lib/utils/pricing";
 import { FavoriteButton } from "@/components/shared/FavoriteButton";
 import { ListingBadge } from "@/components/shared/ListingBadge";
 import { ListingCardAction } from "@/components/shared/ListingCardAction";
@@ -26,7 +26,8 @@ interface SalePropertyCardProps {
   title: string;
   location: string;
   photos: string[];
-  priceUsd: number;
+  /** The listing's sale price columns (C54). */
+  sale: SalePriceRow | null;
   /** `properties.type` — only used to render land plots as plots, not houses. */
   type?: string | null;
   area?: number | null;
@@ -50,7 +51,7 @@ export default function SalePropertyCard({
   title,
   location,
   photos,
-  priceUsd,
+  sale,
   type,
   area,
   rooms,
@@ -90,17 +91,19 @@ export default function SalePropertyCard({
     : roomsText;
 
   const discountActive = isDiscountActive(discountPercent, discountExpiresAt);
-  const displayPriceUsd = applyDiscount(
-    priceUsd,
-    discountPercent,
-    discountExpiresAt,
-  );
-  const pricePerSqm =
-    !isLand && area && displayPriceUsd
-      ? Math.round(displayPriceUsd / area)
-      : null;
-  // Unrounded, so a converted $/m² (C55) is not rounded twice.
-  const exactPricePerSqm = area ? displayPriceUsd / area : 0;
+  // Through useMoney().sale (C54): its seller's currency until a pick, then
+  // the other stored number; the discount and the per-m² figure start from
+  // the shown number.
+  const saleMoney = sale
+    ? money.sale(
+        {
+          ...sale,
+          discount_percent: discountPercent,
+          discount_expires_at: discountExpiresAt,
+        },
+        { areaSqm: isLand ? null : area },
+      )
+    : null;
 
   return (
     <motion.div
@@ -220,27 +223,19 @@ export default function SalePropertyCard({
 
           <div className="mt-auto flex items-end justify-between gap-3 pt-4">
             <div>
-              {discountActive && (
+              {saleMoney?.originalText && (
                 <span className="block whitespace-nowrap text-[12px] font-bold leading-[16px] text-[#94A3B8] line-through">
-                  {money.format(priceUsd, "USD", formatSalePrice(priceUsd))}
+                  {saleMoney.originalText}
                 </span>
               )}
-              <span className="block whitespace-nowrap text-[22px] font-black leading-[28px] text-[#16A34A]">
-                {money.format(
-                  displayPriceUsd,
-                  "USD",
-                  formatSalePrice(displayPriceUsd),
-                )}
-              </span>
-              {pricePerSqm && (
+              {saleMoney && (
+                <span className="block whitespace-nowrap text-[22px] font-black leading-[28px] text-[#16A34A]">
+                  {saleMoney.text}
+                </span>
+              )}
+              {saleMoney?.perSqmText && (
                 <span className="block text-[11px] font-medium text-[#94A3B8]">
-                  {t("pricePerSqm", {
-                    price: money.format(
-                      exactPricePerSqm,
-                      "USD",
-                      formatSalePrice(pricePerSqm),
-                    ),
-                  })}
+                  {t("pricePerSqm", { price: saleMoney.perSqmText })}
                 </span>
               )}
             </div>

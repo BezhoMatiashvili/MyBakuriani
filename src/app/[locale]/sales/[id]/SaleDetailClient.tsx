@@ -24,10 +24,10 @@ import { WhatsAppButton } from "@/components/shared/WhatsAppButton";
 import { optionKeyFor } from "@/lib/constants/listing-options";
 import { readPaymentOptions } from "@/lib/constants/sale-listing";
 import { PhotoGallery } from "@/components/detail/PhotoGallery";
-import { formatRelativeGe, formatSalePrice } from "@/lib/utils/format";
+import { formatRelativeGe } from "@/lib/utils/format";
 import { useMoney } from "@/lib/currency/client";
 import { enterUp, enterLeft } from "@/lib/utils/enterAnimation";
-import { isDiscountActive, applyDiscount } from "@/lib/utils/pricing";
+import { isDiscountActive } from "@/lib/utils/pricing";
 import ConstructionProgressBar from "@/components/shared/ConstructionProgressBar";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
@@ -198,7 +198,12 @@ export default function SaleDetailClient({
       {
         id: property.id,
         title: property.title,
-        price: Number(property.sale_price ?? 0),
+        // The price columns only: a pin shows no discount.
+        sale: {
+          sale_price: property.sale_price,
+          sale_price_gel: property.sale_price_gel,
+          sale_price_currency: property.sale_price_currency,
+        },
         lat: Number(property.location_lat),
         lng: Number(property.location_lng),
         isVip: property.is_vip ?? false,
@@ -239,19 +244,17 @@ export default function SaleDetailClient({
   // — or still waiting on content-change approval — can still carry them.
   const isLand = property.type === "land";
 
-  const salePrice = property.sale_price ?? 0;
+  // Through useMoney().sale (C54): its seller's currency until a pick, then
+  // the other stored number; the discount and the per-m² figure start from
+  // the shown number. null without a price ("negotiable").
+  const saleMoney = money.sale(property, {
+    areaSqm: isLand ? null : property.area_sqm,
+  });
   const roiPercent = property.roi_percent ?? 0;
   const discountActive = isDiscountActive(
     property.discount_percent,
     property.discount_expires_at,
   );
-  const displaySalePrice = discountActive
-    ? applyDiscount(
-        salePrice,
-        property.discount_percent,
-        property.discount_expires_at,
-      )
-    : salePrice;
 
   const postedAgo = (() => {
     if (!property.created_at) return null;
@@ -684,7 +687,6 @@ export default function SaleDetailClient({
                     className="h-[320px] w-full"
                     embedded
                     properties={mapMarkers}
-                    isForSale
                     showRouteButton
                   />
                 </LazyOnVisible>
@@ -733,31 +735,17 @@ export default function SaleDetailClient({
               )}
 
               <div className="mb-1 text-sm text-[#94A3B8]">{t("price")}</div>
-              {discountActive && salePrice > 0 && (
+              {saleMoney?.originalText && (
                 <div className="text-sm font-bold text-[#94A3B8] line-through">
-                  {money.format(salePrice, "USD", formatSalePrice(salePrice))}
+                  {saleMoney.originalText}
                 </div>
               )}
               <div className="text-[32px] font-black leading-[34px] text-[#1E293B]">
-                {salePrice > 0
-                  ? money.format(
-                      displaySalePrice,
-                      "USD",
-                      formatSalePrice(Math.round(displaySalePrice)),
-                    )
-                  : t("negotiable")}
+                {saleMoney ? saleMoney.text : t("negotiable")}
               </div>
-              {property.area_sqm != null && salePrice > 0 && !isLand && (
+              {saleMoney?.perSqmText && (
                 <div className="mt-1 text-sm text-[#94A3B8]">
-                  {t("pricePerSqm", {
-                    price: money.format(
-                      displaySalePrice / property.area_sqm,
-                      "USD",
-                      formatSalePrice(
-                        Math.round(displaySalePrice / property.area_sqm),
-                      ),
-                    ),
-                  })}
+                  {t("pricePerSqm", { price: saleMoney.perSqmText })}
                 </div>
               )}
 
@@ -977,15 +965,7 @@ export default function SaleDetailClient({
       </AnimatePresence>
 
       <MobileStickyCTA
-        primary={
-          salePrice > 0
-            ? money.format(
-                displaySalePrice,
-                "USD",
-                formatSalePrice(Math.round(displaySalePrice)),
-              )
-            : t("negotiable")
-        }
+        primary={saleMoney ? saleMoney.text : t("negotiable")}
         secondary={property.location ?? undefined}
         ctaLabel={t("call")}
         onClick={() =>

@@ -22,6 +22,7 @@ import {
   type PricingPackage,
 } from "@/lib/pricing-packages";
 import { isSuperVipActive } from "@/lib/utils/pricing";
+import { saleOwnPrice } from "@/lib/utils/format";
 import {
   promotionPurchaseError,
   purchaseReasonMessages,
@@ -384,7 +385,11 @@ export default function PropertyBalanceClient() {
           subtitle: p.location ?? undefined,
           photoUrl: (p.photos ?? [])[0] ?? null,
           isForSale: p.is_for_sale ?? false,
-          price: (p.is_for_sale ? p.sale_price : p.price_per_night) ?? null,
+          // A sale's discount is picked in its seller's currency (C54).
+          price: p.is_for_sale
+            ? (saleOwnPrice(p)?.amount ?? null)
+            : (p.price_per_night ?? null),
+          priceCurrency: p.is_for_sale ? saleOwnPrice(p)?.currency : undefined,
           standardVipDisabled: isSuperVipActive(
             p.is_super_vip,
             p.vip_expires_at,

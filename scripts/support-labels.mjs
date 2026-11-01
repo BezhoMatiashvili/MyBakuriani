@@ -29,6 +29,7 @@ const OVERRIDES = {
   "მთავარი გვერდი": "DashboardSidebar.nav.homePage",
   "მოლოდინში": "ListingOptions.listingStatuses.pending",
   "ყველას ნახვა": "Navbar.viewAll",
+  "ჯამური ფასი": "CreateSale.totalPrice",
 };
 
 function flatten(object, prefix = "", out = new Map()) {

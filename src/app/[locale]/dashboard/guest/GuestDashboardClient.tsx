@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { trackAnalyticsEvent } from "@/lib/analytics/track-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMoney } from "@/lib/currency/client";
-import { formatPrice, formatSalePrice } from "@/lib/utils/format";
+import { formatPrice } from "@/lib/utils/format";
 import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { priceUnitPathFor } from "@/lib/constants/listing-options";
 import { propertyViewUrl, serviceViewUrl } from "@/lib/utils/listingUrls";
@@ -437,18 +437,18 @@ function RecentListingCard({ entry }: { entry: RecentListing }) {
   const photo = (l.photos ?? [])[0];
   const isSale =
     entry.kind === "property" && Boolean(entry.listing.is_for_sale);
+  // A sale's price comes from fx.sale below; this is a rental's or service's.
   const base =
     entry.kind === "property"
-      ? Number(
-          (isSale ? entry.listing.sale_price : entry.listing.price_per_night) ??
-            0,
-        )
+      ? isSale
+        ? null
+        : Number(entry.listing.price_per_night ?? 0)
       : entry.listing.price != null
         ? Number(entry.listing.price)
         : null;
-  // C10 via the shared helpers (sales too, as SalePropertyCard does). C21: a
-  // food listing's own discount is never applied; food discounts live per
-  // menu item.
+  // C10 via the shared helpers (a sale's inside fx.sale, as on
+  // SalePropertyCard). C21: a food listing's own discount is never applied;
+  // food discounts live per menu item.
   const discounted =
     !(entry.kind === "service" && entry.listing.category === "food") &&
     isDiscountActive(l.discount_percent, l.discount_expires_at);
@@ -456,12 +456,22 @@ function RecentListingCard({ entry }: { entry: RecentListing }) {
     base != null && discounted
       ? applyDiscount(base, l.discount_percent, l.discount_expires_at)
       : base;
-  // Sale prices are entered and stored in USD, so they render with "$" like
-  // the sale cards do; a visitor's currency pick converts either (C55).
-  const money = (n: number) =>
-    isSale
-      ? fx.format(n, "USD", formatSalePrice(n))
-      : fx.format(n, "GEL", formatPrice(n));
+  // A sale prints like the sale cards (C54: its seller's currency until a
+  // pick, then the other stored number); anything else's lari follow the
+  // pick (C55).
+  const saleMoney =
+    entry.kind === "property" && isSale ? fx.sale(entry.listing) : null;
+  const money = (n: number) => fx.format(n, "GEL", formatPrice(n));
+  const priceText = saleMoney
+    ? saleMoney.text
+    : price != null
+      ? money(price)
+      : null;
+  const originalText = saleMoney
+    ? saleMoney.originalText
+    : discounted && base != null
+      ? money(base)
+      : null;
   const unitPath =
     entry.kind === "service"
       ? priceUnitPathFor(entry.listing.price_unit)
@@ -512,15 +522,15 @@ function RecentListingCard({ entry }: { entry: RecentListing }) {
           <Eye className="h-3 w-3" />
           {t("views", { count: l.views_count ?? 0 })}
         </p>
-        {price != null && (
+        {priceText != null && (
           <div className="mt-auto flex items-baseline gap-1 pt-2">
-            {discounted && base != null && (
+            {originalText != null && (
               <span className="text-[11px] font-medium text-[#94A3B8] line-through">
-                {money(base)}
+                {originalText}
               </span>
             )}
             <span className="text-[16px] font-black text-[#0F172A]">
-              {money(price)}
+              {priceText}
             </span>
             {unit && (
               <span className="text-[11px] font-medium text-[#94A3B8]">

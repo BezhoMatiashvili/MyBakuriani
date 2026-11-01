@@ -3659,20 +3659,60 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C53: ${tables.length} period tables and ${entryPoints.length} entry points service_role only (RLS on, no policy), ${functions.length} functions pinned to search_path '' and closed to client roles; benefit/role/name/listing limits = CHECKs and enum; ${raised.size + 1} database tokens → ${codes.length} worded error codes; ${handlerCount} handlers start with requireAdmin, writers rate-limited under the admin's id; tables named only by the admin API; sign-up trigger swallows errors, no trigger on properties/services, cron SQL-only, no transactions row, bell-only notices; pure module bare; namespace, nav label and both menus wired`);
 }
 
-// C54 — sale prices are US dollars: properties.sale_price stores what the sale form's USD price field took
-// (house_rules.price_currency = "USD"), so every sale surface prints it through formatSalePrice and nothing
-// converts it. (a) formatSalePrice is `$` + formatNumber; (b) no ₾↔$ rate constant anywhere in src; (c) no
-// formatPrice(…) (₾) is handed a sale price; (d) the sale-only components never call formatPrice; (e) every
-// sale surface prints through formatSalePrice; (f) Baku's search_sale budget is prompted in dollars.
+// C54 — a sale price is typed in ₾ or $ and both are stored (sale_price = US dollars, what sorting, the filters and
+// budgets read; sale_price_gel = lari; sale_price_currency = the seller's), printed through ONE rule in
+// src/lib/currency/money.ts. (a) formatSalePrice is `$` + formatNumber; (b) no ₾↔$ rate constant anywhere in src;
+// (c) outside money.ts, client.ts, format.ts and Money.tsx no line both formats (formatPrice, formatSalePrice,
+// formatNumber, formatInCurrency, a template ${…}, toLocaleString, Intl.NumberFormat, or C55's converting
+// printers .format/.converted and a JSX amount={…}) and names a sale price (sale_?price, so also _gel and a nested
+// call; the formatter's own name, SalePrice* types and string contents don't count; per line and by name, so a
+// call wrapped over lines, a value read into another name first, bracket access or an aliased formatter goes
+// unseen), and nothing compares sale_price_currency (only money.ts:salePrice reads it); (d) the sale-only
+// components never call formatPrice;
+// (e) the public sale surfaces print through useMoney().sale or <Money sale> with no formatSalePrice and no "USD",
+// the own-currency ones (cabinets, the OG card, metadata) through saleOwnPrice/formatSaleOwnPrice, and the discount
+// picker takes its sign from priceCurrency; a listed file that is missing fails; (f) Baku's search_sale budget is
+// prompted in dollars; (g) a string literal that lists sale_price also lists sale_price_gel and sale_price_currency,
+// except the USD aggregates' column list and the rental-only selects.
 {
   const problems = [];
   if (!/export function formatSalePrice\(amount: number\): string \{\s*return `\$\$\{formatNumber\(amount\)\}`;/.test(read("src/lib/utils/format.ts")))
     problems.push("src/lib/utils/format.ts must export formatSalePrice(amount) = `$${formatNumber(amount)}`");
+  // Line-preserving views: `codeOf` blanks comments; `bareOf` also blanks every string's text, keeping a template's
+  // ${…} expressions (their own strings blanked too), so only code can name a sale price.
+  const token = /\/\*[\s\S]*?\*\/|\/\/[^\n]*|`(?:[^`\\]|\\.)*`|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g;
+  const blank = (s) => s.replace(/[^\n]/g, " ");
+  const blankQuoted = (s) => s.replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g, (q) => q[0] + blank(q.slice(1, -1)) + q[0]);
+  const keepExpressions = (t) => {
+    let out = "";
+    for (let i = 0, depth = 0; i < t.length; i += 1) {
+      if (!depth && t[i] === "$" && t[i + 1] === "{") {
+        out += "${";
+        depth = 1;
+        i += 1;
+      } else if (depth) {
+        depth += t[i] === "{" ? 1 : t[i] === "}" ? -1 : 0;
+        out += t[i];
+      } else out += t[i] === "\n" ? "\n" : " ";
+    }
+    return blankQuoted(out);
+  };
+  const codeOf = (text) => text.replace(token, (m) => (m[0] === "/" ? blank(m) : m));
+  const bareOf = (text) =>
+    text.replace(token, (m) => (m[0] === "/" ? blank(m) : m[0] === "`" ? "`" + keepExpressions(m.slice(1, -1)) + "`" : m[0] + blank(m.slice(1, -1)) + m[0]));
+  const HELPERS = new Set(["src/lib/currency/money.ts", "src/lib/currency/client.ts", "src/lib/utils/format.ts", "src/components/shared/Money.tsx"]);
+  const formats = /\bformat(?:Sale)?Price\(|\bformatNumber\(|\bformatInCurrency\(|\$\{|\.(?:format|converted|toLocaleString)\(|\bamount=\{|\bIntl\.NumberFormat\b/;
+  const compares = /\bsale_?price_?currency\s*[!=]==?|[!=]==?\s*[\w$.?!]*\bsale_?price_?currency\b|\bswitch\s*\([^)]*\bsale_?price_?currency\b/i;
   for (const [file, text] of srcText) {
     if (/\b(?:GEL_TO_USD|USD_TO_GEL|GEL_PER_USD|USD_PER_GEL)\b/.test(text)) problems.push(`${file} converts between ₾ and $`);
-    text.split("\n").forEach((line, i) => {
-      if (/\bformatPrice\([^)]*sale_?price/i.test(line)) problems.push(`${file}:${i + 1} hands a sale price to formatPrice (₾)`);
-    });
+    if (HELPERS.has(file) || !/sale_?price/i.test(text)) continue;
+    bareOf(text)
+      .split("\n")
+      .forEach((line, i) => {
+        if (formats.test(line) && /sale_?price/i.test(line.replace(/\bformatSalePrice\b|\b(?:[A-Z]\w*)?SalePrice\w*/g, " ")))
+          problems.push(`${file}:${i + 1} formats a sale price itself (print it through useMoney().sale, <Money sale> or formatSaleOwnPrice)`);
+        if (compares.test(line)) problems.push(`${file}:${i + 1} compares sale_price_currency (only money.ts:salePrice reads it)`);
+      });
   }
   const saleOnly = [
     "src/components/cards/InvestmentCard.tsx",
@@ -3680,31 +3720,65 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     "src/app/[locale]/sales/[id]/SaleDetailClient.tsx",
     "src/components/search/SaleSearchBox.tsx",
   ];
-  const mixed = [
-    "src/app/[locale]/_landing/SaleLandingBody.tsx",
+  const publicSale = [
     "src/components/cards/PropertyCard.tsx",
-    "src/components/seo/ListingFacts.tsx",
+    "src/components/cards/InvestmentCard.tsx",
+    "src/components/cards/SalePropertyCard.tsx",
+    "src/app/[locale]/sales/[id]/SaleDetailClient.tsx",
     "src/components/maps/MapboxCanvas.tsx",
-    "src/components/renter/VipPropertyPickerModal.tsx",
-    "src/app/[locale]/dashboard/seller/SellerDashboardClient.tsx",
-    "src/app/[locale]/dashboard/admin/listings/page.tsx",
+    "src/components/seo/ListingFacts.tsx",
     "src/app/[locale]/dashboard/guest/GuestDashboardClient.tsx",
     "src/app/[locale]/dashboard/guest/favorites/page.tsx",
   ];
-  for (const file of saleOnly) {
+  const ownCurrency = [
+    "src/app/api/og/listing/[kind]/[id]/route.tsx",
+    "src/components/seo/ListingFacts.tsx",
+    "src/app/[locale]/dashboard/seller/SellerDashboardClient.tsx",
+    "src/app/[locale]/dashboard/seller/listings/page.tsx",
+    "src/components/balance/PropertyBalanceClient.tsx",
+    "src/app/[locale]/dashboard/admin/listings/page.tsx",
+    "src/components/admin/ListingAuditPanel.tsx",
+  ];
+  const picker = "src/components/renter/VipPropertyPickerModal.tsx";
+  for (const file of new Set([...saleOnly, ...publicSale, ...ownCurrency, picker]))
     if (!srcText.has(file)) problems.push(`${file} is missing (update the C54 list)`);
-    else if (/\bformatPrice\(/.test(srcText.get(file))) problems.push(`${file} shows only sale prices but calls formatPrice (₾)`);
+  const code = (file) => codeOf(srcText.get(file) ?? "");
+  for (const file of saleOnly.filter((f) => srcText.has(f)))
+    if (/\bformatPrice\(/.test(srcText.get(file))) problems.push(`${file} shows only sale prices but calls formatPrice (₾)`);
+  for (const file of publicSale.filter((f) => srcText.has(f))) {
+    if (!/\.sale\(|<Money\b[^>]*\bsale=/.test(code(file))) problems.push(`${file} must print its sale price through useMoney().sale or <Money sale>`);
+    if (/\bformatSalePrice\(/.test(code(file))) problems.push(`${file} prints a sale price as dollars (formatSalePrice): a sale shows its seller's currency through useMoney().sale`);
+    if (/(["'`])USD\1/.test(code(file))) problems.push(`${file} names "USD": a sale's currency comes from its row (useMoney().sale)`);
   }
-  for (const file of [...saleOnly, ...mixed]) {
-    if (srcText.has(file) && !/\bformatSalePrice\(/.test(srcText.get(file))) problems.push(`${file} does not print its sale price through formatSalePrice`);
-    else if (!srcText.has(file) && mixed.includes(file)) problems.push(`${file} is missing (update the C54 list)`);
-  }
+  for (const file of ownCurrency.filter((f) => srcText.has(f)))
+    if (!/\b(?:saleOwnPrice|formatSaleOwnPrice)\(/.test(code(file))) problems.push(`${file} must print a sale in its seller's currency through saleOwnPrice or formatSaleOwnPrice`);
+  const sign = code(picker).match(/\bconst (\w+) = \w+\?\.priceCurrency === "USD";/);
+  if (srcText.has(picker) && (!sign || !new RegExp(`\\b${sign[1]} \\? formatSalePrice\\(`).test(code(picker))))
+    problems.push(`${picker} must take a price's sign from priceCurrency (its builders set it through saleOwnPrice), not from isForSale`);
   if (!/\bprice_max \(the highest total price in US dollars\)/.test(read("src/lib/support/actions.ts")))
     problems.push("src/lib/support/actions.ts: search_sale must prompt price_max in US dollars");
   if (!/US dollars in total for sales/.test(read("src/lib/support/plan.ts")))
     problems.push("src/lib/support/plan.ts: the reply tool's price_max must say sales are US dollars");
+  // (g) A literal's text only (a template's ${…} expressions don't list columns). Rental-only: a
+  // LANDING_RENTAL/HOTEL_COLUMNS constant, or a .select( whose query then filters is_for_sale false. USD aggregates:
+  // the zone-average and appraisal column list, in their two files.
+  const aggregateFiles = new Set(["src/app/[locale]/page.tsx", "src/components/search/SaleSearchBox.tsx"]);
+  const aggregateColumns = "sale_price, area_sqm, location_lat, location_lng";
+  const selects = { pair: 0, rental: 0, aggregate: 0 };
+  for (const [file, text] of srcText) {
+    if (!text.includes("sale_price")) continue;
+    for (const m of text.matchAll(token)) {
+      const body = m[0][0] === "`" ? m[0].slice(1, -1).replace(/\$\{(?:[^{}]|\{[^{}]*\})*\}/g, " ") : m[0].slice(1, -1);
+      if (m[0][0] === "/" || !/\bsale_price\b/.test(body) || !body.includes(",")) continue;
+      if (/\bsale_price_gel\b/.test(body) && /\bsale_price_currency\b/.test(body)) selects.pair += 1;
+      else if (/\bexport const LANDING_(?:RENTAL|HOTEL)_COLUMNS =\s*$/.test(text.slice(0, m.index)) || /^\s*,?\s*\)\s*\.eq\(\s*"is_for_sale",\s*false\s*\)/.test(text.slice(m.index + m[0].length)))
+        selects.rental += 1;
+      else if (aggregateFiles.has(file) && body === aggregateColumns) selects.aggregate += 1;
+      else problems.push(`${file}:${text.slice(0, m.index).split("\n").length} lists sale_price without sale_price_gel, sale_price_currency (a ₾ sale would print its dollars)`);
+    }
+  }
   if (problems.length) problems.forEach((p) => fail(`C54: ${p}`));
-  else ok(`C54: sale prices print as $ through formatSalePrice on ${saleOnly.length + mixed.length} surfaces (${saleOnly.length} sale-only without formatPrice); no ₾↔$ rate, no sale price handed to formatPrice; Baku's sale budget prompted in dollars`);
+  else ok(`C54: sales print through money.ts's one rule: no line outside its ${HELPERS.size} helpers formats a sale price or compares sale_price_currency; ${publicSale.length} public sale surfaces through useMoney().sale / <Money sale> (no formatSalePrice, no "USD"), ${ownCurrency.length} in the seller's currency through saleOwnPrice / formatSaleOwnPrice, the discount picker's sign from priceCurrency, ${saleOnly.length} sale-only without formatPrice; ${selects.pair} sale selects carry the pair (${selects.rental} rental-only and ${selects.aggregate} USD-aggregate selects exempt); no ₾↔$ rate; Baku's sale budget prompted in dollars`);
 }
 
 // C54/pair — repo twins of 20261028120000 (a sale price typed in ₾ or $, both stored), read from the migrations with
@@ -3762,20 +3836,25 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 
 // C55 — visitor currency: a public price follows the header's GEL/USD pick, converted only by <Money>/useMoney after
 // hydration, at the National Bank of Georgia's official rate for the Tbilisi day. (a) only src/lib/currency/nbg.ts
-// (server-only) calls nbg.gov.ge, with ?date=; nothing outside src/lib/currency converts, nothing hard-codes a rate,
-// money.ts is pure; (b) the pick and the rate are read through useSyncExternalStore with the null server snapshot and
-// their storage keys live only in client.ts; (c) LanguageSelector withCurrency sits on exactly the public headers and
-// the guest top bar; (d) every public price surface prints through <Money>/useMoney; (e) payments, balances, packages,
-// forms, owner/admin cabinets and Smart Match offers never import the currency primitives; (f) /api/fx/usd serves
-// getNbgUsdRate.
+// (server-only) calls nbg.gov.ge, with ?date=; nothing outside src/lib/currency converts (convertSaleAmount and
+// salePriceToSave: the sale form only, C54), nothing hard-codes a rate, money.ts is pure; (b) the pick and the rate are
+// read through useSyncExternalStore with the null server snapshot and their storage keys live only in client.ts, and
+// refreshRate resolves to the rate (Promise<UsdRate | null>); (c) LanguageSelector withCurrency sits on exactly the
+// public headers and the guest top bar; (d) every public price surface prints through <Money>/useMoney; (e) payments,
+// balances, packages, forms, owner/admin cabinets and Smart Match offers never import the currency primitives, except
+// the sale form's named imports (type specifiers stripped): refreshRate and useUsdRate from client.ts and money.ts's
+// pure helpers, never the pick, useMoney or <Money>; (f) /api/fx/usd serves getNbgUsdRate.
 {
   const problems = [];
   const NBG = "src/lib/currency/nbg.ts";
   const CLIENT = "src/lib/currency/client.ts";
+  const SALE_FORM = "src/app/[locale]/create/sale/page.tsx";
   for (const [file, text] of srcText) {
     if (file !== NBG && /nbg\.gov\.ge/.test(text)) problems.push(`${file} calls NBG (only ${NBG} may)`);
     if (!file.startsWith("src/lib/currency/") && /\b(?:convertAmount|convertedPriceText|formatConvertedAmount)\(/.test(text))
       problems.push(`${file} converts a price itself (use <Money>/useMoney)`);
+    if (!file.startsWith("src/lib/currency/") && file !== SALE_FORM && /\b(?:convertSaleAmount|salePriceToSave)\(/.test(text))
+      problems.push(`${file} converts or saves a sale price (only ${SALE_FORM} may, C54)`);
     if (/\bgelPerUsd\s*[:=]\s*[\d.]/.test(text)) problems.push(`${file} hard-codes a lari/dollar rate`);
     if (file !== CLIENT && /mybakuriani:(?:currency|fx_usd)/.test(text))
       problems.push(`${file} reads the currency pick or rate from storage (only ${CLIENT} may)`);
@@ -3787,6 +3866,8 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   const client = read(CLIENT);
   if (!/const serverSnapshot = \(\) => null;/.test(client) || (client.match(/useSyncExternalStore\(\s*subscribe,\s*read\w+,\s*serverSnapshot,?\s*\)/g) || []).length !== 2)
     problems.push(`${CLIENT} must read the pick and the rate through useSyncExternalStore with the null server snapshot`);
+  if (!/^export function refreshRate\(force = false\): Promise<UsdRate \| null> \{$/m.test(client))
+    problems.push(`${CLIENT} must export refreshRate(force = false): Promise<UsdRate | null> (the sale form takes its rate snapshot from it)`);
   const mounts = new Map();
   for (const [file, text] of srcText) {
     const n = (text.match(/<LanguageSelector\b[^>]*\bwithCurrency\b/g) || []).length;
@@ -3822,12 +3903,30 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   }
   const storedOnly = /^src\/(?:app\/\[locale\]\/(?:dashboard\/(?!guest\/)|create\/|checkout\/|pricing\/)|components\/(?:admin|renter|seller|cleaner|balance|payments)\/|components\/guest\/GuestOffersModal\.tsx$|lib\/(?:payments|finance)\/|app\/api\/(?!fx\/))/;
   for (const [file, text] of srcText) {
-    if (storedOnly.test(file) && /from "@\/(?:lib\/currency\/|components\/shared\/Money)/.test(text))
+    if (file !== SALE_FORM && storedOnly.test(file) && /from "@\/(?:lib\/currency\/|components\/shared\/Money)/.test(text))
       problems.push(`${file} converts prices (payments, balances, packages, forms, cabinets and Smart Match offers stay as stored)`);
+  }
+  // (e) the sale form's exception (C54: it reads the NBG rate to store the other currency): only named imports of a
+  // currency module, parsed with `type` specifiers stripped; no default, namespace, side-effect or dynamic import.
+  const form = srcText.get(SALE_FORM);
+  if (!form) problems.push(`${SALE_FORM} is missing (update the C55 sale-form exception)`);
+  else {
+    const formCode = form.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|`(?:[^`\\]|\\.)*`|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g, (m) => (m[0] === "/" ? " " : m));
+    const moneyExports = new Set([...read("src/lib/currency/money.ts").matchAll(/^export (?:const|function|interface|type|class|enum) (\w+)/gm)].map((m) => m[1]));
+    const allowed = new Map([["@/lib/currency/client", new Set(["refreshRate", "useUsdRate"])], ["@/lib/currency/money", moneyExports]]);
+    const named = [...formCode.matchAll(/\bimport\s+(?:type\s+)?\{([^{}]*)\}\s*from\s*"([^"]+)"/g)].filter((m) => /^@\/(?:lib\/currency\/|components\/shared\/Money\b)/.test(m[2]));
+    const mentions = formCode.match(/["'`]@\/(?:lib\/currency\/|components\/shared\/Money\b)[^"'`]*["'`]/g) ?? [];
+    if (mentions.length !== named.length) problems.push(`${SALE_FORM} must import the currency modules by name only (no default, namespace, side-effect or dynamic import)`);
+    for (const [, list, from] of named) {
+      const extra = list.split(",").map((s) => s.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0]).filter((n) => n && !allowed.get(from)?.has(n));
+      if (extra.length) problems.push(`${SALE_FORM} imports ${extra.join(", ")} from ${from} (only refreshRate and useUsdRate from @/lib/currency/client, and money.ts's pure helpers)`);
+    }
+    if (/\b(?:useMoney|useDisplayCurrency|setDisplayCurrency)\b|<Money\b/.test(formCode.replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g, '""')))
+      problems.push(`${SALE_FORM} must not read the visitor's pick (useMoney, useDisplayCurrency, setDisplayCurrency, <Money>)`);
   }
   if (!/await getNbgUsdRate\(\)/.test(read("src/app/api/fx/usd/route.ts"))) problems.push("src/app/api/fx/usd/route.ts must serve getNbgUsdRate()");
   if (problems.length) problems.forEach((p) => fail(`C55: ${p}`));
-  else ok(`C55: NBG called only by ${NBG} (dated, server-only), no rate constant, conversion only inside src/lib/currency; pick and rate behind the null server snapshot; switcher on ${[...wantMounts.values()].reduce((a, b) => a + b, 0)} public/guest header mounts; ${surfaces.length} public price surfaces through <Money>/useMoney; payments, balances, forms, cabinets and Smart Match offers untouched`);
+  else ok(`C55: NBG called only by ${NBG} (dated, server-only), no rate constant, conversion only inside src/lib/currency (a sale's other currency converted and saved only by ${SALE_FORM}); pick and rate behind the null server snapshot, refreshRate resolves to the rate; switcher on ${[...wantMounts.values()].reduce((a, b) => a + b, 0)} public/guest header mounts; ${surfaces.length} public price surfaces through <Money>/useMoney; payments, balances, forms, cabinets and Smart Match offers untouched, except the sale form's named rate imports (refreshRate, useUsdRate, money.ts helpers; never the pick)`);
 }
 
 // C56 — Georgian phone kinds: only a listing's or company's contact phone may be a landline; everything texted,

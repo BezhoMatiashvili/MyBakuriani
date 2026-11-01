@@ -456,6 +456,34 @@ export function buildCases({ nextDate }) {
       expect: { textAny: ["10"] },
     },
     {
+      name: "fact-ka-sale-price-lari",
+      locale: "ka",
+      cabinet: "create",
+      path: "/create/sale",
+      signedIn: true,
+      message: "შეიძლება გასაყიდი ბინის ფასი ლარში მივუთითო?",
+      expect: {
+        textAny: ["დიახ", "შეგიძლიათ", "შესაძლებელია", "დააჭირეთ"],
+        // A "no" also holds "შეგიძლიათ"; the no-rate caveat says "ვერ".
+        textNone: ["არა,", "არა.", "არ შეგიძლიათ"],
+        actionsNone: ["topup"],
+      },
+    },
+    {
+      name: "fact-en-sale-price-lari",
+      locale: "en",
+      cabinet: "create",
+      path: "/create/sale",
+      signedIn: true,
+      message: "Can I enter the sale price in lari?",
+      expect: {
+        textAny: ["yes", "tap", "press", "click", "switch"],
+        // A "no" can also say "switch"; not "can't": the no-rate caveat has it.
+        textNone: ["no,", "no."],
+        actionsNone: ["topup"],
+      },
+    },
+    {
       name: "fact-en-topup-max",
       locale: "en",
       cabinet: "seller",

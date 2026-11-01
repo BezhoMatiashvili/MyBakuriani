@@ -36,6 +36,10 @@ interface NumberFieldProps {
   allowNegative?: boolean;
   suffix?: string;
   prefix?: string;
+  /** A 44×44 tappable chip in place of `prefix` (the sale form's ₾/$ switch). */
+  prefixButton?: { label: string; ariaLabel: string; onClick: () => void };
+  /** The id of a text that describes the value (the input's aria-describedby). */
+  ariaDescribedBy?: string;
   accent?: Accent;
   /** Render −/+ buttons flanking a centered value (best for small counts). */
   stepper?: boolean;
@@ -59,6 +63,8 @@ export default function NumberField({
   allowNegative = false,
   suffix,
   prefix,
+  prefixButton,
+  ariaDescribedBy,
   accent = "blue",
   stepper = false,
   placeholder,
@@ -115,6 +121,7 @@ export default function NumberField({
         </button>
         <input
           id={id}
+          aria-describedby={ariaDescribedBy}
           type="text"
           inputMode={resolvedInputMode}
           value={value}
@@ -139,13 +146,26 @@ export default function NumberField({
 
   return (
     <div className="relative">
-      {prefix && (
-        <span className="pointer-events-none absolute inset-y-1.5 left-1.5 flex w-9 items-center justify-center rounded-lg bg-[#F1F5F9] text-sm font-semibold text-[#64748B]">
-          {prefix}
-        </span>
+      {prefixButton ? (
+        <button
+          type="button"
+          onClick={prefixButton.onClick}
+          aria-label={prefixButton.ariaLabel}
+          disabled={disabled}
+          className="absolute inset-y-0.5 left-0.5 z-10 flex w-11 items-center justify-center rounded-[10px] bg-[#F1F5F9] text-sm font-bold text-[#0F172A] transition-colors hover:bg-[#E2E8F0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] disabled:cursor-not-allowed disabled:text-[#94A3B8]"
+        >
+          {prefixButton.label}
+        </button>
+      ) : (
+        prefix && (
+          <span className="pointer-events-none absolute inset-y-1.5 left-1.5 flex w-9 items-center justify-center rounded-lg bg-[#F1F5F9] text-sm font-semibold text-[#64748B]">
+            {prefix}
+          </span>
+        )
       )}
       <input
         id={id}
+        aria-describedby={ariaDescribedBy}
         type="text"
         inputMode={resolvedInputMode}
         value={value}
@@ -159,6 +179,7 @@ export default function NumberField({
           ACCENT[accent].focus,
           ACCENT[accent].ring,
           prefix && "pl-12",
+          prefixButton && "pl-14",
           suffix && "pr-14",
           className,
         )}

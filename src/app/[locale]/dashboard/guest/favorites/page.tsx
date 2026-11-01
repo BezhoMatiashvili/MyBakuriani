@@ -16,7 +16,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
 import { useMoney } from "@/lib/currency/client";
-import { formatPrice, formatSalePrice } from "@/lib/utils/format";
+import { formatPrice } from "@/lib/utils/format";
 import { priceUnitPathFor } from "@/lib/constants/listing-options";
 import type { Database } from "@/lib/types/database";
 
@@ -228,7 +228,6 @@ function FavoritePropertyCard({
   const href = property.is_for_sale
     ? `/sales/${property.id}`
     : `/apartments/${property.id}`;
-  const salePrice = Number(property.sale_price ?? 0);
   const nightly = Number(property.price_per_night ?? 0);
 
   return (
@@ -277,14 +276,13 @@ function FavoritePropertyCard({
         </p>
         <div className="mt-auto flex items-end justify-between gap-2 pt-3">
           <div className="flex items-baseline gap-1">
-            {/* Sale prices are entered and stored in USD (the create form
-                prefixes "$" and stamps price_currency: "USD"), so they render
-                with "$" like the sale cards do — not with the GEL nightly
-                price + "/ღამე", which used to render "0 ₾ /ღამე" on every
-                favourited sale listing. */}
+            {/* A sale prints like the sale cards (C54: its seller's currency
+                until a pick, then the other stored number, the discount
+                applied) — not with the GEL nightly price + "/ღამე", which
+                used to render "0 ₾ /ღამე" on every favourited sale listing. */}
             <span className="text-[16px] font-black text-[#0F172A]">
               {property.is_for_sale
-                ? money.format(salePrice, "USD", formatSalePrice(salePrice))
+                ? money.sale(property)?.text
                 : money.format(nightly, "GEL", formatPrice(nightly))}
             </span>
             {!property.is_for_sale && (

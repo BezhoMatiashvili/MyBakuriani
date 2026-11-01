@@ -127,62 +127,68 @@
     },
     {
       "id": "e22",
-      "kind": "input",
-      "label": "ფასი მ²-ზე (USD) (0)"
+      "kind": "button",
+      "label": "ლარზე გადართვა",
+      "section": "ჯამური ფასი*"
     },
     {
       "id": "e23",
       "kind": "input",
-      "label": "ფასი (USD)* (0)",
+      "label": "ჯამური ფასი* (0)",
       "required": true
     },
     {
       "id": "e24",
+      "kind": "input",
+      "label": "ფასი მ²-ზე (0)"
+    },
+    {
+      "id": "e25",
       "kind": "button",
       "label": "შიდა განვადება",
       "section": "გადახდის პირობები"
     },
     {
-      "id": "e25",
+      "id": "e26",
       "kind": "button",
       "label": "ერთიანი გადახდა"
     },
     {
-      "id": "e26",
+      "id": "e27",
       "kind": "button",
       "label": "საბანკო განვადება"
     },
     {
-      "id": "e27",
+      "id": "e28",
       "kind": "button",
       "label": "ფოტოების ატვირთვა ჩააგდეთ აქ ან დააწკაპუნეთ მაქს. 15 ფოტო",
       "section": "მინ. 3 ფოტო"
     },
     {
-      "id": "e28",
+      "id": "e29",
       "kind": "textarea",
       "label": "აღწერა (დეტალური აღწერა ობიექტის შესახებ...)"
     },
     {
-      "id": "e29",
+      "id": "e30",
       "kind": "input",
-      "label": "ტელეფონის ნომერი* (5XX XX XX XX)",
+      "label": "ტელეფონის ნომერი* (5XX XX XX XX / 32 2XX XX XX)",
       "section": "+995",
       "required": true
     },
     {
-      "id": "e30",
+      "id": "e31",
       "kind": "input",
       "label": "WhatsApp ნომერი (5XX XX XX XX)"
     },
     {
-      "id": "e31",
+      "id": "e32",
       "kind": "link",
       "label": "უკან დაბრუნება",
       "href": "/create"
     },
     {
-      "id": "e32",
+      "id": "e33",
       "kind": "button",
       "label": "განცხადების გამოქვეყნება"
     }

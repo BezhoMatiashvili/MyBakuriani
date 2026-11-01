@@ -21,7 +21,7 @@ function toCardProps(p: LandingProperty) {
     location: p.location,
     photos: p.photos ?? [],
     pricePerNight: p.price_per_night ? Number(p.price_per_night) : null,
-    salePrice: null,
+    sale: null,
     capacity: p.capacity,
     rooms: p.rooms,
     isVip: p.is_vip ?? false,

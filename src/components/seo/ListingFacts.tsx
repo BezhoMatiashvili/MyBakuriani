@@ -3,13 +3,25 @@ import { areaNamer } from "@/components/seo/areaName";
 import { DETAIL_WIDTH, type ListingKind } from "@/components/seo/listing-kind";
 import { Money } from "@/components/shared/Money";
 import type { AppLocale } from "@/i18n/routing";
+import type { SaleMoneyRow } from "@/lib/currency/client";
+import type { CurrencyCode } from "@/lib/currency/money";
 import {
   buildPropertyFacts,
   sentenceCase,
   type PropertyFacts,
 } from "@/lib/seo/listing-facts";
-import { formatPrice, formatSalePrice } from "@/lib/utils/format";
+import { formatInCurrency, saleOwnPrice } from "@/lib/utils/format";
 import { applyDiscount } from "@/lib/utils/pricing";
+
+/** The facts as the page states them: `price` is the shown price (C10) in
+ * `currency`, the listing's own (a sale's seller's, C54; a rental's lari).
+ * `exactPrice` is that price before rounding, which a currency conversion
+ * starts from (C55); `sale` is a sale's price columns, for <Money sale>. */
+type ListingFactsData = PropertyFacts & {
+  exactPrice: number | null;
+  currency: CurrencyCode;
+  sale: SaleMoneyRow | null;
+};
 
 // The listing's own fields as one sentence in the page's language (C40). Owner
 // descriptions are usually a few characters, so without this a detail page's
@@ -60,18 +72,16 @@ async function factsSentence(
 }
 
 /** The price as the sentence states it: in the listing's own currency. */
-function nativePriceText(facts: PropertyFacts): string {
+function nativePriceText(facts: ListingFactsData): string {
   if (!facts.price) return "";
-  return facts.kind === "sale"
-    ? formatSalePrice(facts.price)
-    : formatPrice(facts.price);
+  return formatInCurrency(facts.price, facts.currency);
 }
 
 /** The sentence as plain text, its price in the listing's own currency: the
  * meta description, and the visible paragraph until a currency is picked. */
 export async function listingFactsText(
   locale: AppLocale,
-  facts: PropertyFacts,
+  facts: ListingFactsData,
 ): Promise<string> {
   return factsSentence(locale, facts, nativePriceText(facts));
 }
@@ -88,6 +98,8 @@ export interface FactRow {
   hotel_stars?: number | null;
   price_per_night?: number | null;
   sale_price?: number | null;
+  sale_price_gel?: number | null;
+  sale_price_currency?: string | null;
   discount_percent?: number | null;
   discount_expires_at?: string | null;
 }
@@ -95,14 +107,21 @@ export interface FactRow {
 /**
  * The price is the one the page shows: the active discount is applied with the
  * page's own helper (C10), so the sentence never states a higher price than
- * the card does. `exactPrice` is that price before rounding, which a currency
- * conversion starts from (C55).
+ * the card does. A sale's is in its seller's currency (C54).
  */
-export function propertyFactsFromRow(
-  row: FactRow,
-): PropertyFacts & { exactPrice: number | null } {
+export function propertyFactsFromRow(row: FactRow): ListingFactsData {
   const isForSale = Boolean(row.is_for_sale);
-  const base = isForSale ? row.sale_price : row.price_per_night;
+  const sale = isForSale
+    ? {
+        sale_price: row.sale_price ?? null,
+        sale_price_gel: row.sale_price_gel ?? null,
+        sale_price_currency: row.sale_price_currency ?? null,
+        discount_percent: row.discount_percent,
+        discount_expires_at: row.discount_expires_at,
+      }
+    : null;
+  const own = sale ? saleOwnPrice(sale) : null;
+  const base = sale ? own?.amount : row.price_per_night;
   const price =
     typeof base === "number" && base > 0
       ? applyDiscount(base, row.discount_percent, row.discount_expires_at)
@@ -118,7 +137,12 @@ export function propertyFactsFromRow(
     hotelStars: row.hotel_stars,
     price,
   });
-  return { ...facts, exactPrice: price };
+  return {
+    ...facts,
+    exactPrice: price,
+    currency: own?.currency ?? "GEL",
+    sale,
+  };
 }
 
 // Holds the price's place in the visible paragraph's sentence, where a <Money>
@@ -135,7 +159,7 @@ export default async function ListingFacts({
 }: {
   locale: AppLocale;
   kind: ListingKind;
-  facts: PropertyFacts & { exactPrice: number | null };
+  facts: ListingFactsData;
 }) {
   const hasDetail =
     facts.location ||
@@ -153,17 +177,19 @@ export default async function ListingFacts({
     factsSentence(locale, facts, PRICE_SLOT),
   ]);
   // The price becomes a <Money> only where the words around it read exactly
-  // as `text`; otherwise the paragraph is `text` as it stands.
+  // as `text`; otherwise the paragraph is `text` as it stands. A sale's prints
+  // `native` (already discounted) until a pick, then its other stored number.
   const native = nativePriceText(facts);
   const [before, after = ""] = slotted.split(PRICE_SLOT);
   const priceNode =
     facts.price && before + native + after === text ? (
-      <Money
-        amount={facts.exactPrice ?? facts.price}
-        from={facts.kind === "sale" ? "USD" : "GEL"}
-      >
-        {native}
-      </Money>
+      facts.sale ? (
+        <Money sale={facts.sale}>{native}</Money>
+      ) : (
+        <Money amount={facts.exactPrice ?? facts.price} from="GEL">
+          {native}
+        </Money>
+      )
     ) : null;
 
   return (

@@ -27,6 +27,8 @@ type SaleGridListing = Pick<
   | "photos"
   | "type"
   | "sale_price"
+  | "sale_price_gel"
+  | "sale_price_currency"
   | "price_per_night"
   | "area_sqm"
   | "cadastral_code"
@@ -318,7 +320,7 @@ export default function SalesGridClient({
                     pricePerNight={
                       p.price_per_night ? Number(p.price_per_night) : null
                     }
-                    salePrice={p.sale_price ? Number(p.sale_price) : null}
+                    sale={p}
                     capacity={p.capacity}
                     rooms={p.rooms}
                     isVip={p.is_vip ?? false}

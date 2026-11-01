@@ -253,6 +253,10 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
     en: "Didveli / Crystal",
     ru: "Дидвели / Кристалл",
   },
+  "დოლარზე გადართვა": {
+    en: "Switch to dollars",
+    ru: "Переключить на доллары",
+  },
   "ელ. ფოსტა": {
     en: "Email",
     ru: "Эл. почта",
@@ -324,6 +328,10 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
   "კომპანიის რეგისტრაცია": {
     en: "Register a company",
     ru: "Регистрация компании",
+  },
+  "ლარზე გადართვა": {
+    en: "Switch to lari",
+    ru: "Переключить на лари",
   },
   ლოგები: {
     en: "Logs",
@@ -581,6 +589,10 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
     en: "Price & Availability",
     ru: "Цена и доступность",
   },
+  "ფასი მ²-ზე": {
+    en: "Price per m²",
+    ru: "Цена за м²",
+  },
   ფილტრები: {
     en: "Filters",
     ru: "Фильтры",
@@ -588,6 +600,10 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
   ფინანსები: {
     en: "Finances",
     ru: "Финансы",
+  },
+  "ფინანსები და ფართობი": {
+    en: "Finance & area",
+    ru: "Финансы и площадь",
   },
   "ფოტოები და კონტაქტი": {
     en: "Photos & Contact",
@@ -728,5 +744,9 @@ export const UI_LABELS: Readonly<Record<string, { en: string; ru: string }>> = {
   ხელმისაწვდომობა: {
     en: "Availability",
     ru: "Доступность",
+  },
+  "ჯამური ფასი": {
+    en: "Total price",
+    ru: "Общая цена",
   },
 };

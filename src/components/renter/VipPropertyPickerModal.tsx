@@ -23,6 +23,8 @@ export interface PickerProperty {
   /** Current listing price (per night for rentals, sale price for sales) —
    * enables the target-price input for the discount tier when set. */
   price?: number | null;
+  /** The currency of `price`: a sale's is its seller's (C54); none = lari. */
+  priceCurrency?: "GEL" | "USD";
   /** Overrides the rental/sale badge (e.g. a service category label). */
   badgeLabel?: string;
   badgeColor?: "blue" | "orange" | "green";
@@ -139,8 +141,9 @@ export default function VipPropertyPickerModal({
     tier === "discount"
       ? listingPrice(properties.find((p) => p.id === selectedId))
       : null;
-  // A sale price is in US dollars (C54); a rental's nightly price in ₾.
-  const saleListing = selectedProperty?.isForSale === true;
+  // A sale's price is in its seller's currency (C54), a rental's nightly
+  // price in ₾.
+  const priceInUsd = selectedProperty?.priceCurrency === "USD";
 
   const priceAtPercent = (base: number, pct: number) =>
     String(clampNumber(base * (1 - pct / 100), { decimals: 2 }));
@@ -527,7 +530,7 @@ export default function VipPropertyPickerModal({
                       </p>
                       <p className="mt-0.5 text-[11px] font-medium text-[#94A3B8]">
                         {t("currentPriceLabel")}:{" "}
-                        {saleListing ? formatSalePrice(basePrice) : `${basePrice} ₾`}
+                        {priceInUsd ? formatSalePrice(basePrice) : `${basePrice} ₾`}
                       </p>
                     </div>
                     <div className="w-36" onBlur={snapTargetPrice}>
@@ -537,8 +540,8 @@ export default function VipPropertyPickerModal({
                         min={basePrice * 0.1}
                         max={basePrice * 0.99}
                         decimals={2}
-                        prefix={saleListing ? "$" : undefined}
-                        suffix={saleListing ? undefined : "₾"}
+                        prefix={priceInUsd ? "$" : undefined}
+                        suffix={priceInUsd ? undefined : "₾"}
                         accent="green"
                       />
                     </div>

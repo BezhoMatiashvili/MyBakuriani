@@ -31,7 +31,11 @@ import {
   type OptionGroup,
 } from "@/lib/constants/listing-options";
 import { parseHotelRooms } from "@/lib/hotel-rooms";
-import { formatPhone } from "@/lib/utils/format";
+import {
+  formatPhone,
+  formatSaleOwnPrice,
+  saleOwnPrice,
+} from "@/lib/utils/format";
 import { clampNumber, sanitizeCadastralCode } from "@/lib/utils/number";
 import type {
   AuditPayload,
@@ -553,6 +557,15 @@ function PropertyForm({
   }
 
   const isForSale = effective<boolean>("is_for_sale", !!listing.is_for_sale);
+  // A sale its seller typed in lari (C54): the field below stays its dollars,
+  // and saving a new dollar price alone clears the lari (the pair trigger).
+  const sellerGelPrice =
+    saleOwnPrice(listing)?.currency === "GEL"
+      ? formatSaleOwnPrice(listing)
+      : null;
+  // Never below the stored dollars: a blur would clamp them, and the pair
+  // trigger would then drop the seller's lari price (C54).
+  const salePriceMax = Math.max(1000000, listing.sale_price ?? 0);
 
   const constructionSelect = resolveLegacySelect(
     "constructionStatuses",
@@ -745,16 +758,24 @@ function PropertyForm({
             />
           )}
           {isForSale && (
-            <NumberField
-              label={`${t("salePrice")} ($)`}
-              value={effective<number | null>("sale_price", null)}
-              onChange={(v) => setField("sale_price", v)}
-              step="0.01"
-              min={0}
-              max={1000000}
-            />
+            <div>
+              <NumberField
+                label={`${t("salePrice")} ($)`}
+                value={effective<number | null>("sale_price", null)}
+                onChange={(v) => setField("sale_price", v)}
+                step="0.01"
+                min={0}
+                max={salePriceMax}
+              />
+              {sellerGelPrice && (
+                <p className="mt-1 text-[11px] text-[#64748B]">
+                  {t("saleTypedPrice", { price: sellerGelPrice })}
+                </p>
+              )}
+            </div>
           )}
-          {/* Sale prices are always US dollars (C54): no currency box. */}
+          {/* A sale's currency is its seller's (C54), shown above: no
+              currency box. */}
           {!isForSale && (
             <TextField
               label={t("currency")}

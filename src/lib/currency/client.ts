@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { formatPrice, formatSalePrice } from "@/lib/utils/format";
+import { formatInCurrency } from "@/lib/utils/format";
+import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import {
   convertedPriceText,
   isCurrencyCode,
   isUsableRate,
   parseUsdRate,
+  salePrice,
+  salePriceShown,
   tbilisiDay,
   type CurrencyCode,
+  type SalePriceRow,
   type UsdRate,
 } from "./money";
 
@@ -30,7 +34,7 @@ let pickInMemory = false;
 // undefined = storage not read yet.
 let rateEntry: { rate: UsdRate; fetchedAt: number } | null | undefined;
 let lastAttemptAt = 0;
-let inFlight = false;
+let inFlight: Promise<UsdRate | null> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
 function readCurrency(): CurrencyCode | null {
@@ -86,24 +90,26 @@ function subscribe(onChange: () => void): () => void {
 }
 
 /**
- * Fetches today's NBG rate unless this browser already holds a fresh one.
- * `force` skips the wait after a failed attempt (a pick with no usable rate).
+ * Fetches today's NBG rate unless this browser already holds a fresh one, and
+ * resolves to the rate the browser then holds (null: none). That rate may be
+ * up to RATE_MAX_AGE_DAYS old while NBG is down, so a caller checks
+ * isUsableRate. `force` skips the wait after a failed attempt (a pick, or the
+ * sale form's lari price, with no usable rate).
  */
-export function refreshRate(force = false): void {
+export function refreshRate(force = false): Promise<UsdRate | null> {
+  if (inFlight) return inFlight;
   const now = Date.now();
   const entry = readRateEntry();
   if (
-    inFlight ||
     (entry &&
       entry.rate.date === tbilisiDay(new Date(now)) &&
       now - entry.fetchedAt < REFRESH_MS) ||
     (!force && now - lastAttemptAt < RETRY_MS)
   ) {
-    return;
+    return Promise.resolve(readRate());
   }
   lastAttemptAt = now;
-  inFlight = true;
-  fetch("/api/fx/usd", {
+  inFlight = fetch("/api/fx/usd", {
     cache: "no-store",
     signal:
       typeof AbortSignal.timeout === "function"
@@ -115,7 +121,7 @@ export function refreshRate(force = false): void {
       const rate = parseUsdRate(body);
       if (!rate) {
         retryWhilePicked();
-        return;
+        return readRate();
       }
       rateEntry = { rate, fetchedAt: Date.now() };
       try {
@@ -127,14 +133,17 @@ export function refreshRate(force = false): void {
         // Kept in memory for this page view.
       }
       window.dispatchEvent(new Event(CHANGE_EVENT));
+      return rate;
     })
     .catch(() => {
       // No rate: prices stay in their own currency until a retry succeeds.
       retryWhilePicked();
+      return readRate();
     })
     .finally(() => {
-      inFlight = false;
+      inFlight = null;
     });
+  return inFlight;
 }
 
 // One retry while a pick waits for a rate (NBG or the network was down).
@@ -142,7 +151,7 @@ function retryWhilePicked(): void {
   if (retryTimer || !readCurrency()) return;
   retryTimer = setTimeout(() => {
     retryTimer = null;
-    if (readCurrency()) refreshRate(true);
+    if (readCurrency()) void refreshRate(true);
   }, RETRY_MS);
 }
 
@@ -159,7 +168,7 @@ export function setDisplayCurrency(currency: CurrencyCode | null): void {
   }
   window.dispatchEvent(new Event(CHANGE_EVENT));
   if (currency) {
-    refreshRate(!isUsableRate(readRate(), tbilisiDay(new Date())));
+    void refreshRate(!isUsableRate(readRate(), tbilisiDay(new Date())));
   }
 }
 
@@ -171,8 +180,21 @@ export function useUsdRate(): UsdRate | null {
   return useSyncExternalStore(subscribe, readRate, serverSnapshot);
 }
 
-function nativePrice(amount: number, from: CurrencyCode): string {
-  return from === "USD" ? formatSalePrice(amount) : formatPrice(amount);
+/** A sale row as useMoney().sale reads it: its price columns and, when the
+ * price shows one, its discount (C10). */
+export type SaleMoneyRow = SalePriceRow & {
+  discount_percent?: number | null;
+  discount_expires_at?: string | null;
+};
+
+/** A sale's price texts for the visitor's pick. */
+export interface SaleMoney {
+  /** The price the listing shows, after an active discount. */
+  text: string;
+  /** The price before an active discount; null without one. */
+  originalText: string | null;
+  /** The shown price per m²; null without an area. */
+  perSqmText: string | null;
 }
 
 export interface MoneyFormat {
@@ -189,6 +211,16 @@ export interface MoneyFormat {
   ): string | null;
   /** The converted text, else `native` (default formatPrice / formatSalePrice). */
   format(amount: number, from: CurrencyCode, native?: string): string;
+  /**
+   * A sale's price (C54), or null without one: its seller's currency until a
+   * pick (the server and hydration print the same through format.ts), then
+   * the other stored number; only a legacy dollar-only row under a ₾ pick is
+   * converted. The discount and the per-m² figure start from the shown number.
+   */
+  sale(
+    row: SaleMoneyRow,
+    options?: { areaSqm?: number | null },
+  ): SaleMoney | null;
 }
 
 /** Formats prices for the visitor's currency pick (C55). */
@@ -196,7 +228,7 @@ export function useMoney(): MoneyFormat {
   const currency = useDisplayCurrency();
   const rate = useUsdRate();
   useEffect(() => {
-    if (currency) refreshRate();
+    if (currency) void refreshRate();
   }, [currency]);
   return useMemo(() => {
     // The day is read per call: a tab left open past midnight still retires an
@@ -214,11 +246,39 @@ export function useMoney(): MoneyFormat {
         tbilisiDay(new Date()),
         options?.whole,
       );
+    const sale = (
+      row: SaleMoneyRow,
+      options?: { areaSqm?: number | null },
+    ): SaleMoney | null => {
+      const price = salePrice(row);
+      if (!price) return null;
+      const shown = salePriceShown(price, currency);
+      const print = (amount: number) =>
+        (shown.live ? converted(amount, shown.currency) : null) ??
+        formatInCurrency(amount, shown.currency);
+      const amount = applyDiscount(
+        shown.amount,
+        row.discount_percent,
+        row.discount_expires_at,
+      );
+      const area = options?.areaSqm;
+      return {
+        text: print(amount),
+        originalText: isDiscountActive(
+          row.discount_percent,
+          row.discount_expires_at,
+        )
+          ? print(shown.amount)
+          : null,
+        perSqmText: area && area > 0 ? print(amount / area) : null,
+      };
+    };
     return {
       currency,
       converted,
       format: (amount, from, native) =>
-        converted(amount, from) ?? native ?? nativePrice(amount, from),
+        converted(amount, from) ?? native ?? formatInCurrency(amount, from),
+      sale,
     };
   }, [currency, rate]);
 }

@@ -1,11 +1,12 @@
 import type { Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 import { test, expect } from "../helpers/fixtures";
 import {
   ORGANIZATION_SUBSCRIPTION_EXPIRES_AT,
   TEST_IDS,
   seedRenterMembership,
 } from "../helpers/seed";
-import { supabaseAdmin } from "../helpers/supabase";
+import { properties, supabaseAdmin } from "../helpers/supabase";
 import { configureIsolatedE2E } from "../helpers/env";
 
 /** If page redirected to login, skip assertion gracefully */
@@ -387,6 +388,63 @@ async function answerCookieBanner(page: Page) {
     },
   ]);
 }
+
+test.describe("Audit panel sale price (C54)", () => {
+  test("a stored price above the field's cap survives a blur", async ({
+    adminPage,
+  }) => {
+    // ₾3M typed in lari stores $1 155 179, over the field's $1M cap: a clamp
+    // would save $1M, and the pair trigger would then drop the lari.
+    const id = randomUUID();
+    const title = `E2E audit sale ${id.slice(0, 8)}`;
+    await properties.create({
+      id,
+      owner_id: TEST_IDS.seller,
+      type: "apartment",
+      title,
+      description: "Audit panel sale price fixture",
+      location: "ბაკურიანი",
+      area_sqm: 47,
+      photos: ["/placeholder-property.jpg"],
+      phone: "+995599000004",
+      status: "active",
+      is_for_sale: true,
+      sale_price: 1155179,
+      sale_price_gel: 3000000,
+      sale_price_currency: "GEL",
+    });
+    try {
+      await answerCookieBanner(adminPage);
+      await adminPage.goto("/dashboard/admin/listings");
+      if (!(await assertDashboard(adminPage))) return;
+      await adminPage
+        .getByPlaceholder("ძიება (ID, სახელი, მფლობელი)...")
+        .fill(title);
+      await adminPage
+        .locator('[role="button"][aria-expanded]', { hasText: title })
+        .click();
+      const price = adminPage.getByLabel("გასაყიდი ფასი ($)", { exact: true });
+      // The price section starts closed.
+      await adminPage
+        .locator("details", { has: price })
+        .locator("summary")
+        .click();
+      await expect(price).toBeVisible();
+      await expect(price).toHaveValue("1155179");
+      await expect(
+        adminPage.getByText("გამყიდველის ფასი: 3 000 000 ₾", { exact: false }),
+      ).toBeVisible();
+      await price.focus();
+      await price.blur();
+      await expect(price).toHaveValue("1155179");
+      await expect(
+        adminPage.getByText("ცვლილებები არ არის", { exact: true }),
+      ).toBeVisible();
+    } finally {
+      await properties.delete(id);
+    }
+  });
+});
 
 test.describe("Admin statuses (C44)", () => {
   test.describe.configure({ mode: "serial" });

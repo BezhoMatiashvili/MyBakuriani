@@ -26,6 +26,8 @@ export type SaleListing = Pick<
   | "location"
   | "photos"
   | "sale_price"
+  | "sale_price_gel"
+  | "sale_price_currency"
   | "type"
   | "area_sqm"
   | "roi_percent"
@@ -180,7 +182,7 @@ export default function SalesPageClient({ properties }: Props) {
                       title={p.title}
                       location={p.location}
                       photo={photos[0] ?? "/placeholder-property.jpg"}
-                      salePrice={p.sale_price ? Number(p.sale_price) : null}
+                      sale={p}
                       type={p.type}
                       areaSqm={p.area_sqm ? Number(p.area_sqm) : null}
                       roiPercent={p.roi_percent ? Number(p.roi_percent) : null}
