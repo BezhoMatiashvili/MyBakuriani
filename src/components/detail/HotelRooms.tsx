@@ -1,7 +1,15 @@
 "use client";
 
+import { useRef, useState } from "react";
 import Image from "next/image";
-import { BedDouble, DoorOpen, Maximize, Users } from "lucide-react";
+import {
+  BedDouble,
+  ChevronLeft,
+  ChevronRight,
+  DoorOpen,
+  Maximize,
+  Users,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useMoney } from "@/lib/currency/client";
 import type { HotelRoom } from "@/lib/hotel-rooms";
@@ -43,22 +51,7 @@ export default function HotelRooms({
           className="overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white"
         >
           {room.photos.length > 0 ? (
-            <div className="flex snap-x snap-mandatory overflow-x-auto">
-              {room.photos.map((src, j) => (
-                <div
-                  key={j}
-                  className="relative aspect-[4/3] w-full shrink-0 snap-start bg-[#F1F5F9]"
-                >
-                  <Image
-                    src={src}
-                    alt={t("roomPhotoAlt", { name: room.name, n: j + 1 })}
-                    fill
-                    sizes="(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw"
-                    className="object-cover"
-                  />
-                </div>
-              ))}
-            </div>
+            <RoomPhotos photos={room.photos} name={room.name} />
           ) : (
             <div className="flex aspect-[4/3] items-center justify-center bg-[#F1F5F9]">
               <BedDouble className="size-10 text-[#CBD5E1]" />
@@ -127,6 +120,82 @@ export default function HotelRooms({
           </div>
         </article>
       ))}
+    </div>
+  );
+}
+
+const ROOM_ARROW_CLASSNAME =
+  "absolute top-1/2 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#1E293B] shadow-sm backdrop-blur transition-colors hover:bg-white disabled:pointer-events-none disabled:opacity-0 sm:flex";
+
+/**
+ * One room's photos: swipe on phones, arrows from sm up and an "n / N"
+ * counter, so every photo is reachable with a mouse too (the bare rail had no
+ * hint that more photos exist). Arrow labels reuse MobileRail's namespace.
+ */
+function RoomPhotos({ photos, name }: { photos: string[]; name: string }) {
+  const t = useTranslations("HotelDetail");
+  const tNav = useTranslations("HotOffersCarousel");
+  const railRef = useRef<HTMLDivElement>(null);
+  const [index, setIndex] = useState(0);
+  const step = (direction: 1 | -1) => {
+    const el = railRef.current;
+    if (el)
+      el.scrollBy({ left: direction * el.clientWidth, behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative">
+      <div
+        ref={railRef}
+        onScroll={(e) =>
+          setIndex(
+            Math.round(
+              e.currentTarget.scrollLeft / e.currentTarget.clientWidth,
+            ),
+          )
+        }
+        className="scrollbar-hide flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain"
+      >
+        {photos.map((src, j) => (
+          <div
+            key={j}
+            className="relative aspect-[4/3] w-full shrink-0 snap-start bg-[#F1F5F9]"
+          >
+            <Image
+              src={src}
+              alt={t("roomPhotoAlt", { name, n: j + 1 })}
+              fill
+              sizes="(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw"
+              className="object-cover"
+            />
+          </div>
+        ))}
+      </div>
+      {photos.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={() => step(-1)}
+            disabled={index === 0}
+            aria-label={tNav("prev")}
+            className={`${ROOM_ARROW_CLASSNAME} left-2`}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => step(1)}
+            disabled={index >= photos.length - 1}
+            aria-label={tNav("next")}
+            className={`${ROOM_ARROW_CLASSNAME} right-2`}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+          <span className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm">
+            {index + 1} / {photos.length}
+          </span>
+        </>
+      )}
     </div>
   );
 }

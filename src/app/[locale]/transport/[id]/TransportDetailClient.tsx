@@ -21,6 +21,7 @@ import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { TransportContactFooter } from "@/components/shared/TransportContactFooter";
 import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
+import { FoodPhotoGallery } from "@/components/detail/FoodPhotoGallery";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import {
   optionKeyFor,
@@ -69,6 +70,10 @@ export default function TransportDetailClient({
   const owner = service.profiles;
   const photos = service.photos ?? [];
   const mainPhoto = photos[0];
+  // Two or more photos get the gallery food and entertainment listings use
+  // (swipe rail below lg, grid + lightbox above); one photo or none keeps the
+  // single hero.
+  const hasGallery = photos.length > 1;
   const driverName =
     service.driver_name ?? owner?.display_name ?? t("driverFallback");
   const vehicleSubtitle = service.vehicle_make ?? service.title;
@@ -115,9 +120,20 @@ export default function TransportDetailClient({
   return (
     <div className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:pt-8 lg:pb-[96px]">
       {isPending && <PendingReviewBanner />}
-      {/* Hero photo with floating back button + status pill */}
-      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-[20px] bg-gradient-to-br from-[#E2E8F0] to-[#CBD5E1]">
-        {mainPhoto ? (
+      {/* Hero photo (or gallery) with floating back and share buttons. The
+          buttons come after the gallery so they paint above its tiles; keep
+          this wrapper free of transform/z-index so the gallery's fixed
+          lightbox still covers the whole page. */}
+      <div
+        className={
+          hasGallery
+            ? "relative"
+            : "relative aspect-[16/9] w-full overflow-hidden rounded-[20px] bg-gradient-to-br from-[#E2E8F0] to-[#CBD5E1]"
+        }
+      >
+        {hasGallery ? (
+          <FoodPhotoGallery photos={photos} title={service.title} />
+        ) : mainPhoto ? (
           <Image
             src={mainPhoto}
             alt={service.title}
