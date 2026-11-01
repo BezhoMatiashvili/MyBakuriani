@@ -9,7 +9,6 @@ import {
   Users,
   CheckCircle2,
   Eye,
-  ImageIcon,
   ShieldCheck,
   Share2,
 } from "lucide-react";
@@ -24,6 +23,7 @@ import { applyDiscount, isDiscountActive } from "@/lib/utils/pricing";
 import { useListingViewCount } from "@/lib/hooks/useListingViewCount";
 import { MobileStickyCTA } from "@/components/shared/MobileStickyCTA";
 import { OwnershipVerifiedBadge } from "@/components/shared/OwnershipVerifiedBadge";
+import { FoodPhotoGallery } from "@/components/detail/FoodPhotoGallery";
 import ZoneLocationLink from "@/components/maps/ZoneLocationLink";
 import ServiceLocationMap from "@/components/detail/ServiceLocationMap";
 import { parseServiceCoords } from "@/lib/maps/serviceCoords";
@@ -92,6 +92,9 @@ export default function EntertainmentDetailClient({
     discountedPrice != null ? Math.round(discountedPrice) : null;
   const photos = service.photos ?? [];
   const mainPhoto = photos[0];
+  // Two or more photos get the gallery food listings use (swipe rail below
+  // lg, grid + lightbox above); one photo or none keeps the single hero.
+  const hasGallery = photos.length > 1;
 
   const views = useListingViewCount(
     "service",
@@ -103,17 +106,30 @@ export default function EntertainmentDetailClient({
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
       {isPending && <PendingReviewBanner />}
-      {/* Hero photo with floating back button */}
-      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-[24px] bg-[#F8FAFC]">
-        {mainPhoto && (
-          <Image
-            src={mainPhoto}
-            alt={service.title}
-            fill
-            sizes="(max-width: 1024px) 100vw, 1024px"
-            className="object-cover"
-            priority
-          />
+      {/* Hero photo (or gallery) with floating back and share buttons. The
+          buttons come after the gallery so they paint above its tiles; keep
+          this wrapper free of transform/z-index so the gallery's fixed
+          lightbox still covers the whole page. */}
+      <div
+        className={
+          hasGallery
+            ? "relative"
+            : "relative aspect-[16/9] w-full overflow-hidden rounded-[24px] bg-[#F8FAFC]"
+        }
+      >
+        {hasGallery ? (
+          <FoodPhotoGallery photos={photos} title={service.title} />
+        ) : (
+          mainPhoto && (
+            <Image
+              src={mainPhoto}
+              alt={service.title}
+              fill
+              sizes="(max-width: 1024px) 100vw, 1024px"
+              className="object-cover"
+              priority
+            />
+          )
         )}
         <button
           type="button"
@@ -126,15 +142,6 @@ export default function EntertainmentDetailClient({
         <ShareMenu className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#1E293B] shadow-sm backdrop-blur transition-colors hover:bg-white">
           <Share2 className="h-[18px] w-[18px]" />
         </ShareMenu>
-        {photos.length > 0 && (
-          <button
-            type="button"
-            className="absolute bottom-4 left-4 flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-[13px] font-bold text-[#1E293B] shadow-sm backdrop-blur transition-colors hover:bg-white"
-          >
-            <ImageIcon className="h-4 w-4" />
-            {t("photoGallery", { count: photos.length })}
-          </button>
-        )}
       </div>
 
       {/* Category + title */}
