@@ -63,6 +63,11 @@ interface BuildListingMetadataOptions {
   /** Locale-less path, e.g. `/sales/${id}`. */
   path: string;
   type?: "website" | "article";
+  /**
+   * The 1200x630 JPEG card of a page whose path names no listing (a blog
+   * post's, `blogOgCardUrl`); a listing path finds its own card.
+   */
+  cardUrl?: string;
 }
 
 /**
@@ -84,7 +89,7 @@ export function buildListingMetadata(
   // The card fixes both, and carrying explicit width/height means Facebook can
   // pick the large-card layout immediately instead of rendering the FIRST share
   // imageless while it fetches the image to measure it.
-  const cardUrl = ogCardUrlForPath(opts.path);
+  const cardUrl = opts.cardUrl ?? ogCardUrlForPath(opts.path);
 
   const photoEntries = photos.length ? photos : [FALLBACK_OG_IMAGE];
   // Order matters: WhatsApp and Telegram use only the FIRST og:image, so the

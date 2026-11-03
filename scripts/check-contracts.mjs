@@ -2314,8 +2314,10 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   // once, and PATCH never writes it. The post page reads through one cache()d getPublishedPost (slug, uuid, else the
   // token) that throws its read errors (a swallowed one caches a live post as a 404), takes a token match only as the
   // one published Latin slug (a 308 to a Georgian one would loop once the backfill ran), 308s every other key to the
-  // encoded slug, leads og:image with the relative optimizer cover (buildListingMetadata drops an absolute non-Storage
-  // URL) and stays ISR (C28).
+  // encoded slug, leads og:image with its 1200x630 card (api/og/blog/[id]: published posts through the anon client, a
+  // renderableImageUrl cover fetched without redirects, any other spelling 308ed to the cover token, since Facebook
+  // caches an og:image by URL), then the relative optimizer cover (buildListingMetadata drops an absolute non-Storage
+  // URL), and stays ISR (C28).
   const blogSlugLib = "src/lib/blog-slug.ts";
   const blogPostRoute = "src/app/api/admin/blog/route.ts";
   const blogPatchRoute = "src/app/api/admin/blog/[id]/route.ts";
@@ -2342,14 +2344,33 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     blogProblems.push(`${blogPage}: a token match must be the one published post, and only with a Latin slug`);
   if (!/if \(post\.slug !== key\) \{[\s\S]*?permanentRedirect\([\s\S]*?encodeURIComponent\(post\.slug\)/.test(blogPageSrc))
     blogProblems.push(`${blogPage} must 308 every other key to the percent-encoded post.slug`);
+  if (!/cardUrl: post\.image_url\s*\?\s*blogOgCardUrl\(post\.id, post\.image_url\)/.test(blogPageSrc))
+    blogProblems.push(`${blogPage}: og:image must lead with the post's card (cardUrl: post.image_url ? blogOgCardUrl(post.id, post.image_url) : undefined)`);
+  if (!/const cardUrl = opts\.cardUrl \?\? ogCardUrlForPath\(opts\.path\);/.test(read("src/lib/seo.ts")))
+    blogProblems.push("src/lib/seo.ts: buildListingMetadata must lead og:image with opts.cardUrl ?? ogCardUrlForPath(opts.path)");
   if (!/images: \[\s*\.\.\.optimizedImageUrls\([\s\S]{0,120}?\)\.map\(sameOriginPath\)/.test(blogPageSrc))
-    blogProblems.push(`${blogPage}: og:image must lead with the relative /_next/image cover (an absolute one is dropped)`);
+    blogProblems.push(`${blogPage}: the relative /_next/image cover must follow the card (an absolute one is dropped)`);
+  const blogCardRoute = "src/app/api/og/blog/[id]/route.ts";
+  const blogCardSrc = existsSync(join(root, blogCardRoute)) ? read(blogCardRoute) : "";
+  if (!blogCardSrc) blogProblems.push(`${blogCardRoute} is missing`);
+  else {
+    const tables = new Set([...blogCardSrc.matchAll(/\.from\("([^"]+)"\)/g)].map((m) => m[1]));
+    if (!/createPublicClient\(\)/.test(blogCardSrc) || /createServiceClient|\bcreateClient\(/.test(blogCardSrc) || !setEq(tables, new Set(["blog_posts"])) || !/\.eq\("published", true\)/.test(blogCardSrc))
+      blogProblems.push(`${blogCardRoute}: must read only published blog_posts, with createPublicClient (C31)`);
+    const guardAt = blogCardSrc.indexOf("renderableImageUrl(");
+    if (guardAt < 0 || blogCardSrc.indexOf("await fetch(") < guardAt || !/redirect: "error"/.test(blogCardSrc))
+      blogProblems.push(`${blogCardRoute}: must fetch only a renderableImageUrl cover, without following redirects (SSRF)`);
+    if (!/const canonical = blogOgCardUrl\(id, post\.image_url\);/.test(blogCardSrc) || !/status: 308/.test(blogCardSrc))
+      blogProblems.push(`${blogCardRoute}: must 308 every other spelling to blogOgCardUrl(id, post.image_url), the cover token`);
+    if (!/const WIDTH = 1200;/.test(blogCardSrc) || !/const HEIGHT = 630;/.test(blogCardSrc) || !/\.resize\(WIDTH, HEIGHT, \{ fit: "cover" \}\)/.test(blogCardSrc))
+      blogProblems.push(`${blogCardRoute}: the card must be cropped to 1200x630, the size seo.ts declares`);
+  }
   if (!/export const revalidate = \d+;/.test(blogPageSrc) || /dynamicParams\s*=\s*false|from "next\/headers"/.test(blogPageSrc))
     blogProblems.push(`${blogPage} must stay ISR: a revalidate, no dynamicParams = false, no next/headers`);
   if (!/from "\.\.\/src\/lib\/blog-slug\.ts"/.test(blogBackfillSrc) || !/\.eq\("id", id\)\s*\.eq\("slug", from\)/.test(blogBackfillSrc) || !/"x-actor-id"/.test(blogBackfillSrc))
     blogProblems.push(`${blogBackfill} must reuse ${blogSlugLib}, write only the slug it read (.eq("id").eq("slug", from)) and send x-actor-id`);
   if (blogProblems.length) for (const p of blogProblems) fail(`C40: ${p}`);
-  else ok("C40: blog slugs come only from blog-slug.ts, set once at POST (the only post insert); the post page resolves the slug, the uuid or one Latin token match through one cached reader that throws its read errors, 308s every other key, leads og:image with the optimizer cover and stays ISR; the backfill reuses the module");
+  else ok("C40: blog slugs come only from blog-slug.ts, set once at POST (the only post insert); the post page resolves the slug, the uuid or one Latin token match through one cached reader that throws its read errors, 308s every other key, leads og:image with its 1200x630 card (published posts, anon read, SSRF-guarded cover, 308 to the cover token) then the optimizer cover, and stays ISR; the backfill reuses the module");
 }
 
 // ---------------------------------------------------------------------------

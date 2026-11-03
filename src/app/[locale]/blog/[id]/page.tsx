@@ -11,6 +11,7 @@ import { createPublicClient } from "@/lib/supabase/server";
 import { buildListingMetadata } from "@/lib/seo";
 import { pathForLocale } from "@/lib/seo/alternates";
 import { formatDate } from "@/lib/utils/format";
+import { blogOgCardUrl } from "@/lib/utils/listingUrls";
 import { isUuid } from "@/lib/utils/uuid";
 import BannerSlot from "@/components/banners/BannerSlot";
 import Breadcrumbs from "@/components/seo/Breadcrumbs";
@@ -112,9 +113,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       locale,
       title,
       description,
-      // WhatsApp and Telegram show only the first og:image, and a raw upload
-      // (up to 5 MB) often gets no thumbnail, so the optimizer's 1200 px copy
-      // of the cover leads (C40); the original stays for Facebook's picker.
+      // The cover's 1200x630 JPEG card leads (C40), its size declared, so
+      // Facebook draws the large photo card from the first share and WhatsApp
+      // and Telegram (first og:image only) get a small JPEG. The optimizer's
+      // 1200 px copy (served as WebP from the edge) and the original follow.
+      cardUrl: post.image_url
+        ? blogOgCardUrl(post.id, post.image_url)
+        : undefined,
       images: [
         ...optimizedImageUrls(
           SITE_URL,

@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import sharp from "sharp";
 import { NON_INDEXABLE_PREFIXES } from "../../src/lib/seo/robots";
 import {
   FIXTURE_BLOG_COVER_PATH,
@@ -649,27 +650,70 @@ test.describe("blog and long-form pages", () => {
     expect((await get(request, latin)).status, latin).toBe(404);
   });
 
-  // WhatsApp and Telegram take only the first og:image; a raw upload often
-  // gives no thumbnail, so a cover leads as the optimizer's 1200 px copy.
-  test("a post's first og:image is the optimized copy of its cover", async ({
+  // Owner request 2026-11-03: a shared post should get Facebook's large photo
+  // card, as Booking's links do. Facebook draws it from the first share only
+  // with a declared size, and WhatsApp and Telegram take only the first
+  // og:image, so a post leads with its 1200x630 JPEG card (C40); the
+  // optimizer's 1200 px copy of the cover and the raw cover follow.
+  test("a post's first og:image is its 1200x630 card, then its cover", async ({
     request,
   }) => {
     // The seeded post has a real Storage cover (e2e/helpers/seed.ts).
     const post = await get(request, `/blog/${FIXTURE_BLOG_SLUG}`);
     expect(post.status).toBe(200);
-    const [first, second] = metaContent(post.body, "property", "og:image");
-    expect(second).toContain(`/landing-media/${FIXTURE_BLOG_COVER_PATH}`);
-    const optimized = new URL(first);
+    const [card, optimizedCover, raw] = metaContent(
+      post.body,
+      "property",
+      "og:image",
+    );
+    expect(metaContent(post.body, "property", "og:image:width")).toEqual([
+      "1200",
+    ]);
+    expect(metaContent(post.body, "property", "og:image:height")).toEqual([
+      "630",
+    ]);
+    expect(metaContent(post.body, "property", "og:image:type")).toEqual([
+      "image/jpeg",
+    ]);
+    const cardUrl = new URL(card);
+    expect(cardUrl.pathname).toBe(`/api/og/blog/${FIXTURE_IDS.blogPost}`);
+    expect(cardUrl.search).toMatch(/^\?v=2&c=[0-9a-f]{8}$/);
+    expect(raw).toContain(`/landing-media/${FIXTURE_BLOG_COVER_PATH}`);
+    const optimized = new URL(optimizedCover);
     expect(optimized.pathname).toBe("/_next/image");
     expect(optimized.searchParams.get("w")).toBe("1200");
     expect(optimized.searchParams.get("q")).toBe("75");
-    expect(optimized.searchParams.get("url")).toBe(second);
+    expect(optimized.searchParams.get("url")).toBe(raw);
 
-    // And the optimizer serves it. Asked of the server under test: the
-    // absolute URL's origin is whatever site URL the build was made with.
+    // Both are served. Asked of the server under test: the absolute URLs'
+    // origin is whatever site URL the build was made with.
     const image = await request.get(`${optimized.pathname}${optimized.search}`);
     expect(image.status()).toBe(200);
     expect(image.headers()["content-type"]).toMatch(/^image\//);
+    const path = `${cardUrl.pathname}${cardUrl.search}`;
+    const jpeg = await request.get(path, { maxRedirects: 0 });
+    expect(jpeg.status()).toBe(200);
+    expect(jpeg.headers()["content-type"]).toBe("image/jpeg");
+    const bytes = await jpeg.body();
+    // WhatsApp drops a preview image much over ~300 KB.
+    expect(bytes.byteLength).toBeLessThanOrEqual(280_000);
+    const { width, height, format } = await sharp(bytes).metadata();
+    expect({ width, height, format }).toEqual({
+      width: 1200,
+      height: 630,
+      format: "jpeg",
+    });
+
+    // One URL per cover: another cover's token or an upper-case id 308s to
+    // it, so a made-up query never renders a card.
+    for (const other of [
+      `${cardUrl.pathname}?v=2&c=00000000`,
+      `/api/og/blog/${FIXTURE_IDS.blogPost.toUpperCase()}${cardUrl.search}`,
+    ]) {
+      const moved = await request.get(other, { maxRedirects: 0 });
+      expect(moved.status(), other).toBe(308);
+      expect(moved.headers().location, other).toBe(path);
+    }
   });
 
   test("FAQ answers are in the HTML while collapsed", async ({ request }) => {

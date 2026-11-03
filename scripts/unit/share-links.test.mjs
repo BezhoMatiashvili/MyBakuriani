@@ -6,7 +6,10 @@ import {
   shareableUrl,
   whatsappShareUrl,
 } from "../../src/lib/share.ts";
-import { ogCardUrlForPath } from "../../src/lib/utils/listingUrls.ts";
+import {
+  blogOgCardUrl,
+  ogCardUrlForPath,
+} from "../../src/lib/utils/listingUrls.ts";
 
 const ID = "4373879b-fe28-499e-bac6-70d7e693b7c7";
 
@@ -57,4 +60,18 @@ test("the OG card URL is versioned so crawlers drop the old PNG", () => {
   );
   assert.equal(ogCardUrlForPath(`/blog/${ID}`), null);
   assert.equal(ogCardUrlForPath("/apartments/mock-1"), null);
+});
+
+// Facebook caches an og:image by URL, so a blog post whose cover an admin
+// replaces must name a new card URL, or the old picture stays (C40).
+test("a blog post's card URL follows its cover", () => {
+  const cover =
+    "https://wlkmyxyaocvgqomrrbfs.supabase.co/storage/v1/object/public/landing-media/blog/38ddfd36-7775-4e45-98fc-c6a149bb859a.jpg";
+  const url = blogOgCardUrl(ID.toUpperCase(), cover);
+  assert.match(url, new RegExp(`^/api/og/blog/${ID}\\?v=2&c=[0-9a-f]{8}$`));
+  assert.equal(blogOgCardUrl(ID, cover), url);
+  assert.notEqual(blogOgCardUrl(ID, cover.replace("38dd", "48dd")), url);
+  // FNV-1a 32-bit test vectors: the token is that hash, 8 hex digits.
+  assert.equal(blogOgCardUrl(ID, ""), `/api/og/blog/${ID}?v=2&c=811c9dc5`);
+  assert.equal(blogOgCardUrl(ID, "a"), `/api/og/blog/${ID}?v=2&c=e40c292c`);
 });

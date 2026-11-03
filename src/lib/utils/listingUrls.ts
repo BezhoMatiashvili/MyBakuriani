@@ -187,6 +187,24 @@ export function ogCardUrlForPath(
   return `/api/og/listing/${target.kind}/${target.id}${ogCardSearch(format === "story")}`;
 }
 
+/**
+ * The share card of a blog post (C40): its cover cropped to 1200x630, served
+ * by api/og/blog/[id]. The query carries the card version and an 8-hex token
+ * of the cover URL, because Facebook caches an og:image by URL: when an admin
+ * replaces a post's cover, the card needs a new URL or Facebook keeps showing
+ * the old picture. The route rebuilds this URL from the post's current cover
+ * and 308s any other spelling to it.
+ */
+export function blogOgCardUrl(id: string, coverUrl: string): string {
+  // FNV-1a, 32 bits: deterministic and import-free.
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < coverUrl.length; i++) {
+    hash = Math.imul(hash ^ coverUrl.charCodeAt(i), 0x01000193) >>> 0;
+  }
+  const token = hash.toString(16).padStart(8, "0");
+  return `/api/og/blog/${id.toLowerCase()}${ogCardSearch(false)}&c=${token}`;
+}
+
 // ---------------------------------------------------------------------------
 // Short share links (C58): /l/<code>, where <code> is the first 12 hex digits
 // of the listing id. Ids come from uuid_generate_v4() and clients cannot pick
