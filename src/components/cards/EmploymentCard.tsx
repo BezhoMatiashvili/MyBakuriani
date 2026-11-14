@@ -3,6 +3,7 @@
 import { Banknote, Heart, MapPin, Star, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { optionKeyFor } from "@/lib/constants/listing-options";
 import { useMoney } from "@/lib/currency/client";
 import { useFavorite } from "@/lib/hooks/useFavorite";
 import { cn } from "@/lib/utils";
@@ -67,6 +68,37 @@ export function useSalaryText() {
       case "model":
         return t(`salaryModels.${s.model}`);
     }
+  };
+}
+
+/**
+ * The card's VIP / urgent chip from the listing's own flags (C23). Shared by
+ * /employment and the home page's vacancy row, so both show the same card.
+ */
+export function deriveBadge(s: {
+  is_vip?: boolean | null;
+  is_super_vip?: boolean | null;
+  discount_percent?: number | null;
+}): "urgent" | "vip" | null {
+  if (s.is_super_vip || s.is_vip) return "vip";
+  if (s.discount_percent && s.discount_percent > 0) return "urgent";
+  return null;
+}
+
+/**
+ * The card's schedule line. Rows store Georgian enum labels (e.g. "მოქნილი");
+ * resolve to the ListingOptions translation, passing unknown free text through.
+ */
+export function useEmploymentScheduleLabel() {
+  const tOpts = useTranslations("ListingOptions");
+  return (s: {
+    work_schedule?: string | null;
+    employment_schedule?: string | null;
+  }): string | null => {
+    const raw = s.work_schedule ?? s.employment_schedule;
+    if (!raw) return null;
+    const key = optionKeyFor("employmentTypes", raw);
+    return key ? tOpts(`employmentTypes.${key}`) : raw;
   };
 }
 
@@ -204,8 +236,8 @@ export default function EmploymentCard({
             {t("applications", { count: applicationsCount })}
           </span>
         )}
-        {/* With no count beside it (the landing rail passes none) the button
-            fills the row instead of leaving an empty left half. */}
+        {/* With no count beside it (the home page's count read failed) the
+            button fills the row instead of leaving an empty left half. */}
         <Link
           href={`/employment/${id}`}
           className={cn("flex h-11 items-center justify-center rounded-xl bg-[#0F172A] font-bold text-white transition-colors hover:bg-[#1E293B] lg:h-10", compactGrid ? "w-full px-2 text-[11px] sm:w-auto sm:px-5 sm:text-[13px]" : "px-5 text-[13px]", applicationsCount == null && "w-full sm:w-full")}

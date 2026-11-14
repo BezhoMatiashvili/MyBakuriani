@@ -221,6 +221,11 @@ function Chip({
   );
 }
 
+// Home card on phones (<640px): each trigger keeps a 44px hit box; the light
+// plate the owner's mock shows is a 38px ::before behind it.
+const LANDING_PHONE_FIELD =
+  "max-sm:relative max-sm:isolate max-sm:-my-[3px] max-sm:before:absolute max-sm:before:inset-x-0 max-sm:before:inset-y-[3px] max-sm:before:-z-10 max-sm:before:rounded-xl max-sm:before:bg-[#F1F5F9]";
+
 export function SearchBox({
   onSearch,
   className,
@@ -508,7 +513,7 @@ export function SearchBox({
         className={cn(
           "grid grid-cols-1 lg:hidden",
           isLandingCompact
-            ? "gap-0 sm:grid-cols-2 sm:gap-3"
+            ? "gap-2 sm:grid-cols-2 sm:gap-3"
             : "gap-3 sm:grid-cols-2",
         )}
       >
@@ -516,7 +521,7 @@ export function SearchBox({
         <div
           className={cn(
             "relative order-4 sm:col-span-2",
-            isLandingCompact && "mt-[18px] sm:mt-0",
+            isLandingCompact && "mt-2.5 sm:mt-0",
           )}
         >
           <label
@@ -531,14 +536,15 @@ export function SearchBox({
             className={cn(
               "flex",
               isLandingCompact &&
-                "h-12 overflow-hidden rounded-xl bg-[#F8FAFC] sm:h-auto sm:overflow-visible sm:rounded-none sm:bg-transparent",
+                "h-12 overflow-hidden rounded-xl bg-[#F1F5F9] sm:h-auto sm:overflow-visible sm:rounded-none sm:bg-transparent",
             )}
           >
             <div className="relative min-w-0 flex-1">
               <Search
                 className={cn(
                   "pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#94A3B8]",
-                  isLandingCompact && "left-3.5 size-5 sm:left-3 sm:size-4",
+                  isLandingCompact &&
+                    "left-4 size-5 max-sm:text-[#334155] sm:left-3 sm:size-4",
                 )}
               />
               <input
@@ -549,9 +555,19 @@ export function SearchBox({
                 className={cn(
                   "h-11 w-full rounded-l-xl border border-r-0 border-[#E2E8F0] bg-white pl-9 pr-3 text-base text-[#1E293B] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB]",
                   isLandingCompact &&
-                    "h-12 rounded-none border-0 bg-transparent pl-10 focus:bg-transparent sm:h-11 sm:rounded-l-xl sm:border sm:border-r-0 sm:border-[#E2E8F0] sm:bg-white sm:pl-9",
+                    "h-12 rounded-none border-0 bg-transparent pl-11 max-sm:placeholder:text-transparent focus:bg-transparent sm:h-11 sm:rounded-l-xl sm:border sm:border-r-0 sm:border-[#E2E8F0] sm:bg-white sm:pl-9",
                 )}
               />
+              {/* Phones get the mock's shorter hint; the native placeholder
+                  (today's text) is transparent below sm and shows from 640px. */}
+              {isLandingCompact && keyword === "" && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-11 right-3 top-1/2 -translate-y-1/2 truncate text-[15px] text-[#64748B] sm:hidden"
+                >
+                  {t("keywordPlaceholderPhone")}
+                </span>
+              )}
             </div>
             <Button
               type="submit"
@@ -584,15 +600,14 @@ export function SearchBox({
         <div
           className={cn(
             "relative order-2",
-            isLandingCompact &&
-              "flex h-[69px] flex-col justify-center border-b border-[#E2E8F0] sm:block sm:h-auto sm:border-0",
+            isLandingCompact && "flex flex-col sm:block sm:h-auto sm:border-0",
           )}
         >
           <label
             className={cn(
               "mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]",
               isLandingCompact &&
-                "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
+                "text-left text-[#0F172A] max-sm:mb-2 max-sm:text-[13px] max-sm:leading-4 max-sm:tracking-normal sm:text-left sm:text-[#94A3B8]",
             )}
           >
             {t("location")}
@@ -606,23 +621,36 @@ export function SearchBox({
             className={cn(
               "flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm outline-none lg:h-10",
               isLandingCompact &&
-                "rounded-none border-0 bg-transparent px-0 sm:rounded-lg sm:border sm:border-[#E2E8F0] sm:bg-white sm:px-3",
+                "rounded-none border-0 bg-transparent px-4 sm:rounded-lg sm:border sm:border-[#E2E8F0] sm:bg-white sm:px-3",
+              isLandingCompact && LANDING_PHONE_FIELD,
             )}
           >
             <span className="flex min-w-0 items-center gap-3">
               {isLandingCompact && (
-                <MapPin className="size-5 shrink-0 text-[#5B4A42] sm:hidden" />
+                <MapPin className="size-5 shrink-0 text-[#334155] sm:hidden" />
+              )}
+              {isLandingCompact && (
+                <span
+                  aria-hidden="true"
+                  className="mx-1 h-[18px] w-px shrink-0 bg-[#CBD5E1] sm:hidden"
+                />
               )}
               <span
                 className={cn(
                   "truncate",
                   location ? "text-[#1E293B]" : "text-[#94A3B8]",
+                  isLandingCompact && !location && "max-sm:text-[#64748B]",
                 )}
               >
                 {location || t("locationPlaceholder")}
               </span>
             </span>
-            <ChevronDown className="size-4 text-[#94A3B8]" />
+            <ChevronDown
+              className={cn(
+                "size-4 text-[#94A3B8]",
+                isLandingCompact && "max-sm:shrink-0 max-sm:text-[#334155]",
+              )}
+            />
           </button>
         </div>
 
@@ -630,15 +658,14 @@ export function SearchBox({
         <div
           className={cn(
             "relative order-1",
-            isLandingCompact &&
-              "flex h-[69px] flex-col justify-center border-b border-[#E2E8F0] sm:block sm:h-auto sm:border-0",
+            isLandingCompact && "flex flex-col sm:block sm:h-auto sm:border-0",
           )}
         >
           <label
             className={cn(
               "mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]",
               isLandingCompact &&
-                "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
+                "text-left text-[#0F172A] max-sm:mb-2 max-sm:text-[13px] max-sm:leading-4 max-sm:tracking-normal sm:text-left sm:text-[#94A3B8]",
             )}
           >
             {t("date")}
@@ -652,18 +679,27 @@ export function SearchBox({
             className={cn(
               "flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm outline-none lg:h-10",
               isLandingCompact &&
-                "rounded-none border-0 bg-transparent px-0 sm:rounded-lg sm:border sm:border-[#E2E8F0] sm:bg-white sm:px-3",
+                "rounded-none border-0 bg-transparent px-4 sm:rounded-lg sm:border sm:border-[#E2E8F0] sm:bg-white sm:px-3",
               !dateLabel && "text-[#94A3B8]",
+              isLandingCompact && LANDING_PHONE_FIELD,
+              isLandingCompact &&
+                (dateLabel ? "max-sm:text-[#1E293B]" : "max-sm:text-[#64748B]"),
             )}
           >
             <span className="flex min-w-0 items-center gap-3">
               {isLandingCompact && (
-                <CalendarDays className="size-5 shrink-0 text-[#5B4A42] sm:hidden" />
+                <CalendarDays className="size-5 shrink-0 text-[#334155] sm:hidden" />
+              )}
+              {isLandingCompact && (
+                <span
+                  aria-hidden="true"
+                  className="mx-1 h-[18px] w-px shrink-0 bg-[#CBD5E1] sm:hidden"
+                />
               )}
               <span className="truncate">{dateLabel || t("selectDate")}</span>
             </span>
             {isLandingCompact && (
-              <ChevronDown className="size-4 shrink-0 text-[#5B4A42] sm:hidden" />
+              <ChevronDown className="size-4 shrink-0 text-[#334155] sm:hidden" />
             )}
           </button>
         </div>
@@ -674,7 +710,7 @@ export function SearchBox({
             className={cn(
               "relative order-3",
               isLandingCompact &&
-                "flex h-[69px] flex-col justify-center border-b border-[#E2E8F0] sm:block sm:h-auto sm:border-0",
+                "flex flex-col sm:block sm:h-auto sm:border-0",
             )}
           >
             <span
@@ -682,7 +718,7 @@ export function SearchBox({
               className={cn(
                 "mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]",
                 isLandingCompact &&
-                  "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
+                  "text-left text-[#0F172A] max-sm:mb-2 max-sm:text-[13px] max-sm:leading-4 max-sm:tracking-normal sm:text-left sm:text-[#94A3B8]",
               )}
             >
               {t("guests")}
@@ -693,10 +729,11 @@ export function SearchBox({
               labelledBy={`${guestsLabelId}-mobile`}
               size="touch"
               testId="search-mobile-guests"
+              phoneChips={isLandingCompact}
               className={cn(
                 "justify-between rounded-lg border border-[#E2E8F0] bg-white",
                 isLandingCompact &&
-                  "rounded-none border-0 bg-transparent sm:rounded-lg sm:border sm:border-[#E2E8F0] sm:bg-white",
+                  "rounded-xl border-0 bg-[#F1F5F9] max-sm:h-[42px] max-sm:px-[5px] sm:rounded-lg sm:border sm:border-[#E2E8F0] sm:bg-white",
               )}
             />
           </div>
@@ -706,15 +743,14 @@ export function SearchBox({
         <div
           className={cn(
             "relative order-3",
-            isLandingCompact &&
-              "flex h-[69px] flex-col justify-center border-b border-[#E2E8F0] sm:block sm:h-auto sm:border-0",
+            isLandingCompact && "flex flex-col sm:block sm:h-auto sm:border-0",
           )}
         >
           <label
             className={cn(
               "mb-1 block text-[11px] font-bold uppercase tracking-[0.55px] text-[#94A3B8]",
               isLandingCompact &&
-                "text-center text-[#5B4A42] sm:text-left sm:text-[#94A3B8]",
+                "text-left text-[#0F172A] max-sm:mb-2 max-sm:text-[13px] max-sm:leading-4 max-sm:tracking-normal sm:text-left sm:text-[#94A3B8]",
             )}
           >
             {t("filters")}
@@ -728,16 +764,28 @@ export function SearchBox({
             className={cn(
               "flex h-11 w-full items-center justify-between rounded-lg border border-[#E2E8F0] bg-white px-3 text-left text-sm text-[#94A3B8] outline-none lg:h-10",
               isLandingCompact &&
-                "rounded-none border-0 bg-transparent px-0 text-[#5B4A42] sm:rounded-lg sm:border sm:border-[#E2E8F0] sm:bg-white sm:px-3 sm:text-[#94A3B8]",
+                "rounded-none border-0 bg-transparent px-4 text-[#64748B] sm:rounded-lg sm:border sm:border-[#E2E8F0] sm:bg-white sm:px-3 sm:text-[#94A3B8]",
+              isLandingCompact && LANDING_PHONE_FIELD,
             )}
           >
             <span className="flex min-w-0 items-center gap-3">
               {isLandingCompact && (
-                <SlidersHorizontal className="size-5 shrink-0 text-[#5B4A42] sm:hidden" />
+                <SlidersHorizontal className="size-5 shrink-0 text-[#334155] sm:hidden" />
+              )}
+              {isLandingCompact && (
+                <span
+                  aria-hidden="true"
+                  className="mx-1 h-[18px] w-px shrink-0 bg-[#CBD5E1] sm:hidden"
+                />
               )}
               <span className="truncate">{t("priceCapacity")}</span>
             </span>
-            <ChevronDown className="size-4" />
+            <ChevronDown
+              className={cn(
+                "size-4",
+                isLandingCompact && "max-sm:shrink-0 max-sm:text-[#334155]",
+              )}
+            />
           </button>
         </div>
       </div>
@@ -1200,6 +1248,7 @@ function GuestStepper({
   size,
   className,
   testId,
+  phoneChips = false,
 }: {
   value: number | "";
   onChange: (next: number | "") => void;
@@ -1207,12 +1256,16 @@ function GuestStepper({
   size: "touch" | "compact";
   className?: string;
   testId?: string;
+  /** Home card on phones: rounded-square chips inside the 44px buttons. */
+  phoneChips?: boolean;
 }) {
   const t = useTranslations("SearchBox");
   const count = value === "" ? 0 : value;
   const buttonClass = cn(
     "flex shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] text-[#334155] transition-colors hover:bg-[#E2E8F0] disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#CBD5E1]",
     size === "touch" ? "size-11" : "size-9",
+    phoneChips &&
+      "max-sm:rounded-[14px] max-sm:bg-[#E2E8F0] max-sm:bg-clip-content max-sm:p-1 max-sm:hover:bg-[#CBD5E1] max-sm:disabled:bg-[#E2E8F0] max-sm:disabled:text-[#94A3B8]",
   );
 
   return (
@@ -1236,9 +1289,17 @@ function GuestStepper({
         className={cn(
           "flex min-w-0 items-center justify-center gap-2 text-[15px] font-bold",
           value === "" ? "text-[#94A3B8]" : "text-[#1E293B]",
+          phoneChips && "max-sm:font-normal",
+          phoneChips && value === "" && "max-sm:text-[#64748B]",
         )}
       >
-        <Users aria-hidden="true" className="size-4 shrink-0" />
+        <Users
+          aria-hidden="true"
+          className={cn(
+            "size-4 shrink-0",
+            phoneChips && "max-sm:size-5 max-sm:text-[#334155]",
+          )}
+        />
         <span className="truncate">
           {value === "" ? t("guestsAny") : t("guestCount", { count: value })}
         </span>

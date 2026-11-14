@@ -45,14 +45,18 @@ const BakurianiMap = dynamic(
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import PropertyCard from "@/components/cards/PropertyCard";
 import ServiceCard from "@/components/cards/ServiceCard";
-import EmploymentCard from "@/components/cards/EmploymentCard";
+import EmploymentCard, {
+  deriveBadge,
+  useEmploymentScheduleLabel,
+} from "@/components/cards/EmploymentCard";
 import HotOffersCarousel from "@/components/cards/HotOffersCarousel";
 import { cn } from "@/lib/utils";
 import { isDiscountActive } from "@/lib/utils/pricing";
 import { HERO_NOISE_BACKGROUND } from "@/lib/utils/heroTexture";
-import { describeSalary, type SalaryDescriptor } from "@/lib/employment/salary";
+import { describeSalary } from "@/lib/employment/salary";
 import type {
   LandingBlogPost,
+  LandingEmploymentExtras,
   LandingHotel,
   LandingProperty,
   LandingSaleProperty,
@@ -68,7 +72,8 @@ import type { StatusCard } from "@/lib/status-cards/types";
 import { MobileRail } from "@/components/shared/MobileRail";
 import HomeBlogCarousel from "./HomeBlogCarousel";
 
-type PublicService = LandingService;
+// Only the vacancy row's rows carry the employment extras.
+type PublicService = LandingService & Partial<LandingEmploymentExtras>;
 
 interface LandingPageProps {
   zones: Zone[];
@@ -79,6 +84,7 @@ interface LandingPageProps {
   vipProperties?: LandingProperty[];
   superVipProperties?: LandingSaleProperty[];
   services?: PublicService[];
+  employmentCvCounts?: Record<string, number> | null;
   superVipServices?: PublicService[];
   blogPosts?: LandingBlogPost[];
   bannerCreatives?: BannerCreative[];
@@ -366,6 +372,7 @@ export default function LandingPage({
   vipProperties: serverVipProperties,
   superVipProperties: serverSuperVipProperties,
   services: serverServices,
+  employmentCvCounts,
   superVipServices: serverSuperVipServices,
   blogPosts: serverBlogPosts,
   bannerCreatives: serverBannerCreatives = [],
@@ -470,7 +477,7 @@ export default function LandingPage({
   );
 
   // Group server services by category (a row may span several)
-  const servicesByCategory = (...categories: string[]) => {
+  const sortedServicesByCategory = (...categories: string[]) => {
     if (serverServices && serverServices.length > 0) {
       const isFood = categories.includes("food");
       return serverServices
@@ -496,11 +503,12 @@ export default function LandingPage({
             new Date(a.created_at ?? 0).getTime()
           );
         })
-        .slice(0, 4)
-        .map(toLandingServiceCard);
+        .slice(0, 4);
     }
     return [];
   };
+  const servicesByCategory = (...categories: string[]) =>
+    sortedServicesByCategory(...categories).map(toLandingServiceCard);
 
   const blogItems =
     serverBlogPosts && serverBlogPosts.length > 0
@@ -788,7 +796,8 @@ export default function LandingPage({
 
       {/* ═══ 11. Employment Section ═══ */}
       <EmploymentSection
-        cards={servicesByCategory("employment")}
+        services={sortedServicesByCategory("employment")}
+        cvCounts={employmentCvCounts ?? null}
         href="/employment"
       />
 
@@ -1042,29 +1051,16 @@ function ServiceSection({
 }
 
 function EmploymentSection({
-  cards,
+  services,
+  cvCounts,
   href,
 }: {
-  cards: Array<{
-    id: string;
-    title: string;
-    location: string | null;
-    salary?: SalaryDescriptor;
-    createdAt: string | null;
-    isVip: boolean;
-    isSuperVip: boolean;
-    isOwnershipVerified?: boolean;
-  }>;
+  services: PublicService[];
+  cvCounts: Record<string, number> | null;
   href: string;
 }) {
   const t = useTranslations("Landing");
-  const availabilities = [
-    t("schedule.daily"),
-    t("schedule.fullTime"),
-    t("schedule.flexible"),
-    t("schedule.partTime"),
-    t("schedule.seasonal"),
-  ];
+  const scheduleLabel = useEmploymentScheduleLabel();
 
   return (
     <section className="bg-brand-surface-muted px-4 py-12 lg:py-16">
@@ -1104,22 +1100,23 @@ function EmploymentSection({
           desktopItemClassName="lg:w-[300px]"
           desktopArrows
         >
-          {cards.map((card, i) => (
-            <ScrollReveal key={card.id} delay={i * 0.08} className="h-full">
+          {services.map((s, i) => (
+            <ScrollReveal key={s.id} delay={i * 0.08} className="h-full">
+              {/* The same card as /employment (EmploymentPageClient); the VIP
+                  badge and border come from the listing's own tier (C23). */}
               <EmploymentCard
-                id={card.id}
-                title={card.title}
-                employer={card.location}
-                location={null}
-                salary={card.salary}
-                scheduleLabel={availabilities[i % availabilities.length]}
-                // VIP badge and orange border only for a listing whose own
-                // VIP tier is on, as on /employment (C23), never for
-                // whichever vacancy happens to come first.
-                badge={card.isSuperVip || card.isVip ? "vip" : null}
-                createdAt={card.createdAt}
-                highlighted={card.isSuperVip || card.isVip}
-                isOwnershipVerified={card.isOwnershipVerified ?? false}
+                id={s.id}
+                createdAt={s.created_at}
+                title={s.position ?? s.title}
+                employer={s.title}
+                location={s.location}
+                salary={describeSalary(s)}
+                scheduleLabel={scheduleLabel(s)}
+                description={s.description}
+                badge={deriveBadge(s)}
+                applicationsCount={cvCounts ? (cvCounts[s.id] ?? 0) : undefined}
+                highlighted={Boolean(s.is_super_vip || s.is_vip)}
+                isOwnershipVerified={s.ownership_verified ?? false}
               />
             </ScrollReveal>
           ))}

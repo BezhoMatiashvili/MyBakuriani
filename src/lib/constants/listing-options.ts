@@ -322,6 +322,7 @@ const DB_VALUE_KEYS = {
   employmentTypes: {
     "სრული განაკვეთი": "full_time",
     "ნახევარი განაკვეთი": "part_time",
+    სეზონური: "seasonal",
     მოქნილი: "flexible",
   },
   salaryTypes: {

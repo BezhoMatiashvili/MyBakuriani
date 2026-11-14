@@ -15,6 +15,7 @@ import { CONTACT_EMAIL, CONTACT_PHONE_E164 } from "@/lib/site-contact";
 import LandingPage from "@/app/[locale]/_landing/LandingPage";
 import {
   LANDING_BLOG_COLUMNS,
+  LANDING_EMPLOYMENT_COLUMNS,
   LANDING_HOTEL_COLUMNS,
   LANDING_RENTAL_COLUMNS,
   LANDING_SALE_COLUMNS,
@@ -31,6 +32,7 @@ import {
 import { getLiveStatusCards } from "@/lib/status-cards/live";
 import { emptySaleResearch } from "@/lib/sale-research";
 import { getSaleResearch } from "@/lib/sale-research-server";
+import { getCvCountsForServices } from "@/lib/data/getCachedPublicListing";
 import { withTimeout } from "@/lib/with-timeout";
 import type { BannerCreative } from "@/lib/banner-creative";
 import type { Metadata } from "next";
@@ -69,35 +71,53 @@ export const revalidate = 120;
 // Four rows per category, in the order LandingPage sorts by, so a row built
 // from two categories still gets its true first four. The services row is
 // handyman + cleaning, as on /services: with handyman alone it showed the one
-// handyman listing and none of the cleaning ones (2026-10-13).
+// handyman listing and none of the cleaning ones (2026-10-13). The vacancy row
+// has its own query below, with the columns /employment's card reads.
 const LANDING_SERVICE_CATEGORIES = [
   "transport",
   "handyman",
   "cleaning",
   "entertainment",
   "food",
-  "employment",
 ] as const;
 
 async function fetchLandingServices(
   supabase: ReturnType<typeof createPublicClient>,
 ) {
-  const results = await Promise.all(
-    LANDING_SERVICE_CATEGORIES.map((category) =>
-      supabase
-        .from("public_services")
-        .select(LANDING_SERVICE_COLUMNS)
-        .eq("category", category)
-        .order("is_super_vip", { ascending: false })
-        .order("is_vip", { ascending: false })
-        .order("has_active_discount", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(4),
+  const [results, employment] = await Promise.all([
+    Promise.all(
+      LANDING_SERVICE_CATEGORIES.map((category) =>
+        supabase
+          .from("public_services")
+          .select(LANDING_SERVICE_COLUMNS)
+          .eq("category", category)
+          .order("is_super_vip", { ascending: false })
+          .order("is_vip", { ascending: false })
+          .order("has_active_discount", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(4),
+      ),
     ),
-  );
-  const failed = results.find((result) => result.error);
+    // The vacancy row shows the same card as /employment, so its rows carry
+    // the position, description and schedules too. Same order as above.
+    supabase
+      .from("public_services")
+      .select(LANDING_EMPLOYMENT_COLUMNS)
+      .eq("category", "employment")
+      .order("is_super_vip", { ascending: false })
+      .order("is_vip", { ascending: false })
+      .order("has_active_discount", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(4),
+  ]);
+  const failed = [...results, employment].find((result) => result.error);
   return {
-    data: failed ? null : results.flatMap((result) => result.data ?? []),
+    data: failed
+      ? null
+      : [
+          ...results.flatMap((result) => result.data ?? []),
+          ...(employment.data ?? []),
+        ],
     error: failed?.error ?? null,
   };
 }
@@ -244,12 +264,27 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
   const saleProperties = requireLandingData("sale_properties", saleResult);
   const vipProperties = requireLandingData("vip_properties", vipResult);
   const services = requireLandingData("services", servicesResult);
+  // Applicant counts for the vacancy row, as /employment shows them. Optional:
+  // a slow or failed read gives null (the cards then show no count) and never
+  // fails the render. A service-role count read, no cookies (C28).
+  const cvCountsQuery = withTimeout<Record<string, number> | null>(
+    getCvCountsForServices(
+      services.filter((s) => s.category === "employment").map((s) => s.id),
+    ),
+    LANDING_DEP_TIMEOUT_MS,
+    null,
+  ).catch((error: unknown) => {
+    logOptionalLandingError("employment_cv_counts", error);
+    return null;
+  });
 
-  const [blogResult, aggregateResult, superVipResults] = await Promise.all([
-    blogQuery,
-    aggregateQuery,
-    superVipQuery,
-  ]);
+  const [blogResult, aggregateResult, superVipResults, employmentCvCounts] =
+    await Promise.all([
+      blogQuery,
+      aggregateQuery,
+      superVipQuery,
+      cvCountsQuery,
+    ]);
   const blogPosts = optionalLandingData("blog_posts", blogResult);
   // One list for both views: LandingPage keeps the rentals, SaleLandingBody
   // gets the sales, each still in its query's order.
@@ -273,6 +308,7 @@ async function fetchLandingProps(zonesPromise: Promise<Zone[]>) {
     saleProperties: saleProperties.map(firstPhotoOnly),
     vipProperties: vipProperties.map(firstPhotoOnly),
     services: services.map(firstPhotoOnly),
+    employmentCvCounts,
     blogPosts,
     superVipProperties: superVipProperties.map((row) => firstPhotoOnly(row)),
     superVipServices: superVipServices.map((row) => firstPhotoOnly(row)),
@@ -462,6 +498,7 @@ async function LandingWithData() {
       superVipProperties={props.superVipProperties}
       superVipServices={props.superVipServices}
       services={props.services}
+      employmentCvCounts={props.employmentCvCounts}
       blogPosts={props.blogPosts}
       bannerCreatives={bannerCreatives}
       pricePerSqmByZone={props.pricePerSqmByZone}

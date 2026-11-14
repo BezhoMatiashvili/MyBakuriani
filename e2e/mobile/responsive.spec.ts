@@ -286,7 +286,8 @@ test.describe("Landing page mobile", () => {
       const searchBottom = searchBox!.y + searchBox!.height;
       expect(searchBox!.x).toBeCloseTo(16, 0);
       expect(searchBox!.width).toBeCloseTo(viewport.width - 32, 0);
-      // 307 + the 69px guest-count row (SearchBox showGuests, 2026-09-26).
+      // 34 chrome + 3x62 field groups + 66 guests group + 4x8 row gaps + 10 +
+      // the 48px keyword box (owner's phone mock, 2026-11-14).
       expect(searchBox!.height).toBeCloseTo(376, 1);
       expect(firstStatusBox!.y - searchBottom).toBeCloseTo(20, 1);
       expect(heroBottom - firstStatusBox!.y).toBeCloseTo(16, 1);

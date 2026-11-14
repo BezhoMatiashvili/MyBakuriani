@@ -483,6 +483,7 @@
     "priceCapacity": "Цена, вместимость...",
     "keywordSearch": "Поиск по слову",
     "keywordPlaceholder": "напр. камин, Кохта, ресторан...",
+    "keywordPlaceholderPhone": "напр. коттедж, ресторан...",
     "keywordSearchShort": "Поиск по слову...",
     "cadastralPlaceholder": "По кадастровому коду...",
     "search": "Поиск",
@@ -734,13 +735,6 @@
       "daysAgo3": "3 дня назад",
       "daysAgo5": "5 дней назад",
       "weekAgo1": "1 неделю назад"
-    },
-    "schedule": {
-      "daily": "Подённая",
-      "fullTime": "Полная ставка",
-      "flexible": "Гибкий график",
-      "partTime": "Полставки",
-      "seasonal": "Сезонная"
     },
     "sale": {
       "heroTitleTop": "Откройте в Бакуриани",
@@ -2634,6 +2628,7 @@
     "employmentTypes": {
       "full_time": "Полная занятость",
       "part_time": "Частичная занятость",
+      "seasonal": "Сезонная занятость",
       "flexible": "Гибкий график"
     },
     "salaryTypes": {

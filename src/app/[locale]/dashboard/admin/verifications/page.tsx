@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDate, formatPhone } from "@/lib/utils/format";
+import { formatDate, formatPhone, formatRelativeGe } from "@/lib/utils/format";
 import type { PendingListing } from "@/app/api/admin/listings/pending/route";
 import ListingAuditPanel from "@/components/admin/ListingAuditPanel";
 import OwnershipVerificationsPanel from "@/components/admin/OwnershipVerificationsPanel";
@@ -512,7 +512,8 @@ export default function VerificationsPage() {
                     <p className="mt-1 text-xs text-[#94A3B8]">
                       {formatDate(item.created_at)} •{" "}
                       {item.elapsedHours > 0
-                        ? `${item.elapsedHours}h რიგში`
+                        ? formatRelativeGe(item.created_at, "ka", nowTick) ||
+                          "ახლახან"
                         : "ახალი"}
                     </p>
                   </div>

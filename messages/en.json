@@ -483,6 +483,7 @@
     "priceCapacity": "Price, capacity...",
     "keywordSearch": "Keyword search",
     "keywordPlaceholder": "e.g. fireplace, Kokhta, restaurant...",
+    "keywordPlaceholderPhone": "e.g. cottage, restaurant...",
     "keywordSearchShort": "Keyword search...",
     "cadastralPlaceholder": "By cadastral code...",
     "search": "Search",
@@ -734,13 +735,6 @@
       "daysAgo3": "3 days ago",
       "daysAgo5": "5 days ago",
       "weekAgo1": "1 week ago"
-    },
-    "schedule": {
-      "daily": "Daily",
-      "fullTime": "Full-time",
-      "flexible": "Flexible",
-      "partTime": "Part-time",
-      "seasonal": "Seasonal"
     },
     "sale": {
       "heroTitleTop": "Discover in Bakuriani",
@@ -2634,6 +2628,7 @@
     "employmentTypes": {
       "full_time": "Full-time",
       "part_time": "Part-time",
+      "seasonal": "Seasonal",
       "flexible": "Flexible"
     },
     "salaryTypes": {

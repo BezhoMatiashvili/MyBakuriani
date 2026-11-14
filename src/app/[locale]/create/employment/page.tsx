@@ -32,6 +32,7 @@ import { scrollToField } from "@/lib/forms/scroll-to-error";
 const EMPLOYMENT_TYPE_VALUES = [
   "სრული განაკვეთი",
   "ნახევარი განაკვეთი",
+  "სეზონური",
   "მოქნილი",
 ] as const;
 
@@ -41,6 +42,7 @@ const EMPLOYMENT_TYPE_KEYS: Record<
 > = {
   "სრული განაკვეთი": "full_time",
   "ნახევარი განაკვეთი": "part_time",
+  სეზონური: "seasonal",
   მოქნილი: "flexible",
 };
 

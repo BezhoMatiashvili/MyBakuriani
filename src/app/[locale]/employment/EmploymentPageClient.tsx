@@ -4,8 +4,12 @@ import { Search, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { optionKeyFor } from "@/lib/constants/listing-options";
 import { describeSalary } from "@/lib/employment/salary";
+import { scheduleChipId } from "@/lib/employment/schedule";
 import type { Tables } from "@/lib/types/database";
-import EmploymentCard from "@/components/cards/EmploymentCard";
+import EmploymentCard, {
+  deriveBadge,
+  useEmploymentScheduleLabel,
+} from "@/components/cards/EmploymentCard";
 import ScrollReveal from "@/components/shared/ScrollReveal";
 import BannerSlot from "@/components/banners/BannerSlot";
 import { interleaveSponsored } from "@/lib/ad-rotation";
@@ -57,25 +61,10 @@ interface Props {
   cvCounts: Record<string, number>;
 }
 
-function deriveBadge(s: EmploymentListing): "urgent" | "vip" | null {
-  if (s.is_super_vip || s.is_vip) return "vip";
-  if (s.discount_percent && s.discount_percent > 0) return "urgent";
-  return null;
-}
-
 export default function EmploymentPageClient({ services, cvCounts }: Props) {
   const t = useTranslations("EmploymentPage");
   const tShared = useTranslations("Shared");
-  const tOpts = useTranslations("ListingOptions");
-
-  // Rows store Georgian enum labels (e.g. "მოქნილი"); resolve to the
-  // ListingOptions translation, passing unknown free-text through raw.
-  const scheduleLabel = (s: EmploymentListing): string | null => {
-    const raw = s.work_schedule ?? s.employment_schedule;
-    if (!raw) return null;
-    const key = optionKeyFor("employmentTypes", raw);
-    return key ? tOpts(`employmentTypes.${key}`) : raw;
-  };
+  const scheduleLabel = useEmploymentScheduleLabel();
 
   const [activePosition, setActivePosition] = useState<string>("all");
   const [activeSchedule, setActiveSchedule] = useState<string>("all");
@@ -88,16 +77,11 @@ export default function EmploymentPageClient({ services, cvCounts }: Props) {
         if ((s.position ?? "") !== activePosition) return false;
       }
       if (activeSchedule !== "all") {
-        if (activeSchedule === "other") {
-          if (
-            ["fulltime", "parttime", "seasonal"].includes(
-              s.employment_type ?? "",
-            )
-          )
-            return false;
-        } else if ((s.employment_type ?? "") !== activeSchedule) {
-          return false;
-        }
+        const chip = scheduleChipId(
+          s.employment_type,
+          optionKeyFor("employmentTypes", s.employment_type),
+        );
+        if (chip !== activeSchedule) return false;
       }
       if (
         searchQuery &&

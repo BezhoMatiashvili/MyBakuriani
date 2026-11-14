@@ -166,7 +166,7 @@ test.describe("Designer PDF mobile fixes", () => {
       .toBe("ok");
   });
 
-  test("landing employment card: full-width Details, badge, age and heart on one line (slides 4, 5)", async ({
+  test("landing employment card: Details fills the row without a count, badge, age and heart on one line (slides 4, 5)", async ({
     page,
   }) => {
     await page.goto("/");
@@ -186,8 +186,13 @@ test.describe("Designer PDF mobile fixes", () => {
             c.querySelectorAll('a[href*="/employment/"]'),
           ).pop();
           if (!details) return "missing Details";
+          // Beside an applicant count (as on /employment) the link shares the
+          // row; with no count (the counts read failed) it fills it.
           const w = details.getBoundingClientRect().width;
-          if (Math.abs(w - contentW) > 1)
+          if (
+            details.previousElementSibling === null &&
+            Math.abs(w - contentW) > 1
+          )
             return `Details ${Math.round(w)}px wide`;
           const cy = (e: Element) => {
             const r = e.getBoundingClientRect();

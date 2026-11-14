@@ -483,6 +483,7 @@
     "priceCapacity": "ფასი, ტევადობა...",
     "keywordSearch": "სიტყვით ძიება",
     "keywordPlaceholder": "მაგ. ბუხარი, კოხტა, რესტორანი...",
+    "keywordPlaceholderPhone": "მაგ. კოტეჯი, რესტორანი...",
     "keywordSearchShort": "სიტყვით ძიება...",
     "cadastralPlaceholder": "საკადასტრო კოდით...",
     "search": "ძებნა",
@@ -734,13 +735,6 @@
       "daysAgo3": "3 დღის წინ",
       "daysAgo5": "5 დღის წინ",
       "weekAgo1": "1 კვირის წინ"
-    },
-    "schedule": {
-      "daily": "დღიური",
-      "fullTime": "სრული განაკვეთი",
-      "flexible": "მოქნილი",
-      "partTime": "ნახევარი განაკვეთი",
-      "seasonal": "სეზონური"
     },
     "sale": {
       "heroTitleTop": "აღმოაჩინე ბაკურიანში",
@@ -2634,6 +2628,7 @@
     "employmentTypes": {
       "full_time": "სრული განაკვეთი",
       "part_time": "ნახევარი განაკვეთი",
+      "seasonal": "სეზონური",
       "flexible": "მოქნილი"
     },
     "salaryTypes": {
