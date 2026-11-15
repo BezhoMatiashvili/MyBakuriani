@@ -322,7 +322,10 @@
     "sell": "Sell",
     "forSale": "For sale",
     "blog": "Blog",
-    "guide": "Bakuriani guide"
+    "guide": "Bakuriani guide",
+    "liveCameras": "Live cameras",
+    "weatherLifts": "Weather & lifts",
+    "roadStatus": "Road from Tbilisi"
   },
   "DashboardSidebar": {
     "roles": {
@@ -7833,6 +7836,29 @@
   "Seo": {
     "locality": "Bakuriani",
     "region": "Samtskhe-Javakheti"
+  },
+  "LivePages": {
+    "cameras": {
+      "title": "Bakuriani Live Webcams: Didveli — MyBakuriani",
+      "description": "Live webcams from Bakuriani, including Didveli: see the resort now, then pick an apartment.",
+      "h1": "Bakuriani live webcams",
+      "lead": "See Bakuriani live before you set off.",
+      "openStream": "Open in a new tab"
+    },
+    "weather": {
+      "title": "Bakuriani Weather & Ski Lift Status — MyBakuriani",
+      "description": "Weather in Bakuriani and the forecast, ski lift status with its update date, apartments.",
+      "h1": "Bakuriani weather and ski lift status",
+      "lead": "Lift status is updated by hand, so its date is shown."
+    },
+    "road": {
+      "title": "Tbilisi to Bakuriani: Road, Time & Distance — MyBakuriani",
+      "description": "How long is the drive from Tbilisi to Bakuriani? Time, distance and traffic now.",
+      "h1": "The road from Tbilisi to Bakuriani",
+      "lead": "This is a route estimate, not a closure notice: in winter, check the road first."
+    },
+    "unavailable": "Not available right now. Please try again later.",
+    "listingsTitle": "Apartments and cottages in Bakuriani"
   },
   "Guide": {
     "crumb": "Guide",

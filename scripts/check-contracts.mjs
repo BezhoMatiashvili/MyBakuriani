@@ -2250,6 +2250,11 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (!/IS_INDEXABLE/.test(middlewareSrc) || !/X-Robots-Tag/.test(middlewareSrc)) fail("C40: src/middleware.ts must send X-Robots-Tag: noindex on non-canonical hosts (IS_INDEXABLE)");
   else ok("C40: non-canonical hosts answer with X-Robots-Tag noindex");
 
+  const embedHost = read("src/lib/status-cards/live-page.ts").match(/EMBED_HOST = "([^"]+)"/)?.[1];
+  const frameSrc = middlewareSrc.match(/"frame-src ([^"]+)"/)?.[1].split(/\s+/) ?? [];
+  if (!embedHost || !frameSrc.includes(`https://${embedHost}`)) fail(`C40: src/lib/status-cards/live-page.ts EMBED_HOST (${embedHost}) must be a host in src/middleware.ts frame-src, or /live-cameras frames a blocked stream`);
+  else ok(`C40: /live-cameras frames only ${embedHost}, a CSP frame-src host; other streams are linked out`);
+
   const jsonLdWriters = srcFiles.filter((f) => /application\/ld\+json/.test(srcText.get(f)));
   const strayWriters = jsonLdWriters.filter((f) => f !== join("src", "components", "seo", "JsonLd.tsx") && f !== join("src", "lib", "seo", "jsonld.ts"));
   if (strayWriters.length) fail(`C40: JSON-LD must be written through components/seo/JsonLd.tsx (escaped by serializeJsonLd): ${strayWriters.join(", ")}`);

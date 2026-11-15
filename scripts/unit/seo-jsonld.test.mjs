@@ -41,35 +41,66 @@ test("a breadcrumb list is positioned 1..n in the order given", () => {
   );
 });
 
-test("site markup names the organization once and the website per locale", () => {
-  const graph = siteJsonLd({
+// The home graph (C40): the Organization node exactly as before 2026-11-15,
+// then the owner's SEO brief verbatim, the same on every locale.
+const HOME_ORGANIZATION =
+  '{"@type":"Organization","@id":"https://mybakuriani.ge/#organization","name":"MyBakuriani","url":"https://mybakuriani.ge/","logo":{"@type":"ImageObject","url":"https://mybakuriani.ge/android-chrome-512x512.png"},"contactPoint":{"@type":"ContactPoint","contactType":"customer support","telephone":"+995551261111","email":"info.mybakuriani@gmail.com"}}';
+
+test("home markup is the organization, the brief's website and the resort", () => {
+  const data = siteJsonLd({
     siteUrl: SITE,
-    homeUrl: `${SITE}/en`,
     name: "MyBakuriani",
-    alternateNames: ["My Bakuriani"],
-    inLanguage: "en",
     logoUrl: `${SITE}/android-chrome-512x512.png`,
     telephone: "+995551261111",
-    email: "info@example.test",
-  })["@graph"];
-  const [org, site] = graph;
-  assert.equal(org["@type"], "Organization");
-  assert.equal(org["@id"], `${SITE}/#organization`);
-  assert.equal(org.logo.url, `${SITE}/android-chrome-512x512.png`);
-  assert.equal(org.contactPoint.telephone, "+995551261111");
-  assert.equal(site["@type"], "WebSite");
-  assert.equal(site.url, `${SITE}/en`);
-  assert.equal(site.inLanguage, "en");
-  assert.deepEqual(site.alternateName, ["My Bakuriani"]);
-  assert.deepEqual(site.publisher, { "@id": org["@id"] });
+    email: "info.mybakuriani@gmail.com",
+  });
+  const [org, site, destination] = data["@graph"];
+  assert.equal(data["@graph"].length, 3);
+  assert.equal(JSON.stringify(org), HOME_ORGANIZATION);
+  assert.deepEqual(site, {
+    "@type": "WebSite",
+    "@id": `${SITE}/#website`,
+    url: `${SITE}/`,
+    name: "MyBakuriani.ge",
+    alternateName: [
+      "MyBakuriani",
+      "ბაკურიანი",
+      "Bakuriani Portal",
+      "Бакуриани",
+    ],
+    inLanguage: ["ka-GE", "en-US", "ru-RU"],
+    publisher: { "@id": `${SITE}/#organization` },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${SITE}/search?q={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  });
+  assert.deepEqual(destination, {
+    "@type": "TouristDestination",
+    name: "Bakuriani / ბაკურიანი / Бакуриани",
+    description:
+      "Ski and family resort in Georgia. Apartments, cottages, ski lifts, live cameras, and transport.",
+    url: `${SITE}/`,
+    geo: {
+      "@type": "GeoCoordinates",
+      latitude: "41.7497",
+      longitude: "43.5325",
+    },
+    touristType: ["Skiers", "Families", "Mountain Lovers"],
+  });
+  // The placeholder stays literal: an encoded `%7B` would not be filled in.
+  assert.ok(
+    serializeJsonLd(data).includes(
+      `"target":"${SITE}/search?q={search_term_string}"`,
+    ),
+  );
 });
 
 test("site markup invents no contact point and no social profiles", () => {
   const [org] = siteJsonLd({
     siteUrl: SITE,
-    homeUrl: `${SITE}/`,
     name: "MyBakuriani",
-    inLanguage: "ka",
     logoUrl: `${SITE}/logo.png`,
   })["@graph"];
   assert.equal("contactPoint" in org, false);

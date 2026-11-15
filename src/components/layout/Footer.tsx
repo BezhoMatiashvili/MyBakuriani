@@ -42,6 +42,9 @@ export function Footer() {
     { label: t("contact"), href: "/contact" },
     { label: t("faq"), href: "/faq" },
     { label: t("guide"), href: "/bakuriani" },
+    { label: t("liveCameras"), href: "/live-cameras" },
+    { label: t("weatherLifts"), href: "/weather-and-lifts" },
+    { label: t("roadStatus"), href: "/road-status" },
     { label: t("blog"), href: "/blog" },
     { label: t("terms"), href: "/terms" },
   ];

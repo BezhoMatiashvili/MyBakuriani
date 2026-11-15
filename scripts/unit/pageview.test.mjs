@@ -18,3 +18,10 @@ test("rejects queries, fragments, traversal and non-public roots", () => {
   assert.equal(normalizePublicPageviewPath("relative"), null);
   assert.equal(normalizePublicPageviewPath(""), null);
 });
+
+test("counts the three live pages, with or without a locale", () => {
+  for (const path of ["/live-cameras", "/weather-and-lifts", "/road-status"]) {
+    assert.equal(normalizePublicPageviewPath(path), path);
+    assert.equal(normalizePublicPageviewPath(`/ru${path}`), path);
+  }
+});

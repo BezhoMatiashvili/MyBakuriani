@@ -3,14 +3,8 @@ import { getTranslations } from "next-intl/server";
 import { buildPageMetadata } from "@/lib/seo";
 import HomeAbout from "@/components/seo/HomeAbout";
 import JsonLd from "@/components/seo/JsonLd";
-import { pathForLocale } from "@/lib/seo/alternates";
 import { siteJsonLd } from "@/lib/seo/jsonld";
-import {
-  SITE_ALTERNATE_NAMES,
-  SITE_LOGO_PATH,
-  SITE_NAME,
-  SITE_URL,
-} from "@/lib/seo/site";
+import { SITE_LOGO_PATH, SITE_NAME, SITE_URL } from "@/lib/seo/site";
 import { CONTACT_EMAIL, CONTACT_PHONE_E164 } from "@/lib/site-contact";
 import LandingPage from "@/app/[locale]/_landing/LandingPage";
 import {
@@ -36,7 +30,7 @@ import { getCvCountsForServices } from "@/lib/data/getCachedPublicListing";
 import { withTimeout } from "@/lib/with-timeout";
 import type { BannerCreative } from "@/lib/banner-creative";
 import type { Metadata } from "next";
-import { routing, type AppLocale } from "@/i18n/routing";
+import type { AppLocale } from "@/i18n/routing";
 
 const LANDING_DATA_TIMEOUT_MS = 15_000;
 const LANDING_DEP_TIMEOUT_MS = 7_000;
@@ -522,13 +516,7 @@ export default async function Home({
       <JsonLd
         data={siteJsonLd({
           siteUrl: SITE_URL,
-          homeUrl: new URL(
-            pathForLocale("/", locale, routing.defaultLocale),
-            SITE_URL,
-          ).href,
           name: SITE_NAME,
-          alternateNames: SITE_ALTERNATE_NAMES,
-          inLanguage: locale,
           logoUrl: `${SITE_URL}${SITE_LOGO_PATH}`,
           telephone: CONTACT_PHONE_E164,
           email: CONTACT_EMAIL,

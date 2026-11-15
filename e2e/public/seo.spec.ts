@@ -48,6 +48,9 @@ const PAGES = [
   "/bakuriani/centri",
   "/bakuriani/kokhta",
   "/bakuriani/25ianebi",
+  "/live-cameras",
+  "/weather-and-lifts",
+  "/road-status",
   "/faq",
   "/pricing",
   "/contact",
@@ -70,7 +73,6 @@ const NO_BREADCRUMB = new Set([
 // action waiting to happen.
 const FORBIDDEN_TYPES = [
   "FAQPage",
-  "SearchAction",
   "JobPosting",
   "VacationRental",
   "AggregateRating",
@@ -423,7 +425,11 @@ test.describe("public pages", () => {
             }
           }
           if (page === "/") {
-            for (const type of ["Organization", "WebSite"]) {
+            for (const type of [
+              "Organization",
+              "WebSite",
+              "TouristDestination",
+            ]) {
               if (!types.includes(type)) problems.push(at(`no ${type} markup`));
             }
           }

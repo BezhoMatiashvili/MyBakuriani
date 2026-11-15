@@ -3,10 +3,11 @@
 //
 // Thin and honest on purpose: every field is a fact the page also shows, and
 // absent facts are left out rather than guessed. Not emitted, deliberately:
-// FAQPage and SearchAction (Google retired both), JobPosting (Georgia is not in
-// Google Jobs' country list), VacationRental (invitation-only program),
-// AggregateRating (no ratings are displayed), and any telephone number of a
-// listing (it sits behind the reveal button).
+// FAQPage (Google retired it), JobPosting (Georgia is not in Google Jobs'
+// country list), VacationRental (invitation-only program), AggregateRating (no
+// ratings are displayed), and any telephone number of a listing (it sits behind
+// the reveal button). The one exception is the home page's graph (siteJsonLd):
+// the owner's SEO brief verbatim, SearchAction and TouristDestination included.
 
 export type JsonLdObject = Record<string, unknown>;
 
@@ -59,15 +60,14 @@ export function breadcrumbListJsonLd(
 }
 
 /**
- * Organization + WebSite for a home page: what Google reads for the site name
- * and logo in results. `url` of the WebSite is the home page of THIS locale.
+ * Organization + WebSite + TouristDestination for the home page, the same on
+ * every locale: what Google reads for the site name and logo in results. The
+ * WebSite and TouristDestination nodes are the owner's SEO brief verbatim
+ * (2026-11-15, C40); the search box goes to /search, which reads `q`.
  */
 export function siteJsonLd(input: {
   siteUrl: string;
-  homeUrl: string;
   name: string;
-  alternateNames?: readonly string[];
-  inLanguage: string;
   logoUrl: string;
   /** Only a number/address the site itself publishes (the contact page). */
   telephone?: string;
@@ -93,17 +93,38 @@ export function siteJsonLd(input: {
             })
           : undefined,
       }),
-      compact({
+      {
         "@type": "WebSite",
-        "@id": `${input.homeUrl}#website`,
-        name: input.name,
-        alternateName: input.alternateNames
-          ? [...input.alternateNames]
-          : undefined,
-        url: input.homeUrl,
-        inLanguage: input.inLanguage,
+        "@id": `${input.siteUrl}/#website`,
+        url: `${input.siteUrl}/`,
+        name: "MyBakuriani.ge",
+        alternateName: [
+          "MyBakuriani",
+          "ბაკურიანი",
+          "Bakuriani Portal",
+          "Бакуриани",
+        ],
+        inLanguage: ["ka-GE", "en-US", "ru-RU"],
         publisher: { "@id": organizationId },
-      }),
+        potentialAction: {
+          "@type": "SearchAction",
+          target: `${input.siteUrl}/search?q={search_term_string}`,
+          "query-input": "required name=search_term_string",
+        },
+      },
+      {
+        "@type": "TouristDestination",
+        name: "Bakuriani / ბაკურიანი / Бакуриани",
+        description:
+          "Ski and family resort in Georgia. Apartments, cottages, ski lifts, live cameras, and transport.",
+        url: `${input.siteUrl}/`,
+        geo: {
+          "@type": "GeoCoordinates",
+          latitude: "41.7497",
+          longitude: "43.5325",
+        },
+        touristType: ["Skiers", "Families", "Mountain Lovers"],
+      },
     ],
   };
 }

@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import GuideEnd from "@/components/guide/GuideEnd";
 import GuideHeading from "@/components/guide/GuideHeading";
 import GuideSection from "@/components/guide/GuideSection";
 import Breadcrumbs from "@/components/seo/Breadcrumbs";
 import FaqList from "@/components/seo/FaqList";
 import { guideLinks } from "@/components/seo/richLinks";
+import { Link } from "@/i18n/navigation";
 import type { AppLocale } from "@/i18n/routing";
 import { GUIDE_BASE_PATH } from "@/lib/guide";
 import { getGuideTranslator } from "@/lib/guide-content";
 import { buildPageMetadata } from "@/lib/seo";
+import { LIVE_PAGE_PATHS } from "@/lib/status-cards/live-page";
 
 const PATH = `${GUIDE_BASE_PATH}/ski-lifts`;
 
@@ -44,6 +47,7 @@ export default async function SkiLiftsPage({
 }) {
   const { locale } = await params;
   const t = await getGuideTranslator(locale);
+  const tLive = await getTranslations({ locale, namespace: "LivePages" });
 
   return (
     <>
@@ -90,6 +94,25 @@ export default async function SkiLiftsPage({
             }))}
           />
         </GuideSection>
+
+        <ul className="mt-10 sm:mt-12">
+          <li>
+            <Link
+              href={LIVE_PAGE_PATHS.weather}
+              className="inline-flex min-h-11 items-center font-semibold text-[#2563EB] underline-offset-2 hover:underline"
+            >
+              {tLive("weather.h1")}
+            </Link>
+          </li>
+          <li>
+            <Link
+              href={LIVE_PAGE_PATHS.cameras}
+              className="inline-flex min-h-11 items-center font-semibold text-[#2563EB] underline-offset-2 hover:underline"
+            >
+              {tLive("cameras.h1")}
+            </Link>
+          </li>
+        </ul>
 
         <GuideEnd locale={locale} page="ski-lifts" />
       </article>

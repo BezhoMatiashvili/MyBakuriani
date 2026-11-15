@@ -13,14 +13,17 @@ const PUBLIC_ROUTE_ROOTS = new Set([
   "/faq",
   "/food",
   "/hotels",
+  "/live-cameras",
   "/marketing-policy",
   "/pricing",
   "/privacy",
+  "/road-status",
   "/sales",
   "/search",
   "/services",
   "/terms",
   "/transport",
+  "/weather-and-lifts",
 ]);
 
 /** Returns a locale-free, query-free public pathname or null when untrackable. */

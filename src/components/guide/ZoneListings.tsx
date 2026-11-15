@@ -14,7 +14,7 @@ import { getActiveZones } from "@/lib/zones/server";
 
 const SHOWN = 6;
 
-function toCardProps(p: LandingProperty) {
+export function toCardProps(p: LandingProperty) {
   return {
     id: p.id,
     title: p.title,
