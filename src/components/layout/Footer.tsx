@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { useTranslations } from "next-intl";
+import { TopGeCounter } from "@/components/analytics/TopGeCounter";
 import { Link } from "@/i18n/navigation";
 import { CONSENT_OPEN_EVENT } from "@/lib/consent/cookies";
 import { FooterLanguageLinks } from "./FooterLanguageLinks";
@@ -212,6 +213,9 @@ export function Footer() {
               Improve the map
             </a>
           </div>
+          {/* TOP.GE rating badge: only on the canonical host, after analytics
+              consent, on public pages; renders nothing otherwise. */}
+          <TopGeCounter />
         </div>
       </div>
     </footer>

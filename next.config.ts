@@ -185,6 +185,15 @@ const nextConfig: NextConfig = {
         hostname: "api.mapbox.com",
         pathname: "/styles/v1/mapbox/**",
       },
+      // Only for C6 parity with CSP img-src: the TOP.GE hit (TopGeCounter) is a
+      // plain <img>, never /_next/image. The empty search keeps the optimizer
+      // from fetching a real hit (the hit carries a query string).
+      {
+        protocol: "https",
+        hostname: "counter.top.ge",
+        pathname: "/cgi-bin/count222",
+        search: "",
+      },
     ],
   },
   experimental: {

@@ -91,7 +91,8 @@ function applySecurityHeaders(response: Response, secureRequest: boolean) {
       "script-src-attr 'none'",
       "style-src 'self' 'unsafe-inline'",
       // api.mapbox.com: BakurianiMap's phone preview (Static Images API).
-      `img-src 'self' data: blob: ${SUPABASE_ORIGINS} https://images.unsplash.com https://api.mapbox.com`,
+      // counter.top.ge: the TOP.GE rating hit (TopGeCounter), a plain <img>.
+      `img-src 'self' data: blob: ${SUPABASE_ORIGINS} https://images.unsplash.com https://api.mapbox.com https://counter.top.ge`,
       "font-src 'self' data:",
       `connect-src 'self' ${SUPABASE_ORIGINS} wss://${SUPABASE_PROJECT_HOST} https://challenges.cloudflare.com https://api.mapbox.com https://events.mapbox.com`,
       `media-src 'self' ${SUPABASE_ORIGINS}`,
