@@ -26,7 +26,7 @@ const FETCH = 12;
 const PROPERTY_COLUMNS =
   "id, title, location, photos, price_per_night, sale_price, sale_price_gel, sale_price_currency, is_for_sale, capacity, rooms, is_vip, is_super_vip, discount_percent, discount_expires_at, created_at, distance_to_slope_m, construction_status, construction_progress_percent, house_rules, hotel_stars, is_b2b_partner, room_type, ownership_verified";
 const SERVICE_COLUMNS =
-  "id, title, category, position, location, photos, price, price_unit, discount_percent, discount_expires_at, best_active_menu_item_discount_percent, created_at, is_vip, is_super_vip, schedule, operating_hours, has_whatsapp, vehicle_capacity, transport_type, vehicle_make, route, routes, salary_type, salary_min, salary_max, salary_daily, salary_range, work_schedule, employment_schedule, ownership_verified";
+  "id, title, category, position, location, photos, price, price_unit, discount_percent, discount_expires_at, best_active_menu_item_discount_percent, created_at, is_vip, is_super_vip, schedule, operating_hours, has_whatsapp, vehicle_capacity, transport_type, vehicle_make, route, routes, salary_type, salary_min, salary_max, salary_daily, salary_range, work_schedule, employment_schedule, ownership_verified, employment_type";
 
 // The categories /services lists; every other category has its own route.
 const SERVICES_CATEGORIES = ["handyman", "cleaning"] as const;
@@ -245,7 +245,8 @@ export default async function RelatedListings({
 
   // Rows store Georgian schedule labels; unknown free text passes through.
   const scheduleLabel = (row: ServiceRow): string | null => {
-    const raw = row.work_schedule ?? row.employment_schedule;
+    const raw =
+      row.work_schedule ?? row.employment_schedule ?? row.employment_type;
     if (!raw) return null;
     const key = optionKeyFor("employmentTypes", raw);
     return key ? tOpts(`employmentTypes.${key}`) : raw;

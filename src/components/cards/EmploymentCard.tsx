@@ -94,8 +94,9 @@ export function useEmploymentScheduleLabel() {
   return (s: {
     work_schedule?: string | null;
     employment_schedule?: string | null;
+    employment_type?: string | null;
   }): string | null => {
-    const raw = s.work_schedule ?? s.employment_schedule;
+    const raw = s.work_schedule ?? s.employment_schedule ?? s.employment_type;
     if (!raw) return null;
     const key = optionKeyFor("employmentTypes", raw);
     return key ? tOpts(`employmentTypes.${key}`) : raw;

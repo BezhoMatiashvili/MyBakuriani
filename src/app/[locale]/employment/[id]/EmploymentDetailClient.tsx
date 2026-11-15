@@ -210,7 +210,10 @@ export default function EmploymentDetailClient({
     const key = optionKeyFor(group, value);
     return key ? tOpts(`${group}.${key}`) : value;
   };
-  const scheduleRaw = service.work_schedule ?? service.employment_schedule;
+  const scheduleRaw =
+    service.work_schedule ??
+    service.employment_schedule ??
+    service.employment_type;
 
   // "Additional conditions" renders twice: a compact card under the stat tiles
   // below `lg` (where the aside would otherwise stack under the whole form)
