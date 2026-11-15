@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   CONSENT_CHANGE_EVENT,
   CONSENT_COOKIE_MAX_AGE_SECONDS,
   CONSENT_COOKIE_NAME,
   CONSENT_OPEN_EVENT,
+  cookieQuestionPending,
   parseCookieConsent,
   readCookieValue,
   serializeCookieConsent,
@@ -15,6 +16,8 @@ import {
   declineLocation,
   requestUserLocation,
 } from "@/lib/geolocation/useUserLocation";
+import { META_PIXEL_ID } from "@/lib/meta/config";
+import { META_CONSENT_DESCRIPTION } from "@/content/legal/meta-consent";
 
 // How long the location button waits. The browser's own geolocation timeout
 // does not count the time a permission prompt is on screen, and a WebView with
@@ -29,6 +32,11 @@ type Step = "cookies" | "location";
  * the only non-essential cookies are mb_vid and the 30-minute session cookie
  * mb_sid (C49), both issued by /api/track/view.
  * Location has no cookie of its own; see src/lib/consent/cookies.ts.
+ *
+ * With NEXT_PUBLIC_META_PIXEL_ID set (C59) the same two buttons also answer
+ * Meta advertising (the Meta Pixel): the card names Meta, both answers write
+ * `marketing`, and whoever accepted Analytics before Meta was added is asked
+ * once more. Without the ID none of this happens.
  *
  * The choice is written with document.cookie from the CLIENT on purpose.
  * localeCookie was disabled in src/i18n/routing.ts precisely because
@@ -48,16 +56,25 @@ type Step = "cookies" | "location";
  */
 export function CookieConsentBanner() {
   const t = useTranslations("CookieConsent");
+  const locale = useLocale();
   const [step, setStep] = useState<Step | null>(null);
   const [locationPending, setLocationPending] = useState(false);
+  // Opened on load to ask a stored Analytics "yes" about Meta (C59): a
+  // location answer already given is kept and not asked again.
+  const [reAsk, setReAsk] = useState(false);
 
   useEffect(() => {
     const consent = parseCookieConsent(
       readCookieValue(document.cookie, CONSENT_COOKIE_NAME),
     );
-    setStep(consent === null ? "cookies" : null);
+    const pending = cookieQuestionPending(consent, META_PIXEL_ID !== null);
+    setStep(pending ? "cookies" : null);
+    setReAsk(pending && consent !== null);
 
-    const reopen = () => setStep("cookies");
+    const reopen = () => {
+      setReAsk(false);
+      setStep("cookies");
+    };
     window.addEventListener(CONSENT_OPEN_EVENT, reopen);
     return () => window.removeEventListener(CONSENT_OPEN_EVENT, reopen);
   }, []);
@@ -72,6 +89,8 @@ export function CookieConsentBanner() {
     const value = serializeCookieConsent({
       analytics,
       location: current?.location ?? null,
+      // One combined answer: Meta follows Analytics (C59, Pixel builds only).
+      ...(META_PIXEL_ID ? { marketing: analytics } : {}),
     });
     // Not HttpOnly by design: PageviewTracker must read it before beaconing.
     document.cookie = `${CONSENT_COOKIE_NAME}=${encodeURIComponent(value)}; path=/; max-age=${CONSENT_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${
@@ -80,8 +99,13 @@ export function CookieConsentBanner() {
     // Lets already-mounted consumers react without a reload.
     window.dispatchEvent(new Event(CONSENT_CHANGE_EVENT));
     // A browser with no geolocation at all cannot answer the second question.
-    setStep("geolocation" in navigator ? "location" : null);
-  }, []);
+    setStep(
+      "geolocation" in navigator &&
+        !(reAsk && typeof current?.location === "boolean")
+        ? "location"
+        : null,
+    );
+  }, [reAsk]);
 
   const chooseLocation = useCallback(async (enable: boolean) => {
     if (!enable) {
@@ -126,7 +150,11 @@ export function CookieConsentBanner() {
           <>
             <p className="text-[13px] font-bold text-[#0F172A]">{t("title")}</p>
             <p className="mt-1.5 text-[12px] leading-[18px] text-[#64748B]">
-              {t("description")}{" "}
+              {META_PIXEL_ID
+                ? META_CONSENT_DESCRIPTION[
+                    locale as keyof typeof META_CONSENT_DESCRIPTION
+                  ] ?? META_CONSENT_DESCRIPTION.ka
+                : t("description")}{" "}
               <a
                 href="/privacy#cookies"
                 target="_blank"

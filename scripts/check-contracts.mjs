@@ -4182,6 +4182,106 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C23/badges: ${mounts} <EmploymentCard> mounts take badge/highlighted from the listing's VIP flags, not its position`);
 }
 
+// ---------------------------------------------------------------------------
+// C59 — Meta Pixel. (1) only src/lib/meta/client.ts calls fbq( or names
+// fbevents; (2) it sets disablePushState, allowDuplicatePageViews and autoConfig
+// false, and calls init once with no matching object; (3) no <noscript>, no
+// hand-built /tr URL, no hashing or user data, and every fbq( call has an
+// allowed shape; (4) META_EVENTS is the four-name catalog and every trackMeta(
+// call outside src/lib/meta passes one catalog name, in its mapped file;
+// (5) the CSP and remotePatterns carry the Meta hosts; (6) <MetaPixel> is
+// mounted only in LocaleShell behind META_PIXEL_ID, and the env var is read
+// only in config.ts; (7) core.ts and pixel-id.ts have no runtime import (and
+// config.ts imports only pixel-id.ts, so the layout bundle never pulls in
+// core.ts), cookies.ts no
+// process.env, and core.ts's locale regex lists routing.locales (C2);
+// (8) neither MetaPixel.tsx nor client.ts uses useSearchParams (C28).
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  const CLIENT = join("src", "lib", "meta", "client.ts");
+  const CORE = join("src", "lib", "meta", "core.ts");
+  const CONFIG = join("src", "lib", "meta", "config.ts");
+  const PIXEL = join("src", "components", "analytics", "MetaPixel.tsx");
+  const SHELL = join("src", "components", "layout", "LocaleShell.tsx");
+  const strip = (code) => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
+  const code = new Map([...srcText].map(([file, text]) => [file, strip(text)]));
+
+  const fbqFiles = [...code].filter(([, text]) => /\bfbq\s*\(|fbevents/.test(text)).map(([file]) => file);
+  if (fbqFiles.join() !== CLIENT) problems.push(`fbq( / fbevents must appear only in ${CLIENT} (found: ${fbqFiles.join(", ") || "none"})`);
+
+  const client = code.get(CLIENT) ?? "";
+  if (!/\.disablePushState = true;/.test(client)) problems.push(`${CLIENT} must set disablePushState = true`);
+  if (!/\.allowDuplicatePageViews = true;/.test(client)) problems.push(`${CLIENT} must set allowDuplicatePageViews = true`);
+  if (!/\bfbq\("set", "autoConfig", false, META_PIXEL_ID\)/.test(client)) problems.push(`${CLIENT} must call fbq("set", "autoConfig", false, META_PIXEL_ID)`);
+  const inits = [...client.matchAll(/\bfbq\(\s*"init"([^)]*)\)/g)];
+  if (inits.length !== 1 || inits[0][1].trim() !== ", META_PIXEL_ID") problems.push(`${CLIENT} must call fbq("init", META_PIXEL_ID) exactly once, with no matching object (found ${inits.length})`);
+  if (/<noscript|facebook\.com\/tr|external_id|crypto\.subtle|sha256|userData/i.test(client)) problems.push(`${CLIENT} has a <noscript>, a hand-built /tr URL or user matching/hashing`);
+  const ALLOWED_CALLS = new Set([
+    '"set", "autoConfig", false, META_PIXEL_ID',
+    '"init", META_PIXEL_ID',
+    '"consent", "revoke"',
+    '"consent", "grant"',
+    "META_EVENTS[name], name",
+  ]);
+  for (const m of client.matchAll(/\bfbq\(([^)]*)\)/g)) {
+    const args = m[1].replace(/\s+/g, " ").trim();
+    if (!ALLOWED_CALLS.has(args)) problems.push(`${CLIENT}: fbq(${args}) is not an allowed call shape`);
+  }
+
+  const core = code.get(CORE) ?? "";
+  const catalogBody = core.match(/export const META_EVENTS = \{([^}]*)\}/)?.[1];
+  const catalog = new Map([...(catalogBody ?? "").matchAll(/(\w+):\s*"(track|trackCustom)"/g)].map((m) => [m[1], m[2]]));
+  const EXPECTED_CATALOG = { PageView: "track", CompleteRegistration: "track", Lead: "track", SmartMatchRequest: "trackCustom" };
+  if (catalog.size !== 4 || Object.entries(EXPECTED_CATALOG).some(([name, method]) => catalog.get(name) !== method))
+    problems.push(`${CORE}: META_EVENTS must be exactly ${JSON.stringify(EXPECTED_CATALOG)}`);
+  const CALL_SITES = {
+    CompleteRegistration: join("src", "app", "[locale]", "auth", "register", "page.tsx"),
+    Lead: join("src", "app", "[locale]", "employment", "[id]", "EmploymentDetailClient.tsx"),
+    SmartMatchRequest: join("src", "app", "[locale]", "dashboard", "guest", "GuestDashboardClient.tsx"),
+  };
+  let callSites = 0;
+  for (const [file, text] of code) {
+    if (file.startsWith(join("src", "lib", "meta") + "/")) continue;
+    for (const m of text.matchAll(/\btrackMeta\(([^)]*)\)/g)) {
+      callSites++;
+      const name = m[1].trim().match(/^"(\w+)"$/)?.[1];
+      if (!name || !(name in CALL_SITES)) problems.push(`${file}: trackMeta(${m[1].trim()}) must pass one conversion name from META_EVENTS`);
+      else if (CALL_SITES[name] !== file) problems.push(`${file}: trackMeta("${name}") belongs in ${CALL_SITES[name]}`);
+    }
+  }
+
+  const mw = read("src/middleware.ts");
+  const cspDirective = (name) => mw.match(new RegExp("`" + name + " ([^`]+)`"))?.[1] ?? "";
+  if (!cspDirective("script-src").includes("https://connect.facebook.net")) problems.push("middleware script-src lacks https://connect.facebook.net");
+  if (!cspDirective("img-src").includes("https://www.facebook.com")) problems.push("middleware img-src lacks https://www.facebook.com");
+  const connect = cspDirective("connect-src");
+  if (!connect.includes("https://www.facebook.com") || !connect.includes("https://connect.facebook.net")) problems.push("middleware connect-src lacks https://www.facebook.com or https://connect.facebook.net");
+  const fbPattern = read("next.config.ts").match(/\{[^{}]*hostname:\s*"www\.facebook\.com"[^{}]*\}/)?.[0] ?? "";
+  if (!/pathname:\s*"\/tr\/\*\*"/.test(fbPattern) || !/search:\s*""/.test(fbPattern)) problems.push('next.config.ts remotePatterns needs { hostname: "www.facebook.com", pathname: "/tr/**", search: "" }');
+
+  const mounts = [...code].filter(([, text]) => /<MetaPixel\b/.test(text)).map(([file]) => file);
+  const guarded = /\{META_PIXEL_ID \? \(\s*<>\s*<PageviewTracker \/>\s*<MetaPixel \/>\s*<\/>\s*\) : \(\s*<PageviewTracker \/>\s*\)\}/;
+  if (mounts.join() !== SHELL || !guarded.test(code.get(SHELL) ?? "")) problems.push(`<MetaPixel /> must be mounted only in ${SHELL}, in PageviewTracker's slot behind META_PIXEL_ID (found in: ${mounts.join(", ") || "none"})`);
+  const envReaders = [...code].filter(([, text]) => /NEXT_PUBLIC_META_PIXEL_ID/.test(text)).map(([file]) => file);
+  if (envReaders.join() !== CONFIG) problems.push(`NEXT_PUBLIC_META_PIXEL_ID must be read only in ${CONFIG} (found: ${envReaders.join(", ") || "none"})`);
+
+  const runtimeImport = /^\s*import\s+(?!type\b)|^\s*export\s+(?:\*|\{[^}]*\})\s+from\b|\brequire\(/m;
+  const PIXEL_ID_FILE = join("src", "lib", "meta", "pixel-id.ts");
+  for (const file of [CORE, PIXEL_ID_FILE]) if (runtimeImport.test(code.get(file) ?? "import missing")) problems.push(`${file} has a runtime import or is missing (scripts/unit loads it bare, C29)`);
+  const configImports = [...(code.get(CONFIG) ?? "").matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
+  if (configImports.join() !== "./pixel-id") problems.push(`${CONFIG} must import only ./pixel-id (found: ${configImports.join(", ")})`);
+  if (/process\.env/.test(code.get(join("src", "lib", "consent", "cookies.ts")) ?? "")) problems.push("src/lib/consent/cookies.ts must not read process.env (callers pass whether the Pixel is on)");
+  const routingLocales = read("src/i18n/routing.ts").match(/locales:\s*\[([^\]]*)\]/)?.[1].match(/"([a-z]{2})"/g)?.map((l) => l.slice(1, -1)) ?? [];
+  const coreLocales = core.match(/META_LOCALE_PREFIX = \/\^\\\/\(([a-z|]+)\)/)?.[1].split("|") ?? [];
+  if (!routingLocales.length || !setEq(new Set(routingLocales), new Set(coreLocales))) problems.push(`${CORE} META_LOCALE_PREFIX lists [${coreLocales.join(", ")}], routing.locales is [${routingLocales.join(", ")}] (C2)`);
+
+  for (const file of [PIXEL, CLIENT]) if (/useSearchParams/.test(code.get(file) ?? "")) problems.push(`${file} must not use useSearchParams (C28)`);
+
+  if (problems.length) problems.forEach((p) => fail(`C59: ${p}`));
+  else ok(`C59: Meta Pixel confined to ${CLIENT} (catalog of ${catalog.size}, ${callSites} trackMeta call sites), CSP + remotePatterns carry its hosts, mounted once behind META_PIXEL_ID`);
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);

@@ -194,6 +194,15 @@ const nextConfig: NextConfig = {
         pathname: "/cgi-bin/count222",
         search: "",
       },
+      // Only for C6 parity with CSP img-src: the Meta Pixel's /tr hit (C59)
+      // is sent by fbevents.js, never through /_next/image; the empty search
+      // keeps the optimizer from fetching a real hit.
+      {
+        protocol: "https",
+        hostname: "www.facebook.com",
+        pathname: "/tr/**",
+        search: "",
+      },
     ],
   },
   experimental: {

@@ -11,8 +11,15 @@
 // coordinates themselves are never persisted anywhere (not this cookie, not
 // storage - see useUserLocation's doc comment). The Privacy Policy
 // (/privacy#cookies) may need a matching update for the new category; that
-// page is out of scope for this change. There is still no third-party ad or
-// analytics script anywhere, so no Marketing category is offered.
+// page is out of scope for this change.
+//
+// Marketing (2026-11-15, C59): the Meta Pixel (fbevents.js, its _fbp / _fbc
+// cookies), only on a build with NEXT_PUBLIC_META_PIXEL_ID. The banner asks it
+// together with Analytics ("ვეთანხმები ყველას" grants both, "მხოლოდ
+// აუცილებელი" declines both), and the field is written only on such a build;
+// without the ID nothing here changes. A cookie that accepted Analytics before
+// the field existed is asked once more (cookieQuestionPending). This file
+// never reads process.env: callers pass whether the Pixel is on.
 
 export const CONSENT_COOKIE_NAME = "mb_cookie_consent";
 
@@ -21,7 +28,7 @@ export const CONSENT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 /**
  * Fired on `window` after the visitor answers, so already-mounted components
- * (PageviewTracker) can re-read the cookie without a page reload.
+ * (PageviewTracker, MetaPixel) can re-read the cookie without a page reload.
  */
 export const CONSENT_CHANGE_EVENT = "mb-consent-change";
 
@@ -38,15 +45,28 @@ export type CookieConsent = {
    * Callers must treat null the same as "no consent", never as a default yes.
    */
   location: boolean | null;
+  /**
+   * Meta advertising (C59). Absent when the cookie has no such field (every
+   * cookie written by a build without the Pixel); null when the field is
+   * there but unreadable. Only `true` is consent.
+   */
+  marketing?: boolean | null;
 };
 
 /** Bumped from v1 when the `location` category was added; v1 stays readable. */
 const VERSION = "v2";
 const LEGACY_VERSION = "v1";
 
-/** `v2|analytics=1|location=0` - short, opaque, and cheap to send on every request. */
+/**
+ * `v2|analytics=1|location=0` - short, opaque, and cheap to send on every
+ * request. `marketing` sits between the two only when it is a boolean
+ * (`v2|analytics=1|marketing=1|location=0`); an older parser ignores it.
+ */
 export function serializeCookieConsent(consent: CookieConsent): string {
   const fields = [`analytics=${consent.analytics ? 1 : 0}`];
+  if (typeof consent.marketing === "boolean") {
+    fields.push(`marketing=${consent.marketing ? 1 : 0}`);
+  }
   if (consent.location !== null) {
     fields.push(`location=${consent.location ? 1 : 0}`);
   }
@@ -82,7 +102,12 @@ export function parseCookieConsent(
   const location =
     fields.location === "1" ? true : fields.location === "0" ? false : null;
 
-  return { analytics, location };
+  if (!Object.prototype.hasOwnProperty.call(fields, "marketing")) {
+    return { analytics, location };
+  }
+  const marketing =
+    fields.marketing === "1" ? true : fields.marketing === "0" ? false : null;
+  return { analytics, location, marketing };
 }
 
 /** The single predicate every analytics path must consult. */
@@ -93,6 +118,25 @@ export function hasAnalyticsConsent(raw: string | null | undefined): boolean {
 /** The single predicate every geolocation path must consult. */
 export function hasLocationConsent(raw: string | null | undefined): boolean {
   return parseCookieConsent(raw)?.location === true;
+}
+
+/** The single predicate every Meta Pixel path must consult (C59). */
+export function hasMarketingConsent(raw: string | null | undefined): boolean {
+  return parseCookieConsent(raw)?.marketing === true;
+}
+
+/**
+ * Whether the banner's cookie question opens on load: never answered, or -
+ * only while the Meta Pixel is on - Analytics accepted with no readable
+ * Meta answer (that "accept all" did not cover Meta). A decline is never
+ * asked again; a missing location answer never opens the card (C38).
+ */
+export function cookieQuestionPending(
+  consent: CookieConsent | null,
+  metaOn: boolean,
+): boolean {
+  if (consent === null) return true;
+  return metaOn && consent.analytics && typeof consent.marketing !== "boolean";
 }
 
 /**

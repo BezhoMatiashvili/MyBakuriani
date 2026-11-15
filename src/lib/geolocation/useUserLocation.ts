@@ -9,6 +9,7 @@ import {
   readCookieValue,
   serializeCookieConsent,
 } from "@/lib/consent/cookies";
+import { META_PIXEL_ID } from "@/lib/meta/config";
 
 // The one place in the codebase that touches navigator.geolocation. Backs
 // the cookie banner's "enable location" choice and the personalized
@@ -30,7 +31,11 @@ export type UserCoords = { lat: number; lng: number };
 
 export type LocationStatus = "unset" | "granted" | "denied" | "unsupported";
 
-function readConsent(): { analytics: boolean; location: boolean | null } {
+function readConsent(): {
+  analytics: boolean;
+  location: boolean | null;
+  marketing?: boolean | null;
+} {
   const parsed = parseCookieConsent(
     readCookieValue(document.cookie, CONSENT_COOKIE_NAME),
   );
@@ -40,6 +45,11 @@ function readConsent(): { analytics: boolean; location: boolean | null } {
   return {
     analytics: parsed?.analytics ?? false,
     location: parsed?.location ?? null,
+    // Kept as is on a Meta Pixel build: a location answer never touches the
+    // Meta choice (C59). Without the ID it is never written.
+    ...(META_PIXEL_ID && parsed && "marketing" in parsed
+      ? { marketing: parsed.marketing }
+      : {}),
   };
 }
 
@@ -55,6 +65,7 @@ function writeLocationConsent(location: boolean): void {
   const value = serializeCookieConsent({
     analytics: current.analytics,
     location,
+    marketing: current.marketing,
   });
   document.cookie = `${CONSENT_COOKIE_NAME}=${encodeURIComponent(value)}; path=/; max-age=${CONSENT_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${
     window.location.protocol === "https:" ? "; Secure" : ""

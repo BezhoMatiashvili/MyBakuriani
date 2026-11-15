@@ -87,14 +87,17 @@ function applySecurityHeaders(response: Response, secureRequest: boolean) {
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com`,
+      // connect.facebook.net: the Meta Pixel's fbevents.js (C59).
+      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com https://connect.facebook.net`,
       "script-src-attr 'none'",
       "style-src 'self' 'unsafe-inline'",
       // api.mapbox.com: BakurianiMap's phone preview (Static Images API).
       // counter.top.ge: the TOP.GE rating hit (TopGeCounter), a plain <img>.
-      `img-src 'self' data: blob: ${SUPABASE_ORIGINS} https://images.unsplash.com https://api.mapbox.com https://counter.top.ge`,
+      // www.facebook.com: the Meta Pixel's image hit (/tr, C59).
+      `img-src 'self' data: blob: ${SUPABASE_ORIGINS} https://images.unsplash.com https://api.mapbox.com https://counter.top.ge https://www.facebook.com`,
       "font-src 'self' data:",
-      `connect-src 'self' ${SUPABASE_ORIGINS} wss://${SUPABASE_PROJECT_HOST} https://challenges.cloudflare.com https://api.mapbox.com https://events.mapbox.com`,
+      // www.facebook.com + connect.facebook.net: the Meta Pixel's hits (C59).
+      `connect-src 'self' ${SUPABASE_ORIGINS} wss://${SUPABASE_PROJECT_HOST} https://challenges.cloudflare.com https://api.mapbox.com https://events.mapbox.com https://www.facebook.com https://connect.facebook.net`,
       `media-src 'self' ${SUPABASE_ORIGINS}`,
       // Mapbox GL JS spins up its tile/render worker from a blob: URL. With no
       // worker-src directive, browsers fall back to script-src, which has no

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 import { HomeListingModeProvider } from "@/components/layout/HomeListingModeContext";
 import { PageviewTracker } from "@/components/analytics/PageviewTracker";
+import { META_PIXEL_ID } from "@/lib/meta/config";
 
 interface LocaleShellProps {
   children: ReactNode;
@@ -37,6 +38,12 @@ const CookieConsentBanner = dynamic(
     import("@/components/consent/CookieConsentBanner").then(
       (mod) => mod.CookieConsentBanner,
     ),
+  { ssr: false },
+);
+// Meta Pixel (C59): browser-only, and mounted only when
+// NEXT_PUBLIC_META_PIXEL_ID is set at build time.
+const MetaPixel = dynamic(
+  () => import("@/components/analytics/MetaPixel").then((mod) => mod.MetaPixel),
   { ssr: false },
 );
 // The admin's on-site ad preview ("საიტზე ნახვა", C47): reads the URL hash and
@@ -124,7 +131,16 @@ export function LocaleShell({ children }: LocaleShellProps) {
 
   return (
     <>
-      <PageviewTracker />
+      {/* MetaPixel shares PageviewTracker's slot, so a build without the
+          Pixel renders the same tree (React useId depends on it, C59). */}
+      {META_PIXEL_ID ? (
+        <>
+          <PageviewTracker />
+          <MetaPixel />
+        </>
+      ) : (
+        <PageviewTracker />
+      )}
       <CriticalNotificationGate />
       <ConsentGate />
       <CookieConsentBanner />
