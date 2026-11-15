@@ -108,6 +108,18 @@ const nextConfig: NextConfig = {
         source: "/:locale(ka|en|ru)?/faq",
         ...edgeCached,
       },
+      // /_next/image picks WebP or the upstream format from Accept and answers
+      // Vary: Accept, but the CDN keys on the URL alone: a client without
+      // image/webp in Accept (a crawler, curl) cached a JPEG/PNG that every
+      // browser then got (measured on staging 2026-11-15). Keep those answers
+      // out of the edge. Cache-Control can't do it (the optimizer overwrites
+      // it); CDN-Cache-Control steers only the CDN. The regex mirrors the
+      // optimizer's accept.includes("image/webp") (C28).
+      {
+        source: "/_next/image",
+        missing: [{ type: "header", key: "accept", value: ".*image/webp.*" }],
+        headers: [{ key: "CDN-Cache-Control", value: "no-store" }],
+      },
       // An RSC request without the `_rsc` cache-busting param never comes from
       // a real Next client (fetch-server-response always appends it). The CDN
       // keys on the URL and ignores Vary, so with a public Cache-Control its

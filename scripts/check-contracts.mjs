@@ -138,6 +138,24 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 }
 
 // ---------------------------------------------------------------------------
+// C28 — /_next/image answers for an Accept without image/webp carry
+// CDN-Cache-Control: no-store. The CDN keys on the URL and ignores
+// Vary: Accept, so one crawler's JPEG would reach every browser; Cache-Control
+// can't do it (the optimizer overwrites it). The rule's `missing` regex mirrors
+// the optimizer's accept.includes("image/webp"), so it is exact only while WebP
+// is the one optimizer format.
+// ---------------------------------------------------------------------------
+{
+  const cfg = read("next.config.ts");
+  const rule = /source:\s*"\/_next\/image",\s*missing:\s*\[\s*\{\s*type:\s*"header",\s*key:\s*"accept",\s*value:\s*"\.\*image\/webp\.\*",?\s*\},?\s*\],\s*headers:\s*\[\s*\{\s*key:\s*"CDN-Cache-Control",\s*value:\s*"no-store",?\s*\},?\s*\]/;
+  const formats = /formats:\s*\[([^\]]*)\]/.exec(cfg)?.[1].replace(/\s/g, "").replace(/,+$/, "");
+  if (!rule.test(cfg)) fail('C28: next.config.ts headers() must keep the /_next/image rule: missing accept ".*image/webp.*" -> CDN-Cache-Control: no-store');
+  else if (cfg.search(rule) > cfg.indexOf('key: "rsc"')) fail("C28: the /_next/image rule must sit before the rsc rule (rsc LAST)");
+  else if (formats !== '"image/webp"') fail(`C28: the /_next/image CDN rule assumes images.formats is exactly ["image/webp"] (found [${formats}])`);
+  else ok("C28: /_next/image answers without image/webp in Accept stay out of the CDN (CDN-Cache-Control: no-store)");
+}
+
+// ---------------------------------------------------------------------------
 // C13 — the admin listing editor's property_type dropdown and the API route's
 // write allow-list must match the enum in the generated types.
 // ---------------------------------------------------------------------------
