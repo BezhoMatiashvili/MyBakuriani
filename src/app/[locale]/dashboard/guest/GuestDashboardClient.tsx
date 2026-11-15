@@ -9,6 +9,7 @@ import { ArrowRight, ChevronDown, Eye, Plus } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { trackAnalyticsEvent } from "@/lib/analytics/track-client";
+import { trackMeta } from "@/lib/meta/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMoney } from "@/lib/currency/client";
 import { formatPrice } from "@/lib/utils/format";
@@ -224,6 +225,8 @@ export default function GuestDashboardClient({
       requestIdsRef.current.add(data.id);
       // Admin analytics "Smart Match requests" (C49).
       trackAnalyticsEvent("smart_match_request", data.id);
+      // Meta SmartMatchRequest (C59): the request row was saved. No id.
+      trackMeta("SmartMatchRequest");
     }
     // Surface the new request immediately in "My Requests". The realtime channel
     // only listens on smart_match_offers, so a fresh request wouldn't otherwise

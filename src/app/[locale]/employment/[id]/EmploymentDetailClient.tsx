@@ -61,6 +61,7 @@ import {
 } from "@/lib/employment/salary";
 import { MAX_CV_BYTES } from "@/lib/employment/cv-file";
 import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
+import { trackMeta } from "@/lib/meta/client";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -421,6 +422,8 @@ export default function EmploymentDetailClient({
       return;
     }
 
+    // Meta Lead (C59): the server accepted the application (201).
+    trackMeta("Lead");
     toast.success(t("submitSuccess"));
     setForm(INITIAL_FORM);
     clearCv();

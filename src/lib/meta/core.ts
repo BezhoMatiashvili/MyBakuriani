@@ -49,8 +49,13 @@ const CLICK_ID_KEYS = new Set([
   "ttclid",
   "igshid",
   "brid",
+  "igsh",
+  "mibextid",
+  "_gl",
+  "srsltid",
 ]);
-const CLICK_ID_VALUE = /^[A-Za-z0-9._~-]{1,300}$/;
+// "*" for the Google linker (_gl=1*…), "=" for base64 padding (igsh=…==).
+const CLICK_ID_VALUE = /^[A-Za-z0-9._~*=-]{1,300}$/;
 const UTM_KEY = /^utm_[a-z0-9_]{1,40}$/;
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;

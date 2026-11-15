@@ -62,6 +62,9 @@ test("ad landings and plain public pages are safe", () => {
     "/auth/register?next=/dashboard/guest",
     "/?utm_term=" + "x".repeat(200),
     "/?wbraid=a&gbraid=b&msclkid=c&ttclid=d&igshid=e&brid=f",
+    "/?igsh=MWQ1ZGUxMzZlbw&mibextid=Zbwkwl&_gl=1.abc-_~&srsltid=AfmBOoq3x_Y",
+    "/?_gl=1*1x2y3z*_ga*MTIzNDU2Nzg5MC4xNzAwMDAwMDAw*_ga_ABC123*MTcwMDAwMDAwMC4xLjEuMTcwMDAwMDAwMC4wLjAuMA..",
+    "/?igsh=MWQ1ZGUxMzBkMA==",
   ]) {
     assert.equal(isSafeMetaUrl(`${ORIGIN}${path}`), true, path);
   }

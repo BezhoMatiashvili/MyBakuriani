@@ -4188,9 +4188,10 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
 // false, and calls init once with no matching object; (3) no <noscript>, no
 // hand-built /tr URL, no hashing or user data, and every fbq( call has an
 // allowed shape; (4) META_EVENTS is the four-name catalog and every trackMeta(
-// call outside src/lib/meta passes one catalog name, in its mapped file;
+// call outside src/lib/meta passes one catalog name, in its mapped file, and
+// each of the three is called exactly once there;
 // (5) the CSP and remotePatterns carry the Meta hosts; (6) <MetaPixel> is
-// mounted only in LocaleShell behind META_PIXEL_ID, and the env var is read
+// mounted once, only in LocaleShell behind META_PIXEL_ID, and the env var is read
 // only in config.ts; (7) core.ts and pixel-id.ts have no runtime import (and
 // config.ts imports only pixel-id.ts, so the layout bundle never pulls in
 // core.ts), cookies.ts no
@@ -4241,6 +4242,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     SmartMatchRequest: join("src", "app", "[locale]", "dashboard", "guest", "GuestDashboardClient.tsx"),
   };
   let callSites = 0;
+  const seen = {};
   for (const [file, text] of code) {
     if (file.startsWith(join("src", "lib", "meta") + "/")) continue;
     for (const m of text.matchAll(/\btrackMeta\(([^)]*)\)/g)) {
@@ -4248,8 +4250,10 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
       const name = m[1].trim().match(/^"(\w+)"$/)?.[1];
       if (!name || !(name in CALL_SITES)) problems.push(`${file}: trackMeta(${m[1].trim()}) must pass one conversion name from META_EVENTS`);
       else if (CALL_SITES[name] !== file) problems.push(`${file}: trackMeta("${name}") belongs in ${CALL_SITES[name]}`);
+      else seen[name] = (seen[name] ?? 0) + 1;
     }
   }
+  for (const [name, file] of Object.entries(CALL_SITES)) if (seen[name] !== 1) problems.push(`${file} must call trackMeta("${name}") exactly once (found ${seen[name] ?? 0})`);
 
   const mw = read("src/middleware.ts");
   const cspDirective = (name) => mw.match(new RegExp("`" + name + " ([^`]+)`"))?.[1] ?? "";
@@ -4261,6 +4265,8 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   if (!/pathname:\s*"\/tr\/\*\*"/.test(fbPattern) || !/search:\s*""/.test(fbPattern)) problems.push('next.config.ts remotePatterns needs { hostname: "www.facebook.com", pathname: "/tr/**", search: "" }');
 
   const mounts = [...code].filter(([, text]) => /<MetaPixel\b/.test(text)).map(([file]) => file);
+  const shellMounts = ((code.get(SHELL) ?? "").match(/<MetaPixel\b/g) ?? []).length;
+  if (shellMounts !== 1) problems.push(`${SHELL} must mount <MetaPixel /> exactly once (found ${shellMounts})`);
   const guarded = /\{META_PIXEL_ID \? \(\s*<>\s*<PageviewTracker \/>\s*<MetaPixel \/>\s*<\/>\s*\) : \(\s*<PageviewTracker \/>\s*\)\}/;
   if (mounts.join() !== SHELL || !guarded.test(code.get(SHELL) ?? "")) problems.push(`<MetaPixel /> must be mounted only in ${SHELL}, in PageviewTracker's slot behind META_PIXEL_ID (found in: ${mounts.join(", ") || "none"})`);
   const envReaders = [...code].filter(([, text]) => /NEXT_PUBLIC_META_PIXEL_ID/.test(text)).map(([file]) => file);

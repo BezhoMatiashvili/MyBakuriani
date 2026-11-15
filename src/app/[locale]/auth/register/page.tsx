@@ -25,6 +25,7 @@ import { roleHomePath } from "@/lib/cabinets";
 import { safeInternalPath, stripLocalePrefix } from "@/lib/security";
 import { toCanonicalGePhone } from "@/lib/sms/phone";
 import { withRetry } from "@/lib/with-timeout";
+import { trackMeta } from "@/lib/meta/client";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
@@ -295,6 +296,12 @@ export default function RegisterPage() {
     );
 
     if (verifyError) throw verifyError;
+
+    // Meta CompleteRegistration (C59): only when this run created the profile
+    // and it has the role chosen now; a 23505 (Back, retry) is not a sign-up.
+    if (!insertError && savedProfile?.role === selectedRole) {
+      trackMeta("CompleteRegistration");
+    }
 
     // Every finish path runs through here, so this is the one place consent is
     // recorded. A failure must not fail registration: the profile now exists
