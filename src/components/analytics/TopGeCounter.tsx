@@ -74,7 +74,14 @@ export function TopGeCounter() {
       className="flex min-h-11 min-w-11 items-center justify-center"
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- never next/image: this request IS the hit, and the optimizer would send it from the server, cached. Never lazy either. */}
-      <img src={src} alt="TOP.GE" title="TOP.GE" />
+      <img
+        src={src}
+        alt="TOP.GE"
+        title="TOP.GE"
+        // A blocked or failed hit (ad blockers list counter hosts) would draw a
+        // broken-image icon: drop the badge; the next page view tries again.
+        onError={() => setSrc(null)}
+      />
     </a>
   );
 }
