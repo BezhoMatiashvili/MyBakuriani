@@ -4,227 +4,220 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
-  parseLiftRows,
-  parseLiftsFromHtml,
-  isLiftOpen,
-  summarize,
-  tbilisiNow,
+  inventoryResponseFresh,
+  liftDisplayName,
+  parseInventory,
+  readInventory,
+  withLiveLifts,
 } from "../../src/lib/ski-lifts/parse.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const fixture = (name) =>
-  readFileSync(join(here, "fixtures", "ski-lifts", name), "utf8");
 
-// Fixtures are the exact escaped RSC chunks a live fetch of status.mta.ski returns,
-// sliced from Wayback captures of the four Bakuriani zone pages.
-const didveliKa = fixture("didveli_ka.html"); // 2025-26 season, mixed status 1/2
-const didveliEn = fixture("didveli_en.html");
-const kokhtaEn = fixture("kokhta_en.html");
-const mitarbiEn = fixture("mitarbi_en.html");
-
-test("parseLiftsFromHtml extracts every lift with its id and fields", () => {
-  const lifts = parseLiftsFromHtml(didveliKa);
-  assert.equal(lifts.length, 6);
-  const slalom = lifts[0];
-  assert.equal(slalom.id, "28");
-  assert.equal(slalom.name, "სლალომი");
-  assert.equal(slalom.type, "tbar");
-  assert.equal(slalom.status, 1);
-  assert.equal(slalom.openTime, "09:00:00");
-  assert.equal(slalom.closeTime, "17:00:00");
-  assert.equal(slalom.openDate, "2024-12-20");
-  assert.equal(slalom.closeDate, "2024-03-24");
-});
-
-test("parseLiftsFromHtml reads all Bakuriani zones", () => {
-  assert.equal(parseLiftsFromHtml(kokhtaEn).length, 2);
-  assert.equal(parseLiftsFromHtml(mitarbiEn).length, 3);
-});
-
-test("English and Georgian pages align by lift id, enabling name matching", () => {
-  const en = parseLiftsFromHtml(didveliEn);
-  const ka = parseLiftsFromHtml(didveliKa);
-  const enById = new Map(en.map((l) => [l.id, l.name]));
-  const kaById = new Map(ka.map((l) => [l.id, l.name]));
-  assert.equal(enById.get("28"), "Slalom");
-  assert.equal(kaById.get("28"), "სლალომი");
-  assert.equal(enById.get("23"), "Nodo");
-  assert.equal(kaById.get("23"), "ნოდო");
-  // Same id set on both locales.
-  assert.deepEqual([...enById.keys()].sort(), [...kaById.keys()].sort());
-});
-
-test("parseLiftsFromHtml returns [] on junk instead of throwing", () => {
-  assert.deepEqual(parseLiftsFromHtml(""), []);
-  assert.deepEqual(parseLiftsFromHtml("<html>no lifts here</html>"), []);
-});
-
-test("parseLiftsFromHtml reassembles a lift split across two flight chunks", () => {
-  // Split the single-chunk fixture into two pushes at a byte offset that lands
-  // inside a lift object, exactly as Next streams a large payload.
-  const chunk = /self\.__next_f\.push\(\[1,"(.*)"\]\)/s.exec(didveliKa)[1];
-  const mid = Math.floor(chunk.length / 2);
-  const twoChunks =
-    `<!doctype html><script>self.__next_f.push([1,"${chunk.slice(0, mid)}"])</script>` +
-    `<script>self.__next_f.push([1,"${chunk.slice(mid)}"])</script>`;
-  assert.equal(parseLiftsFromHtml(twoChunks).length, 6);
-});
-
-test("parseLiftsFromHtml tolerates a renumbered $L component marker", () => {
-  // The $L<n> number is per-build; a returning deployment will likely renumber it.
-  const renumbered = didveliKa.replace(/\$L12/g, "$L7f");
-  assert.equal(parseLiftsFromHtml(renumbered).length, 6);
-});
-
-test("parseLiftsFromHtml returns [] when any one row fails to parse", () => {
-  // A single row in a new shape (here a null type) must not shrink the zone to
-  // five lifts; the page counts as unreadable so the admin card shows instead.
-  const oneBadRow = didveliKa.replace(
-    '\\"type\\":\\"tbar\\"',
-    '\\"type\\":null',
+// The exact answer of GET https://mta.ski/api/operations-inventory?slug=
+// bakuriani&locale=ka on 2026-11-14 (off-season: every lift CLOSED).
+const fixture = () =>
+  JSON.parse(
+    readFileSync(
+      join(here, "fixtures", "ski-lifts", "bakuriani-inventory.json"),
+      "utf8",
+    ),
   );
-  assert.notEqual(oneBadRow, didveliKa);
-  const { lifts, markers } = parseLiftRows(oneBadRow);
-  assert.equal(markers, 6);
-  assert.equal(lifts.length, 5);
-  assert.deepEqual(parseLiftsFromHtml(oneBadRow), []);
-});
 
-test("parseLiftRows counts one marker per lift on every fixture", () => {
-  for (const [html, n] of [
-    [didveliKa, 6],
-    [didveliEn, 6],
-    [kokhtaEn, 2],
-    [mitarbiEn, 3],
-  ]) {
-    const { lifts, markers } = parseLiftRows(html);
-    assert.equal(markers, n);
-    assert.equal(lifts.length, n);
+const SLALOM = "c583938f-26fc-48a4-821b-07c0c24956c5";
+const KOKHTA_PLATO = "653fecfd-3654-4d43-8c2d-1958ce428538";
+const NODO = "e940de13-a228-4463-86de-498b7dfad273";
+const DEKA = "386bc251-9144-42db-bf31-91d8662ebe53";
+
+// The saved answer with some assets' statuses replaced.
+function withStatuses(byId) {
+  const body = fixture();
+  for (const asset of body.assets) {
+    if (asset.assetId in byId) asset.effectiveStatus = byId[asset.assetId];
   }
+  return body;
+}
+
+test("the saved answer reads as 12 closed lifts", () => {
+  const summary = parseInventory(fixture());
+  assert.ok(summary);
+  assert.equal(summary.total, 12);
+  assert.equal(summary.openCount, 0);
+  assert.ok(summary.lifts.every((lift) => lift.status === "CLOSED"));
+  // Newest lastVerifiedAt among the lifts, normalized to 3 digits.
+  assert.equal(summary.verifiedAt, "2026-11-04T12:57:48.692Z");
 });
 
-// --- open/closed rule -------------------------------------------------------
-
-const lift = (over = {}) => ({
-  id: "1",
-  type: "chairlift",
-  name: "Test",
-  status: 2,
-  openTime: "09:00:00",
-  closeTime: "17:00:00",
-  openDate: "2025-12-20",
-  closeDate: "2026-03-30",
-  ...over,
+test("trails are checked but not listed", () => {
+  const body = fixture();
+  assert.equal(body.assets.length, 51);
+  const ids = parseInventory(body).lifts.map((lift) => lift.id);
+  const trailIds = body.assets
+    .filter((asset) => asset.type === "trail")
+    .map((asset) => asset.assetId);
+  assert.ok(trailIds.every((id) => !ids.includes(id)));
 });
 
-// 2026-02-25 12:00 Tbilisi: in season, mid-day.
-const inSeasonMidday = { ymd: 20260225, minute: 12 * 60 };
-
-test("isLiftOpen: status 2 + in season + within hours => open", () => {
-  assert.equal(isLiftOpen(lift(), inSeasonMidday), true);
+test("names: MTA's published Georgian names, else MTA's name recased", () => {
+  const byId = new Map(parseInventory(fixture()).lifts.map((l) => [l.id, l]));
+  assert.equal(byId.get(SLALOM).nameKa, "სლალომი");
+  assert.equal(byId.get(SLALOM).nameEn, "Slalom");
+  assert.equal(byId.get(NODO).nameKa, "ნოდო");
+  assert.equal(byId.get(KOKHTA_PLATO).nameKa, "Kokhta-Plato");
+  assert.equal(byId.get(KOKHTA_PLATO).nameEn, "Kokhta-Plato");
 });
 
-test("isLiftOpen: status 1 is always closed regardless of dates/hours", () => {
-  assert.equal(isLiftOpen(lift({ status: 1 }), inSeasonMidday), false);
+test("liftDisplayName recases only all-caps Latin", () => {
+  assert.equal(liftDisplayName("KOKHTA-PLATO"), "Kokhta-Plato");
+  assert.equal(liftDisplayName("MITARBI 3"), "Mitarbi 3");
+  assert.equal(liftDisplayName(" SLOPE STYLE "), "Slope Style");
+  assert.equal(liftDisplayName("Kokhta Plateau"), "Kokhta Plateau");
+  assert.equal(liftDisplayName("კოხტა"), "კოხტა");
 });
 
-test("isLiftOpen: outside the season window is closed", () => {
-  assert.equal(isLiftOpen(lift(), { ymd: 20260401, minute: 12 * 60 }), false); // after close
-  assert.equal(isLiftOpen(lift(), { ymd: 20251201, minute: 12 * 60 }), false); // before open
+test("only OPEN counts as open", () => {
+  const summary = parseInventory(
+    withStatuses({
+      [SLALOM]: "OPEN",
+      [NODO]: "OPEN",
+      [DEKA]: "DISRUPTED",
+      [KOKHTA_PLATO]: "PENDING_CONFIRMATION",
+    }),
+  );
+  assert.equal(summary.openCount, 2);
+  assert.equal(summary.total, 12);
 });
 
-test("isLiftOpen: season window is half-open — OFF on the closeDate itself", () => {
-  // Matches Luxon Interval.contains (start <= dt < end) in MTA's own component.
-  assert.equal(isLiftOpen(lift(), { ymd: 20260329, minute: 12 * 60 }), true); // day before close: open
-  assert.equal(isLiftOpen(lift(), { ymd: 20260330, minute: 12 * 60 }), false); // closeDate: closed
-  assert.equal(isLiftOpen(lift(), { ymd: 20251220, minute: 12 * 60 }), true); // openDate: open
+test("every lift awaiting confirmation: no live card", () => {
+  const body = fixture();
+  for (const asset of body.assets) {
+    if (asset.type === "lift") asset.effectiveStatus = "PENDING_CONFIRMATION";
+  }
+  assert.equal(parseInventory(body), null);
 });
 
-test("isLiftOpen: outside working hours is closed (half-open at close)", () => {
-  assert.equal(isLiftOpen(lift(), { ymd: 20260225, minute: 8 * 60 }), false); // before open
-  assert.equal(isLiftOpen(lift(), { ymd: 20260225, minute: 9 * 60 }), true); // exactly open
-  assert.equal(isLiftOpen(lift(), { ymd: 20260225, minute: 17 * 60 }), false); // exactly close
+test("the answer is refused whole when MTA's client would refuse it", () => {
+  const cases = {
+    "not ready": (b) => (b.state = "loading"),
+    "area not ready": (b) => (b.areas[0].state = "unavailable"),
+    "no areas": (b) => (b.areas = []),
+    "assets missing": (b) => delete b.assets,
+    "unknown status on a trail": (b) => {
+      b.assets.find((a) => a.type === "trail").effectiveStatus = "SNOWING";
+    },
+    "duplicate id": (b) => b.assets.push({ ...b.assets[0] }),
+    "lift without a name": (b) => (b.assets[0].name = " "),
+    "lift count differs from liftsTotal": (b) => (b.areas[0].liftsTotal = 13),
+    "no lifts at all": (b) => {
+      b.assets = b.assets.filter((a) => a.type !== "lift");
+      b.areas[0].liftsTotal = 0;
+    },
+  };
+  for (const [name, mutate] of Object.entries(cases)) {
+    const body = fixture();
+    mutate(body);
+    const reading = readInventory(body);
+    assert.equal(reading.ok, false, name);
+    assert.equal(parseInventory(body), null, name);
+  }
+  assert.equal(parseInventory(null), null);
+  assert.equal(parseInventory([]), null);
 });
 
-test("isLiftOpen: a reversed/stale date interval is closed (the Slalom case)", () => {
-  const stale = lift({ openDate: "2024-12-20", closeDate: "2024-03-24" });
-  assert.equal(isLiftOpen(stale, inSeasonMidday), false);
+test("freshness follows MTA's 75 s rule", () => {
+  const now = Date.parse("2026-11-14T18:24:10.232Z");
+  const at = (ms) => new Date(now + ms).toISOString();
+  assert.equal(inventoryResponseFresh(at(0), null, now), true);
+  assert.equal(inventoryResponseFresh(at(-75_000), "0", now), true);
+  assert.equal(inventoryResponseFresh(at(-75_001), null, now), false);
+  assert.equal(inventoryResponseFresh(at(60_000), null, now), true);
+  assert.equal(inventoryResponseFresh(at(60_001), null, now), false);
+  assert.equal(inventoryResponseFresh(at(0), "75", now), true);
+  assert.equal(inventoryResponseFresh(at(0), "76", now), false);
+  assert.equal(inventoryResponseFresh(at(0), "-1", now), false);
+  assert.equal(inventoryResponseFresh(null, null, now), false);
+  assert.equal(inventoryResponseFresh("soon", null, now), false);
 });
 
-test("isLiftOpen: malformed date/time is closed, not a throw", () => {
-  assert.equal(isLiftOpen(lift({ openDate: "" }), inSeasonMidday), false);
-  assert.equal(isLiftOpen(lift({ openTime: "nope" }), inSeasonMidday), false);
-});
-
-test("the archived Feb-2026 Didveli page yields 5 open of 6 by MTA's own rule", () => {
-  // Only Slalom (status 1 + stale dates) is closed; the other five are status 2
-  // in the 2025-26 window. Evaluated at a mid-season mid-day instant.
-  const lifts = parseLiftsFromHtml(didveliKa);
-  const open = lifts.filter((l) => isLiftOpen(l, inSeasonMidday)).length;
-  assert.equal(open, 5);
-});
-
-// --- summarize (the partial-fetch failure modes) ---------------------------
-
-const zonePages = () => [
-  { zone: "didveli", locale: "ka", lifts: parseLiftsFromHtml(didveliKa) },
-  { zone: "didveli", locale: "en", lifts: parseLiftsFromHtml(didveliEn) },
-  { zone: "kokhta", locale: "en", lifts: parseLiftsFromHtml(kokhtaEn) },
-  { zone: "kokhta", locale: "ka", lifts: parseLiftsFromHtml(kokhtaEn) }, // no ka capture; reuse en for the test
-  { zone: "mitarbi", locale: "en", lifts: parseLiftsFromHtml(mitarbiEn) },
-  { zone: "mitarbi", locale: "ka", lifts: parseLiftsFromHtml(mitarbiEn) },
+const adminCards = () => [
+  {
+    id: "weather",
+    icon: "none",
+    label: { ka: "ამინდი" },
+    value: { ka: "-4°C" },
+    redDot: false,
+    expandable: false,
+    active: true,
+    items: [],
+  },
+  {
+    id: "lifts",
+    icon: "mountain",
+    label: { ka: "საბაგიროები", en: "Ski lifts", ru: "Подъёмники" },
+    value: { ka: "0/5 ღია" },
+    subValue: { ka: "კოხტა 1, კოხტა 2…" },
+    redDot: true,
+    expandable: false,
+    active: true,
+    items: [
+      {
+        id: "lift-kokhta-1",
+        label: { ka: "კოხტა 1" },
+        value: { ka: "დაკეტილი" },
+        status: "closed",
+      },
+    ],
+    updatedAt: "2026-10-05T09:50:21.333Z",
+  },
 ];
-const ZONES = ["didveli", "kokhta", "mitarbi"];
 
-test("summarize aggregates every zone and totals open count", () => {
-  const s = summarize(zonePages(), ZONES, inSeasonMidday);
-  assert.equal(s.total, 11); // 6 + 2 + 3
-  assert.equal(s.openCount, 5); // only didveli's 5 status-2 lifts are in season here
-});
-
-test("summarize enriches Georgian rows with English names by id", () => {
-  const s = summarize(zonePages(), ZONES, inSeasonMidday);
-  const nodo = s.lifts.find((l) => l.id === "23");
-  assert.equal(nodo.nameKa, "ნოდო");
-  assert.equal(nodo.nameEn, "Nodo");
-});
-
-test("summarize returns null when any expected zone is missing", () => {
-  const missingKokhta = zonePages().filter((p) => p.zone !== "kokhta");
-  assert.equal(summarize(missingKokhta, ZONES, inSeasonMidday), null);
-});
-
-test("summarize falls back to the en page when the ka page is empty", () => {
-  const pages = zonePages().map((p) =>
-    p.zone === "didveli" && p.locale === "ka" ? { ...p, lifts: [] } : p,
+test("withLiveLifts replaces the admin's lifts and date, keeps the rest", () => {
+  const summary = parseInventory(
+    withStatuses({ [NODO]: "OPEN", [DEKA]: "DISRUPTED", [SLALOM]: "OPEN" }),
   );
-  const s = summarize(pages, ZONES, inSeasonMidday);
-  assert.equal(s.total, 11); // didveli still present via its en page
-  const slalom = s.lifts.find((l) => l.id === "28");
-  assert.equal(slalom.nameEn, "Slalom"); // en name survives; ka falls back to en
+  const [weather, lifts] = withLiveLifts(adminCards(), summary);
+  assert.deepEqual(weather, adminCards()[0]);
+  assert.deepEqual(lifts.value, {
+    ka: "2/12 ღია",
+    en: "2/12 open",
+    ru: "2/12 открыты",
+  });
+  assert.equal(lifts.items.length, 12);
+  assert.equal(lifts.expandable, true);
+  assert.equal(lifts.updatedAt, "2026-11-04T12:57:48.692Z");
+  // Admin-owned fields stay.
+  assert.equal(lifts.redDot, true);
+  assert.equal(lifts.icon, "mountain");
+  assert.deepEqual(lifts.label, adminCards()[1].label);
+  // Preview: the first two open lifts, in feed order.
+  assert.deepEqual(lifts.subValue, {
+    ka: "სლალომი, ნოდო",
+    en: "Slalom, Nodo",
+    ru: "Slalom, Nodo",
+  });
+
+  const row = (id) => lifts.items.find((item) => item.id === `lift-${id}`);
+  assert.equal(row(SLALOM).status, "ok");
+  assert.equal(row(SLALOM).value.ka, "ღია");
+  assert.equal(row(DEKA).status, "warn");
+  assert.equal(row(DEKA).value.ka, "შეფერხებულია");
+  assert.equal(row(KOKHTA_PLATO).status, "closed");
+  assert.equal(row(KOKHTA_PLATO).value.ka, "დაკეტილი");
+  assert.equal(row(KOKHTA_PLATO).label.ru, "Kokhta-Plato");
 });
 
-test("summarize returns null when a zone's ka and en pages list different ids", () => {
-  // Pairing is unknown: merging could double-count, trusting one could drop a lift.
-  const missingNodoOnKa = zonePages().map((p) =>
-    p.zone === "didveli" && p.locale === "ka"
-      ? { ...p, lifts: p.lifts.filter((l) => l.id !== "23") }
-      : p,
+test("pending lifts get no dot; none open previews every lift", () => {
+  const [, lifts] = withLiveLifts(
+    adminCards(),
+    parseInventory(withStatuses({ [SLALOM]: "PENDING_CONFIRMATION" })),
   );
-  assert.equal(summarize(missingNodoOnKa, ZONES, inSeasonMidday), null);
-
-  // Same count, disjoint ids (e.g. each locale keyed by its own translation id).
-  const renumberedEn = zonePages().map((p) =>
-    p.zone === "didveli" && p.locale === "en"
-      ? { ...p, lifts: p.lifts.map((l) => ({ ...l, id: `en-${l.id}` })) }
-      : p,
-  );
-  assert.equal(summarize(renumberedEn, ZONES, inSeasonMidday), null);
+  const slalom = lifts.items.find((item) => item.id === `lift-${SLALOM}`);
+  assert.equal(slalom.status, "none");
+  assert.equal(slalom.value.en, "Unconfirmed");
+  assert.equal(lifts.subValue.en, "Slalom, Kokhta-Plato…");
 });
 
-test("tbilisiNow reports Tbilisi wall-clock independent of server TZ", () => {
-  // 2026-02-25T08:00:00Z === 12:00 in Tbilisi (UTC+4).
-  const n = tbilisiNow(new Date("2026-02-25T08:00:00Z"));
-  assert.equal(n.ymd, 20260225);
-  assert.equal(n.minute, 12 * 60);
+test("no live reading leaves the admin cards untouched", () => {
+  assert.deepEqual(withLiveLifts(adminCards(), null), adminCards());
+  const noLifts = adminCards().filter((card) => card.id !== "lifts");
+  assert.deepEqual(withLiveLifts(noLifts, parseInventory(fixture())), noLifts);
 });

@@ -6,8 +6,10 @@ import { enUS, ka, ru } from "date-fns/locale";
 import type { Locale, Month } from "date-fns";
 import type { StatusCard } from "./types";
 
-// Cards whose public face carries the last-update date: the hand-maintained
-// ones. Weather and road are live readings, cameras are stream links.
+// Cards whose public face carries the last-update date: lifts (the date MTA
+// last verified a lift, or the admin's date while the feed fails, see
+// src/lib/ski-lifts/parse.ts). Weather and road are live readings, cameras
+// are stream links.
 export const UPDATED_AT_CARD_IDS = new Set(["lifts"]);
 
 const MONTH_LOCALES: Record<string, Locale> = { ka, en: enUS, ru };

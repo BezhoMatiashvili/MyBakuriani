@@ -37,9 +37,9 @@ export async function generateMetadata({
   });
 }
 
-// The live weather with its forecast, and the hand-kept lift status with the
-// date of the admin's last change, as server HTML (C40). Lifts are never
-// called live: the page says when they were updated.
+// The live weather with its forecast, and the lift status with the date MTA
+// last verified a lift (the admin's date while MTA's feed fails), as server
+// HTML (C40). Lifts are never called live: the page says when they were updated.
 export default async function WeatherAndLiftsPage({
   params,
 }: {

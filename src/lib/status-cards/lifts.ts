@@ -1,5 +1,6 @@
-// The lifts card is kept by hand: the admin marks each lift ღია (ok) or
-// დაკეტილი (closed) with its status. Until 2026-10-05 that status only colored
+// The admin's hand-kept lifts card, which visitors see only while MTA's live
+// feed fails (src/lib/ski-lifts, since 2026-11-14): the admin marks each lift
+// ღია (ok) or დაკეტილი (closed) with its status. Until 2026-10-05 that status only colored
 // a dot, while the card face ("3/5 ღია") and each lift's text were separate
 // free-text fields, so closing a lift changed nothing a visitor could read.
 // Now the status decides both. Applied on every public read (server.ts) and by

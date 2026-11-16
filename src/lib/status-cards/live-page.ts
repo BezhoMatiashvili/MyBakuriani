@@ -37,7 +37,8 @@ export function isEmbeddableCamera(href: string): boolean {
 // Weather and road: rows exist only once the provider answered (withLiveRoad
 // always adds them; withWeatherCard adds the forecast days when it gets any, so
 // a reading without a forecast reads as unavailable, never as a made-up one).
-// Lifts are kept by hand: they print only with the date of the admin's change.
+// Lifts print only with their date: MTA's last verification, or the admin's
+// change while MTA's feed fails.
 export function readingCard(
   cards: readonly StatusCard[],
   id: "weather" | "lifts" | "road",

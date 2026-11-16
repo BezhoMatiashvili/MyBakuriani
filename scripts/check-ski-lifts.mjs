@@ -1,102 +1,68 @@
-// Live check for the landing lifts card's data source (status.mta.ski). Runs the
-// exact parser and merge the card uses (src/lib/ski-lifts/parse.ts) and prints
-// what the card would show. Exit 0 only if the card would show live data.
+// Live check for the landing lifts card's data source (MTA's operations feed).
+// Runs the exact checks and overlay the card uses (src/lib/ski-lifts/parse.ts)
+// and prints what the card would show. Exit 0 only if the card would show
+// live data.
 //
-//   npm run check:lifts                          # fetch the six live pages
-//   npm run check:lifts -- --dir=<folder>        # read <zone>_<locale>.html files
-//   npm run check:lifts -- --at=2026-02-25T12:00:00+04:00   # evaluate at an instant
-//
-// --dir is for saved pages (e.g. Wayback captures), so the success path can be
-// exercised while the live site is down. --at sets the moment the open/closed rule
-// is evaluated at; it defaults to now.
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+//   npm run check:lifts                    # fetch the live feed
+//   npm run check:lifts -- --file=<json>   # read a saved answer (no freshness check)
+import { readFileSync } from "node:fs";
 import {
-  LIFT_LOCALES,
-  LIFT_ZONES,
+  inventoryResponseFresh,
+  MTA_FETCHED_AT_HEADER,
+  MTA_INVENTORY_URL,
   MTA_USER_AGENT,
-  parseLiftRows,
-  parseLiftsFromHtml,
-  summarize,
-  tbilisiNow,
-  zonePageUrl,
+  readInventory,
+  withLiveLifts,
 } from "../src/lib/ski-lifts/parse.ts";
 
-const arg = (name) =>
-  process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
-const dir = arg("dir");
-const at = arg("at");
+const file = process.argv
+  .find((a) => a.startsWith("--file="))
+  ?.slice("--file=".length);
 
-const instant = at ? new Date(at) : new Date();
-if (Number.isNaN(instant.getTime())) {
-  console.error(`Invalid --at=${at}`);
-  process.exit(2);
-}
-
-async function loadPage(zone, locale) {
-  if (dir) {
-    const file = join(dir, `${zone}_${locale}.html`);
-    if (!existsSync(file)) return { source: `${file} (missing)`, html: null };
-    return { source: file, html: readFileSync(file, "utf8") };
-  }
-  const url = zonePageUrl(zone, locale);
+async function load() {
+  if (file)
+    return { source: file, body: JSON.parse(readFileSync(file, "utf8")) };
   try {
-    const res = await fetch(url, {
-      headers: { "user-agent": MTA_USER_AGENT },
+    const res = await fetch(MTA_INVENTORY_URL, {
+      headers: { "user-agent": MTA_USER_AGENT, accept: "application/json" },
       signal: AbortSignal.timeout(10_000),
     });
-    return {
-      source: `${url} -> HTTP ${res.status}`,
-      html: res.ok ? await res.text() : null,
-    };
-  } catch (err) {
-    return { source: `${url} -> ${err.name}: ${err.message}`, html: null };
-  }
-}
-
-const pages = [];
-for (const zone of LIFT_ZONES) {
-  const ids = {};
-  for (const locale of LIFT_LOCALES) {
-    const { source, html } = await loadPage(zone, locale);
-    const { lifts: rows, markers } = parseLiftRows(html ?? "");
-    const lifts = parseLiftsFromHtml(html ?? "");
-    let verdict;
-    if (html === null) verdict = "no page";
-    else if (markers === 0) verdict = "no lift rows found (format changed?)";
-    else if (lifts.length === 0)
-      verdict = `INCOMPLETE: ${rows.length} of ${markers} rows parsed (format changed?)`;
-    else verdict = `ok, ${lifts.length} lifts`;
-    console.log(`${locale}/${zone}: ${verdict}\n  ${source}`);
-    ids[locale] = lifts.map((l) => l.id).sort();
-    pages.push({ zone, locale, lifts });
-  }
-  if (ids.ka.length > 0 && ids.en.length > 0) {
-    const same = ids.ka.join() === ids.en.join();
+    const fetchedAt = res.headers.get(MTA_FETCHED_AT_HEADER);
+    const age = res.headers.get("age");
     console.log(
-      same
-        ? `  ka/en lift ids match (${ids.ka.join(", ")})`
-        : `  ka/en lift ids DIFFER: ka=[${ids.ka}] en=[${ids.en}]`,
+      `${MTA_INVENTORY_URL} -> HTTP ${res.status}, ${MTA_FETCHED_AT_HEADER}: ${fetchedAt ?? "(none)"}, age: ${age ?? "(none)"}`,
     );
+    if (!res.ok) return { error: `HTTP ${res.status}` };
+    if (!inventoryResponseFresh(fetchedAt, age)) {
+      return { error: "answer is not fresh (MTA's 75 s rule)" };
+    }
+    return { source: MTA_INVENTORY_URL, body: await res.json() };
+  } catch (err) {
+    return { error: `${err.name}: ${err.message}` };
   }
 }
 
-const now = tbilisiNow(instant);
-const summary = summarize(pages, LIFT_ZONES, now);
-console.log(
-  `\nEvaluated at ${instant.toISOString()} (Tbilisi ${now.ymd} ${String(Math.floor(now.minute / 60)).padStart(2, "0")}:${String(now.minute % 60).padStart(2, "0")})`,
-);
-if (!summary) {
+const loaded = await load();
+const reading = loaded.error
+  ? { ok: false, reason: loaded.error }
+  : readInventory(loaded.body);
+if (!reading.ok) {
   console.log(
-    "Card: NO live data (a zone yielded no lifts, or its ka/en ids differ) -> the admin card shows.",
+    `Card: NO live data (${reading.reason}) -> the admin card shows.`,
   );
   process.exit(1);
 }
+
+const lifts = withLiveLifts(
+  [{ id: "lifts", items: [], value: { ka: "" } }],
+  reading.summary,
+)[0];
+console.log(`Read: ${loaded.source}`);
 console.log(
-  `Card: ${summary.openCount}/${summary.total} ღია (${summary.openCount}/${summary.total} open)`,
+  `Card: ${lifts.value.ka} (${lifts.value.en}), MTA last verified ${lifts.updatedAt ?? "(never)"}`,
 );
-for (const lift of summary.lifts) {
+for (const item of lifts.items) {
   console.log(
-    `  ${lift.open ? "open  " : "closed"}  ${lift.nameKa} / ${lift.nameEn}`,
+    `  ${item.status.padEnd(6)} ${item.value.ka.padEnd(16)} ${item.label.ka} / ${item.label.en}`,
   );
 }

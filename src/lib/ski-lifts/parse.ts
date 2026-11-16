@@ -1,264 +1,269 @@
-// Pure, dependency-free parser + open/closed logic for the Bakuriani ski-lift
-// status card. Kept ALIAS-FREE (no `@/` runtime imports) on purpose so it runs
-// under scripts/unit (node --test with type stripping) against the archived
-// status.mta.ski fixtures — see scripts/unit/ski-lifts-parse.test.mjs and
-// src/lib/ski-lifts/server.ts (the fetch/overlay half that DOES use `@/`).
+// Pure reader for MTA's live lift feed, plus the overlay that turns it into the
+// landing "lifts" status card. Kept ALIAS-FREE (no `@/` runtime imports; the
+// type-only import below is erased) so scripts/unit/ski-lifts-parse.test.mjs
+// and scripts/check-ski-lifts.mjs run it under node with type stripping. The
+// fetch half is src/lib/ski-lifts/server.ts.
 //
-// Source of truth: MTA's public per-zone pages, e.g. status.mta.ski/en/bakuriani/
-// didveli. Each page is a Next.js RSC document; the lift rows are embedded in
-// `self.__next_f.push([1,"…"])` flight chunks as escaped JSON objects, each
-// preceded by its DB id in a `"$L<n>","<id>",{…}` component marker. We match a
-// lift's English name (from the /en/ page) to its Georgian name (from the /ka/
-// page) by that id. The `<n>` in `$L<n>` is a per-build reference number and WILL
-// change between deployments, so we match any `$L<token>` — the anchor is the
-// object shape, not the number.
-//
-// The open/closed rule is copied EXACTLY from MTA's own on/off indicator
-// component (Luxon `Interval.contains`, which is [start, end)): a lift shows "on"
-// iff status === 2 AND now is inside [openDate, closeDate) AND the current
-// time-of-day is inside [openTime, closeTime). status 1 is operator-set "not
-// running"; the lift is OFF on the closeDate itself (half-open at the top), and a
-// reversed/degenerate interval is closed. Everything is evaluated in Asia/Tbilisi
-// (Georgia is a fixed UTC+4, no DST), NOT the server's timezone — the host is in
-// Singapore.
+// Source (2026-11-14): MTA's public site mta.ski. Its resort page polls
+// GET /api/operations-inventory?slug=<resort>&locale=<ka|en> every 30 s and
+// gets { state, areas: [{ area, state, liftsTotal, trailsTotal }], assets:
+// [{ assetId, name, type: "lift" | "trail", effectiveStatus, reason,
+// lastVerifiedAt, operatingFrom, operatingTo, ... }], generatedAt }. The
+// endpoint is undocumented and needs no key. MTA works out effectiveStatus
+// itself, so there is no open/closed rule to replay here (the old
+// status.mta.ski pages needed one; that host no longer resolves). The checks
+// below copy MTA's own client: whatever it would refuse to show, we refuse
+// too, and the admin-editable card shows instead.
 
-// The three Bakuriani zone slugs on status.mta.ski. Fetched in both locales so the
-// card can show MTA's Georgian name (ka page) and English name (en page); Russian
-// falls back to English (MTA publishes no Russian). Shared by server.ts and
-// scripts/check-ski-lifts.mjs so the live check reads exactly what the card reads.
-export const LIFT_ZONES = ["didveli", "kokhta", "mitarbi"] as const;
-export const LIFT_LOCALES = ["ka", "en"] as const;
+import type {
+  LocalizedText,
+  StatusCard,
+  StatusCardItem,
+  StatusKind,
+} from "../status-cards/types";
 
-export const MTA_BASE_URL = "https://status.mta.ski";
-// Courtesy: identify the app so the operator can see who's reading. Mirrors the
-// User-Agent expectation the road badge documents.
+export const MTA_INVENTORY_URL =
+  "https://mta.ski/api/operations-inventory?slug=bakuriani&locale=ka";
+// Courtesy: identify the app so the operator can see who is reading.
 export const MTA_USER_AGENT =
   "MyBakuriani/1.0 (+https://mybakuriani.ge; lift status card)";
+// When MTA's backend last read its operations source.
+export const MTA_FETCHED_AT_HEADER = "x-mta-operations-fetched-at";
 
-export function zonePageUrl(zone: string, locale: string): string {
-  return `${MTA_BASE_URL}/${locale}/bakuriani/${zone}`;
-}
-
-export type RawLift = {
-  id: string;
-  type: string;
-  name: string;
-  status: number;
-  openTime: string; // "HH:MM:SS"
-  closeTime: string; // "HH:MM:SS"
-  openDate: string; // "YYYY-MM-DD"
-  closeDate: string; // "YYYY-MM-DD"
-};
-
-// One zone page's parsed lifts, tagged with the zone slug and locale it came from.
-export type ZonePage = {
-  zone: string;
-  locale: "ka" | "en";
-  lifts: RawLift[];
-};
+export const OPERATION_STATUSES = [
+  "OPEN",
+  "CLOSED",
+  "DISRUPTED",
+  "PENDING_CONFIRMATION",
+] as const;
+export type OperationStatus = (typeof OPERATION_STATUSES)[number];
 
 export type LiftStatus = {
   id: string;
   nameKa: string;
   nameEn: string;
-  open: boolean;
+  status: OperationStatus;
 };
 
 export type LiftsSummary = {
   lifts: LiftStatus[];
   openCount: number;
   total: number;
+  // Newest lastVerifiedAt among the lifts, as toISOString(), or null.
+  verifiedAt: string | null;
 };
 
-// A point in Tbilisi local time, reduced to the two comparisons the rule needs:
-// a YYYYMMDD integer (for the season-date window) and minutes-since-midnight
-// (for the working-hours window).
-export type TbilisiNow = {
-  ymd: number; // e.g. 2026-02-25 -> 20260225
-  minute: number; // 0..1439
-};
+// MTA's own freshness rule (operationalResponseFresh in its bundle): the
+// answer is usable only if the fetched-at time is at most 75 s old (60 s in
+// the future, for clock skew) and any cache Age is 0..75 s.
+const FRESH_MAX_AGE_SECONDS = 75;
+const FRESH_MAX_SKEW_MS = 60_000;
 
-const CHUNK_RE = /self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g;
-
-// Joins the string bodies of every flight chunk BEFORE unescaping, so a lift
-// object split across two `self.__next_f.push([1,"…"])` calls (Next splits the
-// stream at arbitrary byte offsets) is reassembled instead of silently dropped.
-// The `\/` -> `/` and `\"` -> `"` unescaping is applied once, to the joined text.
-// We deliberately do NOT run a full unicode unescape — the payload is valid UTF-8
-// and the lift objects carry no other escape sequences on the fields we read.
-function joinFlightChunks(html: string): string {
-  const bodies: string[] = [];
-  for (const m of html.matchAll(CHUNK_RE)) bodies.push(m[1]);
-  const joined = bodies.length > 0 ? bodies.join("") : html;
-  return joined.replace(/\\"/g, '"').replace(/\\\//g, "/");
+export function inventoryResponseFresh(
+  fetchedAt: string | null,
+  age: string | null,
+  now: number = Date.now(),
+): boolean {
+  const at = Date.parse(fetchedAt ?? "");
+  const ageSeconds = Number(age ?? 0);
+  return (
+    Number.isFinite(at) &&
+    Number.isFinite(ageSeconds) &&
+    ageSeconds >= 0 &&
+    ageSeconds <= FRESH_MAX_AGE_SECONDS &&
+    now - at <= FRESH_MAX_AGE_SECONDS * 1000 &&
+    at - now <= FRESH_MAX_SKEW_MS
+  );
 }
 
-const LIFT_RE =
-  /"\$L[0-9a-z]+","(\d+)",(\{"type":"[^"]*","liftsHoursColumn":.*?"closeDate":"[^"]*"\})/g;
+// MTA sends one Latin, upper-case name per lift in every locale. These are
+// the Georgian names MTA itself published, on the old status.mta.ski /ka/
+// Didveli page (archived 2025-12-31), keyed by the feed's asset id. A lift
+// without one shows MTA's name.
+const LIFT_NAMES_KA: Readonly<Record<string, string>> = {
+  "c583938f-26fc-48a4-821b-07c0c24956c5": "სლალომი", // SLALOM
+  "e940de13-a228-4463-86de-498b7dfad273": "ნოდო", // NODO
+  "386bc251-9144-42db-bf31-91d8662ebe53": "დეკა", // DEKA
+  "4d8db4cf-fc15-4d2a-b799-2e3f42320638": "ჰალფ პაიპი", // HALF PIPE
+  "daa1eee5-a36b-4726-b287-ed2e449b9821": "სკი კროსი", // SKI CROSS
+  "4b292330-626f-4284-9a0a-8ad89af92259": "პანორამა", // PANORAMA
+};
 
-// Every lift row carries exactly one "closeDate" key (checked against full
-// archived pages of all three zones), so this counts the rows the page HAS,
-// independent of whether LIFT_RE understood them.
-const CLOSE_DATE_KEY_RE = /"closeDate":/g;
+// "KOKHTA-PLATO" -> "Kokhta-Plato". Only all-caps Latin is recased; any other
+// name is shown as sent (upper-casing Georgian would turn it into Mtavruli).
+export function liftDisplayName(name: string): string {
+  const trimmed = name.trim();
+  if (!/^[A-Z0-9 .'-]+$/.test(trimmed)) return trimmed;
+  return trimmed
+    .toLowerCase()
+    .replace(
+      /(^|[ -])([a-z])/g,
+      (_, sep: string, letter: string) => sep + letter.toUpperCase(),
+    );
+}
 
-// The rows LIFT_RE could read, plus how many lift rows the page actually holds.
-// Exported for scripts/check-ski-lifts.mjs, which reports both numbers.
-export function parseLiftRows(html: string): {
-  lifts: RawLift[];
-  markers: number;
-} {
-  const text = joinFlightChunks(html);
-  const markers = text.match(CLOSE_DATE_KEY_RE)?.length ?? 0;
-  const lifts: RawLift[] = [];
-  for (const match of text.matchAll(LIFT_RE)) {
-    const id = match[1];
-    let obj: Record<string, unknown>;
-    try {
-      obj = JSON.parse(match[2]) as Record<string, unknown>;
-    } catch {
-      continue;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isOperationStatus(value: unknown): value is OperationStatus {
+  return OPERATION_STATUSES.includes(value as OperationStatus);
+}
+
+export type InventoryReading =
+  { ok: true; summary: LiftsSummary } | { ok: false; reason: string };
+
+// Reads one feed answer. All or nothing, like MTA's client: one malformed
+// asset (any type), a duplicate id or an unknown status rejects the whole
+// answer, so a format change shows the admin card, never a shrunken or wrong
+// "N/M ღია". `reason` is for scripts/check-ski-lifts.mjs.
+export function readInventory(body: unknown): InventoryReading {
+  const fail = (reason: string): InventoryReading => ({ ok: false, reason });
+  if (!isRecord(body)) return fail("answer is not an object");
+  if (body.state !== "ready") return fail(`state is ${String(body.state)}`);
+  const { areas, assets } = body;
+  if (!Array.isArray(areas) || areas.length === 0) return fail("no areas");
+  if (!Array.isArray(assets)) return fail("no assets");
+
+  let liftsTotal = 0;
+  for (const area of areas) {
+    if (!isRecord(area) || area.state !== "ready") {
+      return fail("an area is not ready");
     }
-    const name = typeof obj.name === "string" ? obj.name : "";
-    const status = typeof obj.status === "number" ? obj.status : NaN;
-    if (!name || Number.isNaN(status)) continue;
+    if (typeof area.liftsTotal !== "number") return fail("no liftsTotal");
+    liftsTotal += area.liftsTotal;
+  }
+
+  const seen = new Set<string>();
+  const lifts: LiftStatus[] = [];
+  let verifiedMs: number | null = null;
+  for (const asset of assets) {
+    if (!isRecord(asset)) return fail("an asset is not an object");
+    const { assetId, name, effectiveStatus } = asset;
+    if (typeof assetId !== "string" || !assetId)
+      return fail("an asset has no id");
+    if (seen.has(assetId)) return fail(`duplicate asset ${assetId}`);
+    seen.add(assetId);
+    if (typeof name !== "string" || !name.trim()) {
+      return fail(`asset ${assetId} has no name`);
+    }
+    if (!isOperationStatus(effectiveStatus)) {
+      return fail(`asset ${assetId} has status ${String(effectiveStatus)}`);
+    }
+    if (asset.type !== "lift") continue;
+
+    const verified =
+      typeof asset.lastVerifiedAt === "string"
+        ? Date.parse(asset.lastVerifiedAt)
+        : NaN;
+    if (
+      Number.isFinite(verified) &&
+      (verifiedMs === null || verified > verifiedMs)
+    ) {
+      verifiedMs = verified;
+    }
     lifts.push({
-      id,
-      type: typeof obj.type === "string" ? obj.type : "",
-      name,
-      status,
-      openTime: typeof obj.openTime === "string" ? obj.openTime : "",
-      closeTime: typeof obj.closeTime === "string" ? obj.closeTime : "",
-      openDate: typeof obj.openDate === "string" ? obj.openDate : "",
-      closeDate: typeof obj.closeDate === "string" ? obj.closeDate : "",
+      id: assetId,
+      nameKa: LIFT_NAMES_KA[assetId] ?? liftDisplayName(name),
+      nameEn: liftDisplayName(name),
+      status: effectiveStatus,
     });
   }
-  return { lifts, markers };
-}
 
-// Parses every lift row out of one zone page's HTML. Returns [] on anything
-// unexpected (shape change, empty page) rather than throwing, so the caller can
-// treat "no lifts" and "fetch failed" identically and fall back to the admin card.
-// All-or-nothing per page: if even one row didn't parse (a new key order, a null
-// field), the page counts as unreadable instead of silently shrinking the total.
-export function parseLiftsFromHtml(html: string): RawLift[] {
-  const { lifts, markers } = parseLiftRows(html);
-  return lifts.length === markers ? lifts : [];
-}
-
-// "YYYY-MM-DD" -> 20260225, or null if malformed.
-function dateToYmd(date: string): number | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-  if (!m) return null;
-  return Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]);
-}
-
-// "HH:MM:SS" (or "HH:MM") -> minutes since midnight, or null if malformed.
-function timeToMinute(time: string): number | null {
-  const m = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(time);
-  if (!m) return null;
-  const h = Number(m[1]);
-  const min = Number(m[2]);
-  if (h > 23 || min > 59) return null;
-  return h * 60 + min;
-}
-
-// Current wall-clock in Asia/Tbilisi via Intl, so a change in Georgia's offset
-// would be picked up automatically and the server's own timezone never leaks in.
-export function tbilisiNow(now: Date = new Date()): TbilisiNow {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tbilisi",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(now);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  const ymd =
-    Number(get("year")) * 10000 +
-    Number(get("month")) * 100 +
-    Number(get("day"));
-  // Intl can emit "24" for midnight in some engines; normalise to 0.
-  const hour = Number(get("hour")) % 24;
-  const minute = hour * 60 + Number(get("minute"));
-  return { ymd, minute };
-}
-
-// Exact replica of MTA's on/off rule. The season window is half-open [open,
-// close): a lift is OFF on the closeDate itself (Luxon Interval.contains uses
-// start <= dt < end, and closeDate is midnight at the START of that day). Any
-// malformed/reversed interval -> closed.
-export function isLiftOpen(lift: RawLift, now: TbilisiNow): boolean {
-  if (lift.status !== 2) return false;
-  const openYmd = dateToYmd(lift.openDate);
-  const closeYmd = dateToYmd(lift.closeDate);
-  if (openYmd === null || closeYmd === null) return false;
-  if (now.ymd < openYmd || now.ymd >= closeYmd) return false; // out of season / reversed
-  const openMin = timeToMinute(lift.openTime);
-  const closeMin = timeToMinute(lift.closeTime);
-  if (openMin === null || closeMin === null) return false;
-  // Half-open [open, close), matching Luxon Interval.contains in MTA's code.
-  return now.minute >= openMin && now.minute < closeMin;
-}
-
-// Merges the per-zone, per-locale pages into one summary and applies the rule.
-// Pure so it can be unit-tested (the failure modes below are exactly where a
-// partial fetch would otherwise produce a confidently-wrong total):
-//   - ka pages give Georgian names + status/dates; en pages give English names,
-//     matched by id. If only one locale parsed, that one is used alone; if both
-//     parsed but list different ids, returns null.
-//   - Requires EVERY expected zone to yield at least one lift, else returns null
-//     (a dropped zone would silently shrink the "N/M open" total). null -> the
-//     caller keeps the admin-editable card.
-export function summarize(
-  pages: ZonePage[],
-  expectedZones: readonly string[],
-  now: TbilisiNow,
-): LiftsSummary | null {
-  const all: LiftStatus[] = [];
-  const seen = new Set<string>();
-
-  for (const zone of expectedZones) {
-    const ka = pages.find((p) => p.zone === zone && p.locale === "ka");
-    const en = pages.find((p) => p.zone === zone && p.locale === "en");
-    const kaById = new Map((ka?.lifts ?? []).map((l) => [l.id, l]));
-    const enById = new Map((en?.lifts ?? []).map((l) => [l.id, l]));
-
-    // Both locales list the same rows under the same ids. If they don't, the
-    // pairing is unknown (a rebuild could key each locale by its own id, and
-    // merging would count every lift twice), so keep the admin card.
-    if (kaById.size > 0 && enById.size > 0) {
-      const sameIds =
-        kaById.size === enById.size &&
-        [...kaById.keys()].every((id) => enById.has(id));
-      if (!sameIds) return null;
-    }
-
-    // Prefer ka rows (Georgian names) for the primary list; fall back to en.
-    const primary = (ka?.lifts?.length ? ka.lifts : en?.lifts) ?? [];
-    if (primary.length === 0) return null; // zone missing -> keep admin card
-
-    for (const lift of primary) {
-      if (seen.has(lift.id)) continue;
-      seen.add(lift.id);
-      const kaLift = kaById.get(lift.id);
-      const enLift = enById.get(lift.id);
-      // Status/dates are identical across locales; take whichever we have.
-      const source = kaLift ?? enLift ?? lift;
-      all.push({
-        id: lift.id,
-        nameKa: kaLift?.name ?? enLift?.name ?? lift.name,
-        nameEn: enLift?.name ?? kaLift?.name ?? lift.name,
-        open: isLiftOpen(source, now),
-      });
-    }
+  if (lifts.length === 0) return fail("no lifts");
+  if (lifts.length !== liftsTotal) {
+    return fail(`${lifts.length} lifts listed, liftsTotal says ${liftsTotal}`);
   }
-
-  if (all.length === 0) return null;
+  // MTA shows no open count while every lift awaits confirmation.
+  if (lifts.every((lift) => lift.status === "PENDING_CONFIRMATION")) {
+    return fail("every lift is PENDING_CONFIRMATION");
+  }
   return {
-    lifts: all,
-    openCount: all.filter((l) => l.open).length,
-    total: all.length,
+    ok: true,
+    summary: {
+      lifts,
+      // Only OPEN counts as open, as on MTA's own page.
+      openCount: lifts.filter((lift) => lift.status === "OPEN").length,
+      total: lifts.length,
+      // Normalized: MTA sends 7 fractional digits, and the card's date
+      // formatter also runs in the browser.
+      verifiedAt:
+        verifiedMs === null ? null : new Date(verifiedMs).toISOString(),
+    },
   };
+}
+
+export function parseInventory(body: unknown): LiftsSummary | null {
+  const reading = readInventory(body);
+  return reading.ok ? reading.summary : null;
+}
+
+export const LIFTS_CARD_ID = "lifts";
+
+// "ღია" / "დაკეტილი" are the admin dropdown's words (status-cards/lifts.ts);
+// the other two are MTA's own ka/en wording from its status badge.
+const LIFT_STATUS_VIEW: Record<
+  OperationStatus,
+  { status: StatusKind; text: LocalizedText }
+> = {
+  OPEN: { status: "ok", text: { ka: "ღია", en: "Open", ru: "Открыт" } },
+  CLOSED: {
+    status: "closed",
+    text: { ka: "დაკეტილი", en: "Closed", ru: "Закрыт" },
+  },
+  DISRUPTED: {
+    status: "warn",
+    text: { ka: "შეფერხებულია", en: "Disrupted", ru: "С перебоями" },
+  },
+  PENDING_CONFIRMATION: {
+    status: "none",
+    text: { ka: "დაუდასტურებელია", en: "Unconfirmed", ru: "Не подтверждён" },
+  },
+};
+
+// The collapsed card's preview: the first two open lifts, else the first two.
+function buildSubtitle(summary: LiftsSummary): LocalizedText {
+  const open = summary.lifts.filter((lift) => lift.status === "OPEN");
+  const source = open.length > 0 ? open : summary.lifts;
+  const pick = (key: "nameKa" | "nameEn") => {
+    const names = source.map((lift) => lift[key]);
+    const shown = names.slice(0, 2).join(", ");
+    return names.length > 2 ? `${shown}…` : shown;
+  };
+  return { ka: pick("nameKa"), en: pick("nameEn"), ru: pick("nameEn") };
+}
+
+// Lays the live lifts over the admin's lifts card: count, preview, one row per
+// lift, and the date MTA last verified a lift (the card face prints it in
+// place of the admin's date). The card's presence, label, icon and redDot stay
+// the admin's. No summary (feed down, stale or unreadable): cards unchanged.
+export function withLiveLifts(
+  cards: StatusCard[],
+  summary: LiftsSummary | null,
+): StatusCard[] {
+  if (!summary) return cards;
+  const count = `${summary.openCount}/${summary.total}`;
+  const items = summary.lifts.map((lift): StatusCardItem => ({
+    id: `lift-${lift.id}`,
+    label: { ka: lift.nameKa, en: lift.nameEn, ru: lift.nameEn },
+    value: LIFT_STATUS_VIEW[lift.status].text,
+    status: LIFT_STATUS_VIEW[lift.status].status,
+    url: null,
+  }));
+  return cards.map((card) =>
+    card.id === LIFTS_CARD_ID
+      ? {
+          ...card,
+          value: {
+            ka: `${count} ღია`,
+            en: `${count} open`,
+            ru: `${count} открыты`,
+          },
+          subValue: buildSubtitle(summary),
+          expandable: true,
+          items,
+          updatedAt: summary.verifiedAt,
+        }
+      : card,
+  );
 }
