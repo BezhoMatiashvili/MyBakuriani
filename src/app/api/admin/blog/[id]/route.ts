@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { normalizeBlogContent } from "@/lib/blog/sanitize";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { safeHttpsUrl } from "@/lib/security";
 import { parseStorageObjectUrl } from "@/lib/utils/photos";
@@ -56,8 +57,10 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     publish?: unknown;
   } | null;
   const title = typeof body?.title === "string" ? body.title.trim() : "";
-  const content = typeof body?.content === "string" ? body.content : "";
-  if (!title || !content.trim()) {
+  // Sanitized HTML (C60); empty by its text, so the editor's "<p></p>" is too.
+  const content =
+    typeof body?.content === "string" ? normalizeBlogContent(body.content) : "";
+  if (!title || !content) {
     return Response.json(
       { error: "title and content required" },
       { status: 400 },

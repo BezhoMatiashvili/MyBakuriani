@@ -4288,6 +4288,53 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   else ok(`C59: Meta Pixel confined to ${CLIENT} (catalog of ${catalog.size}, ${callSites} trackMeta call sites), CSP + remotePatterns carry its hosts, mounted once behind META_PIXEL_ID`);
 }
 
+// C60 — blog content is sanitized HTML. (a) src/lib/blog/content.ts stays import-free (the public search page and
+// scripts/unit load it); (b) ALLOWED_TAGS is the editor's set; (c) no "use client" file imports lib/blog/sanitize
+// (sanitize-html stays server-side); (d) both admin write routes compute content with normalizeBlogContent before
+// .insert/.update and write that, the draft route answers markdownToBlogHtml's body_html; (e) dangerouslySetInnerHTML
+// only in JsonLd.tsx and the blog page, which feeds it richHtmlOrNull(post.content); (f) the editor binds Mod-k and
+// turns paste rules off (a pasted URL would become a link on the URL text); (g) the search card's snippet goes
+// through blogSnippet (global_search cuts content when the excerpt is empty).
+{
+  const problems = [];
+  const contentLib = "src/lib/blog/content.ts";
+  const sanitizeLib = "src/lib/blog/sanitize.ts";
+  const editorFile = "src/components/admin/RichTextEditor.tsx";
+  const page = "src/app/[locale]/blog/[id]/page.tsx";
+  const search = "src/app/[locale]/search/SearchPageClient.tsx";
+  if (/^\s*import\b|\bfrom\s+["']|\brequire\(/m.test(read(contentLib))) problems.push(`${contentLib} must stay import-free (C29)`);
+  const tags = new Set([...(read(sanitizeLib).match(/export const ALLOWED_TAGS = \[([^\]]*)\]/)?.[1] ?? "").matchAll(/"([a-z0-9]+)"/g)].map((m) => m[1]));
+  if (!setEq(tags, new Set(["p", "br", "h2", "h3", "strong", "em", "ul", "ol", "li", "a"])))
+    problems.push(`${sanitizeLib}: ALLOWED_TAGS must be p, br, h2, h3, strong, em, ul, ol, li, a (the editor's schema)`);
+  for (const [file, text] of srcText) {
+    if (/^\s*["']use client["']/.test(text) && /from\s+["'][^"']*blog\/sanitize["']/.test(text))
+      problems.push(`${file}: a "use client" file imports lib/blog/sanitize (sanitize-html in the browser)`);
+    if (/dangerouslySetInnerHTML/.test(text) && file !== "src/components/seo/JsonLd.tsx" && file !== page)
+      problems.push(`${file}: dangerouslySetInnerHTML outside JsonLd.tsx and the blog page (C60)`);
+  }
+  const pageSrc = read(page);
+  const inner = [...pageSrc.matchAll(/dangerouslySetInnerHTML=\{\{\s*__html:\s*([A-Za-z_]\w*)\s*\}\}/g)];
+  if (inner.length !== 1 || !new RegExp(`const ${inner[0][1]} = richHtmlOrNull\\(post\\.content\\);`).test(pageSrc))
+    problems.push(`${page}: the one dangerouslySetInnerHTML must take richHtmlOrNull(post.content)`);
+  for (const route of ["src/app/api/admin/blog/route.ts", "src/app/api/admin/blog/[id]/route.ts"]) {
+    const src = read(route);
+    const at = src.search(/const content =\s*typeof body\?\.content === "string" \? normalizeBlogContent\(body\.content\) : "";/);
+    const write = src.search(/\.from\("blog_posts"\)\s*\.(?:insert|update)\(/);
+    const payload = write < 0 ? "" : src.slice(write).match(/\.(?:insert|update)\(\{([\s\S]*?)\}\)/)?.[1] ?? "";
+    if (at < 0 || write < 0 || at > write || !/^\s*content,\s*$/m.test(payload))
+      problems.push(`${route}: must store normalizeBlogContent(body.content), computed before the write (never body.content raw)`);
+  }
+  if (!/body_html: markdownToBlogHtml\(draft\.body_markdown\)/.test(read("src/app/api/admin/blog/draft/route.ts")))
+    problems.push("src/app/api/admin/blog/draft/route.ts must answer body_html: markdownToBlogHtml(draft.body_markdown)");
+  const editorSrc = read(editorFile);
+  if (!/enablePasteRules: false/.test(editorSrc) || !/"Mod-k"/.test(editorSrc) || !/autolink: false/.test(editorSrc))
+    problems.push(`${editorFile}: must bind "Mod-k", keep autolink: false and enablePasteRules: false (links sit on selected text)`);
+  if (!/\{blogSnippet\(post\.excerpt\)\}/.test(read(search)) || /\{post\.excerpt\}/.test(read(search)))
+    problems.push(`${search}: the blog card must print blogSnippet(post.excerpt) (a cut HTML body otherwise shows tags)`);
+  if (problems.length) problems.forEach((p) => fail(`C60: ${p}`));
+  else ok("C60: blog bodies are stored and rendered through sanitizeBlogHtml (one allowlist, server-only), content.ts is import-free, the editor keeps links on selected text, search snippets strip tags");
+}
+
 if (failures) {
   console.error(`\n${failures} contract check(s) failed.`);
   process.exit(1);

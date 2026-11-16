@@ -515,7 +515,7 @@ async function testSeoPage(page: Page) {
     const title = `Test Draft ${Date.now().toString(36)}`;
     await page.locator("input[placeholder='სტატიის სათაური...']").fill(title);
     await page
-      .locator("textarea[placeholder='სტატიის სრული ტექსტი (Markdown)...']")
+      .locator("[data-testid='blog-editor'] .ProseMirror")
       .fill("# მოკლე დრაფტი\n\nტექსტი.");
     const postPromise = page
       .waitForResponse(

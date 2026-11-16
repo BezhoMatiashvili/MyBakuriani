@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, PencilLine, Sparkles, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import RichTextEditor from "@/components/admin/RichTextEditor";
+import { editorHtmlFor, isBlankContent } from "@/lib/blog/content";
 import MediaUploader, {
   type MediaValue,
 } from "@/components/forms/MediaUploader";
@@ -25,6 +27,7 @@ type BlogPost = {
 export default function SeoPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [editorVersion, setEditorVersion] = useState(0);
   const [excerpt, setExcerpt] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
@@ -107,7 +110,8 @@ export default function SeoPage() {
         throw new Error(payload.error ?? "AI დრაფტის გენერაცია ვერ მოხერხდა");
       setTitle(payload.title ?? "");
       setExcerpt(payload.excerpt ?? "");
-      setContent(payload.body_markdown ?? "");
+      setContent(payload.body_html ?? "");
+      setEditorVersion((v) => v + 1);
       toast.success("AI დრაფტი მზად არის");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "შეცდომა");
@@ -121,6 +125,7 @@ export default function SeoPage() {
     setTitle("");
     setExcerpt("");
     setContent("");
+    setEditorVersion((v) => v + 1);
     setImageUrl("");
     setVideoUrl("");
     setVideoPosterUrl("");
@@ -131,6 +136,7 @@ export default function SeoPage() {
     setTitle(post.title);
     setExcerpt(post.excerpt ?? "");
     setContent(post.content);
+    setEditorVersion((v) => v + 1);
     setImageUrl(post.image_url ?? "");
     setVideoUrl(post.video_url ?? "");
     setVideoPosterUrl(post.video_poster_url ?? "");
@@ -162,7 +168,7 @@ export default function SeoPage() {
   }
 
   async function publish(options: { publish: boolean }) {
-    if (!title.trim() || !content.trim()) {
+    if (!title.trim() || isBlankContent(content)) {
       toast.error("სათაური და ტექსტი სავალდებულოა");
       return;
     }
@@ -273,12 +279,12 @@ export default function SeoPage() {
               onChange={(e) => setExcerpt(e.target.value)}
               className="w-full rounded-xl border border-[#E2E8F0] bg-white px-[14px] py-3 text-[14px] font-medium leading-[21px] text-[#1E293B] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
             />
-            <textarea
-              placeholder="სტატიის სრული ტექსტი (Markdown)..."
-              rows={8}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="w-full rounded-xl border border-[#E2E8F0] bg-white px-[14px] py-3 text-[14px] font-medium leading-[21px] text-[#1E293B] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+            <RichTextEditor
+              // Remounted when the form is loaded from outside (edit, reset,
+              // AI draft): the editor reads its content once, on mount.
+              key={editorVersion}
+              initialHtml={editorHtmlFor(content)}
+              onChange={setContent}
             />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <button

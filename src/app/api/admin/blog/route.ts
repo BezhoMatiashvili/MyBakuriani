@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { blogSlug } from "@/lib/blog-slug";
+import { normalizeBlogContent } from "@/lib/blog/sanitize";
 import { createServiceClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -30,7 +31,10 @@ export async function POST(req: NextRequest) {
     video_poster_url?: string;
     publish?: boolean;
   } | null;
-  if (!body?.title?.trim() || !body.content?.trim()) {
+  // Sanitized HTML (C60); empty by its text, so the editor's "<p></p>" is too.
+  const content =
+    typeof body?.content === "string" ? normalizeBlogContent(body.content) : "";
+  if (!body?.title?.trim() || !content) {
     return Response.json(
       { error: "title and content required" },
       { status: 400 },
@@ -45,7 +49,7 @@ export async function POST(req: NextRequest) {
     .insert({
       title: body.title.trim(),
       slug,
-      content: body.content,
+      content,
       excerpt: body.excerpt ?? null,
       image_url: body.image_url ?? null,
       video_url: body.video_url ?? null,

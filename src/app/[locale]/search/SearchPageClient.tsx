@@ -33,6 +33,7 @@ import { HERO_NOISE_BACKGROUND } from "@/lib/utils/heroTexture";
 import { sortByPromotion } from "@/lib/utils/pricing";
 import BannerSlot from "@/components/banners/BannerSlot";
 import { interleaveSponsored } from "@/lib/ad-rotation";
+import { blogSnippet } from "@/lib/blog/content";
 import {
   RENT_PRICE_MAX,
   RENT_PRICE_MIN,
@@ -1193,7 +1194,7 @@ function BlogGrid({ items }: { items: BlogRow[] }) {
               </h3>
               {post.excerpt && (
                 <p className="mt-2 line-clamp-3 text-[13px] leading-5 text-[#64748B]">
-                  {post.excerpt}
+                  {blogSnippet(post.excerpt)}
                 </p>
               )}
             </div>

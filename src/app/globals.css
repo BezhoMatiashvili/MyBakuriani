@@ -297,3 +297,59 @@
     translate: none;
   }
 }
+
+/* Blog article body (C60): the public post and the admin editor share these
+   rules, so the editor shows what the page will. Tailwind's preflight resets
+   headings, lists and links; they come back inside .blog-rich only. */
+.blog-rich {
+  overflow-wrap: break-word;
+}
+.blog-rich h2 {
+  margin-top: 2rem;
+  font-size: 22px;
+  line-height: 30px;
+  font-weight: 800;
+  color: #1e293b;
+}
+.blog-rich h3 {
+  margin-top: 1.5rem;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 800;
+  color: #1e293b;
+}
+.blog-rich p,
+.blog-rich ul,
+.blog-rich ol {
+  margin-top: 1rem;
+}
+.blog-rich ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+.blog-rich ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+.blog-rich li {
+  margin-top: 0.375rem;
+}
+.blog-rich li > p {
+  margin-top: 0;
+}
+/* A blank line (empty paragraph) keeps one line of height, as in the editor. */
+.blog-rich > p:empty:not(:last-child)::before {
+  content: "\00a0";
+}
+.blog-rich a {
+  color: #2563eb;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.blog-rich a:hover {
+  color: #1d4ed8;
+}
+.blog-rich > :first-child {
+  margin-top: 0;
+}

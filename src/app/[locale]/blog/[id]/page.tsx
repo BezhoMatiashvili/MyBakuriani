@@ -7,6 +7,7 @@ import { getTranslations } from "next-intl/server";
 import { routing, type AppLocale } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { blogSlugToken, isLatinSlug } from "@/lib/blog-slug";
+import { richHtmlOrNull } from "@/lib/blog/sanitize";
 import { createPublicClient } from "@/lib/supabase/server";
 import { buildListingMetadata } from "@/lib/seo";
 import { pathForLocale } from "@/lib/seo/alternates";
@@ -169,6 +170,8 @@ export default async function BlogDetailPage({ params }: Props) {
     pathForLocale(`/blog/${post.slug}`, locale, routing.defaultLocale),
     SITE_URL,
   ).href;
+  // null = a post from before the editor: plain text, rendered as it was.
+  const richHtml = richHtmlOrNull(post.content);
 
   return (
     <>
@@ -241,9 +244,17 @@ export default async function BlogDetailPage({ params }: Props) {
 
         {/* Content */}
         <div className="prose prose-slate mt-8 max-w-none">
-          <div className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
-            {post.content}
-          </div>
+          {richHtml !== null ? (
+            // Allowlisted HTML from the editor, sanitized again here (C60).
+            <div
+              className="blog-rich text-[15px] font-medium leading-[27px] text-[#475569]"
+              dangerouslySetInnerHTML={{ __html: richHtml }}
+            />
+          ) : (
+            <div className="whitespace-pre-line text-[15px] font-medium leading-[27px] text-[#475569]">
+              {post.content}
+            </div>
+          )}
         </div>
 
         {/* No share buttons on the blog cards: each is one whole-card link. */}
