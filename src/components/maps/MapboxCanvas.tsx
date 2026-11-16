@@ -4,10 +4,11 @@
 // (gzip) mapbox-gl bundle loads only when an interactive map is actually shown
 // (see ./loadMapboxCanvas.ts). Phones show a static preview image until tapped.
 import "mapbox-gl/dist/mapbox-gl.css";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import type { Zone } from "@/lib/zones/types";
 import { useMoney, type MoneyFormat } from "@/lib/currency/client";
+import { DOT_SIZE, layoutPins, type PinBox } from "@/lib/maps/pin-layout";
 import type { MapProperty, RouteDisplay } from "./BakurianiMap";
 
 // ── Mapbox light basemap (closest built-in equivalent to the previous
@@ -40,6 +41,18 @@ function pillStateClasses(isSelected: boolean, isVip?: boolean): string {
     : isVip
       ? "border-2 border-[#F59E0B] bg-white text-[#1E293B]"
       : "border border-[#E2E8F0] bg-white text-[#1E293B]";
+}
+
+// ── The dot a listing falls back to when no pill-sized spot is free near it
+// (lib/maps/pin-layout.ts). The DOT_SIZE box is the tap target; this is the dot. ──
+function dotClasses(isSelected: boolean, isVip?: boolean): string {
+  return `block size-3.5 rounded-full border-2 border-white shadow-[0px_1px_4px_rgba(0,0,0,0.4)] transition-all duration-150 group-hover:scale-125 ${
+    isSelected
+      ? "scale-125 bg-[#2563EB]"
+      : isVip
+        ? "bg-[#F59E0B]"
+        : "bg-[#1E293B]"
+  }`;
 }
 
 // ── Pin glyph (lucide MapPin) for a marker with no price. ──
@@ -115,9 +128,18 @@ function buildCardElement(
 interface MarkerEntry {
   marker: mapboxgl.Marker;
   wrapperEl: HTMLDivElement;
+  /** Holds the pill, dot and hover card; moved as one by layoutMarkers. */
+  groupEl: HTMLDivElement;
   pillEl: HTMLDivElement;
+  dotEl: HTMLDivElement;
+  dotCircleEl: HTMLSpanElement;
   cardEl: HTMLDivElement;
   isVip?: boolean;
+  /** Placement order: SUPER VIP, then VIP, then the rest. */
+  rank: number;
+  /** The pill's size, last measured (an estimate until it first is). */
+  w: number;
+  h: number;
   // A priced pin (none for a pin glyph): its listing, which pinPriceText
   // prints again, and the hover card's price line, so a currency pick (C55)
   // re-texts the pill and that line without rebuilding the marker.
@@ -189,6 +211,39 @@ export default function MapboxMapView({
   const moneyRef = useRef(money);
   moneyRef.current = money;
 
+  // Spreads the markers so none hides another, and none is cut off by the map's
+  // edge (lib/maps/pin-layout.ts). The spacing depends on the zoom and the edges
+  // on the pan, so it runs after the markers are rebuilt or re-texted, while the
+  // zoom changes and when a move or resize ends - not on every frame of a drag.
+  const layoutMarkers = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const entries = [...markersRef.current.values()];
+    const boxes: PinBox[] = entries.map((entry) => {
+      // A pill shown as a dot is display:none (0 wide): keep its last size.
+      if (entry.pillEl.offsetWidth > 0) {
+        entry.w = entry.pillEl.offsetWidth;
+        entry.h = entry.pillEl.offsetHeight;
+      }
+      const point = map.project(entry.marker.getLngLat());
+      return {
+        x: point.x,
+        y: point.y,
+        w: entry.w,
+        h: entry.h,
+        rank: entry.rank,
+      };
+    });
+    const { clientWidth: width, clientHeight: height } = map.getContainer();
+    layoutPins(boxes, { width, height }).forEach(({ dx, dy, dot }, i) => {
+      const { groupEl, pillEl, dotEl, cardEl } = entries[i];
+      groupEl.style.translate = dx || dy ? `${dx}px ${dy}px` : "";
+      pillEl.style.display = dot ? "none" : "flex";
+      dotEl.style.display = dot ? "flex" : "none";
+      cardEl.style.bottom = dot ? `${DOT_SIZE / 2 + 6}px` : "22px";
+    });
+  }, []);
+
   // Create the map once per mount; remove it (and every marker) on unmount
   // so navigation / modal close never leaks map instances.
   useEffect(() => {
@@ -218,6 +273,26 @@ export default function MapboxMapView({
     );
     map.on("error", () => onMapError?.());
     map.on("click", () => setSelectedId(null));
+    // Re-spread while a zoom is still in flight too (fitBounds can fly through
+    // several zoom levels over seconds), once per frame - but never spending
+    // more than ~10% of the time on it, however many pins there are; `moveend`
+    // settles the final layout.
+    let layoutFrame = 0;
+    let lastLayoutAt = 0;
+    let lastLayoutCost = 0;
+    map.on("zoom", () => {
+      if (layoutFrame) return;
+      layoutFrame = requestAnimationFrame(() => {
+        layoutFrame = 0;
+        const start = performance.now();
+        if (start - lastLayoutAt < lastLayoutCost * 10) return;
+        layoutMarkers();
+        lastLayoutAt = performance.now();
+        lastLayoutCost = lastLayoutAt - start;
+      });
+    });
+    map.on("moveend", layoutMarkers);
+    map.on("resize", layoutMarkers);
     mapRef.current = map;
 
     map.resize();
@@ -227,6 +302,7 @@ export default function MapboxMapView({
       // Markers are removed by the marker-sync effect's own cleanup, which
       // also runs on unmount — map.remove() alone is enough here.
       window.clearTimeout(resizeTimer);
+      cancelAnimationFrame(layoutFrame);
       map.remove();
       mapRef.current = null;
     };
@@ -262,6 +338,13 @@ export default function MapboxMapView({
         wrapper.style.height = "0px";
         wrapper.style.zIndex = isSelected ? "1000" : "0";
 
+        // The wrapper sits on the true point; layoutMarkers slides this group
+        // (pill, dot and hover card together) off it when markers would overlap.
+        const group = document.createElement("div");
+        group.className = "absolute left-0 top-0";
+        group.style.transition = "translate 150ms";
+        wrapper.appendChild(group);
+
         const pill = document.createElement("div");
         pill.className = `${pillBaseClasses()} ${pillStateClasses(isSelected, isVip)}`;
         pill.style.minHeight = "32px";
@@ -274,31 +357,47 @@ export default function MapboxMapView({
         } else {
           pill.appendChild(pinGlyph());
         }
-        wrapper.appendChild(pill);
+        group.appendChild(pill);
+
+        const dot = document.createElement("div");
+        dot.className = "bk-pill group cursor-pointer";
+        dot.style.width = `${DOT_SIZE}px`;
+        dot.style.height = `${DOT_SIZE}px`;
+        dot.style.display = "none";
+        dot.style.alignItems = "center";
+        dot.style.justifyContent = "center";
+        const dotCircle = document.createElement("span");
+        dotCircle.className = dotClasses(isSelected, isVip);
+        dot.appendChild(dotCircle);
+        group.appendChild(dot);
 
         const { card, priceEl } = buildCardElement(property, priceText);
-        wrapper.appendChild(card);
+        group.appendChild(card);
 
-        pill.addEventListener("mouseenter", () => {
-          if (selectedIdRef.current === property.id) return;
-          card.style.opacity = "1";
-          card.style.visibility = "visible";
-          // Every marker is its own stacking context (Mapbox transforms it),
-          // so the card rises only with its wrapper: above every other pin,
-          // the selected one (1000) included.
-          wrapper.style.zIndex = "1001";
-        });
-        pill.addEventListener("mouseleave", () => {
-          card.style.opacity = "0";
-          card.style.visibility = "hidden";
-          wrapper.style.zIndex =
-            selectedIdRef.current === property.id ? "1000" : "0";
-        });
-        pill.addEventListener("click", (e) => {
-          e.stopPropagation();
-          setSelectedId((prev) => (prev === property.id ? null : property.id));
-          onPropertyClickRef.current?.(property.id);
-        });
+        for (const el of [pill, dot]) {
+          el.addEventListener("mouseenter", () => {
+            if (selectedIdRef.current === property.id) return;
+            card.style.opacity = "1";
+            card.style.visibility = "visible";
+            // Every marker is its own stacking context (Mapbox transforms it),
+            // so the card rises only with its wrapper: above every other pin,
+            // the selected one (1000) included.
+            wrapper.style.zIndex = "1001";
+          });
+          el.addEventListener("mouseleave", () => {
+            card.style.opacity = "0";
+            card.style.visibility = "hidden";
+            wrapper.style.zIndex =
+              selectedIdRef.current === property.id ? "1000" : "0";
+          });
+          el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            setSelectedId((prev) =>
+              prev === property.id ? null : property.id,
+            );
+            onPropertyClickRef.current?.(property.id);
+          });
+        }
 
         const marker = new mapboxgl.Marker({
           element: wrapper,
@@ -310,13 +409,22 @@ export default function MapboxMapView({
         markers.set(property.id, {
           marker,
           wrapperEl: wrapper,
+          groupEl: group,
           pillEl: pill,
+          dotEl: dot,
+          dotCircleEl: dotCircle,
           cardEl: card,
           isVip,
+          rank: property.isSuperVip ? 0 : property.isVip ? 1 : 2,
+          // Until layoutMarkers measures it (a container that is not laid out
+          // yet measures 0): px-3 + border around ~7.5px per character.
+          w: priceText != null ? Math.max(48, 26 + priceText.length * 7.5) : 42,
+          h: 32,
           price:
             priceText != null ? { property, cardPriceEl: priceEl } : undefined,
         });
       });
+      layoutMarkers();
     } else {
       zones.forEach((zone) => {
         const wrapper = document.createElement("div");
@@ -367,7 +475,7 @@ export default function MapboxMapView({
       zoneMarkers.forEach((marker) => marker.remove());
       zoneMarkersRef.current = [];
     };
-  }, [hasProperties, properties, zones, setSelectedId]);
+  }, [hasProperties, properties, zones, setSelectedId, layoutMarkers]);
 
   // Re-text the priced pills and their hover-card lines on a currency pick
   // (or once the day's rate arrives) without rebuilding the markers. A pin
@@ -380,26 +488,31 @@ export default function MapboxMapView({
       pillEl.textContent = text;
       if (price.cardPriceEl) price.cardPriceEl.textContent = text;
     });
-  }, [money]);
+    // A new price text changes the pill's width.
+    layoutMarkers();
+  }, [money, layoutMarkers]);
 
   // Sync selection highlighting onto existing marker DOM nodes without
   // rebuilding them.
   useEffect(() => {
     selectedIdRef.current = selectedId;
-    markersRef.current.forEach(({ pillEl, wrapperEl, cardEl, isVip }, id) => {
-      const isSelected = id === selectedId;
-      pillEl.className = `${pillBaseClasses()} ${pillStateClasses(isSelected, isVip)}`;
-      // A pin whose hover card is open stays on top (see its mouseenter).
-      wrapperEl.style.zIndex = isSelected
-        ? "1000"
-        : cardEl.style.visibility === "visible"
-          ? "1001"
-          : "0";
-      if (isSelected) {
-        cardEl.style.opacity = "0";
-        cardEl.style.visibility = "hidden";
-      }
-    });
+    markersRef.current.forEach(
+      ({ pillEl, dotCircleEl, wrapperEl, cardEl, isVip }, id) => {
+        const isSelected = id === selectedId;
+        pillEl.className = `${pillBaseClasses()} ${pillStateClasses(isSelected, isVip)}`;
+        dotCircleEl.className = dotClasses(isSelected, isVip);
+        // A pin whose hover card is open stays on top (see its mouseenter).
+        wrapperEl.style.zIndex = isSelected
+          ? "1000"
+          : cardEl.style.visibility === "visible"
+            ? "1001"
+            : "0";
+        if (isSelected) {
+          cardEl.style.opacity = "0";
+          cardEl.style.visibility = "hidden";
+        }
+      },
+    );
   }, [selectedId]);
 
   // Fit all property pins into view so none are cut off (skipped when an
