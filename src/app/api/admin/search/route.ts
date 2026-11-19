@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { UUID_RE } from "@/lib/utils/uuid";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
+import { parseListingNumber } from "@/lib/listing-number";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,8 @@ export async function GET(req: Request) {
 
   const digits = q.replace(/\D/g, "");
   const uuid = UUID_RE.test(q) ? q : null;
+  // A listing's public ID (C61), typed as 10000042 / ID: 10000042 / #10000042.
+  const listingNumber = parseListingNumber(url.searchParams.get("q"));
 
   const db = createServiceClient();
 
@@ -36,9 +39,11 @@ export async function GET(req: Request) {
 
   const propertyFilters = [`title.ilike.*${q}*`];
   if (uuid) propertyFilters.push(`id.eq.${uuid}`);
+  if (listingNumber) propertyFilters.push(`listing_number.eq.${listingNumber}`);
 
   const serviceFilters = [`title.ilike.*${q}*`];
   if (uuid) serviceFilters.push(`id.eq.${uuid}`);
+  if (listingNumber) serviceFilters.push(`listing_number.eq.${listingNumber}`);
 
   const orgFilters = [
     `brand_name.ilike.*${q}*`,
