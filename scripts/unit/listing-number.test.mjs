@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseListingNumber } from "../../src/lib/listing-number.ts";
+import {
+  parseListingNumber,
+  stripListingIdPrefix,
+} from "../../src/lib/listing-number.ts";
 
 test("an ID typed in the search box is recognised in its usual spellings", () => {
   for (const q of [
@@ -40,4 +43,12 @@ test("anything else stays a keyword search", () => {
   ]) {
     assert.equal(parseListingNumber(q), null, String(q));
   }
+});
+
+test("partial ID matching drops only the lead-in", () => {
+  assert.equal(stripListingIdPrefix("ID: 100000"), "100000");
+  assert.equal(stripListingIdPrefix("  #1000"), "1000");
+  assert.equal(stripListingIdPrefix("№ 42"), "42");
+  assert.equal(stripListingIdPrefix("ბინა"), "ბინა");
+  assert.equal(stripListingIdPrefix("ID:10000042"), "10000042");
 });

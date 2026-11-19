@@ -8,16 +8,21 @@
 
 export const FIRST_LISTING_NUMBER = 10000001;
 
-// "10000042", "ID: 10000042", "id10000042", "#10000042", "№ 10000042".
-const LISTING_NUMBER_QUERY = /^(?:id\s*[:#№]?|[#№])?\s*(\d{8})$/i;
+// The optional lead-in before the digits: "ID:", "id", "ID#", "#", "№".
+const LISTING_ID_PREFIX = /^(?:id\s*[:#№]?|[#№])\s*/i;
+
+/** The query without its "ID:" / "#" / "№" lead-in (for partial ID matching). */
+export function stripListingIdPrefix(query: string): string {
+  return query.trim().replace(LISTING_ID_PREFIX, "");
+}
 
 /** The listing number a search box query names, or null if it is not one. */
 export function parseListingNumber(
   query: string | null | undefined,
 ): number | null {
   if (typeof query !== "string") return null;
-  const match = LISTING_NUMBER_QUERY.exec(query.trim());
-  if (!match) return null;
-  const n = Number(match[1]);
+  const digits = stripListingIdPrefix(query);
+  if (!/^\d{8}$/.test(digits)) return null;
+  const n = Number(digits);
   return n >= FIRST_LISTING_NUMBER ? n : null;
 }

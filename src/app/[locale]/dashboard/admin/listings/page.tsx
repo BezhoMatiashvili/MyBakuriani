@@ -24,6 +24,7 @@ import { formatPrice, formatSaleOwnPrice } from "@/lib/utils/format";
 import { propertyViewUrl, serviceViewUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
 import ListingNumber from "@/components/shared/ListingNumber";
+import { stripListingIdPrefix } from "@/lib/listing-number";
 
 type ListingRow = {
   id: string;
@@ -217,7 +218,7 @@ export default function ListingsPage() {
       (r) =>
         r.id.toLowerCase().includes(q) ||
         (r.listing_number != null &&
-          String(r.listing_number).includes(q.replace(/^(?:id\s*[:#№]?|[#№])\s*/, ""))) ||
+          String(r.listing_number).includes(stripListingIdPrefix(q))) ||
         r.title.toLowerCase().includes(q) ||
         (r.owner?.display_name ?? "").toLowerCase().includes(q),
     );
