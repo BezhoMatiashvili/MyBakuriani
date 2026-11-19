@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { buildPageMetadata } from "@/lib/seo";
+import { localizeBlogPost } from "@/lib/blog/translations";
 import Breadcrumbs from "@/components/seo/Breadcrumbs";
 import BlogPageClient from "./BlogPageClient";
 
@@ -32,16 +33,31 @@ export default async function BlogPage({
   const tFooter = await getTranslations({ locale, namespace: "Footer" });
   const supabase = createPublicClient();
 
-  // Only what the grid renders: the article body (`content`) and the other
-  // columns never reach the client (up to 100 full posts otherwise).
-  const { data: posts, error } = await supabase
+  // Only what the grid renders reaches the client: the texts of every
+  // language are read so the server picks the visitor's (C60), then the
+  // bodies and the other languages are dropped (up to 100 full posts).
+  const { data: rows, error } = await supabase
     .from("blog_posts")
-    .select("id, slug, title, excerpt, image_url, published_at, created_at")
+    .select(
+      "id, slug, title, excerpt, content, title_en, excerpt_en, content_en, title_ru, excerpt_ru, content_ru, image_url, published_at, created_at",
+    )
     .eq("published", true)
     .order("created_at", { ascending: false })
     .limit(100);
 
   if (error) throw error;
+  const posts = (rows ?? []).map((row) => {
+    const { title, excerpt } = localizeBlogPost(row, locale);
+    return {
+      id: row.id,
+      slug: row.slug,
+      title,
+      excerpt,
+      image_url: row.image_url,
+      published_at: row.published_at,
+      created_at: row.created_at,
+    };
+  });
 
   return (
     <>
@@ -49,7 +65,7 @@ export default async function BlogPage({
         locale={locale}
         items={[{ name: tFooter("blog"), path: "/blog" }]}
       />
-      <BlogPageClient posts={posts ?? []} />
+      <BlogPageClient posts={posts} />
     </>
   );
 }

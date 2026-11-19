@@ -6,6 +6,12 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import { editorHtmlFor, isBlankContent } from "@/lib/blog/content";
+import {
+  BLOG_TRANSLATION_LOCALES,
+  hasBlogTranslation,
+  type BlogLocale,
+  type BlogTranslationLocale,
+} from "@/lib/blog/translations";
 import MediaUploader, {
   type MediaValue,
 } from "@/components/forms/MediaUploader";
@@ -16,6 +22,12 @@ type BlogPost = {
   slug: string;
   content: string;
   excerpt: string | null;
+  title_en: string | null;
+  excerpt_en: string | null;
+  content_en: string | null;
+  title_ru: string | null;
+  excerpt_ru: string | null;
+  content_ru: string | null;
   image_url: string | null;
   video_url: string | null;
   video_poster_url: string | null;
@@ -24,11 +36,30 @@ type BlogPost = {
   created_at: string | null;
 };
 
+type TranslationTexts = { title: string; excerpt: string; content: string };
+const EMPTY_TRANSLATIONS: Record<BlogTranslationLocale, TranslationTexts> = {
+  en: { title: "", excerpt: "", content: "" },
+  ru: { title: "", excerpt: "", content: "" },
+};
+
+// The form's language tabs. Georgian is the post; English and Russian are its
+// optional translations (title + text, C60), shown on /en and /ru.
+const LANGUAGE_TABS: { value: BlogLocale; label: string; hint: string }[] = [
+  { value: "ka", label: "ქართული", hint: "" },
+  { value: "en", label: "English", hint: " (English)" },
+  { value: "ru", label: "Русский", hint: " (Русский)" },
+];
+
 export default function SeoPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [editorVersion, setEditorVersion] = useState(0);
   const [excerpt, setExcerpt] = useState("");
+  const [lang, setLang] = useState<BlogLocale>("ka");
+  const [translations, setTranslations] =
+    useState<Record<BlogTranslationLocale, TranslationTexts>>(
+      EMPTY_TRANSLATIONS,
+    );
   const [imageUrl, setImageUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [videoPosterUrl, setVideoPosterUrl] = useState("");
@@ -111,6 +142,8 @@ export default function SeoPage() {
       setTitle(payload.title ?? "");
       setExcerpt(payload.excerpt ?? "");
       setContent(payload.body_html ?? "");
+      // The draft is Georgian: show it in its own tab.
+      setLang("ka");
       setEditorVersion((v) => v + 1);
       toast.success("AI დრაფტი მზად არის");
     } catch (err) {
@@ -125,6 +158,8 @@ export default function SeoPage() {
     setTitle("");
     setExcerpt("");
     setContent("");
+    setTranslations(EMPTY_TRANSLATIONS);
+    setLang("ka");
     setEditorVersion((v) => v + 1);
     setImageUrl("");
     setVideoUrl("");
@@ -136,6 +171,19 @@ export default function SeoPage() {
     setTitle(post.title);
     setExcerpt(post.excerpt ?? "");
     setContent(post.content);
+    setTranslations({
+      en: {
+        title: post.title_en ?? "",
+        excerpt: post.excerpt_en ?? "",
+        content: post.content_en ?? "",
+      },
+      ru: {
+        title: post.title_ru ?? "",
+        excerpt: post.excerpt_ru ?? "",
+        content: post.content_ru ?? "",
+      },
+    });
+    setLang("ka");
     setEditorVersion((v) => v + 1);
     setImageUrl(post.image_url ?? "");
     setVideoUrl(post.video_url ?? "");
@@ -167,9 +215,39 @@ export default function SeoPage() {
     }
   }
 
+  // The field values of the tab being edited.
+  const shown =
+    lang === "ka" ? { title, excerpt, content } : translations[lang];
+
+  function setShown(field: keyof TranslationTexts, value: string) {
+    if (lang === "ka") {
+      if (field === "title") setTitle(value);
+      else if (field === "excerpt") setExcerpt(value);
+      else setContent(value);
+      return;
+    }
+    const l = lang;
+    setTranslations((prev) => ({
+      ...prev,
+      [l]: { ...prev[l], [field]: value },
+    }));
+  }
+
   async function publish(options: { publish: boolean }) {
     if (!title.trim() || isBlankContent(content)) {
+      setLang("ka");
       toast.error("სათაური და ტექსტი სავალდებულოა");
+      return;
+    }
+    // A translation is its title AND its text, or nothing (C60).
+    const incomplete = BLOG_TRANSLATION_LOCALES.find(
+      (l) =>
+        !translations[l].title.trim() !==
+        isBlankContent(translations[l].content),
+    );
+    if (incomplete) {
+      setLang(incomplete);
+      toast.error("თარგმანს სჭირდება სათაურიც და ტექსტიც");
       return;
     }
     setPublishing(true);
@@ -183,6 +261,12 @@ export default function SeoPage() {
             title,
             content,
             excerpt: excerpt || undefined,
+            title_en: translations.en.title,
+            excerpt_en: translations.en.excerpt,
+            content_en: translations.en.content,
+            title_ru: translations.ru.title,
+            excerpt_ru: translations.ru.excerpt,
+            content_ru: translations.ru.content,
             image_url: imageUrl || undefined,
             video_url: videoUrl || undefined,
             video_poster_url: videoPosterUrl || undefined,
@@ -266,25 +350,70 @@ export default function SeoPage() {
                   : undefined
               }
             />
+            <div>
+              <div
+                role="tablist"
+                aria-label="სტატიის ენა"
+                className="inline-flex rounded-xl bg-[#F1F5F9] p-1"
+              >
+                {LANGUAGE_TABS.map((tab) => {
+                  const done =
+                    tab.value !== "ka" &&
+                    !!translations[tab.value].title.trim() &&
+                    !isBlankContent(translations[tab.value].content);
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={tab.value === lang}
+                      onClick={() => setLang(tab.value)}
+                      className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg px-4 text-sm font-bold transition-colors ${
+                        tab.value === lang
+                          ? "bg-white text-[#0F172A] shadow-sm"
+                          : "text-[#64748B] hover:text-[#334155]"
+                      }`}
+                    >
+                      {tab.label}
+                      {done ? (
+                        <span
+                          aria-label="თარგმნილია"
+                          className="h-1.5 w-1.5 rounded-full bg-[#10B981]"
+                        />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              {lang !== "ka" ? (
+                <p className="mt-2 text-[12px] font-medium leading-[18px] text-[#64748B]">
+                  თარგმანი არასავალდებულოა. შეავსეთ სათაური და ტექსტი, ან
+                  დატოვეთ ცარიელი: ცარიელ ენაზე სტატია ქართულად გამოჩნდება.
+                </p>
+              ) : null}
+            </div>
             <input
-              placeholder="სტატიის სათაური..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              placeholder={`სტატიის სათაური${LANGUAGE_TABS.find((t) => t.value === lang)?.hint ?? ""}...`}
+              lang={lang}
+              value={shown.title}
+              onChange={(e) => setShown("title", e.target.value)}
               className="h-[51px] w-full rounded-xl border border-[#E2E8F0] bg-white px-[14px] text-[14px] font-medium leading-[21px] text-[#1E293B] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
             />
             <textarea
-              placeholder="მოკლე აღწერა (excerpt)..."
+              placeholder={`მოკლე აღწერა (excerpt)${LANGUAGE_TABS.find((t) => t.value === lang)?.hint ?? ""}...`}
               rows={2}
-              value={excerpt}
-              onChange={(e) => setExcerpt(e.target.value)}
+              lang={lang}
+              value={shown.excerpt}
+              onChange={(e) => setShown("excerpt", e.target.value)}
               className="w-full rounded-xl border border-[#E2E8F0] bg-white px-[14px] py-3 text-[14px] font-medium leading-[21px] text-[#1E293B] shadow-[0px_1px_2px_rgba(0,0,0,0.05)] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
             />
             <RichTextEditor
               // Remounted when the form is loaded from outside (edit, reset,
-              // AI draft): the editor reads its content once, on mount.
-              key={editorVersion}
-              initialHtml={editorHtmlFor(content)}
-              onChange={setContent}
+              // AI draft) or switched to another language: the editor reads
+              // its content once, on mount.
+              key={`${editorVersion}-${lang}`}
+              initialHtml={editorHtmlFor(shown.content)}
+              onChange={(html) => setShown("content", html)}
             />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <button
@@ -405,6 +534,16 @@ export default function SeoPage() {
                     <p className="truncate text-[11px] font-medium text-[#64748B]">
                       /{post.slug} •{" "}
                       {post.published ? "გამოქვეყნებული" : "შავი ვარიანტი"}
+                      {BLOG_TRANSLATION_LOCALES.filter((l) =>
+                        hasBlogTranslation(post, l),
+                      ).map((l) => (
+                        <span
+                          key={l}
+                          className="ml-1.5 rounded border border-[#BFDBFE] bg-[#EFF6FF] px-1 py-px text-[10px] font-black uppercase text-[#2563EB]"
+                        >
+                          {l}
+                        </span>
+                      ))}
                     </p>
                   </div>
                 </div>

@@ -16,8 +16,8 @@ import {
 
 const SITE = "https://mybakuriani.ge";
 const LOCALES = ["ka", "en", "ru"];
-const alternatesFor = (path, locale) =>
-  buildAlternates({ path, locale, locales: LOCALES, defaultLocale: "ka" });
+const alternatesFor = (path, locale, locales = LOCALES) =>
+  buildAlternates({ path, locale, locales, defaultLocale: "ka" });
 const build = (pages) =>
   buildSitemapEntries({
     siteUrl: SITE,
@@ -142,4 +142,45 @@ test("seeded QA and e2e fixture ids are recognised, real ids are not", () => {
   assert.equal(isSeedListingId("facade00-0000-4000-8000-000000000001"), true);
   assert.equal(isSeedListingId("aae2ff00-cf01-4000-a000-000000000001"), true);
   assert.equal(isSeedListingId("02f58755-95d7-48ca-806f-d1c110b1aa03"), false);
+});
+
+// A blog post lists only Georgian and the languages it is translated into
+// (C40): its untranslated /en or /ru copy is neither submitted nor an alternate.
+test("a page with its own locales gets entries and hreflang for those only", () => {
+  const entries = build([{ path: "/blog/x", locales: ["ka", "ru"] }]);
+  assert.deepEqual(
+    entries.map((e) => e.url),
+    [`${SITE}/blog/x`, `${SITE}/ru/blog/x`],
+  );
+  for (const entry of entries) {
+    assert.deepEqual(entry.alternates.languages, {
+      ka: `${SITE}/blog/x`,
+      ru: `${SITE}/ru/blog/x`,
+      "x-default": `${SITE}/blog/x`,
+    });
+  }
+  const [only] = build([{ path: "/blog/y", locales: ["ka"] }]);
+  assert.equal(build([{ path: "/blog/y", locales: ["ka"] }]).length, 1);
+  assert.deepEqual(Object.keys(only.alternates.languages), ["ka", "x-default"]);
+});
+
+test("a locale the content is not in takes the default locale's canonical", () => {
+  const untranslated = buildAlternates({
+    path: "/blog/x",
+    locale: "en",
+    locales: ["ka"],
+    defaultLocale: "ka",
+  });
+  assert.equal(untranslated.canonical, "/blog/x");
+  assert.deepEqual(untranslated.languages, {
+    ka: "/blog/x",
+    "x-default": "/blog/x",
+  });
+  const translated = buildAlternates({
+    path: "/blog/x",
+    locale: "en",
+    locales: ["ka", "en"],
+    defaultLocale: "ka",
+  });
+  assert.equal(translated.canonical, "/en/blog/x");
 });

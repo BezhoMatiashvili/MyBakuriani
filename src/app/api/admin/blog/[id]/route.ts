@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { normalizeBlogContent } from "@/lib/blog/sanitize";
+import { readBlogTranslations } from "@/lib/blog/translation-input";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { safeHttpsUrl } from "@/lib/security";
 import { parseStorageObjectUrl } from "@/lib/utils/photos";
@@ -66,6 +67,12 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       { status: 400 },
     );
   }
+  // English and Russian (C60): each is a title AND a body, or nothing. The
+  // editor always sends all of them, so an emptied tab removes a translation.
+  const translations = readBlogTranslations(body);
+  if (!translations.ok) {
+    return Response.json({ error: translations.error }, { status: 400 });
+  }
 
   const media = {} as MediaRow;
   for (const column of MEDIA_COLUMNS) {
@@ -97,6 +104,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     .update({
       title,
       content,
+      ...translations.columns,
       excerpt:
         typeof body?.excerpt === "string" ? body.excerpt.trim() || null : null,
       ...media,

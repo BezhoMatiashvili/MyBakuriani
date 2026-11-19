@@ -33,9 +33,12 @@ const OG_LOCALE: Record<AppLocale, string> = {
 /** Google shows roughly this much of a meta description. */
 export const META_DESCRIPTION_MAX = 155;
 
-/** og:locale:alternate values: every locale except the page's own. */
-function alternateOgLocales(locale: AppLocale): string[] {
-  return routing.locales.filter((l) => l !== locale).map((l) => OG_LOCALE[l]);
+/** og:locale:alternate values: every locale (of the page's) except its own. */
+function alternateOgLocales(
+  locale: AppLocale,
+  locales: readonly AppLocale[] = routing.locales,
+): string[] {
+  return locales.filter((l) => l !== locale).map((l) => OG_LOCALE[l]);
 }
 
 /** Clamps on a word boundary and appends an ellipsis only if it actually cut. */
@@ -68,6 +71,12 @@ interface BuildListingMetadataOptions {
    * post's, `blogOgCardUrl`); a listing path finds its own card.
    */
   cardUrl?: string;
+  /**
+   * The locales the page's content exists in (default: every locale). A blog
+   * post passes Georgian plus its translations; under any other locale it
+   * shows the Georgian text, so the Georgian URL is canonical (C40).
+   */
+  locales?: readonly AppLocale[];
 }
 
 /**
@@ -112,10 +121,15 @@ export function buildListingMetadata(
 
   // canonical + hreflang come from the one function the sitemap uses too, so
   // the HTML and the sitemap name byte-identical URLs (C40).
+  const locales = opts.locales ?? routing.locales;
+  // The language the page's text is in: its own, else the default (Georgian).
+  const textLocale = locales.includes(opts.locale)
+    ? opts.locale
+    : routing.defaultLocale;
   const { canonical: url, languages } = buildAlternates({
     path: opts.path,
     locale: opts.locale,
-    locales: routing.locales,
+    locales,
     defaultLocale: routing.defaultLocale,
   });
 
@@ -129,8 +143,8 @@ export function buildListingMetadata(
     openGraph: {
       type: opts.type ?? "website",
       siteName: SITE_NAME,
-      locale: OG_LOCALE[opts.locale] ?? opts.locale,
-      alternateLocale: alternateOgLocales(opts.locale),
+      locale: OG_LOCALE[textLocale] ?? textLocale,
+      alternateLocale: alternateOgLocales(textLocale, locales),
       title: opts.title,
       description,
       url,

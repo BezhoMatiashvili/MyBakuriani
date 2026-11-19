@@ -14,6 +14,7 @@ import {
   LANDING_RENTAL_COLUMNS,
   LANDING_SALE_COLUMNS,
   LANDING_SERVICE_COLUMNS,
+  toLandingBlogPost,
 } from "@/app/[locale]/_landing/columns";
 import { firstPhotoOnly } from "@/lib/utils/photos";
 import { fetchSlotCreatives } from "@/lib/banner-slots-server";
@@ -439,7 +440,7 @@ function aggregatePricePerSqm(
   }, {} as PricePerSqmByZone);
 }
 
-async function LandingWithData() {
+async function LandingWithData({ locale }: { locale: AppLocale }) {
   // Non-listing dependencies remain time-bounded and degradable. Critical
   // property/service failures escape fetchLandingProps so ISR preserves the
   // last successful page instead of caching a blank refresh.
@@ -493,7 +494,9 @@ async function LandingWithData() {
       superVipServices={props.superVipServices}
       services={props.services}
       employmentCvCounts={props.employmentCvCounts}
-      blogPosts={props.blogPosts}
+      // The visitor's language when the post is translated (C60); bodies
+      // and the other languages stay on the server.
+      blogPosts={props.blogPosts.map((post) => toLandingBlogPost(post, locale))}
       bannerCreatives={bannerCreatives}
       pricePerSqmByZone={props.pricePerSqmByZone}
     />
@@ -522,7 +525,7 @@ export default async function Home({
           email: CONTACT_EMAIL,
         })}
       />
-      <LandingWithData />
+      <LandingWithData locale={locale} />
       <HomeAbout locale={locale} />
     </>
   );

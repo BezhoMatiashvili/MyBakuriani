@@ -27,6 +27,10 @@ export interface AlternatesInput {
   path: string;
   /** Locale of the page being rendered. */
   locale: string;
+  /**
+   * The locales the page's content exists in. Usually every locale; a blog post
+   * lists only Georgian and the languages it is translated into (C40).
+   */
   locales: readonly string[];
   defaultLocale: string;
 }
@@ -45,8 +49,11 @@ export function buildAlternates(input: AlternatesInput): Alternates {
     languages[l] = pathForLocale(path, l, defaultLocale);
   }
   languages["x-default"] = pathForLocale(path, defaultLocale, defaultLocale);
+  // A locale the content is not in (an untranslated post under /en) shows the
+  // default locale's text, so that version is the canonical one.
+  const own = locales.includes(locale) ? locale : defaultLocale;
   return {
-    canonical: pathForLocale(path, locale, defaultLocale),
+    canonical: pathForLocale(path, own, defaultLocale),
     languages,
   };
 }

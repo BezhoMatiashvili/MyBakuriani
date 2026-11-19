@@ -1,4 +1,5 @@
 import type { Tables } from "@/lib/types/database";
+import { localizeBlogPost } from "@/lib/blog/translations";
 
 // The public_* columns the landing's client components read: LandingPage.tsx
 // (card mappers, map pins, service sort, describeSalary, blog items) and
@@ -25,8 +26,10 @@ export const LANDING_SERVICE_COLUMNS =
 // uses this list: descriptions stay out of LANDING_SERVICE_COLUMNS.
 export const LANDING_EMPLOYMENT_COLUMNS =
   "id, title, category, location, photos, price, price_unit, discount_percent, discount_expires_at, best_active_menu_item_discount_percent, created_at, is_vip, is_super_vip, schedule, operating_hours, has_whatsapp, vehicle_capacity, transport_type, vehicle_make, route, routes, salary_type, salary_min, salary_max, salary_daily, salary_range, ownership_verified, position, description, work_schedule, employment_schedule, employment_type";
+// The texts of every language (C60) are read so the server can pick the
+// visitor's; toLandingBlogPost drops them (and the bodies) before the client.
 export const LANDING_BLOG_COLUMNS =
-  "id, slug, title, excerpt, image_url, published_at, created_at";
+  "id, slug, title, excerpt, content, title_en, excerpt_en, content_en, title_ru, excerpt_ru, content_ru, image_url, published_at, created_at";
 
 type PropertyRow = Tables<"public_properties">;
 
@@ -111,3 +114,30 @@ export type LandingBlogPost = Pick<
   Tables<"blog_posts">,
   "id" | "slug" | "title" | "excerpt" | "image_url" | "published_at" | "created_at"
 >;
+
+/** A home-row post in `locale`: its translation, else the Georgian post (C60). */
+export function toLandingBlogPost(
+  row: LandingBlogPost &
+    Pick<
+      Tables<"blog_posts">,
+      | "content"
+      | "title_en"
+      | "excerpt_en"
+      | "content_en"
+      | "title_ru"
+      | "excerpt_ru"
+      | "content_ru"
+    >,
+  locale: string,
+): LandingBlogPost {
+  const { title, excerpt } = localizeBlogPost(row, locale);
+  return {
+    id: row.id,
+    slug: row.slug,
+    title,
+    excerpt,
+    image_url: row.image_url,
+    published_at: row.published_at,
+    created_at: row.created_at,
+  };
+}

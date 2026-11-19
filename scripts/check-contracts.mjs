@@ -4331,8 +4331,33 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     problems.push(`${editorFile}: must bind "Mod-k", keep autolink: false and enablePasteRules: false (links sit on selected text)`);
   if (!/\{blogSnippet\(post\.excerpt\)\}/.test(read(search)) || /\{post\.excerpt\}/.test(read(search)))
     problems.push(`${search}: the blog card must print blogSnippet(post.excerpt) (a cut HTML body otherwise shows tags)`);
+  // (h) English and Russian translations (20261119140000): translations.ts stays import-free (the admin editor and
+  // scripts/unit load it); the server reads them only through readBlogTranslations, which sanitizes each body with
+  // normalizeBlogContent and refuses half of one; both write routes call it before the write and spread its columns;
+  // every public reader shows one language whole through localizeBlogPost, and the post page and the sitemap name
+  // only the translated locales (blogPostLocales), so an untranslated /en or /ru copy is not an hreflang alternate.
+  const translationsLib = "src/lib/blog/translations.ts";
+  const translationInput = "src/lib/blog/translation-input.ts";
+  if (/^\s*import\b|\bfrom\s+["']|\brequire\(/m.test(read(translationsLib))) problems.push(`${translationsLib} must stay import-free (C29)`);
+  const inputSrc = read(translationInput);
+  if (!/normalizeBlogContent\(raw\)/.test(inputSrc) || !/\(title === null\) !== \(content === null\)/.test(inputSrc))
+    problems.push(`${translationInput}: each translation body must go through normalizeBlogContent, and half of one must be refused`);
+  for (const route of ["src/app/api/admin/blog/route.ts", "src/app/api/admin/blog/[id]/route.ts"]) {
+    const src = read(route);
+    const at = src.search(/const translations = readBlogTranslations\(body\);/);
+    const write = src.search(/\.from\("blog_posts"\)\s*\.(?:insert|update)\(/);
+    const payload = write < 0 ? "" : src.slice(write).match(/\.(?:insert|update)\(\{([\s\S]*?)\}\)/)?.[1] ?? "";
+    if (at < 0 || write < 0 || at > write || !/^\s*\.\.\.translations\.columns,\s*$/m.test(payload) || /\b(?:title|excerpt|content)_(?:en|ru)\s*:/.test(payload))
+      problems.push(`${route}: must store readBlogTranslations(body).columns, read before the write (never body.*_en/_ru raw)`);
+  }
+  if (!/const post = \{ \.\.\.row, \.\.\.localizeBlogPost\(row, locale\) \};[\s\S]*const post = \{ \.\.\.row, \.\.\.localizeBlogPost\(row, locale\) \};/.test(pageSrc) || !/locales: blogPostLocales\(row\)/.test(pageSrc) || !/inLanguage: post\.lang/.test(pageSrc))
+    problems.push(`${page}: metadata and page must localize the post with localizeBlogPost, pass locales: blogPostLocales(row) and say inLanguage: post.lang`);
+  if (!/locales: blogPostLocales\(post\)/.test(read("src/app/sitemap.ts")))
+    problems.push("src/app/sitemap.ts: a post's sitemap entries must name only blogPostLocales(post)");
+  for (const reader of ["src/app/[locale]/blog/page.tsx", "src/app/[locale]/_landing/columns.ts"])
+    if (!/localizeBlogPost\(row, locale\)/.test(read(reader))) problems.push(`${reader}: must pick the post's texts with localizeBlogPost(row, locale)`);
   if (problems.length) problems.forEach((p) => fail(`C60: ${p}`));
-  else ok("C60: blog bodies are stored and rendered through sanitizeBlogHtml (one allowlist, server-only), content.ts is import-free, the editor keeps links on selected text, search snippets strip tags");
+  else ok("C60: blog bodies are stored and rendered through sanitizeBlogHtml (one allowlist, server-only), content.ts is import-free, the editor keeps links on selected text, search snippets strip tags, en/ru translations are sanitized, whole-or-nothing and named in hreflang only when present");
 }
 
 // C61 — public listing numbers. (a) listing-number.ts stays import-free (scripts/unit loads it); (b) both search pages

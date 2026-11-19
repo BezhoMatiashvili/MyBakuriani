@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { blogSlug } from "@/lib/blog-slug";
 import { normalizeBlogContent } from "@/lib/blog/sanitize";
+import { readBlogTranslations } from "@/lib/blog/translation-input";
 import { createServiceClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -40,6 +41,11 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+  // English and Russian (C60): each is a title AND a body, or nothing.
+  const translations = readBlogTranslations(body);
+  if (!translations.ok) {
+    return Response.json({ error: translations.error }, { status: 400 });
+  }
   // Set once: PATCH never rewrites it, so a shared link stays the post's URL
   // (C40). The time token also resolves the post if its words ever change.
   const slug = blogSlug(body.title, Date.now().toString(36));
@@ -50,6 +56,7 @@ export async function POST(req: NextRequest) {
       title: body.title.trim(),
       slug,
       content,
+      ...translations.columns,
       excerpt: body.excerpt ?? null,
       image_url: body.image_url ?? null,
       video_url: body.video_url ?? null,

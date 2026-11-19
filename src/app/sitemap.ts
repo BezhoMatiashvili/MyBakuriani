@@ -3,6 +3,7 @@ import { routing } from "@/i18n/routing";
 import { GUIDE_PATHS } from "@/lib/guide";
 import { createPublicClient } from "@/lib/supabase/server";
 import { buildAlternates } from "@/lib/seo/alternates";
+import { blogPostLocales } from "@/lib/blog/translations";
 import { IS_INDEXABLE, SITE_URL, isSiteLocked } from "@/lib/seo/site";
 import { optimizedImageUrls } from "@/lib/seo/image-url";
 import {
@@ -86,7 +87,9 @@ async function loadRowPages(): Promise<SitemapPage[]> {
     readAll((from, to) =>
       supabase
         .from("blog_posts")
-        .select("slug, published_at, image_url")
+        .select(
+          "slug, published_at, image_url, title, excerpt, content, title_en, content_en, title_ru, content_ru",
+        )
         .eq("published", true)
         .order("slug")
         .range(from, to),
@@ -120,6 +123,8 @@ async function loadRowPages(): Promise<SitemapPage[]> {
       path: `/blog/${post.slug}`,
       lastModified: post.published_at ? new Date(post.published_at) : null,
       images: optimizedImageUrls(SITE_URL, sanitizePhotos([post.image_url])),
+      // Georgian plus the languages the post is translated into (C40).
+      locales: blogPostLocales(post),
     });
   }
   return pages;
@@ -145,11 +150,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return buildSitemapEntries({
     siteUrl: SITE_URL,
     locales: routing.locales,
-    alternatesFor: (path, locale) =>
+    alternatesFor: (path, locale, locales) =>
       buildAlternates({
         path,
         locale,
-        locales: routing.locales,
+        locales,
         defaultLocale: routing.defaultLocale,
       }),
     pages: [...STATIC_PATHS.map((path) => ({ path })), ...rowPages],

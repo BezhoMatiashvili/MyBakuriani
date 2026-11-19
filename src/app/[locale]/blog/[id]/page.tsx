@@ -8,6 +8,7 @@ import { routing, type AppLocale } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { blogSlugToken, isLatinSlug } from "@/lib/blog-slug";
 import { richHtmlOrNull } from "@/lib/blog/sanitize";
+import { blogPostLocales, localizeBlogPost } from "@/lib/blog/translations";
 import { createPublicClient } from "@/lib/supabase/server";
 import { buildListingMetadata } from "@/lib/seo";
 import { pathForLocale } from "@/lib/seo/alternates";
@@ -98,11 +99,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "Metadata" });
   // A failed read throws: the render fails (uncached) instead of caching a
   // not-found title for the next 120 s.
-  const post = await getPublishedPost(decodeKey(id));
+  const row = await getPublishedPost(decodeKey(id));
 
-  if (!post) {
+  if (!row) {
     return { title: t("detail.blogNotFound") };
   }
+  // The texts in this locale when translated, else the Georgian post (C60).
+  const post = { ...row, ...localizeBlogPost(row, locale) };
 
   const title = t("detail.blogTitle", { title: post.title });
   const description = post.excerpt?.trim() || post.title;
@@ -131,6 +134,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ],
       path: `/blog/${post.slug}`,
       type: "article",
+      // hreflang names only the translated languages; an untranslated
+      // /en or /ru copy points its canonical at the Georgian post (C40).
+      locales: blogPostLocales(row),
     }),
   };
 }
@@ -145,11 +151,14 @@ export default async function BlogDetailPage({ params }: Props) {
   const tShare = await getTranslations({ locale, namespace: "ShareListing" });
 
   // Errors propagate (uncached 500) instead of becoming a cacheable 404.
-  const post = await getPublishedPost(key);
+  const row = await getPublishedPost(key);
 
-  if (!post) {
+  if (!row) {
     notFound();
   }
+  // One language whole: this locale's translation, else the Georgian post
+  // (C60). `lang` says which, for inLanguage and the article's lang attribute.
+  const post = { ...row, ...localizeBlogPost(row, locale) };
 
   // Every other spelling of the post's URL (its uuid, an old Georgian slug, a
   // link its token matched) 308s to the canonical one, in the same locale.
@@ -183,7 +192,6 @@ export default async function BlogDetailPage({ params }: Props) {
           { name: post.title, path: `/blog/${post.slug}` },
         ]}
       />
-      {/* Posts are written in Georgian whatever the page's UI locale is. */}
       <JsonLd
         data={blogPostingJsonLd({
           url: postUrl,
@@ -195,7 +203,8 @@ export default async function BlogDetailPage({ params }: Props) {
           ),
           datePublished: post.published_at,
           // No byline on the page, so the post is credited to the site (C40).
-          inLanguage: "ka",
+          // The language the text is in, not the page's UI locale (C40).
+          inLanguage: post.lang,
           publisherName: SITE_NAME,
           publisherLogoUrl: `${SITE_URL}${SITE_LOGO_PATH}`,
         })}
@@ -211,7 +220,12 @@ export default async function BlogDetailPage({ params }: Props) {
         </Link>
 
         {/* Title */}
-        <h1 className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]">
+        {/* lang= on the post's own text only: the page chrome around it is
+            in the UI locale, the text may be the Georgian original. */}
+        <h1
+          lang={post.lang}
+          className="text-[28px] font-black leading-[34px] text-[#1E293B] sm:text-[34px] sm:leading-[42px]"
+        >
           {post.title}
         </h1>
 
@@ -243,7 +257,7 @@ export default async function BlogDetailPage({ params }: Props) {
         )}
 
         {/* Content */}
-        <div className="prose prose-slate mt-8 max-w-none">
+        <div lang={post.lang} className="prose prose-slate mt-8 max-w-none">
           {richHtml !== null ? (
             // Allowlisted HTML from the editor, sanitized again here (C60).
             <div

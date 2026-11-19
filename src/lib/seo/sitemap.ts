@@ -13,10 +13,14 @@ export function isSeedListingId(id: string): boolean {
   return SEED_LISTING_ID_PREFIXES.some((prefix) => id.startsWith(prefix));
 }
 
-/** (locale-less path, locale) -> that locale's canonical path and every alternate. */
+/**
+ * (locale-less path, locale, the page's locales) -> that locale's canonical
+ * path and every alternate.
+ */
 export type AlternatesFor = (
   path: string,
   locale: string,
+  locales: readonly string[],
 ) => { canonical: string; languages: Record<string, string> };
 
 export interface SitemapPage {
@@ -30,6 +34,12 @@ export interface SitemapPage {
   lastModified?: Date | null;
   /** Absolute image URLs, plain text (see image-url.ts); escaped on the way out. */
   images?: string[];
+  /**
+   * The locales the page's content exists in (default: every locale). A blog
+   * post lists Georgian plus its translations, so an untranslated /en copy is
+   * neither submitted nor named as an alternate (C40).
+   */
+  locales?: readonly string[];
 }
 
 export interface SitemapEntry {
@@ -76,8 +86,13 @@ export function buildSitemapEntries(input: {
   const { siteUrl, locales, alternatesFor, pages } = input;
   const entries: SitemapEntry[] = [];
   for (const page of pages) {
-    for (const locale of locales) {
-      const { canonical, languages } = alternatesFor(page.path, locale);
+    const pageLocales = page.locales ?? locales;
+    for (const locale of pageLocales) {
+      const { canonical, languages } = alternatesFor(
+        page.path,
+        locale,
+        pageLocales,
+      );
       const entry: SitemapEntry = {
         url: absolute(siteUrl, canonical),
         alternates: {
