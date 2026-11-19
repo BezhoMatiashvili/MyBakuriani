@@ -168,6 +168,11 @@ export default function EntertainmentDetailClient({
             <Eye className="h-4 w-4" />
             {tShared("views", { count: views })}
           </span>
+          {service.listing_number ? (
+            <span className="font-medium">
+              {tShared("listingId", { id: String(service.listing_number) })}
+            </span>
+          ) : null}
         </div>
         {service.ownership_verified === true && (
           <OwnershipVerifiedBadge variant="detail" className="mt-3" />

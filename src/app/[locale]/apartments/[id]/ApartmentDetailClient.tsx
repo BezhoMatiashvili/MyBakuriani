@@ -221,6 +221,11 @@ export default function ApartmentDetailClient({
                 <Eye className="h-4 w-4" />
                 {tDetail("views", { count: views })}
               </span>
+              {property.listing_number ? (
+                <span className="font-medium">
+                  {tShared("listingId", { id: String(property.listing_number) })}
+                </span>
+              ) : null}
             </div>
           </div>
           {property.is_super_vip && (

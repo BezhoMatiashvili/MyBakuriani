@@ -950,7 +950,7 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   const view = viewFile && read(join("supabase/migrations", viewFile)).match(/CREATE OR REPLACE VIEW public\.public_properties\b[^;]*;/)?.[0];
   const needed = [
     /COALESCE\(pr\.is_for_sale, false\) OR \(EXISTS/,
-    /FROM public\.user_subscriptions s/,
+    /FROM (?:public\.)?user_subscriptions s/, // pg_get_viewdef prints it unqualified
     /s\.user_id = pr\.owner_id/,
     /s\.status = 'active'/,
     /s\.starts_at <= now\(\)/,
@@ -3842,8 +3842,8 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   const viewRe = /\bcreate\s+(?:or\s+replace\s+)?view\s+(?:public\.)?public_properties\b[^;]*;/gi;
   const view = last(viewRe);
   const viewFile = migs.filter((_, i) => new RegExp(viewRe.source, "i").test(texts[i])).at(-1);
-  if (!view || !/\bpr\.hotel_rooms\s*,\s*pr\.sale_price_gel\s*,\s*pr\.sale_price_currency\s+from\b/i.test(view[0]))
-    problems.push(`${viewFile ?? "no migration"}: public_properties must end with pr.hotel_rooms, pr.sale_price_gel, pr.sale_price_currency (a view re-created from an older text drops the pair)`);
+  if (!view || !/\bpr\.hotel_rooms\s*,\s*pr\.sale_price_gel\s*,\s*pr\.sale_price_currency\s*(?:,\s*pr\.listing_number\s*)?from\b/i.test(view[0]))
+    problems.push(`${viewFile ?? "no migration"}: public_properties must end with pr.hotel_rooms, pr.sale_price_gel, pr.sale_price_currency (then C61's pr.listing_number) (a view re-created from an older text drops the pair)`);
   if (later(/\bdrop\s+view\b[^;]*\bpublic_properties\b/gi, view)) problems.push("a migration drops public_properties after its newest definition");
   const trig = last(/\bcreate\s+(?:or\s+replace\s+)?(?:constraint\s+)?trigger\s+properties_sale_price_pair\b[^;]*;/gi);
   const when = "WHEN (NEW.sale_price IS DISTINCT FROM OLD.sale_price AND OLD.sale_price_gel IS NOT NULL AND NEW.sale_price_gel IS NOT DISTINCT FROM OLD.sale_price_gel)";
@@ -4333,6 +4333,43 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     problems.push(`${search}: the blog card must print blogSnippet(post.excerpt) (a cut HTML body otherwise shows tags)`);
   if (problems.length) problems.forEach((p) => fail(`C60: ${p}`));
   else ok("C60: blog bodies are stored and rendered through sanitizeBlogHtml (one allowlist, server-only), content.ts is import-free, the editor keeps links on selected text, search snippets strip tags");
+}
+
+// C61 — public listing numbers. (a) listing-number.ts stays import-free (scripts/unit loads it); (b) both search pages
+// redirect through parseListingNumber + findPublicListingByNumber; (c) the resolver reads only the public views;
+// (d) every detail client prints Shared.listingId with a String() id (ICU would group a number's digits);
+// (e) the migration's guard trigger exists for both tables and both views end with listing_number.
+{
+  const problems = [];
+  const lib = "src/lib/listing-number.ts";
+  const resolver = "src/lib/data/findPublicListingByNumber.ts";
+  if (/^\s*import\b|\bfrom\s+["']|\brequire\(/m.test(read(lib))) problems.push(`${lib} must stay import-free (C29)`);
+  for (const page of ["src/app/[locale]/search/page.tsx", "src/app/[locale]/sales/all/page.tsx"]) {
+    const src = read(page);
+    if (!/parseListingNumber\(/.test(src) || !/findPublicListingByNumber\(/.test(src) || !/redirect\(pathForLocale\(/.test(src))
+      problems.push(`${page}: an exact ID must redirect via parseListingNumber + findPublicListingByNumber + pathForLocale`);
+  }
+  const resolverSrc = read(resolver);
+  const tables = [...resolverSrc.matchAll(/\.from\("([a-z_]+)"\)/g)].map((m) => m[1]);
+  if (!setEq(new Set(tables), new Set(["public_properties", "public_services"])))
+    problems.push(`${resolver}: must read only public_properties and public_services (base tables would open pending listings)`);
+  const details = [...srcText.keys()].filter((f) => /^src\/app\/\[locale\]\/[a-z]+\/\[id\]\/[A-Za-z]+DetailClient\.tsx$/.test(f));
+  if (details.length !== 8) problems.push(`expected 8 detail clients, found ${details.length}`);
+  for (const file of details) {
+    if (!/tShared\(\s*"listingId",\s*\{\s*id:\s*String\((property|service)\.listing_number\)\s*\}\s*\)/.test(srcText.get(file)))
+      problems.push(`${file}: must print tShared("listingId", { id: String(<listing>.listing_number) })`);
+  }
+  for (const [file, text] of srcText) {
+    if (/"listingId",\s*\{\s*id:\s*(?=\S)(?!String\()/.test(text)) problems.push(`${file}: listingId must get a String() id`);
+  }
+  const mig = read("supabase/migrations/20261119120000_listing_numbers.sql");
+  for (const t of ["properties", "services"])
+    if (!new RegExp(`CREATE TRIGGER ${t}_listing_number_guard\\s+BEFORE INSERT OR UPDATE OF listing_number ON public\\.${t}`).test(mig))
+      problems.push(`migration: ${t}_listing_number_guard missing`);
+  if (!/pr\.listing_number\n\s+FROM \(\(properties pr/.test(mig) || !/s\.listing_number\n\s+FROM \(services s/.test(mig))
+    problems.push("migration: listing_number must be the last column of public_properties and public_services");
+  if (problems.length) problems.forEach((p) => fail(`C61: ${p}`));
+  else ok("C61: listing numbers come from one guarded sequence, show via Shared.listingId on all 8 detail pages, and an exact ID in /search or /sales/all opens the listing through the public views");
 }
 
 if (failures) {

@@ -434,6 +434,8 @@ function buildMockProperty(
 
   return {
     admin_notes: null,
+    // Demo listings have no public number (C61); 0 hides the ID.
+    listing_number: 0,
     amenities: hotel ? { description: hotel.amenities } : null,
     area_sqm: null,
     bathrooms: null,
@@ -510,6 +512,8 @@ function buildMockSaleProperty(
     `${source.title} — საინვესტიციო შესაძლებლობა ბაკურიანის ${source.location}-ში. ${source.area} მ² ფართობი, ${source.rooms} ოთახი, თანამედროვე გეგმარება და ხარისხიანი მასალები.\n\nობიექტი ემსახურება სტუმარის ბაზრის ფართო სეგმენტს და უზრუნველყოფს მდგრად შემოსავალს მთელი წლის განმავლობაში. მოსალოდნელი ROI ${source.roi}% წლიური, რაც კატეგორიულად აღემატება ბანკის სადეპოზიტო განაკვეთს.`;
   return {
     admin_notes: null,
+    // Demo listings have no public number (C61); 0 hides the ID.
+    listing_number: 0,
     amenities: ["complex_management", "concierge", "security"],
     area_sqm: source.area,
     bathrooms: source.rooms,

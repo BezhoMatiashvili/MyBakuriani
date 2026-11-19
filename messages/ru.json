@@ -1433,6 +1433,7 @@
     "genericError": "Ошибка"
   },
   "Shared": {
+    "listingId": "ID: {id}",
     "loading": "Загрузка",
     "stillLoading": "Это занимает больше времени, чем обычно.",
     "reload": "Перезагрузить",

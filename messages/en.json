@@ -1433,6 +1433,7 @@
     "genericError": "Error"
   },
   "Shared": {
+    "listingId": "ID: {id}",
     "loading": "Loading",
     "stillLoading": "This is taking longer than usual.",
     "reload": "Reload",

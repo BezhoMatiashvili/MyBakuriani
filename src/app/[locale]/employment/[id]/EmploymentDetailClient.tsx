@@ -525,6 +525,14 @@ export default function EmploymentDetailClient({
               <Eye className="h-4 w-4" />
               {tShared("views", { count: views })}
             </span>
+            {service.listing_number ? (
+              <>
+                <span className="text-[#CBD5E1]">·</span>
+                <span className="text-[13px] font-medium text-[#64748B]">
+                  {tShared("listingId", { id: String(service.listing_number) })}
+                </span>
+              </>
+            ) : null}
           </div>
 
           {service.ownership_verified === true && (

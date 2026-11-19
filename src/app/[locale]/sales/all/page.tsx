@@ -1,8 +1,13 @@
 import { createPublicClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { buildPageMetadata } from "@/lib/seo";
+import { pathForLocale } from "@/lib/seo/alternates";
+import { routing } from "@/i18n/routing";
+import { parseListingNumber } from "@/lib/listing-number";
+import { findPublicListingByNumber } from "@/lib/data/findPublicListingByNumber";
 import SalesGridClient from "./SalesGridClient";
 import { firstPhotoOnly } from "@/lib/utils/photos";
 
@@ -23,6 +28,7 @@ export async function generateMetadata({
 }
 
 interface Props {
+  params: Promise<{ locale: AppLocale }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
@@ -34,8 +40,19 @@ function toCsv(value: string | string[] | undefined): string[] | undefined {
     .filter(Boolean);
 }
 
-export default async function SalesGridPage({ searchParams }: Props) {
+export default async function SalesGridPage({ params, searchParams }: Props) {
   const sp = await searchParams;
+  // An exact listing ID in the keyword box opens that listing (C61).
+  const listingNumber = parseListingNumber(
+    typeof sp.q === "string" ? sp.q : null,
+  );
+  if (listingNumber !== null) {
+    const listingPath = await findPublicListingByNumber(listingNumber);
+    if (listingPath) {
+      const { locale } = await params;
+      redirect(pathForLocale(listingPath, locale, routing.defaultLocale));
+    }
+  }
   // No cookies needed — filtering happens client-side from searchParams, so use
   // the anon client to avoid the auth overhead. (Page stays dynamic because it
   // reads searchParams.)
@@ -46,7 +63,7 @@ export default async function SalesGridPage({ searchParams }: Props) {
   const { data: properties, error } = await supabase
     .from("public_properties")
     .select(
-      "id, created_at, title, description, location, photos, type, sale_price, sale_price_gel, sale_price_currency, price_per_night, area_sqm, cadastral_code, rooms, capacity, amenities, house_rules, organization_id, developer, roi_percent, construction_status, construction_progress_percent, renovation_status, is_vip, is_super_vip, discount_percent, discount_expires_at, ownership_verified",
+      "id, listing_number, created_at, title, description, location, photos, type, sale_price, sale_price_gel, sale_price_currency, price_per_night, area_sqm, cadastral_code, rooms, capacity, amenities, house_rules, organization_id, developer, roi_percent, construction_status, construction_progress_percent, renovation_status, is_vip, is_super_vip, discount_percent, discount_expires_at, ownership_verified",
     )
     .eq("is_for_sale", true)
     .order("is_super_vip", { ascending: false })

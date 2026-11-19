@@ -28,6 +28,7 @@ import { OwnershipStatusChip } from "@/components/dashboard/OwnershipStatusChip"
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Tables } from "@/lib/types/database";
 import { isSuperVipActive } from "@/lib/utils/pricing";
+import ListingNumber from "@/components/shared/ListingNumber";
 
 const STATUS_KEYS = ["active", "blocked", "pending", "draft"] as const;
 
@@ -253,6 +254,7 @@ export default function RenterListingsPage() {
                       <Eye className="h-3.5 w-3.5" />
                       {tDash("views", { count: property.views_count ?? 0 })}
                     </span>
+                    <ListingNumber value={property.listing_number} />
                     <span>
                       {tShared("roomsGuests", {
                         rooms: property.rooms ?? 0,

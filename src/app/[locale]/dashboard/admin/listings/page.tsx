@@ -23,9 +23,11 @@ import { Link } from "@/i18n/navigation";
 import { formatPrice, formatSaleOwnPrice } from "@/lib/utils/format";
 import { propertyViewUrl, serviceViewUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
+import ListingNumber from "@/components/shared/ListingNumber";
 
 type ListingRow = {
   id: string;
+  listing_number: number | null;
   kind: "property" | "service";
   title: string;
   status: string | null;
@@ -112,6 +114,7 @@ export default function ListingsPage() {
           const isProperty = r.kind === "property";
           return {
             id: r.id,
+            listing_number: r.listing_number ?? null,
             kind: r.kind,
             title: r.title,
             status: r.status,
@@ -213,6 +216,8 @@ export default function ListingsPage() {
     return rows.filter(
       (r) =>
         r.id.toLowerCase().includes(q) ||
+        (r.listing_number != null &&
+          String(r.listing_number).includes(q.replace(/^(?:id\s*[:#№]?|[#№])\s*/, ""))) ||
         r.title.toLowerCase().includes(q) ||
         (r.owner?.display_name ?? "").toLowerCase().includes(q),
     );
@@ -372,6 +377,10 @@ export default function ListingsPage() {
                       <p className="text-sm font-black leading-[19px] text-[#1E293B]">
                         {row.title}
                       </p>
+                      <ListingNumber
+                        value={row.listing_number}
+                        className="mt-1 block text-[11px] font-bold text-[#64748B]"
+                      />
                       <p className="mt-1 text-[11px] font-bold text-[#94A3B8]">
                         {tShared("viewsMeta", {
                           meta: row.type ?? row.category ?? "",

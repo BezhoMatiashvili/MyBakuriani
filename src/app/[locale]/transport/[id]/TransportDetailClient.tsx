@@ -214,6 +214,11 @@ export default function TransportDetailClient({
             <p className="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-[#64748B]">
               <Eye className="h-4 w-4" />
               {tShared("views", { count: views })}
+              {service.listing_number ? (
+                <span className="ml-2.5">
+                  {tShared("listingId", { id: String(service.listing_number) })}
+                </span>
+              ) : null}
             </p>
           </div>
         </div>

@@ -1433,6 +1433,7 @@
     "genericError": "შეცდომა"
   },
   "Shared": {
+    "listingId": "ID: {id}",
     "loading": "იტვირთება",
     "stillLoading": "ჩატვირთვას ჩვეულებრივზე მეტი დრო სჭირდება.",
     "reload": "ხელახლა ცადეთ",

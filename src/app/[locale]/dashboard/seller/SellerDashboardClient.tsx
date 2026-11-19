@@ -30,6 +30,7 @@ import { type VipInfoTier } from "@/components/renter/VipInfoModal";
 import type { Database, Tables } from "@/lib/types/database";
 import { formatGelAmount, isSuperVipActive } from "@/lib/utils/pricing";
 import { loadSellerData, type SellerData } from "./loadData";
+import ListingNumber from "@/components/shared/ListingNumber";
 
 const ListingAnalyticsPanel = dynamic(
   () => import("@/components/renter/ListingAnalyticsPanel"),
@@ -335,6 +336,10 @@ export default function SellerDashboardClient({
                         <Eye className="h-3 w-3" />
                         {property.views_count}
                       </span>
+                      <ListingNumber
+                        value={property.listing_number}
+                        className="text-xs text-[#94A3B8]"
+                      />
                       {property.area_sqm && (
                         <span className="text-xs text-[#94A3B8]">
                           {property.area_sqm} {tShared("sqm")}

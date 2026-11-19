@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createPublicClient } from "@/lib/supabase/server";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { buildPageMetadata } from "@/lib/seo";
+import { pathForLocale } from "@/lib/seo/alternates";
+import { routing } from "@/i18n/routing";
+import { parseListingNumber } from "@/lib/listing-number";
+import { findPublicListingByNumber } from "@/lib/data/findPublicListingByNumber";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
 import { getLiveStatusCards } from "@/lib/status-cards/live";
 import { DETAIL_AUX_TIMEOUT_MS } from "@/lib/with-timeout";
@@ -26,6 +31,7 @@ export async function generateMetadata({
 }
 
 interface SearchPageProps {
+  params: Promise<{ locale: AppLocale }>;
   searchParams: Promise<{
     location?: string;
     check_in?: string;
@@ -81,8 +87,20 @@ function parseBoolean(value?: string): boolean {
   return value === "true" || value === "1";
 }
 
-export default async function SearchPage({ searchParams }: SearchPageProps) {
+export default async function SearchPage({
+  params: routeParams,
+  searchParams,
+}: SearchPageProps) {
   const params = await searchParams;
+  // An exact listing ID in the keyword box opens that listing (C61).
+  const listingNumber = parseListingNumber(params.q);
+  if (listingNumber !== null) {
+    const listingPath = await findPublicListingByNumber(listingNumber);
+    if (listingPath) {
+      const { locale } = await routeParams;
+      redirect(pathForLocale(listingPath, locale, routing.defaultLocale));
+    }
+  }
   // Anon client — search reads only active listings and filters by searchParams
   // (already dynamic), so there's no need for the cookie-bound client's auth cost.
   const supabase = createPublicClient();

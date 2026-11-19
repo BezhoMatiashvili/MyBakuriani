@@ -23,6 +23,7 @@ import ListingPromotionBadges from "@/components/dashboard/ListingPromotionBadge
 import { OwnershipStatusChip } from "@/components/dashboard/OwnershipStatusChip";
 import type { VipInfoTier } from "@/components/renter/VipInfoModal";
 import { isSuperVipActive } from "@/lib/utils/pricing";
+import ListingNumber from "@/components/shared/ListingNumber";
 
 const constructionStatusLabel: Record<string, string> = {
   under_construction: "მშენებარე",
@@ -219,6 +220,10 @@ export default function SellerListingsPage() {
                     <h3 className="text-[22px] font-black leading-[28px] text-white">
                       {property.title}
                     </h3>
+                    <ListingNumber
+                      value={property.listing_number}
+                      className="mt-0.5 block text-[12px] font-semibold text-white/80"
+                    />
                     <p className="mt-1 text-[12px] font-semibold text-white/80">
                       {property.developer
                         ? `${property.developer} • მრავალბინიანი პროექტი`

@@ -4287,6 +4287,7 @@ export type Database = {
           is_for_sale: boolean | null;
           is_super_vip: boolean | null;
           is_vip: boolean | null;
+          listing_number: number;
           location: string;
           location_lat: number | null;
           location_lng: number | null;
@@ -4350,6 +4351,7 @@ export type Database = {
           is_for_sale?: boolean | null;
           is_super_vip?: boolean | null;
           is_vip?: boolean | null;
+          listing_number?: number;
           location: string;
           location_lat?: number | null;
           location_lng?: number | null;
@@ -4413,6 +4415,7 @@ export type Database = {
           is_for_sale?: boolean | null;
           is_super_vip?: boolean | null;
           is_vip?: boolean | null;
+          listing_number?: number;
           location?: string;
           location_lat?: number | null;
           location_lng?: number | null;
@@ -5308,6 +5311,7 @@ export type Database = {
           is_super_vip: boolean | null;
           is_vip: boolean | null;
           languages: string[] | null;
+          listing_number: number;
           location: string | null;
           meals: string | null;
           menu: Json | null;
@@ -5381,6 +5385,7 @@ export type Database = {
           is_super_vip?: boolean | null;
           is_vip?: boolean | null;
           languages?: string[] | null;
+          listing_number?: number;
           location?: string | null;
           meals?: string | null;
           menu?: Json | null;
@@ -5454,6 +5459,7 @@ export type Database = {
           is_super_vip?: boolean | null;
           is_vip?: boolean | null;
           languages?: string[] | null;
+          listing_number?: number;
           location?: string | null;
           meals?: string | null;
           menu?: Json | null;
@@ -7432,6 +7438,7 @@ export type Database = {
           is_for_sale: boolean | null;
           is_super_vip: boolean | null;
           is_vip: boolean | null;
+          listing_number: number | null;
           location: string | null;
           location_lat: number | null;
           location_lng: number | null;
@@ -7584,6 +7591,7 @@ export type Database = {
           is_super_vip: boolean | null;
           is_vip: boolean | null;
           languages: string[] | null;
+          listing_number: number | null;
           location: string | null;
           meals: string | null;
           menu: Json | null;

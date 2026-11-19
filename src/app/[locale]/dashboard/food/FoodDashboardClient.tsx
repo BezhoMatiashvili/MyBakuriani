@@ -16,6 +16,7 @@ import { serviceViewUrl, serviceEditUrl } from "@/lib/utils/listingUrls";
 import type { Tables } from "@/lib/types/database";
 import { isSuperVipActive } from "@/lib/utils/pricing";
 import { loadFoodData, type FoodData, type OwnerStats } from "./loadData";
+import ListingNumber from "@/components/shared/ListingNumber";
 
 type Service = Tables<"services">;
 
@@ -97,6 +98,7 @@ export default function FoodDashboardClient({
               <Eye className="h-3.5 w-3.5" />
               {tShared("views", { count: views })}
             </span>
+            <ListingNumber value={restaurant?.listing_number} />
           </p>
         </div>
         <button

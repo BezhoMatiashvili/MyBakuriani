@@ -20,6 +20,7 @@ type ListingTab = "all" | "vip" | "discount";
 type SaleGridListing = Pick<
   Tables<"public_properties">,
   | "id"
+  | "listing_number"
   | "created_at"
   | "title"
   | "description"
@@ -184,13 +185,18 @@ export default function SalesGridClient({
     if (initialRenovation) {
       list = list.filter((p) => p.renovation_status === initialRenovation);
     }
-    // Same fields the rental keyword matches on /search.
+    // Same fields the rental keyword matches on /search, plus the listing ID
+    // (an exact ID never gets here: the page redirects to the listing, C61).
     const keyword = initialKeyword?.trim().toLowerCase();
     if (keyword) {
       list = list.filter((p) =>
-        [p.title, p.description, p.location, p.cadastral_code].some((field) =>
-          field?.toLowerCase().includes(keyword),
-        ),
+        [
+          p.title,
+          p.description,
+          p.location,
+          p.cadastral_code,
+          p.listing_number != null ? String(p.listing_number) : null,
+        ].some((field) => field?.toLowerCase().includes(keyword)),
       );
     }
 

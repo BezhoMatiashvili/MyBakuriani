@@ -355,6 +355,8 @@ export function getMockService(id: string): ServiceWithFoodExtras | null {
     activity_category: null,
     activity_type: null,
     admin_notes: null,
+    // Demo listings have no public number (C61); 0 hides the ID.
+    listing_number: 0,
     is_super_vip: false,
     vip_expires_at: null,
     vip_expiry_notified_at: null,

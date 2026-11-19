@@ -78,10 +78,6 @@ const statusTextColor: Record<string, string> = {
   draft: "text-[#64748B]",
 };
 
-function propertyShortId(id: string) {
-  return `PR-${id.replace(/-/g, "").slice(0, 4).toUpperCase()}`;
-}
-
 function formatViews(count: number) {
   if (count < 1000) return String(count);
   return `${(count / 1000).toFixed(1)}k`;
@@ -634,7 +630,7 @@ function PropertyRow({
               </span>
             )}
             <span className="rounded-md bg-[#DCFCE7] px-2 py-0.5 font-bold text-[#16A34A]">
-              {t("idPrefix")} {propertyShortId(property.id)}
+              {t("idPrefix")} {property.listing_number}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span

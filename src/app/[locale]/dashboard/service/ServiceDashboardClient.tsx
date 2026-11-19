@@ -30,6 +30,7 @@ import { showsSms } from "@/lib/dashboard/cabinetSms";
 import { CATEGORY_TO_CREATE_HREF } from "@/lib/dashboard/serviceSegments";
 import { isSuperVipActive } from "@/lib/utils/pricing";
 import { loadServiceData, type OwnerStats, type ServiceData } from "./loadData";
+import ListingNumber from "@/components/shared/ListingNumber";
 
 type Service = Tables<"services">;
 
@@ -283,6 +284,12 @@ export default function ServiceDashboardClient({
                         <Eye className="h-3 w-3" />
                         {s.views_count ?? 0}
                       </span>
+                      {s.listing_number ? (
+                        <>
+                          <span>·</span>
+                          <ListingNumber value={s.listing_number} />
+                        </>
+                      ) : null}
                       {s.price != null && (
                         <>
                           <span>·</span>
