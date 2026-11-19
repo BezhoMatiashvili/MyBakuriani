@@ -404,7 +404,6 @@ export default function SaleDetailClient({
   }
   metricCells.push({ label: t("address"), value: property.location ?? "—" });
 
-  const shortId = property.id.replace(/-/g, "").slice(0, 8).toUpperCase();
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 pb-[calc(var(--mobile-detail-clearance)+env(safe-area-inset-bottom))] sm:py-8 lg:pb-8">
@@ -549,9 +548,11 @@ export default function SaleDetailClient({
             </div>
           </div>
         )}
-        <span className="ms-auto rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1.5 text-[11px] font-bold tracking-[0.5px] text-[#64748B]">
-          ID: {shortId}
-        </span>
+        {property.listing_number ? (
+          <span className="ms-auto rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1.5 text-[11px] font-bold tracking-[0.5px] text-[#64748B]">
+            {tShared("listingId", { id: String(property.listing_number) })}
+          </span>
+        ) : null}
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-12 lg:grid-cols-3">
