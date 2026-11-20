@@ -1,5 +1,6 @@
 // Meta Pixel (C59): the pure rules, kept free of runtime imports so
-// scripts/unit/meta-core.test.mjs can load this file bare (C29).
+// scripts/unit/meta-core.test.mjs can load this file bare (C29). Google
+// Analytics (C62) cleans its URLs with the same rules (cleanTrackedUrl).
 //
 // fbevents.js sends the page's own address (dl = location.href) and
 // document.referrer (rl) with every hit, so a hit is allowed only when both are
@@ -181,6 +182,61 @@ export function isSafeMetaReferrer(
   return isSafeMetaUrl(referrer) && isPublicPath(url.pathname);
 }
 
+/**
+ * The address Google Analytics may report (C62). gtag.js, unlike fbevents,
+ * takes the page_location it is given, so instead of skipping the hit the URL
+ * is cut down with the SAME rules isSafeMetaUrl applies: a token page becomes
+ * its root (no code, no query), every query pair not on the allow-list is
+ * dropped, and the fragment never goes. null = not an http(s) address.
+ */
+export function cleanTrackedUrl(href: string | null | undefined): string | null {
+  if (typeof href !== "string" || href.length === 0) return null;
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  const path = localeFreePath(url.pathname);
+  if (path === null) return `${url.origin}/`;
+  if (isTokenPath(path)) {
+    const lower = path.toLowerCase();
+    const root = META_TOKEN_ROOTS.find(
+      (r) => lower === r || lower.startsWith(`${r}/`),
+    );
+    return `${url.origin}${root}`;
+  }
+  const kept = new URLSearchParams();
+  for (const [key, value] of url.searchParams) {
+    if (isSafeQueryPair(path, key, value)) kept.append(key, value);
+  }
+  const query = kept.toString();
+  const clean = `${url.origin}${url.pathname}${query ? `?${query}` : ""}`;
+  return clean.length > MAX_HREF_LENGTH ? `${url.origin}${url.pathname}` : clean;
+}
+
+/**
+ * The referrer Google Analytics may report (C62): empty stays empty, another
+ * site is cut to its origin (enough for the traffic source), one of our own
+ * pages goes through cleanTrackedUrl.
+ */
+export function cleanTrackedReferrer(
+  referrer: string | null | undefined,
+  origin: string,
+): string {
+  if (typeof referrer !== "string" || referrer.length === 0) return "";
+  let url: URL;
+  try {
+    url = new URL(referrer);
+  } catch {
+    return "";
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+  if (url.origin !== origin) return `${url.origin}/`;
+  return cleanTrackedUrl(referrer) ?? "";
+}
+
 export type MetaCallContext = {
   /** location.href at the moment of sending. */
   href: string;
@@ -220,6 +276,17 @@ export const META_COOKIE_NAMES = ["_fbp", "_fbc"] as const;
  * and never a domain for an IP address or a one-label host.
  */
 export function metaCookieDeletions(hostname: string): string[] {
+  return cookieDeletions(META_COOKIE_NAMES, hostname);
+}
+
+/**
+ * The deletion writes for any first-party cookies a tag sets on the site's
+ * domain (also Google Analytics' _ga / _ga_<id>, C62); see metaCookieDeletions.
+ */
+export function cookieDeletions(
+  names: readonly string[],
+  hostname: string,
+): string[] {
   const expire = "=; Max-Age=0; path=/";
   const writes: string[] = [];
   const host = hostname.toLowerCase().replace(/\.$/, "");
@@ -231,7 +298,7 @@ export function metaCookieDeletions(hostname: string): string[] {
       domains.push(labels.slice(i).join("."));
     }
   }
-  for (const name of META_COOKIE_NAMES) {
+  for (const name of names) {
     writes.push(`${name}${expire}`);
     for (const domain of domains) {
       writes.push(`${name}${expire}; domain=.${domain}`);

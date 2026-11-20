@@ -88,7 +88,8 @@ function applySecurityHeaders(response: Response, secureRequest: boolean) {
     [
       "default-src 'self'",
       // connect.facebook.net: the Meta Pixel's fbevents.js (C59).
-      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com https://connect.facebook.net`,
+      // www.googletagmanager.com: Google Analytics' gtag.js (C62).
+      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com https://connect.facebook.net https://www.googletagmanager.com`,
       "script-src-attr 'none'",
       "style-src 'self' 'unsafe-inline'",
       // api.mapbox.com: BakurianiMap's phone preview (Static Images API).
@@ -97,7 +98,9 @@ function applySecurityHeaders(response: Response, secureRequest: boolean) {
       `img-src 'self' data: blob: ${SUPABASE_ORIGINS} https://images.unsplash.com https://api.mapbox.com https://counter.top.ge https://www.facebook.com`,
       "font-src 'self' data:",
       // www.facebook.com + connect.facebook.net: the Meta Pixel's hits (C59).
-      `connect-src 'self' ${SUPABASE_ORIGINS} wss://${SUPABASE_PROJECT_HOST} https://challenges.cloudflare.com https://api.mapbox.com https://events.mapbox.com https://www.facebook.com https://connect.facebook.net`,
+      // *.google-analytics.com, *.analytics.google.com, www.googletagmanager.com:
+      // Google Analytics' hits (/g/collect, C62).
+      `connect-src 'self' ${SUPABASE_ORIGINS} wss://${SUPABASE_PROJECT_HOST} https://challenges.cloudflare.com https://api.mapbox.com https://events.mapbox.com https://www.facebook.com https://connect.facebook.net https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com`,
       `media-src 'self' ${SUPABASE_ORIGINS}`,
       // Mapbox GL JS spins up its tile/render worker from a blob: URL. With no
       // worker-src directive, browsers fall back to script-src, which has no

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type MouseEventHandler } from "react";
 import { cn } from "@/lib/utils";
 import { trackContactClick } from "@/lib/contact-tracking";
+import { trackGa } from "@/lib/ga/track";
 import { normalizeE164Phone } from "@/lib/security";
 import { getTurnstileToken } from "@/lib/turnstile-client";
 
@@ -116,6 +117,8 @@ export function WhatsAppButton({
         return;
       }
       setResolvedWhatsapp(resolved);
+      // Google Analytics (C62): the number was revealed. No id, no number.
+      trackGa("contact_reveal", { channel: "whatsapp", listing_type: kind });
     } finally {
       setIsResolving(false);
     }

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { HomeListingModeProvider } from "@/components/layout/HomeListingModeContext";
 import { PageviewTracker } from "@/components/analytics/PageviewTracker";
 import { META_PIXEL_ID } from "@/lib/meta/config";
+import { GA_MEASUREMENT_ID } from "@/lib/ga/config";
 
 interface LocaleShellProps {
   children: ReactNode;
@@ -44,6 +45,15 @@ const CookieConsentBanner = dynamic(
 // NEXT_PUBLIC_META_PIXEL_ID is set at build time.
 const MetaPixel = dynamic(
   () => import("@/components/analytics/MetaPixel").then((mod) => mod.MetaPixel),
+  { ssr: false },
+);
+// Google Analytics 4 (C62): browser-only, and mounted only when
+// NEXT_PUBLIC_GA_MEASUREMENT_ID is set at build time.
+const GoogleAnalytics = dynamic(
+  () =>
+    import("@/components/analytics/GoogleAnalytics").then(
+      (mod) => mod.GoogleAnalytics,
+    ),
   { ssr: false },
 );
 // The admin's on-site ad preview ("საიტზე ნახვა", C47): reads the URL hash and
@@ -131,12 +141,14 @@ export function LocaleShell({ children }: LocaleShellProps) {
 
   return (
     <>
-      {/* MetaPixel shares PageviewTracker's slot, so a build without the
-          Pixel renders the same tree (React useId depends on it, C59). */}
-      {META_PIXEL_ID ? (
+      {/* MetaPixel and GoogleAnalytics share PageviewTracker's slot, so a
+          build without either renders the same tree (React useId depends on
+          it, C59, C62). */}
+      {META_PIXEL_ID || GA_MEASUREMENT_ID ? (
         <>
           <PageviewTracker />
-          <MetaPixel />
+          {META_PIXEL_ID ? <MetaPixel /> : null}
+          {GA_MEASUREMENT_ID ? <GoogleAnalytics /> : null}
         </>
       ) : (
         <PageviewTracker />

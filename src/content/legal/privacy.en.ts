@@ -1,12 +1,15 @@
 import type { LegalDoc } from "./types";
 import { metaPixelPrivacy } from "./meta-pixel";
+import { googleAnalyticsPrivacy } from "./google-analytics";
 
 // Section 5.1 and a section 6 line only on a Meta Pixel build (C59).
 const meta = metaPixelPrivacy("en");
+// Google Analytics (C62): its subsection and section 6 line only on a GA build.
+const ga = googleAnalyticsPrivacy("en");
 
 export const privacyEn: LegalDoc = {
   title: "Privacy Policy",
-  lastUpdated: meta?.lastUpdated ?? "Last updated: 25-09-2026",
+  lastUpdated: ga?.lastUpdated ?? meta?.lastUpdated ?? "Last updated: 25-09-2026",
   intro:
     "This Privacy Policy describes how MyBakuriani collects, uses, stores, processes, and protects users' personal data. The Policy applies to the MyBakuriani platform, including the domains mybakuriani.ge, mybakuriani.com.ge, and mybakuriani.com, as well as the digital services connected to the Platform, to the extent personal data is processed within those services.",
   sections: [
@@ -123,6 +126,7 @@ export const privacyEn: LegalDoc = {
           body: "For non-essential cookies, where required by law, the user will be given the corresponding choice and the opportunity to consent. The user may also restrict or delete cookies through their browser settings, although this may affect the functionality of the Platform.",
         },
         ...(meta ? [meta.subsection] : []),
+        ...(ga ? [ga.subsection] : []),
       ],
     },
     {
@@ -135,6 +139,7 @@ export const privacyEn: LegalDoc = {
         "SMS, email, and communication providers — for sending the relevant notifications;",
         "Analytics and technology service providers — when using the relevant function;",
         ...(meta ? [meta.recipient] : []),
+        ...(ga ? [ga.recipient] : []),
         "State authorities, courts, or other authorized persons — in cases provided for by law.",
       ],
       subsections: [

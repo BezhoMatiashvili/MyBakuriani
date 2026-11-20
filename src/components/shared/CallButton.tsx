@@ -7,6 +7,7 @@ import { formatPhone, maskPhone } from "@/lib/utils/format";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { trackContactClick } from "@/lib/contact-tracking";
+import { trackGa } from "@/lib/ga/track";
 import { toGeContactE164 } from "@/lib/utils/number";
 import { getTurnstileToken } from "@/lib/turnstile-client";
 
@@ -83,6 +84,8 @@ export function CallButton({
         return;
       }
       setResolvedPhone(resolved);
+      // Google Analytics (C62): the number was revealed. No id, no number.
+      trackGa("contact_reveal", { channel: "call", listing_type: kind });
     } catch {
       setRevealFailed(true);
     } finally {

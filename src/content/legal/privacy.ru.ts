@@ -1,12 +1,15 @@
 import type { LegalDoc } from "./types";
 import { metaPixelPrivacy } from "./meta-pixel";
+import { googleAnalyticsPrivacy } from "./google-analytics";
 
 // Section 5.1 and a section 6 line only on a Meta Pixel build (C59).
 const meta = metaPixelPrivacy("ru");
+// Google Analytics (C62): its subsection and section 6 line only on a GA build.
+const ga = googleAnalyticsPrivacy("ru");
 
 export const privacyRu: LegalDoc = {
   title: "Политика конфиденциальности",
-  lastUpdated: meta?.lastUpdated ?? "Последнее обновление: 25.09.2026",
+  lastUpdated: ga?.lastUpdated ?? meta?.lastUpdated ?? "Последнее обновление: 25.09.2026",
   intro:
     "Настоящая Политика конфиденциальности описывает, как MyBakuriani собирает, использует, хранит, обрабатывает и защищает персональные данные пользователей. Политика распространяется на платформу MyBakuriani, в том числе на домены mybakuriani.ge, mybakuriani.com.ge и mybakuriani.com, а также на связанные с Платформой цифровые сервисы, в той мере, в какой в этих сервисах обрабатываются персональные данные.",
   sections: [
@@ -123,6 +126,7 @@ export const privacyRu: LegalDoc = {
           body: "При использовании необязательных cookies, в случаях, предусмотренных законом, пользователю будет предоставлена возможность соответствующего выбора и согласия. Пользователь также может ограничить или удалить cookies через настройки браузера, что, однако, может повлиять на функциональность Платформы.",
         },
         ...(meta ? [meta.subsection] : []),
+        ...(ga ? [ga.subsection] : []),
       ],
     },
     {
@@ -135,6 +139,7 @@ export const privacyRu: LegalDoc = {
         "Поставщикам SMS, электронной почты и коммуникационных услуг — для отправки соответствующих уведомлений;",
         "Поставщикам аналитических и технологических услуг — при использовании соответствующей функции;",
         ...(meta ? [meta.recipient] : []),
+        ...(ga ? [ga.recipient] : []),
         "Государственным органам, суду или иным уполномоченным лицам — в случаях, предусмотренных законом.",
       ],
       subsections: [

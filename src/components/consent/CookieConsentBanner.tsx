@@ -18,6 +18,11 @@ import {
 } from "@/lib/geolocation/useUserLocation";
 import { META_PIXEL_ID } from "@/lib/meta/config";
 import { META_CONSENT_DESCRIPTION } from "@/content/legal/meta-consent";
+import { GA_MEASUREMENT_ID } from "@/lib/ga/config";
+import {
+  GA_ONLY_CONSENT_DESCRIPTION,
+  GA_WITH_META_CONSENT_DESCRIPTION,
+} from "@/content/legal/ga-consent";
 
 // How long the location button waits. The browser's own geolocation timeout
 // does not count the time a permission prompt is on screen, and a WebView with
@@ -36,7 +41,8 @@ type Step = "cookies" | "location";
  * With NEXT_PUBLIC_META_PIXEL_ID set (C59) the same two buttons also answer
  * Meta advertising (the Meta Pixel): the card names Meta, both answers write
  * `marketing`, and whoever accepted Analytics before Meta was added is asked
- * once more. Without the ID none of this happens.
+ * once more. Without the ID none of this happens. Google Analytics
+ * (NEXT_PUBLIC_GA_MEASUREMENT_ID, C62) works the same way through `ga`.
  *
  * The choice is written with document.cookie from the CLIENT on purpose.
  * localeCookie was disabled in src/i18n/routing.ts precisely because
@@ -54,6 +60,19 @@ type Step = "cookies" | "location";
  * location answer never opens the card on a later load (only the analytics
  * answer does); the footer's "cookie settings" link re-opens both questions.
  */
+/** The card's text on a Pixel and/or GA build; null = the catalog text. */
+function consentDescription(locale: string): string | null {
+  const text = GA_MEASUREMENT_ID
+    ? META_PIXEL_ID
+      ? GA_WITH_META_CONSENT_DESCRIPTION
+      : GA_ONLY_CONSENT_DESCRIPTION
+    : META_PIXEL_ID
+      ? META_CONSENT_DESCRIPTION
+      : null;
+  if (!text) return null;
+  return text[locale as keyof typeof text] ?? text.ka;
+}
+
 export function CookieConsentBanner() {
   const t = useTranslations("CookieConsent");
   const locale = useLocale();
@@ -67,7 +86,11 @@ export function CookieConsentBanner() {
     const consent = parseCookieConsent(
       readCookieValue(document.cookie, CONSENT_COOKIE_NAME),
     );
-    const pending = cookieQuestionPending(consent, META_PIXEL_ID !== null);
+    const pending = cookieQuestionPending(
+      consent,
+      META_PIXEL_ID !== null,
+      GA_MEASUREMENT_ID !== null,
+    );
     setStep(pending ? "cookies" : null);
     setReAsk(pending && consent !== null);
 
@@ -91,6 +114,8 @@ export function CookieConsentBanner() {
       location: current?.location ?? null,
       // One combined answer: Meta follows Analytics (C59, Pixel builds only).
       ...(META_PIXEL_ID ? { marketing: analytics } : {}),
+      // Google Analytics follows Analytics too (C62, GA builds only).
+      ...(GA_MEASUREMENT_ID ? { ga: analytics } : {}),
     });
     // Not HttpOnly by design: PageviewTracker must read it before beaconing.
     document.cookie = `${CONSENT_COOKIE_NAME}=${encodeURIComponent(value)}; path=/; max-age=${CONSENT_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${
@@ -150,11 +175,7 @@ export function CookieConsentBanner() {
           <>
             <p className="text-[13px] font-bold text-[#0F172A]">{t("title")}</p>
             <p className="mt-1.5 text-[12px] leading-[18px] text-[#64748B]">
-              {META_PIXEL_ID
-                ? META_CONSENT_DESCRIPTION[
-                    locale as keyof typeof META_CONSENT_DESCRIPTION
-                  ] ?? META_CONSENT_DESCRIPTION.ka
-                : t("description")}{" "}
+              {consentDescription(locale) ?? t("description")}{" "}
               <a
                 href="/privacy#cookies"
                 target="_blank"

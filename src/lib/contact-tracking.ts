@@ -3,6 +3,8 @@
 // 30-day window). Anonymous visitors and clicks without listing context are
 // silently skipped — the API enforces the same rules server-side.
 
+import { trackGa } from "@/lib/ga/track";
+
 export type ContactChannel = "call" | "whatsapp";
 
 export type ContactTrackParams = {
@@ -18,6 +20,11 @@ export function trackContactClick({
 }: ContactTrackParams): void {
   if (!propertyId && !serviceId) return;
   if (typeof window === "undefined") return;
+  // Google Analytics (C62): which button and which kind of listing, no id.
+  trackGa("contact_click", {
+    channel,
+    listing_type: propertyId ? "property" : "service",
+  });
 
   try {
     void fetch("/api/contact/track", {

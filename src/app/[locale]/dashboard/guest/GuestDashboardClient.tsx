@@ -10,6 +10,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { trackAnalyticsEvent } from "@/lib/analytics/track-client";
 import { trackMeta } from "@/lib/meta/client";
+import { trackGa } from "@/lib/ga/track";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMoney } from "@/lib/currency/client";
 import { formatPrice } from "@/lib/utils/format";
@@ -227,6 +228,8 @@ export default function GuestDashboardClient({
       trackAnalyticsEvent("smart_match_request", data.id);
       // Meta SmartMatchRequest (C59): the request row was saved. No id.
       trackMeta("SmartMatchRequest");
+      // Google Analytics (C62): the same saved request. No id.
+      trackGa("smart_match_request");
     }
     // Surface the new request immediately in "My Requests". The realtime channel
     // only listens on smart_match_offers, so a fresh request wouldn't otherwise

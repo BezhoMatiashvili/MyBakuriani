@@ -26,6 +26,7 @@ import { safeInternalPath, stripLocalePrefix } from "@/lib/security";
 import { toCanonicalGePhone } from "@/lib/sms/phone";
 import { withRetry } from "@/lib/with-timeout";
 import { trackMeta } from "@/lib/meta/client";
+import { trackGa } from "@/lib/ga/track";
 import { sanitizeQuery } from "@/lib/utils/sanitizeQuery";
 import type { Enums } from "@/lib/types/database";
 import { SkierLoader } from "@/components/shared/SkierLoader";
@@ -301,6 +302,8 @@ export default function RegisterPage() {
     // and it has the role chosen now; a 23505 (Back, retry) is not a sign-up.
     if (!insertError && savedProfile?.role === selectedRole) {
       trackMeta("CompleteRegistration");
+      // Google Analytics (C62): the same new profile.
+      trackGa("sign_up");
     }
 
     // Every finish path runs through here, so this is the one place consent is

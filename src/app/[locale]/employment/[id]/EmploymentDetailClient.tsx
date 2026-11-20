@@ -62,6 +62,7 @@ import {
 import { MAX_CV_BYTES } from "@/lib/employment/cv-file";
 import { scrollToFirstInvalid } from "@/lib/forms/scroll-to-error";
 import { trackMeta } from "@/lib/meta/client";
+import { trackGa } from "@/lib/ga/track";
 
 type ServiceWithOwner = Tables<"services"> & {
   profiles: Tables<"profiles"> | null;
@@ -424,6 +425,8 @@ export default function EmploymentDetailClient({
 
     // Meta Lead (C59): the server accepted the application (201).
     trackMeta("Lead");
+    // Google Analytics (C62): the same accepted application.
+    trackGa("job_application");
     toast.success(t("submitSuccess"));
     setForm(INITIAL_FORM);
     clearCv();

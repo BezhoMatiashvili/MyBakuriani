@@ -4267,7 +4267,9 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
   const mounts = [...code].filter(([, text]) => /<MetaPixel\b/.test(text)).map(([file]) => file);
   const shellMounts = ((code.get(SHELL) ?? "").match(/<MetaPixel\b/g) ?? []).length;
   if (shellMounts !== 1) problems.push(`${SHELL} must mount <MetaPixel /> exactly once (found ${shellMounts})`);
-  const guarded = /\{META_PIXEL_ID \? \(\s*<>\s*<PageviewTracker \/>\s*<MetaPixel \/>\s*<\/>\s*\) : \(\s*<PageviewTracker \/>\s*\)\}/;
+  // The slot is shared with Google Analytics (C62); a build without either ID
+  // renders a lone <PageviewTracker />.
+  const guarded = /\{META_PIXEL_ID \|\| GA_MEASUREMENT_ID \? \(\s*<>\s*<PageviewTracker \/>\s*\{META_PIXEL_ID \? <MetaPixel \/> : null\}\s*\{GA_MEASUREMENT_ID \? <GoogleAnalytics \/> : null\}\s*<\/>\s*\) : \(\s*<PageviewTracker \/>\s*\)\}/;
   if (mounts.join() !== SHELL || !guarded.test(code.get(SHELL) ?? "")) problems.push(`<MetaPixel /> must be mounted only in ${SHELL}, in PageviewTracker's slot behind META_PIXEL_ID (found in: ${mounts.join(", ") || "none"})`);
   const envReaders = [...code].filter(([, text]) => /NEXT_PUBLIC_META_PIXEL_ID/.test(text)).map(([file]) => file);
   if (envReaders.join() !== CONFIG) problems.push(`NEXT_PUBLIC_META_PIXEL_ID must be read only in ${CONFIG} (found: ${envReaders.join(", ") || "none"})`);
@@ -4395,6 +4397,103 @@ const describeSetMismatch = (label, left, leftName, right, rightName) => {
     problems.push("migration: listing_number must be the last column of public_properties and public_services");
   if (problems.length) problems.forEach((p) => fail(`C61: ${p}`));
   else ok("C61: listing numbers come from one guarded sequence, show via Shared.listingId on all 8 detail pages, and an exact ID in /search or /sales/all opens the listing through the public views");
+}
+
+// ---------------------------------------------------------------------------
+// C62 — Google Analytics 4. (1) only src/lib/ga/client.ts calls gtag( or names
+// gtag/js, and every gtag( call has an allowed shape (send_page_view false,
+// Google signals + ad personalisation off, ad consent denied); (2) GA_EVENTS
+// is the six-event catalog and every trackGa( call outside src/lib/ga passes a
+// catalog name, in its mapped file, exactly once there; (3) the CSP carries
+// the GA hosts; (4) <GoogleAnalytics> is mounted once, only in LocaleShell
+// behind GA_MEASUREMENT_ID, and the env var is read only in config.ts, which
+// imports only ./measurement-id; (5) core.ts and measurement-id.ts have no
+// runtime import; (6) the consent cookie writes `ga` only on a GA build and
+// GA reads hasGaConsent; (7) no useSearchParams in the GA files (C28).
+// ---------------------------------------------------------------------------
+{
+  const problems = [];
+  const CLIENT = join("src", "lib", "ga", "client.ts");
+  const CORE = join("src", "lib", "ga", "core.ts");
+  const CONFIG = join("src", "lib", "ga", "config.ts");
+  const ID_FILE = join("src", "lib", "ga", "measurement-id.ts");
+  const TRACK = join("src", "lib", "ga", "track.ts");
+  const COMPONENT = join("src", "components", "analytics", "GoogleAnalytics.tsx");
+  const SHELL = join("src", "components", "layout", "LocaleShell.tsx");
+  const BANNER = join("src", "components", "consent", "CookieConsentBanner.tsx");
+  const strip = (code) => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
+  const code = new Map([...srcText].map(([file, text]) => [file, strip(text)]));
+
+  const gtagFiles = [...code].filter(([, text]) => /\bgtag\s*\(|gtag\/js/.test(text)).map(([file]) => file);
+  if (gtagFiles.join() !== CLIENT) problems.push(`gtag( / gtag/js must appear only in ${CLIENT} (found: ${gtagFiles.join(", ") || "none"})`);
+  const client = code.get(CLIENT) ?? "";
+  const ALLOWED_FIRST_ARGS = new Set(['"consent", "default"', '"consent", "update"', '"set", "ads_data_redaction"', '"set", pageFields()', '"set", fields', '"set", GA_DEFAULTS', '"js", new Date()', '"config", GA_MEASUREMENT_ID', '"event", "page_view"', '"event", name']);
+  for (const m of client.matchAll(/\bgtag\(([^;]*?)\);/gs)) {
+    const args = m[1].replace(/\s+/g, " ").trim();
+    const head = args.split(",").slice(0, 2).join(",").replace(/\s*\{.*$/, "").trim().replace(/,$/, "");
+    if (!ALLOWED_FIRST_ARGS.has(head) && !ALLOWED_FIRST_ARGS.has(args)) problems.push(`${CLIENT}: gtag(${args.slice(0, 60)}) is not an allowed call shape`);
+  }
+  if (!/gtag\("set", GA_DEFAULTS\);[\s\S]*gtag\("config", GA_MEASUREMENT_ID, GA_DEFAULTS\)/.test(client)) problems.push(`${CLIENT} must gtag("set", GA_DEFAULTS) BEFORE config (the Google tag ignores send_page_view inside config)`);
+  for (const need of [/send_page_view: false/, /allow_google_signals: false/, /allow_ad_personalization_signals: false/, /ad_storage: "denied"/, /ad_user_data: "denied"/, /ad_personalization: "denied"/, /cleanTrackedUrl\(/, /hasGaConsent/, /ga-disable-/, /const PRIVATE_PATH = "\/private";/, /page_title: isPublic \? document\.title : PRIVATE_TITLE/]) {
+    if (!need.test(client)) problems.push(`${CLIENT} lacks ${need}`);
+  }
+  if (/\buser_id\b|(?<!ad_)user_data|\bemail\b|\bphone\b/i.test(client)) problems.push(`${CLIENT} must not send a user id, user data, e-mail or phone`);
+
+  const core = code.get(CORE) ?? "";
+  const catalogBody = core.match(/export const GA_EVENTS = \{([\s\S]*?)\} as const/)?.[1] ?? "";
+  const catalog = new Set([...catalogBody.matchAll(/^\s*(\w+):/gm)].map((m) => m[1]));
+  const CALL_SITES = {
+    sign_up: [join("src", "app", "[locale]", "auth", "register", "page.tsx"), 1],
+    contact_reveal: null,
+    contact_click: [join("src", "lib", "contact-tracking.ts"), 1],
+    add_to_wishlist: [join("src", "lib", "favorites", "store.ts"), 1],
+    smart_match_request: [join("src", "app", "[locale]", "dashboard", "guest", "GuestDashboardClient.tsx"), 1],
+    job_application: [join("src", "app", "[locale]", "employment", "[id]", "EmploymentDetailClient.tsx"), 1],
+  };
+  const REVEAL_FILES = [join("src", "components", "shared", "CallButton.tsx"), join("src", "components", "shared", "WhatsAppButton.tsx")];
+  if (!setEq(catalog, new Set(Object.keys(CALL_SITES)))) problems.push(`${CORE}: GA_EVENTS must be exactly ${Object.keys(CALL_SITES).join(", ")} (found ${[...catalog].join(", ")})`);
+  const seen = {};
+  let callSites = 0;
+  for (const [file, text] of code) {
+    if (file.startsWith(join("src", "lib", "ga") + "/")) continue;
+    for (const m of text.matchAll(/\btrackGa\(\s*"(\w+)"/g)) {
+      callSites++;
+      const name = m[1];
+      if (!(name in CALL_SITES)) problems.push(`${file}: trackGa("${name}") is not in GA_EVENTS`);
+      else if (name === "contact_reveal" ? !REVEAL_FILES.includes(file) : CALL_SITES[name][0] !== file) problems.push(`${file}: trackGa("${name}") is not in its mapped file`);
+      else seen[`${name}@${file}`] = (seen[`${name}@${file}`] ?? 0) + 1;
+    }
+    if (/\btrackGa\(\s*[^"\s]/.test(text)) problems.push(`${file}: trackGa( must name its event as a string literal`);
+  }
+  for (const [name, site] of Object.entries(CALL_SITES)) {
+    const files = site ? [site[0]] : REVEAL_FILES;
+    for (const file of files) if (seen[`${name}@${file}`] !== 1) problems.push(`${file} must call trackGa("${name}") exactly once (found ${seen[`${name}@${file}`] ?? 0})`);
+  }
+
+  const mw = read("src/middleware.ts");
+  const cspDirective = (name) => mw.match(new RegExp("`" + name + " ([^`]+)`"))?.[1] ?? "";
+  if (!cspDirective("script-src").includes("https://www.googletagmanager.com")) problems.push("middleware script-src lacks https://www.googletagmanager.com");
+  const connect = cspDirective("connect-src");
+  for (const host of ["https://*.google-analytics.com", "https://*.analytics.google.com", "https://www.googletagmanager.com"]) if (!connect.includes(host)) problems.push(`middleware connect-src lacks ${host}`);
+
+  const mounts = [...code].filter(([, text]) => /<GoogleAnalytics\b/.test(text)).map(([file]) => file);
+  if (mounts.join() !== SHELL || ((code.get(SHELL) ?? "").match(/<GoogleAnalytics\b/g) ?? []).length !== 1) problems.push(`<GoogleAnalytics /> must be mounted exactly once, only in ${SHELL} (found in: ${mounts.join(", ") || "none"})`);
+  const envReaders = [...code].filter(([, text]) => /NEXT_PUBLIC_GA_MEASUREMENT_ID/.test(text)).map(([file]) => file);
+  if (envReaders.join() !== CONFIG) problems.push(`NEXT_PUBLIC_GA_MEASUREMENT_ID must be read only in ${CONFIG} (found: ${envReaders.join(", ") || "none"})`);
+  const configImports = [...(code.get(CONFIG) ?? "").matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
+  if (configImports.join() !== "./measurement-id") problems.push(`${CONFIG} must import only ./measurement-id (found: ${configImports.join(", ")})`);
+  const runtimeImport = /^\s*import\s+(?!type\b)|^\s*export\s+(?:\*|\{[^}]*\})\s+from\b|\brequire\(/m;
+  for (const file of [CORE, ID_FILE]) if (runtimeImport.test(code.get(file) ?? "import missing")) problems.push(`${file} has a runtime import or is missing (scripts/unit loads it bare, C29)`);
+  const track = code.get(TRACK) ?? "";
+  if (!/if \(!GA_MEASUREMENT_ID\) return;/.test(track) || !/import\("\.\/client"\)/.test(track) || /^\s*import\s+(?!type\b)[^;]*\.\/client/m.test(track)) problems.push(`${TRACK} must return on an unset build and load ./client only with a dynamic import()`);
+
+  const banner = code.get(BANNER) ?? "";
+  if (!/GA_MEASUREMENT_ID \? \{ ga: analytics \} : \{\}/.test(banner) || !/cookieQuestionPending\(\s*consent,\s*META_PIXEL_ID !== null,\s*GA_MEASUREMENT_ID !== null,?\s*\)/.test(banner)) problems.push(`${BANNER} must write ga only on a GA build and re-ask an Analytics yes without a ga answer`);
+
+  for (const file of [COMPONENT, CLIENT]) if (/useSearchParams/.test(code.get(file) ?? "")) problems.push(`${file} must not use useSearchParams (C28)`);
+
+  if (problems.length) problems.forEach((p) => fail(`C62: ${p}`));
+  else ok(`C62: Google Analytics confined to ${CLIENT} (catalog of ${catalog.size}, ${callSites} trackGa call sites), consent-gated, CSP carries its hosts, mounted once behind GA_MEASUREMENT_ID`);
 }
 
 if (failures) {

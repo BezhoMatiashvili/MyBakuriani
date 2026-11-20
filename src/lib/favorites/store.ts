@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { trackAnalyticsEvent } from "@/lib/analytics/track-client";
+import { trackGa } from "@/lib/ga/track";
 
 type Listener = () => void;
 
@@ -140,7 +141,11 @@ export function setFavorite(
       if (error && error.code !== "23505") throw error;
       setFavoriteLocal(target, true);
       // Admin analytics "saves" (C49): only a row this call created.
-      if (!error) trackAnalyticsEvent("save", target.id);
+      if (!error) {
+        trackAnalyticsEvent("save", target.id);
+        // Google Analytics (C62): a listing was saved. No id.
+        trackGa("add_to_wishlist");
+      }
       return;
     }
 

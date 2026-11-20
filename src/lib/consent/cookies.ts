@@ -20,6 +20,12 @@
 // without the ID nothing here changes. A cookie that accepted Analytics before
 // the field existed is asked once more (cookieQuestionPending). This file
 // never reads process.env: callers pass whether the Pixel is on.
+//
+// Google Analytics (2026-11-20, C62): GA4 (gtag.js, its _ga / _ga_<id>
+// cookies), only on a build with NEXT_PUBLIC_GA_MEASUREMENT_ID. It is part of
+// Analytics: the same answer writes `ga` next to `analytics`, and GA runs only
+// when both are 1. A cookie that accepted Analytics before GA was added (no
+// `ga` field) is asked once more, because that yes never named Google.
 
 export const CONSENT_COOKIE_NAME = "mb_cookie_consent";
 
@@ -28,7 +34,7 @@ export const CONSENT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 /**
  * Fired on `window` after the visitor answers, so already-mounted components
- * (PageviewTracker, MetaPixel) can re-read the cookie without a page reload.
+ * (PageviewTracker, MetaPixel, GoogleAnalytics) can re-read the cookie without a page reload.
  */
 export const CONSENT_CHANGE_EVENT = "mb-consent-change";
 
@@ -51,6 +57,12 @@ export type CookieConsent = {
    * there but unreadable. Only `true` is consent.
    */
   marketing?: boolean | null;
+  /**
+   * Google Analytics (C62), same shape as `marketing`: absent on cookies
+   * written by a build without GA, null when unreadable. Only `true` (with
+   * analytics) is consent.
+   */
+  ga?: boolean | null;
 };
 
 /** Bumped from v1 when the `location` category was added; v1 stays readable. */
@@ -66,6 +78,9 @@ export function serializeCookieConsent(consent: CookieConsent): string {
   const fields = [`analytics=${consent.analytics ? 1 : 0}`];
   if (typeof consent.marketing === "boolean") {
     fields.push(`marketing=${consent.marketing ? 1 : 0}`);
+  }
+  if (typeof consent.ga === "boolean") {
+    fields.push(`ga=${consent.ga ? 1 : 0}`);
   }
   if (consent.location !== null) {
     fields.push(`location=${consent.location ? 1 : 0}`);
@@ -102,12 +117,15 @@ export function parseCookieConsent(
   const location =
     fields.location === "1" ? true : fields.location === "0" ? false : null;
 
-  if (!Object.prototype.hasOwnProperty.call(fields, "marketing")) {
-    return { analytics, location };
+  const consent: CookieConsent = { analytics, location };
+  if (Object.prototype.hasOwnProperty.call(fields, "marketing")) {
+    consent.marketing =
+      fields.marketing === "1" ? true : fields.marketing === "0" ? false : null;
   }
-  const marketing =
-    fields.marketing === "1" ? true : fields.marketing === "0" ? false : null;
-  return { analytics, location, marketing };
+  if (Object.prototype.hasOwnProperty.call(fields, "ga")) {
+    consent.ga = fields.ga === "1" ? true : fields.ga === "0" ? false : null;
+  }
+  return consent;
 }
 
 /** The single predicate every analytics path must consult. */
@@ -125,18 +143,27 @@ export function hasMarketingConsent(raw: string | null | undefined): boolean {
   return parseCookieConsent(raw)?.marketing === true;
 }
 
+/** The single predicate every Google Analytics path must consult (C62). */
+export function hasGaConsent(raw: string | null | undefined): boolean {
+  const consent = parseCookieConsent(raw);
+  return consent?.analytics === true && consent.ga === true;
+}
+
 /**
  * Whether the banner's cookie question opens on load: never answered, or -
- * only while the Meta Pixel is on - Analytics accepted with no readable
- * Meta answer (that "accept all" did not cover Meta). A decline is never
+ * only while the Meta Pixel / Google Analytics is on - Analytics accepted with
+ * no readable Meta / GA answer (that "accept all" did not cover them). A decline is never
  * asked again; a missing location answer never opens the card (C38).
  */
 export function cookieQuestionPending(
   consent: CookieConsent | null,
   metaOn: boolean,
+  gaOn = false,
 ): boolean {
   if (consent === null) return true;
-  return metaOn && consent.analytics && typeof consent.marketing !== "boolean";
+  if (!consent.analytics) return false;
+  if (metaOn && typeof consent.marketing !== "boolean") return true;
+  return gaOn && typeof consent.ga !== "boolean";
 }
 
 /**
