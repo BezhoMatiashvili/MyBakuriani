@@ -1,0 +1,3 @@
+# Files graphify skips when building the code graph (docs/graphify.md)
+brag-output/
+brag-output-*/

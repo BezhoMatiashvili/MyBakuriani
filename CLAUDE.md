@@ -191,6 +191,28 @@ and `scripts/check-db-contracts.mjs` enforce the mechanically comparable ones (C
   of any contract, update that section in the same session as the code change.
 - **Never `git commit` without asking the user.**
 
+## Code graph (graphify)
+
+`graphify` (setup, limits: `docs/graphify.md`) builds a local call/import graph of the
+code and SQL migrations into git-ignored `graphify-out/`. Use it for "who calls X / what
+does changing X touch" before reading files one by one:
+
+- `graphify explain "<path>::<symbol>()"` (callers, callees, file:line) and
+  `graphify affected "<path>::<symbol>()"` (what depends on it). When a name is
+  ambiguous, retry with the `path::symbol` id the CLI lists. Prefer these to the
+  keyword-matched `graphify query`.
+- Run every graphify command from inside the checkout you are editing
+  (`cd <worktree> && graphify …`): it reads `./graphify-out/graph.json`, and the main
+  folder's graph describes whatever branch is checked out there, not yours.
+- No `graphify-out/graph.json` in your checkout (every new worktree)? Build it first,
+  ~30 s, no LLM: `GRAPHIFY_BACKEND=none graphify extract . --code-only && GRAPHIFY_BACKEND=none graphify cluster-only . --no-label`.
+  After editing code: `GRAPHIFY_BACKEND=none graphify update .`. No `graphify` on the
+  machine? Skip this section.
+- It does **not** see string-keyed couplings (`docs/contracts.md`): the contracts scan
+  and repo-wide grep before editing a symbol stay mandatory.
+- Never commit `graphify-out/`; never run `graphify claude install` or a build without
+  `GRAPHIFY_BACKEND=none` (sends code to an LLM).
+
 ## Multi-session coordination
 
 Multiple Claude sessions may run against this repo at once. Before editing, follow

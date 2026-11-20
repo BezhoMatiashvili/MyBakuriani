@@ -94,3 +94,6 @@ next-env.d.ts
 # python bytecode (scripts/*.py)
 __pycache__/
 *.pyc
+
+# Code graph (graphify): local, rebuilt from the code; see docs/graphify.md
+/graphify-out/
